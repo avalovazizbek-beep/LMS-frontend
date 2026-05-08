@@ -2,29 +2,12 @@
 
 import { useMemo, useState } from "react"
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, FileText, Download, Eye, File, FileImage, FileCode } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { documentsApi, Doc } from "@/lib/api"
+import { useApi } from "@/hooks/useApi"
+import { Loading, ApiError } from "@/components/ui/ApiState"
 
-type DocType = "pdf" | "word" | "excel" | "image" | "other"
-
-type Document = {
-  id: number
-  title: string
-  category: string
-  type: DocType
-  size: string
-  author: string
-  date: string
-  downloads: number
-}
-
-const docs: Document[] = [
-  { id: 1, title: "O'quv yili rejasi 2023-2024", category: "O'quv reja", type: "pdf", size: "2.4 MB", author: "Dekanat", date: "2024-01-10", downloads: 145 },
-  { id: 2, title: "Talabalar nizomi", category: "Nizom", type: "word", size: "1.1 MB", author: "Rektorat", date: "2024-01-05", downloads: 89 },
-  { id: 3, title: "To'lov shartnomalari namunasi", category: "Shartnoma", type: "word", size: "0.8 MB", author: "Moliya bo'limi", date: "2024-02-01", downloads: 212 },
-  { id: 4, title: "Imtihon jadvali — May 2024", category: "Jadval", type: "excel", size: "0.5 MB", author: "O'quv bo'limi", date: "2024-04-15", downloads: 330 },
-  { id: 5, title: "Davomat hisoboti Q1", category: "Hisobot", type: "excel", size: "1.8 MB", author: "Tarbiya bo'limi", date: "2024-04-01", downloads: 67 },
-  { id: 6, title: "Universitetning fotogalereyasi", category: "Media", type: "image", size: "15.2 MB", author: "PR bo'limi", date: "2024-03-20", downloads: 45 },
-  { id: 7, title: "LMS API hujjatlari", category: "Texnik", type: "other", size: "3.1 MB", author: "IT bo'limi", date: "2024-04-10", downloads: 28 },
-]
+type DocType = Doc["type"]
 
 const typeConfig: Record<DocType, { Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>, bg: string, color: string, label: string }> = {
   pdf:   { Icon: FileText,  bg: "#fff0f0", color: "#ef4444", label: "PDF" },
@@ -37,9 +20,11 @@ const typeConfig: Record<DocType, { Icon: React.ComponentType<{ className?: stri
 const categories = ["Barchasi", "O'quv reja", "Nizom", "Shartnoma", "Jadval", "Hisobot", "Media", "Texnik"]
 
 export default function DocumentationPage() {
+  const { data, loading, error, refetch } = useApi(() => documentsApi.getAll())
+  const docs: Doc[] = data?.data ?? []
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("Barchasi")
-  const [openId, setOpenId] = useState<number | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -48,7 +33,21 @@ export default function DocumentationPage() {
       const matchSearch = !q || [d.title, d.author, d.category].join(" ").toLowerCase().includes(q)
       return matchCat && matchSearch
     })
-  }, [search, category])
+  }, [search, category, docs])
+
+  const handleDownload = async (id: string) => {
+    try { await documentsApi.download(id); refetch() } catch {}
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("O'chirishni tasdiqlaysizmi?")) return
+    try { await documentsApi.remove(id); refetch() } catch {}
+  }
+
+  if (loading) return <Loading />
+  if (error)   return <ApiError message={error} onRetry={refetch} />
+
+  const totalDownloads = docs.reduce((s, d) => s + d.downloads, 0)
 
   return (
     <section className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
@@ -56,13 +55,12 @@ export default function DocumentationPage() {
         <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Hujjatlar</h1>
       </header>
 
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-5 px-[30px] pt-[30px]">
         {[
-          { label: "Jami hujjatlar", value: docs.length, color: "#012970" },
-          { label: "Jami yuklamalar", value: docs.reduce((s, d) => s + d.downloads, 0), color: "#0e58a8" },
-          { label: "Kategoriyalar", value: categories.length - 1, color: "#1cc2dc" },
-          { label: "Bu oy qo'shildi", value: 3, color: "#22c55e" },
+          { label: "Jami hujjatlar",   value: docs.length,         color: "#012970" },
+          { label: "Jami yuklamalar",  value: totalDownloads,      color: "#0e58a8" },
+          { label: "Kategoriyalar",    value: categories.length-1, color: "#1cc2dc" },
+          { label: "Bu oy qo'shildi",  value: docs.filter((d) => d.date.startsWith("2024-04")).length, color: "#22c55e" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <div className="text-3xl font-semibold" style={{ color: s.color, fontFamily: "var(--font-poppins)" }}>{s.value}</div>
@@ -77,7 +75,7 @@ export default function DocumentationPage() {
             <div className="flex items-center gap-2">
               <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Barcha hujjatlar</h2>
               <div className="flex w-[33px] h-[33px] items-center justify-center rounded-full" style={{ backgroundColor: "rgba(114,147,185,0.2)" }}>
-                <span className="font-semibold text-lg" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{docs.length}</span>
+                <span className="font-semibold text-lg" style={{ color: "#7293b9" }}>{docs.length}</span>
               </div>
             </div>
             <div className="flex items-center gap-2.5 flex-wrap">
@@ -91,19 +89,10 @@ export default function DocumentationPage() {
             </div>
           </div>
 
-          {/* Category filter */}
           <div className="flex gap-2 overflow-x-auto px-5 pb-4">
             {categories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className="px-3 py-1.5 rounded-full whitespace-nowrap text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: category === c ? "#0e58a8" : "#f6f9ff",
-                  color: category === c ? "#fff" : "#7293b9",
-                  fontFamily: "var(--font-poppins)",
-                }}
-              >
+              <button key={c} onClick={() => setCategory(c)} className="px-3 py-1.5 rounded-full whitespace-nowrap text-xs font-medium transition-colors"
+                style={{ backgroundColor: category === c ? "#0e58a8" : "#f6f9ff", color: category === c ? "#fff" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
                 {c}
               </button>
             ))}
@@ -119,12 +108,13 @@ export default function DocumentationPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((d) => {
+                {filtered.map((d, idx) => {
                   const tc = typeConfig[d.type]
                   const Icon = tc.Icon
                   return (
-                    <tr key={d.id} className="hover:bg-[#f6f9ff]/50 transition-colors" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-                      <td className="px-4 h-14 text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{d.id}</td>
+                    <motion.tr key={d.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04 }}
+                      className="hover:bg-[#f6f9ff]/50 transition-colors" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                      <td className="px-4 h-14 text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{idx + 1}</td>
                       <td className="px-4 h-14">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-[6px] flex items-center justify-center shrink-0" style={{ backgroundColor: tc.bg }}>
@@ -153,21 +143,24 @@ export default function DocumentationPage() {
                           <button className="p-1.5 rounded-[5px] hover:bg-[#f6f9ff]">
                             <Eye className="w-4 h-4" style={{ color: "#0e58a8" }} />
                           </button>
-                          <button className="p-1.5 rounded-[5px] hover:bg-[#f6f9ff]">
+                          <button onClick={() => handleDownload(d.id)} className="p-1.5 rounded-[5px] hover:bg-[#f6f9ff]">
                             <Download className="w-4 h-4" style={{ color: "#1cc2dc" }} />
                           </button>
                           <button onClick={() => setOpenId(openId === d.id ? null : d.id)} className="p-1.5 rounded-[5px] hover:bg-[#f6f9ff]">
                             <MoreHorizontal className="w-4 h-4" style={{ color: "#012970" }} />
                           </button>
                         </div>
-                        {openId === d.id && (
-                          <div className="absolute right-4 top-[calc(100%-4px)] z-10 bg-white rounded-[5px] overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(1,41,112,0.15)", border: "1px solid rgba(1,41,112,0.1)", minWidth: 140 }}>
-                            <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => setOpenId(null)}><Pencil className="w-4 h-4" /> Tahrirlash</button>
-                            <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => setOpenId(null)}><Trash2 className="w-4 h-4" /> O&apos;chirish</button>
-                          </div>
-                        )}
+                        <AnimatePresence>
+                          {openId === d.id && (
+                            <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }} transition={{ duration: 0.15 }}
+                              className="absolute right-4 top-[calc(100%-4px)] z-10 bg-white rounded-[5px] overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(1,41,112,0.15)", border: "1px solid rgba(1,41,112,0.1)", minWidth: 140 }}>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => setOpenId(null)}><Pencil className="w-4 h-4" /> Tahrirlash</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); handleDelete(d.id) }}><Trash2 className="w-4 h-4" /> O&apos;chirish</button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </td>
-                    </tr>
+                    </motion.tr>
                   )
                 })}
               </tbody>

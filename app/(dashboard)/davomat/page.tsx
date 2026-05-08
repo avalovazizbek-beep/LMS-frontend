@@ -1,117 +1,270 @@
-import { CheckCircle2, XCircle, MinusCircle, TrendingDown, AlertCircle } from "lucide-react"
+"use client"
 
-const attendanceData = [
-  { subject: "Matematika", total: 30, attended: 28, missed: 2, percentage: 93 },
-  { subject: "Fizika", total: 24, attended: 22, missed: 2, percentage: 92 },
-  { subject: "Informatika", total: 18, attended: 18, missed: 0, percentage: 100 },
-  { subject: "Ingliz tili", total: 18, attended: 14, missed: 4, percentage: 78 },
-  { subject: "Tarix", total: 12, attended: 10, missed: 2, percentage: 83 },
-  { subject: "Falsafa", total: 12, attended: 11, missed: 1, percentage: 92 },
-]
+import { useState, useMemo } from "react"
+import { Search, ChevronDown } from "lucide-react"
+import { hemisApi, HemisAttendance } from "@/lib/api"
+import { useApi } from "@/hooks/useApi"
+import { Loading, ApiError } from "@/components/ui/ApiState"
+import SemesterTabs from "@/components/ui/SemesterTabs"
+import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 
-const recentAttendance = [
-  { date: "2024-04-08", subject: "Matematika", status: "present" },
-  { date: "2024-04-08", subject: "Fizika", status: "present" },
-  { date: "2024-04-09", subject: "Informatika", status: "present" },
-  { date: "2024-04-09", subject: "Ingliz tili", status: "absent" },
-  { date: "2024-04-10", subject: "Matematika", status: "present" },
-  { date: "2024-04-10", subject: "Tarix", status: "excused" },
-  { date: "2024-04-11", subject: "Fizika", status: "absent" },
-]
+function getAbsenceType(r: HemisAttendance): "excused" | "absent" {
+  if (r.explicable === true) return "excused"
+  if ((r.absent_on ?? 0) > 0 && (r.absent_off ?? 0) === 0) return "excused"
+  return "absent"
+}
 
-const statusConfig = {
-  present: { icon: CheckCircle2, color: "#22c55e", label: "Keldi" },
-  absent: { icon: XCircle, color: "#ef4444", label: "Kelmadi" },
-  excused: { icon: MinusCircle, color: "#f59e0b", label: "Uzrli" },
+function formatDateTime(ts: number, time?: string): string {
+  const d = new Date(ts * 1000).toLocaleDateString("uz-UZ", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+  })
+  return time ? `${d} ${time}` : d
+}
+
+// Extract the HEMIS semester code ("11","12",...,"18") from a record — used as ?semester= param.
+function semHemisCode(r: HemisAttendance): string {
+  const s = r.semester as any
+  return String(s?.code ?? s?._id ?? s?.id ?? "")
 }
 
 export default function Davomat() {
-  const totalClasses = attendanceData.reduce((s, d) => s + d.total, 0)
-  const totalAttended = attendanceData.reduce((s, d) => s + d.attended, 0)
-  const overallPct = Math.round((totalAttended / totalClasses) * 100)
+  const { currentCode: hookCode } = useCurrentSemester()
+
+  // ── Step 1: Discovery fetch — all records, no semester filter ────────────
+  const { data: initData, loading: initLoading, error, refetch } = useApi(
+    () => hemisApi.attendance()
+  )
+  const initAbsences: HemisAttendance[] = initData?.data ?? []
+
+  // Build displayCode(1-8) → HEMIS API code("11"-"18") map from records
+  // e.g. { 2: "12" } — used to pass ?semester=12 to the backend
+  const semIdMap = useMemo(() => {
+    const map = new Map<number, string>()
+    initAbsences.forEach(r => {
+      const hemisCode = semHemisCode(r)          // "11","12",...,"18"
+      const n = Number(hemisCode)
+      const displayCode = n >= 11 && n <= 18 ? n - 10 : 0   // 1..8
+      if (displayCode > 0 && !map.has(displayCode)) map.set(displayCode, hemisCode)
+    })
+    return map
+  }, [initAbsences])
+
+  const maxSemCode  = semIdMap.size > 0 ? Math.max(...semIdMap.keys()) : 0
+  const currentCode = Math.max(hookCode, maxSemCode)    // for disabling future tabs
+  const defaultCode = maxSemCode > 0 ? maxSemCode : currentCode
+
+  // ── Step 2: Per-tab state ─────────────────────────────────────────────────
+  const [selectedCode, setSelectedCode] = useState<number | null>(null)
+  const [tabAbsences, setTabAbsences]   = useState<HemisAttendance[] | null>(null)
+  const [tabLoading, setTabLoading]     = useState(false)
+  const [subjectFilter, setSubjectFilter] = useState("all")
+  const [search, setSearch]               = useState("")
+
+  const activeCode = selectedCode ?? defaultCode
+
+  // ── Step 3: Active absences ───────────────────────────────────────────────
+  // tabAbsences = result of a per-tab backend call (with semester filter)
+  // null         = fall back to client-side filter of initAbsences
+  const activeAbsences = useMemo(() => {
+    const bySem = (arr: HemisAttendance[]) => {
+      if (!activeCode) return arr
+      return arr.filter(r => {
+        // r.semester.code is HEMIS code ("12"), convert to display code (2) before comparing
+        const hemisCode = Number(r.semester?.code ?? 0)
+        const rDisplay  = hemisCode >= 11 && hemisCode <= 18 ? hemisCode - 10 : hemisCode
+        if (rDisplay > 0) return rDisplay === activeCode
+        // fallback: parse leading digit from name "2-semestr"
+        const m = (r.semester?.name ?? "").match(/^(\d+)/)
+        return m ? Number(m[1]) === activeCode : false
+      })
+    }
+    if (tabAbsences !== null) {
+      const result = bySem(tabAbsences)
+      // HEMIS may not support semester filtering and return []; fall back to initAbsences
+      if (result.length === 0) return bySem(initAbsences)
+      return result
+    }
+    return bySem(initAbsences)
+  }, [tabAbsences, initAbsences, activeCode])
+
+  const subjects = useMemo(
+    () => [...new Set(activeAbsences.map(r => r.subject.name))].sort(),
+    [activeAbsences]
+  )
+
+  const filtered = useMemo(() =>
+    activeAbsences
+      .filter(r => {
+        if (subjectFilter !== "all" && r.subject.name !== subjectFilter) return false
+        if (search) {
+          const q = search.toLowerCase()
+          return r.subject.name.toLowerCase().includes(q) ||
+            (r.employee?.name?.toLowerCase().includes(q) ?? false)
+        }
+        return true
+      })
+      .sort((a, b) => b.lesson_date - a.lesson_date),
+    [activeAbsences, subjectFilter, search]
+  )
+
+  // ── Tab click: fire a backend call with the real HEMIS semester ID ────────
+  async function handleSemesterChange(code: number) {
+    setSelectedCode(code)
+    setSubjectFilter("all")
+    setSearch("")
+    setTabAbsences(null)
+
+    const id = semIdMap.get(code)
+    if (!id) return // no ID yet → client-side filter will handle it
+
+    setTabLoading(true)
+    try {
+      const res = await hemisApi.attendance({ _semester: id })
+      setTabAbsences(res.data ?? [])
+    } catch {
+      // fallback to client-side filter on error
+    } finally {
+      setTabLoading(false)
+    }
+  }
+
+  if (initLoading) return <Loading />
+  if (error)       return <ApiError message={error} onRetry={refetch} />
 
   return (
-    <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Davomat</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>2-semestr davomati</p>
-      </div>
-
-      {/* Warning */}
-      {overallPct < 85 && (
-        <div className="flex items-start gap-3 p-4 rounded-[10px]" style={{ backgroundColor: "#fff0f0", border: "1px solid #ef4444" }}>
-          <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" style={{ color: "#ef4444" }} />
-          <p className="text-sm" style={{ color: "#7f1d1d", fontFamily: "var(--font-poppins)" }}>
-            Davomat foizi <strong>85%</strong> dan past. Imtihonga kirish xavf ostida!
+    <div className="flex flex-col gap-5 p-[30px]">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+            Davomat
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+            Qoldirilgan darslar ro&apos;yxati
           </p>
         </div>
-      )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-        {[
-          { label: "Jami darslar", value: totalClasses, color: "#012970" },
-          { label: "Qatnashdi", value: totalAttended, color: "#22c55e" },
-          { label: "Qoldirildi", value: totalClasses - totalAttended, color: "#ef4444" },
-          { label: "Davomat %", value: `${overallPct}%`, color: overallPct >= 85 ? "#1cc2dc" : "#ef4444" },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-[10px] p-5 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-            <div className="text-3xl font-semibold" style={{ color: s.color, fontFamily: "var(--font-poppins)" }}>{s.value}</div>
-            <div className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{s.label}</div>
-          </div>
-        ))}
+        <SemesterTabs
+          currentCode={currentCode}
+          value={activeCode || currentCode}
+          onChange={handleSemesterChange}
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Per subject */}
-        <div className="bg-white rounded-[10px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-            <h2 className="text-lg font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Fanlar bo&apos;yicha</h2>
-          </div>
-          <div className="flex flex-col divide-y" style={{ borderColor: "rgba(1,41,112,0.06)" }}>
-            {attendanceData.map((d) => (
-              <div key={d.subject} className="px-5 py-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{d.subject}</span>
-                  <span className="text-sm font-semibold" style={{ color: d.percentage >= 85 ? "#22c55e" : "#ef4444", fontFamily: "var(--font-poppins)" }}>{d.percentage}%</span>
-                </div>
-                <div className="w-full h-2 rounded-full" style={{ backgroundColor: "rgba(1,41,112,0.08)" }}>
-                  <div className="h-2 rounded-full transition-all" style={{ width: `${d.percentage}%`, backgroundColor: d.percentage >= 85 ? "#1cc2dc" : "#ef4444" }} />
-                </div>
-                <div className="flex gap-3 mt-1">
-                  <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Jami: {d.total}</span>
-                  <span className="text-xs" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>✓ {d.attended}</span>
-                  {d.missed > 0 && <span className="text-xs" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }}>✗ {d.missed}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* Filters */}
+      <div className="flex gap-3 flex-wrap">
+        <div className="relative">
+          <select
+            value={subjectFilter}
+            onChange={e => setSubjectFilter(e.target.value)}
+            className="appearance-none pl-3 pr-8 py-2.5 rounded-[5px] text-sm bg-white outline-none"
+            style={{
+              border: "1px solid rgba(1,41,112,0.2)",
+              color: subjectFilter === "all" ? "#7293b9" : "#012970",
+              fontFamily: "var(--font-poppins)",
+              minWidth: 220,
+            }}>
+            <option value="all">Fanlarni tanlang</option>
+            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+            style={{ color: "#7293b9" }} />
         </div>
 
-        {/* Recent */}
-        <div className="bg-white rounded-[10px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-            <h2 className="text-lg font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>So&apos;nggi darslar</h2>
+        <label className="flex items-center gap-2 px-3 py-2.5 rounded-[5px] bg-white flex-1 min-w-[220px] max-w-sm"
+          style={{ border: "1px solid rgba(1,41,112,0.2)" }}>
+          <Search className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
+          <input
+            type="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Fan / Xodim bo'yicha qidirish"
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+          />
+        </label>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-[10px] overflow-hidden"
+        style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
+
+        {tabLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-6 h-6 rounded-full border-2 animate-spin"
+              style={{ borderColor: "#1cc2dc", borderTopColor: "transparent" }} />
           </div>
-          <div className="flex flex-col divide-y" style={{ borderColor: "rgba(1,41,112,0.06)" }}>
-            {recentAttendance.map((r, i) => {
-              const st = statusConfig[r.status as keyof typeof statusConfig]
-              const Icon = st.icon
-              return (
-                <div key={i} className="flex items-center justify-between px-5 py-3">
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{r.subject}</p>
-                    <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{r.date}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Icon className="w-4 h-4" style={{ color: st.color }} />
-                    <span className="text-xs font-medium" style={{ color: st.color, fontFamily: "var(--font-poppins)" }}>{st.label}</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
+                    {["#", "Semestr", "Dars sanasi", "Fanlar", "Mashg'ulot", "Sababli", "Soatlar", "Xodim"].map(h => (
+                      <th key={h}
+                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
+                        style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-12 text-center text-sm"
+                        style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                        Bu semestrda qoldirilgan darslar yo&apos;q
+                      </td>
+                    </tr>
+                  ) : filtered.map((r, i) => {
+                    const type  = getAbsenceType(r)
+                    const time  = r.lessonPair?.start_time
+                    const hours = r.hours ?? r.academic_hours
+                    return (
+                      <tr key={`${r.subject?.id}_${r.lesson_date}_${i}`}
+                        className="hover:bg-[#f6f9ff]/50 transition-colors"
+                        style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                        <td className="px-4 py-3 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                          {i + 1}
+                        </td>
+                        <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                          {r.semester?.name ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                          {formatDateTime(r.lesson_date, time)}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                          {r.subject.name}
+                        </td>
+                        <td className="px-4 py-3 text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                          {r.trainingType?.name ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium"
+                          style={{ color: type === "excused" ? "#f59e0b" : "#ef4444", fontFamily: "var(--font-poppins)" }}>
+                          {type === "excused" ? "Ha" : "Yo'q"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                          {hours != null ? hours : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-sm" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                          {r.employee?.name ?? "—"}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(1,41,112,0.1)" }}>
+              <span className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                {filtered.length === 0
+                  ? "0 ta natija"
+                  : `1-${filtered.length} / jami ${filtered.length} ta`}
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

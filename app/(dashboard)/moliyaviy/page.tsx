@@ -1,26 +1,44 @@
-import { Wallet, CreditCard, FileText, TrendingDown, CheckCircle2, AlertCircle, Clock } from "lucide-react"
+"use client"
 
-const payments = [
-  { id: 1, description: "1-semestr to'lovi", amount: 3500000, date: "2023-09-01", status: "paid", method: "Payme" },
-  { id: 2, description: "2-semestr to'lovi", amount: 3500000, date: "2024-02-01", status: "paid", method: "Click" },
-  { id: 3, description: "3-semestr to'lovi", amount: 3500000, date: "2024-09-01", status: "pending", method: null },
-]
+import { Wallet, CreditCard, FileText, TrendingDown, CheckCircle2, ExternalLink } from "lucide-react"
+import { hemisApi, HemisContractItem } from "@/lib/api"
+import { useApi } from "@/hooks/useApi"
+import { Loading, ApiError } from "@/components/ui/ApiState"
 
-const contract = {
-  number: "2023-MT21-0042",
-  totalAmount: 14000000,
-  paidAmount: 7000000,
-  discount: 10,
-  startDate: "2023-09-01",
-  endDate: "2027-06-30",
-}
-
-function formatSum(n: number) {
+function formatSum(val?: string | number): string {
+  if (val == null) return "—"
+  const n = Number(val)
+  if (isNaN(n)) return String(val)
   return n.toLocaleString("uz-UZ") + " so'm"
 }
 
 export default function Moliyaviy() {
-  const remaining = contract.totalAmount - contract.paidAmount
+  const { data, loading, error, refetch } = useApi(() => hemisApi.contractList())
+  const contracts: HemisContractItem[] = (data?.data as any)?.items ?? []
+  const contract = contracts[0]?._data
+
+  const totalAmount = Number(contract?.contractAmount ?? 0)
+  const paidAmount  = Number(contract?.paidAmount ?? 0)
+  const debtAmount  = Number(contract?.debitAmount ?? contract?.endRestDebetAmount ?? 0)
+  const pct         = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0
+
+  if (loading) return <Loading />
+  if (error)   return <ApiError message={error} onRetry={refetch} />
+
+  if (!contract) {
+    return (
+      <div className="flex flex-col gap-6 p-[30px]">
+        <div>
+          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Moliyaviy</h1>
+          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>To&apos;lov holati va ma&apos;lumotlar</p>
+        </div>
+        <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+          <Wallet className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
+          <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Kontrakt ma&apos;lumotlari topilmadi</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
@@ -32,10 +50,10 @@ export default function Moliyaviy() {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {[
-          { label: "Jami to'lov", value: formatSum(contract.totalAmount), icon: Wallet, color: "#012970" },
-          { label: "To'langan", value: formatSum(contract.paidAmount), icon: CheckCircle2, color: "#22c55e" },
-          { label: "Qoldiq", value: formatSum(remaining), icon: TrendingDown, color: remaining > 0 ? "#ef4444" : "#22c55e" },
-        ].map((s) => {
+          { label: "Jami to'lov",  value: formatSum(totalAmount), icon: Wallet,       color: "#012970" },
+          { label: "To'langan",    value: formatSum(paidAmount),  icon: CheckCircle2, color: "#22c55e" },
+          { label: "Qoldiq qarz",  value: formatSum(debtAmount),  icon: TrendingDown, color: debtAmount > 0 ? "#ef4444" : "#22c55e" },
+        ].map(s => {
           const Icon = s.icon
           return (
             <div key={s.label} className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -55,72 +73,75 @@ export default function Moliyaviy() {
       <div className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>To&apos;lov jarayoni</h2>
-          <span className="text-sm font-semibold" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{Math.round((contract.paidAmount / contract.totalAmount) * 100)}%</span>
+          <span className="text-sm font-semibold" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{pct}%</span>
         </div>
         <div className="w-full h-3 rounded-full" style={{ backgroundColor: "rgba(1,41,112,0.08)" }}>
-          <div className="h-3 rounded-full" style={{ width: `${(contract.paidAmount / contract.totalAmount) * 100}%`, backgroundColor: "#1cc2dc" }} />
+          <div className="h-3 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: "#1cc2dc" }} />
         </div>
         <div className="flex justify-between mt-2 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          <span>{formatSum(contract.paidAmount)} to&apos;langan</span>
-          <span>{formatSum(contract.totalAmount)} jami</span>
+          <span>{formatSum(paidAmount)} to&apos;langan</span>
+          <span>{formatSum(totalAmount)} jami</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Contract */}
+        {/* Contract details */}
         <div className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <div className="flex items-center gap-2 mb-4">
             <FileText className="w-5 h-5" style={{ color: "#0e58a8" }} />
-            <h2 className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Kontrakt</h2>
+            <h2 className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Kontrakt ma&apos;lumotlari</h2>
           </div>
           {[
-            { label: "Kontrakt raqami", value: contract.number },
-            { label: "Jami summa", value: formatSum(contract.totalAmount) },
-            { label: "Chegirma", value: `${contract.discount}%` },
-            { label: "Boshlanish", value: contract.startDate },
-            { label: "Tugash", value: contract.endDate },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between py-2.5" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+            { label: "Kontrakt №",       value: contract.contractNumber },
+            { label: "Holati",           value: contract.status },
+            { label: "Bosqich",          value: contract.course },
+            { label: "Yo'nalish",        value: contract.speciality },
+            { label: "Jami summa",       value: formatSum(contract.contractAmount) },
+            { label: "To'langan",        value: formatSum(contract.paidAmount) },
+            { label: "Qarz",             value: formatSum(contract.debitAmount) },
+            { label: "Oxirgi to'lov",    value: contract.lastPaymentDate ?? "—" },
+          ].map(item => (
+            <div key={item.label} className="flex items-center justify-between py-2.5"
+              style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
               <span className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{item.label}</span>
-              <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{item.value}</span>
+              <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{item.value ?? "—"}</span>
             </div>
           ))}
         </div>
 
-        {/* Payment history */}
-        <div className="bg-white rounded-[10px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
+        {/* Actions */}
+        <div className="bg-white rounded-[10px] p-5 flex flex-col gap-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+          <div className="flex items-center gap-2 mb-1">
             <CreditCard className="w-5 h-5" style={{ color: "#0e58a8" }} />
-            <h2 className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>To&apos;lov tarixi</h2>
+            <h2 className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Amallar</h2>
           </div>
-          {payments.map((p) => (
-            <div key={p.id} className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-              <div className="flex items-center gap-3">
-                {p.status === "paid"
-                  ? <CheckCircle2 className="w-4 h-4" style={{ color: "#22c55e" }} />
-                  : p.status === "pending"
-                  ? <Clock className="w-4 h-4" style={{ color: "#f59e0b" }} />
-                  : <AlertCircle className="w-4 h-4" style={{ color: "#ef4444" }} />}
-                <div>
-                  <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{p.description}</p>
-                  <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{p.date}{p.method ? ` · ${p.method}` : ""}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{formatSum(p.amount)}</p>
-                <p className="text-xs" style={{ color: p.status === "paid" ? "#22c55e" : p.status === "pending" ? "#f59e0b" : "#ef4444", fontFamily: "var(--font-poppins)" }}>
-                  {p.status === "paid" ? "To'langan" : p.status === "pending" ? "Kutilmoqda" : "Muddati o'tgan"}
-                </p>
-              </div>
-            </div>
-          ))}
-          {payments.some((p) => p.status === "pending") && (
-            <div className="px-5 py-4">
-              <button className="w-full py-2.5 rounded-[5px] text-sm font-medium text-white transition-opacity hover:opacity-90" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                To&apos;lash
-              </button>
-            </div>
+          {contract.pdfLink && (
+            <a href={contract.pdfLink} target="_blank" rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+              <ExternalLink className="w-4 h-4" />
+              Kontrakt PDF ni ko&apos;rish
+            </a>
           )}
+          {contract.contractUrl && (
+            <a href={contract.contractUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90"
+              style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <ExternalLink className="w-4 h-4" />
+              Kontrakt saytiga o&apos;tish
+            </a>
+          )}
+          <div className="mt-2 p-4 rounded-[8px]" style={{ backgroundColor: "#f6f9ff" }}>
+            <p className="text-xs font-medium mb-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              To&apos;lov muddati
+            </p>
+            <p className="text-sm font-semibold" style={{ color: debtAmount > 0 ? "#ef4444" : "#22c55e", fontFamily: "var(--font-poppins)" }}>
+              {contract.lastPaymentDate ?? "—"}
+            </p>
+            <p className="text-xs mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {debtAmount > 0 ? `Qoldiq: ${formatSum(debtAmount)}` : "To'lov to'liq amalga oshirilgan"}
+            </p>
+          </div>
         </div>
       </div>
     </div>

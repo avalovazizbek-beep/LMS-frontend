@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model HemisUser {
+  id        String   @id @default(cuid())
+  hemisId   String   @unique
+  role      String
+  login     String
+  token     String
+  profile   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  caches HemisCache[]
+}
+
+model HemisCache {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String
+  data      String
+  updatedAt DateTime @updatedAt
+
+  user HemisUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+}

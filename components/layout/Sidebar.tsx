@@ -25,6 +25,7 @@ const studentSections: Section[] = [
       { label: "Dars jadvali",      href: "/dars-jadvali" },
       { label: "Nazorat jadvali",   href: "/nazorat-jadvali" },
       { label: "Fanlar resurslari", href: "/fan-resurslari" },
+      { label: "Topshiriqlar",      href: "/topshiriqlar" },
       { label: "Davomat",           href: "/davomat" },
       { label: "Davomat hisoboti",  href: "/davomat-hisoboti" },
       { label: "O'zlashtirish",     href: "/o-zlashtirish" },
@@ -93,48 +94,54 @@ const studentSections: Section[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(studentSections.map((s) => [s.title, true]))
-  )
+
+  // Accordion: faqat bitta bo'lim ochiq bo'ladi
+  const [openSection, setOpenSection] = useState<string | null>("O'quv reja")
 
   const toggle = (title: string) =>
-    setOpen((prev) => ({ ...prev, [title]: !prev[title] }))
+    setOpenSection((prev) => (prev === title ? null : title))
 
   const isActive = (href: string) =>
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href))
 
   return (
     <aside
-      className="flex flex-col w-[300px] min-h-screen bg-white shrink-0"
+      className="flex flex-col w-[300px] h-screen bg-white shrink-0"
       style={{ boxShadow: "0px 0px 20px rgba(1,41,112,0.1)" }}
     >
-      {/* Logo + Search */}
-      <div className="flex flex-col gap-5 px-[25px] py-5">
+      {/* Logo + Search — qotgan, scroll bo'lmaydi */}
+      <div className="shrink-0 flex flex-col gap-4 px-[25px] pt-5 pb-3">
         <motion.div
           className="flex items-center gap-2"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0" style={{ backgroundColor: "#0e58a8" }}>
+          <div
+            className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
+            style={{ backgroundColor: "#0e58a8" }}
+          >
             <GraduationCap className="w-6 h-6 text-white" />
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="font-semibold text-base leading-tight truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+            <span
+              className="font-semibold text-base leading-tight truncate"
+              style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+            >
               LMS Portal
             </span>
-            <span className="text-xs truncate" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+            <span
+              className="text-xs truncate"
+              style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}
+            >
               Ta&apos;lim Tizimi
             </span>
           </div>
         </motion.div>
 
-        <motion.form
+        <form
           className="h-9 px-2.5 py-2 w-full bg-white rounded-[5px] border border-[#104475] flex items-center gap-2"
           role="search"
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.18 }}
         >
           <Search className="w-[18px] h-[18px] text-[#104475] shrink-0" />
           <input
@@ -143,49 +150,41 @@ export function Sidebar() {
             className="flex-1 bg-transparent outline-none text-sm font-medium text-[#104475] placeholder:text-[#104475]"
             style={{ fontFamily: "var(--font-poppins)" }}
           />
-        </motion.form>
+        </form>
       </div>
 
-      {/* Scrollable nav */}
-      <div className="flex-1 overflow-y-auto px-[25px] pb-4">
+      {/* Nav — scrollable */}
+      <div className="flex-1 overflow-y-auto px-[25px] pb-4 min-h-0">
         <nav className="flex flex-col gap-0.5">
 
           {/* Dashboard */}
-          <motion.div
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.22 }}
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors group"
+            style={{ backgroundColor: isActive("/dashboard") ? "#f6f9ff" : "transparent" }}
           >
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors group"
-              style={{ backgroundColor: isActive("/dashboard") ? "#f6f9ff" : "transparent" }}
+            <LayoutDashboard
+              className="w-[22px] h-[22px] shrink-0 transition-transform group-hover:scale-110"
+              style={{ color: isActive("/dashboard") ? "#1cc2dc" : "#012970" }}
+            />
+            <span
+              className="text-[14px] font-medium truncate"
+              style={{
+                color: isActive("/dashboard") ? "#1cc2dc" : "#012970",
+                fontFamily: "var(--font-poppins)",
+              }}
             >
-              <LayoutDashboard
-                className="w-[22px] h-[22px] shrink-0 transition-transform group-hover:scale-110"
-                style={{ color: isActive("/dashboard") ? "#1cc2dc" : "#012970" }}
-              />
-              <span
-                className="text-[14px] font-medium truncate"
-                style={{ color: isActive("/dashboard") ? "#1cc2dc" : "#012970", fontFamily: "var(--font-poppins)" }}
-              >
-                Dashboard
-              </span>
-            </Link>
-          </motion.div>
+              Dashboard
+            </span>
+          </Link>
 
-          {/* Sections */}
-          {studentSections.map((section, sIdx) => {
+          {/* Accordion sections */}
+          {studentSections.map((section) => {
             const SectionIcon = section.icon
-            const isOpen = open[section.title]
+            const isOpen = openSection === section.title
             return (
-              <motion.div
-                key={section.title}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.26 + sIdx * 0.05 }}
-              >
-                {/* Section header */}
+              <div key={section.title}>
+                {/* Header */}
                 <button
                   onClick={() => toggle(section.title)}
                   className="flex items-center gap-[15px] w-full px-[15px] py-2.5 rounded-[5px] transition-colors hover:bg-[#f6f9ff]/60 mt-1 group"
@@ -208,7 +207,7 @@ export function Sidebar() {
                   </motion.div>
                 </button>
 
-                {/* Animated items */}
+                {/* Items — accordion animatsiya */}
                 <AnimatePresence initial={false}>
                   {isOpen && (
                     <motion.div
@@ -227,21 +226,24 @@ export function Sidebar() {
                               key={item.href}
                               initial={{ opacity: 0, x: -8 }}
                               animate={{ opacity: 1, x: 0 }}
-                              transition={{ duration: 0.2, delay: iIdx * 0.03 }}
+                              transition={{ duration: 0.18, delay: iIdx * 0.025 }}
                             >
                               <Link
                                 href={item.href}
-                                className="flex items-center gap-2.5 px-[15px] py-[7px] rounded-[5px] transition-all group hover:bg-[#f6f9ff]"
+                                className="flex items-center gap-2.5 px-[15px] py-[7px] rounded-[5px] transition-all hover:bg-[#f6f9ff] group"
                                 style={{ backgroundColor: active ? "#f6f9ff" : "transparent" }}
                               >
                                 <motion.span
                                   className="w-[6px] h-[6px] rounded-full shrink-0"
-                                  style={{ backgroundColor: active ? "#1cc2dc" : "#7293b9", opacity: active ? 1 : 0.5 }}
-                                  animate={{ scale: active ? 1.3 : 1 }}
+                                  style={{
+                                    backgroundColor: active ? "#1cc2dc" : "#7293b9",
+                                    opacity: active ? 1 : 0.45,
+                                  }}
+                                  animate={{ scale: active ? 1.35 : 1 }}
                                   transition={{ duration: 0.2 }}
                                 />
                                 <span
-                                  className="text-[13px] transition-colors"
+                                  className="text-[13px] transition-colors group-hover:text-[#1cc2dc]"
                                   style={{
                                     color: active ? "#1cc2dc" : "#012970",
                                     fontFamily: "var(--font-poppins)",
@@ -258,34 +260,30 @@ export function Sidebar() {
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </motion.div>
+              </div>
             )
           })}
 
           {/* Meeting — standalone */}
-          <motion.div
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.55 }}
+          <Link
+            href="/meeting"
+            className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors mt-1 group"
+            style={{ backgroundColor: isActive("/meeting") ? "#f6f9ff" : "transparent" }}
           >
-            <Link
-              href="/meeting"
-              className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors mt-1 group"
-              style={{ backgroundColor: isActive("/meeting") ? "#f6f9ff" : "transparent" }}
+            <Video
+              className="w-[22px] h-[22px] shrink-0 transition-transform group-hover:scale-110"
+              style={{ color: isActive("/meeting") ? "#1cc2dc" : "#012970" }}
+            />
+            <span
+              className="text-[14px] font-medium"
+              style={{
+                color: isActive("/meeting") ? "#1cc2dc" : "#012970",
+                fontFamily: "var(--font-poppins)",
+              }}
             >
-              <Video
-                className="w-[22px] h-[22px] shrink-0 transition-transform group-hover:scale-110"
-                style={{ color: isActive("/meeting") ? "#1cc2dc" : "#012970" }}
-              />
-              <span
-                className="text-[14px] font-medium"
-                style={{ color: isActive("/meeting") ? "#1cc2dc" : "#012970", fontFamily: "var(--font-poppins)" }}
-              >
-                Meeting
-              </span>
-            </Link>
-          </motion.div>
-
+              Meeting
+            </span>
+          </Link>
         </nav>
       </div>
     </aside>
