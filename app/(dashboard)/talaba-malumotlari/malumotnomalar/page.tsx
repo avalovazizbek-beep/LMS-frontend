@@ -1,7 +1,7 @@
 "use client"
 
 import { Award, Download } from "lucide-react"
-import { hemisApi, HemisReference } from "@/lib/api"
+import { hemisApi, HemisReference, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 
@@ -47,7 +47,7 @@ export default function Malumotnomalar() {
               )}
             </div>
             {r.file && (
-              <a href={r.file} target="_blank" rel="noopener noreferrer"
+              <a href={hemisDownloadUrl(r.file, r.name ?? "ma'lumotnoma")} download
                 className="flex items-center justify-center gap-2 w-full py-2 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90 mt-auto"
                 style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                 <Download className="w-4 h-4" />

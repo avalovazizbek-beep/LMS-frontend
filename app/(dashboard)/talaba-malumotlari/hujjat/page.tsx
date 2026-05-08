@@ -1,7 +1,7 @@
 "use client"
 
 import { FileText, Download } from "lucide-react"
-import { hemisApi, HemisStudentDoc } from "@/lib/api"
+import { hemisApi, HemisStudentDoc, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 
@@ -62,7 +62,7 @@ export default function TalabaHujjat() {
               </div>
             )}
             {d.file && (
-              <a href={d.file} target="_blank" rel="noopener noreferrer"
+              <a href={hemisDownloadUrl(d.file, d.name ?? "hujjat")} download
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90"
                 style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                 <Download className="w-4 h-4" />

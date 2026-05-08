@@ -3,7 +3,7 @@
 import { useMemo } from "react"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { FileText, Video, Link2, Download, BookOpen, ArrowLeft } from "lucide-react"
-import { hemisApi, HemisResource, HemisResourceItem } from "@/lib/api"
+import { hemisApi, HemisResource, HemisResourceItem, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 
@@ -159,7 +159,7 @@ export default function FanResurslariDetail() {
                       className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full"
                       style={{ backgroundColor: cfg.bg, color: cfg.color, fontFamily: "var(--font-poppins)" }}
                     >
-                      {f.item.resourceType?.name ?? f.trainingType || cfg.label}
+                      {(f.item.resourceType?.name ?? f.trainingType) || cfg.label}
                     </span>
                   </div>
                 </div>
@@ -177,9 +177,16 @@ export default function FanResurslariDetail() {
 
                 {/* Action */}
                 <a
-                  href={href ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={
+                    !href
+                      ? "#"
+                      : f.type === "link"
+                      ? href
+                      : hemisDownloadUrl(href, files[0]?.name)
+                  }
+                  {...(f.type === "link"
+                    ? { target: "_blank", rel: "noopener noreferrer" }
+                    : { download: true })}
                   className="flex items-center justify-center gap-2 w-full py-2.5 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90 mt-auto"
                   style={{
                     backgroundColor: href ? "#0e58a8" : "#c8d8e8",

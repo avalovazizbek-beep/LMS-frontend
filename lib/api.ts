@@ -16,13 +16,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   })
   const data = await res.json()
-  if (res.status === 401 && typeof window !== "undefined") {
+  // Only redirect to login on 401 if a session token already exists
+  // (prevents redirect when wrong credentials are entered on login page)
+  if (res.status === 401 && typeof window !== "undefined" && localStorage.getItem("lms_token")) {
     localStorage.removeItem("lms_token")
     localStorage.removeItem("lms_role")
     window.location.href = "/login"
     throw new Error("Sessiya tugadi")
   }
-  if (!res.ok) throw new Error(data.message || "Xatolik yuz berdi")
+  if (!res.ok) throw new Error((data as Record<string, unknown>).message as string || "Xatolik yuz berdi")
   return data
 }
 
@@ -299,6 +301,50 @@ export interface Grade {
   grade?: string
 }
 
+/* ── Face ID API ─────────────────────────────────────────────────── */
+export interface FaceStatus {
+  registered: boolean
+  expired?: boolean
+  registeredAt?: number
+  expiresAt?: number
+  hasPendingRequest?: boolean
+  hasApprovedRequest?: boolean
+}
+export interface ReRegRequest {
+  id: string
+  username: string
+  reason: string
+  status: "pending" | "approved" | "rejected"
+  adminNote: string
+  createdAt: number
+  reviewedAt?: number
+}
+
+export const faceApi = {
+  status: () =>
+    get<{ success: boolean } & FaceStatus>("/api/face/status"),
+  register: (descriptors: number[][]) =>
+    post<{ success: boolean; message: string; expiresAt?: number }>("/api/face/register", { descriptors }),
+  verify: (descriptor: number[]) =>
+    post<{ success: boolean; verified: boolean; confidence?: number; distance?: number; reason?: string; message?: string }>("/api/face/verify", { descriptor }),
+  requestReRegister: (reason: string) =>
+    post<{ success: boolean; message: string }>("/api/face/re-register-request", { reason }),
+  getRequests: () =>
+    get<{ success: boolean; data: ReRegRequest[] }>("/api/face/requests"),
+  reviewRequest: (id: string, action: "approve" | "reject", adminNote?: string) =>
+    put<{ success: boolean; message: string }>(`/api/face/requests/${id}`, { action, adminNote }),
+}
+
+// Builds an authenticated download URL by passing the JWT token as a query param
+// (browser <a href> can't set Authorization headers, so we use ?token=)
+export function hemisDownloadUrl(fileUrl?: string, filename?: string): string {
+  if (!fileUrl) return "#"
+  const token = getToken() ?? ""
+  const params = new URLSearchParams({ url: fileUrl, token })
+  if (filename) params.set("filename", filename)
+  return `${BASE}/api/hemis/download?${params.toString()}`
+}
+
 /* ── HEMIS Proxy API ────────────────────────────────────────────────
  *  Frontend → bizning backend → HEMIS API (CORS yo'q)
  *  Token: HEMIS tokeni bizning JWT ichida saqlanadi
@@ -365,6 +411,22 @@ export const hemisApi = {
   tasks: (params?: { _semester?: string }) => {
     const q = new URLSearchParams(params as Record<string, string>).toString()
     return hemisGet<{ success: boolean; data: HemisTask[] }>(`/api/hemis/tasks${q ? `?${q}` : ""}`)
+  },
+
+  submitTask: async (taskId: number | string, file: File, comment?: string) => {
+    const fileData = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload  = () => resolve((reader.result as string).split(",")[1])
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    return hemisPost<{ success: boolean; data: unknown }>("/api/hemis/task-submit", {
+      task_id:   taskId,
+      comment:   comment ?? "",
+      filename:  file.name,
+      file_type: file.type || "application/octet-stream",
+      file_data: fileData,
+    })
   },
 
   contractList: () =>

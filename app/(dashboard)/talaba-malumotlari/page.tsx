@@ -6,7 +6,7 @@ import {
   Phone, Mail, BookOpen, Star, Hash, CreditCard, Globe, Calendar, Download,
 } from "lucide-react"
 import { motion } from "framer-motion"
-import { hemisApi, HemisStudent, HemisStudentDoc, HemisCertificate } from "@/lib/api"
+import { hemisApi, HemisStudent, HemisStudentDoc, HemisCertificate, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 
@@ -214,7 +214,7 @@ export default function TalabaMalumotlari() {
                   </div>
                 </div>
                 {d.file && (
-                  <a href={d.file} target="_blank" rel="noopener noreferrer"
+                  <a href={hemisDownloadUrl(d.file, d.name ?? "hujjat")} download
                     className="flex items-center justify-center gap-2 w-full py-2 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90"
                     style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                     <Download className="w-4 h-4" />
@@ -277,7 +277,7 @@ export default function TalabaMalumotlari() {
                   )}
                 </div>
                 {c.file && (
-                  <a href={c.file} target="_blank" rel="noopener noreferrer"
+                  <a href={hemisDownloadUrl(c.file, c.name ?? "sertifikat")} download
                     className="flex items-center justify-center gap-2 w-full py-2 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90"
                     style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                     <Download className="w-4 h-4" />

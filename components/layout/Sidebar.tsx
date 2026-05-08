@@ -6,7 +6,7 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   BookOpen, RefreshCw, Wallet, User, Mail, Video,
-  Settings, Search, ChevronDown, GraduationCap, LayoutDashboard,
+  Settings, Search, ChevronDown, GraduationCap, LayoutDashboard, ScanFace,
 } from "lucide-react"
 
 type NavItem = { label: string; href: string }
@@ -90,19 +90,32 @@ const studentSections: Section[] = [
       { label: "Kirish tarixi",     href: "/tizim/kirish-tarixi" },
     ],
   },
+  {
+    title: "Face ID",
+    icon: ScanFace,
+    items: [
+      { label: "Face ID holati",     href: "/face-id" },
+      { label: "Yuzni ro'yxatdan o'tkazish", href: "/face-id/register" },
+      { label: "Qayta ro'yxatdan o'tish",    href: "/face-id/re-register" },
+      { label: "Arizalar",           href: "/face-id/requests" },
+    ],
+  },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
 
   // Accordion: faqat bitta bo'lim ochiq bo'ladi
-  const [openSection, setOpenSection] = useState<string | null>("O'quv reja")
+  const [openSection, setOpenSection] = useState<string | null>(() => {
+    const match = studentSections.find(s => s.items.some(i => pathname === i.href || pathname.startsWith(i.href + "/")))
+    return match?.title ?? "O'quv reja"
+  })
 
   const toggle = (title: string) =>
     setOpenSection((prev) => (prev === title ? null : title))
 
   const isActive = (href: string) =>
-    pathname === href || (href !== "/dashboard" && pathname.startsWith(href))
+    pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"))
 
   return (
     <aside

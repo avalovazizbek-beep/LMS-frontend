@@ -1,7 +1,7 @@
 "use client"
 
 import { FileText, Download, Calendar } from "lucide-react"
-import { hemisApi, HemisDecree } from "@/lib/api"
+import { hemisApi, HemisDecree, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 
@@ -67,7 +67,7 @@ export default function Buyruqlar() {
               </div>
             </div>
             {d.file && (
-              <a href={d.file} target="_blank" rel="noopener noreferrer"
+              <a href={hemisDownloadUrl(d.file, d.name ?? "buyruq")} download
                 className="flex items-center gap-2 px-4 py-2 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90 shrink-0"
                 style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                 <Download className="w-4 h-4" />
