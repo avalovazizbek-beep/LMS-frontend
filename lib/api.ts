@@ -304,9 +304,8 @@ export interface Grade {
 /* ── Face ID API ─────────────────────────────────────────────────── */
 export interface FaceStatus {
   registered: boolean
-  expired?: boolean
+  confirmed?: boolean
   registeredAt?: number
-  expiresAt?: number
   hasPendingRequest?: boolean
   hasApprovedRequest?: boolean
 }
@@ -324,7 +323,7 @@ export const faceApi = {
   status: () =>
     get<{ success: boolean } & FaceStatus>("/api/face/status"),
   register: (descriptors: number[][]) =>
-    post<{ success: boolean; message: string; expiresAt?: number }>("/api/face/register", { descriptors }),
+    post<{ success: boolean; message: string }>("/api/face/register", { descriptors }),
   verify: (descriptor: number[]) =>
     post<{ success: boolean; verified: boolean; confidence?: number; distance?: number; reason?: string; message?: string }>("/api/face/verify", { descriptor }),
   requestReRegister: (reason: string) =>

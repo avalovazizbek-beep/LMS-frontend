@@ -11,11 +11,6 @@ function formatDate(ts?: number): string {
   return new Date(ts).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
-function daysLeft(expiresAt?: number): number {
-  if (!expiresAt) return 0
-  return Math.max(0, Math.ceil((expiresAt - Date.now()) / (1000 * 60 * 60 * 24)))
-}
-
 export default function FaceIdPage() {
   const { data, loading, error, refetch } = useApi(() => faceApi.status())
   const st: FaceStatus = data ?? { registered: false }
@@ -23,8 +18,7 @@ export default function FaceIdPage() {
   if (loading) return <Loading />
   if (error)   return <ApiError message={error} onRetry={refetch} />
 
-  const days = daysLeft(st.expiresAt)
-  const canRegister = !st.registered || st.expired || st.hasApprovedRequest
+  const canRegister = !st.registered || st.hasApprovedRequest
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
@@ -42,25 +36,19 @@ export default function FaceIdPage() {
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
         <div className="flex items-center gap-4 mb-5">
           <div className="w-14 h-14 rounded-[12px] flex items-center justify-center"
-            style={{ backgroundColor: st.registered && !st.expired ? "#f0fff4" : "#fff8e6" }}>
-            {st.registered && !st.expired
+            style={{ backgroundColor: st.registered ? "#f0fff4" : "#fff8e6" }}>
+            {st.registered
               ? <CheckCircle2 className="w-7 h-7" style={{ color: "#22c55e" }} />
               : <AlertCircle  className="w-7 h-7" style={{ color: "#f59e0b" }} />}
           </div>
           <div>
             <p className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              {!st.registered
-                ? "Yuz ro'yxatdan o'tkazilmagan"
-                : st.expired
-                ? "Yuz ma'lumotlari muddati tugagan"
-                : "Yuz muvaffaqiyatli ro'yxatdan o'tgan"}
+              {st.registered ? "Yuz tasdiqlangan" : "Yuz ro'yxatdan o'tkazilmagan"}
             </p>
             <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              {!st.registered
-                ? "Imtihon oldidan yuzingizni ro'yxatdan o'tkazing"
-                : st.expired
-                ? "Qayta ro'yxatdan o'tish uchun ariza yuboring"
-                : `Muddat: ${formatDate(st.expiresAt)} (${days} kun qoldi)`}
+              {st.registered
+                ? `Ro'yxatga olingan: ${formatDate(st.registeredAt)}`
+                : "Imtihon oldidan yuzingizni ro'yxatdan o'tkazing"}
             </p>
           </div>
         </div>
@@ -69,9 +57,8 @@ export default function FaceIdPage() {
         {st.registered && (
           <div className="flex flex-col gap-2 mb-5">
             {[
-              { label: "Ro'yxatga olingan",   value: formatDate(st.registeredAt) },
-              { label: "Muddat tugash sanasi", value: formatDate(st.expiresAt)   },
-              { label: "Qolgan kunlar",        value: st.expired ? "Muddati o'tgan" : `${days} kun` },
+              { label: "Ro'yxatga olingan", value: formatDate(st.registeredAt) },
+              { label: "Holati",            value: "Tasdiqlangan" },
             ].map(row => (
               <div key={row.label} className="flex items-center justify-between py-2"
                 style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
@@ -114,18 +101,10 @@ export default function FaceIdPage() {
               {st.registered ? "Qayta ro'yxatdan o'tish" : "Yuzni ro'yxatdan o'tkazish"}
             </Link>
           )}
-          {st.registered && !st.expired && !st.hasPendingRequest && !st.hasApprovedRequest && (
+          {st.registered && !st.hasPendingRequest && !st.hasApprovedRequest && (
             <Link href="/face-id/re-register"
               className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium transition-opacity hover:opacity-90"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              <RefreshCw className="w-4 h-4" />
-              Qayta ro'yxatdan o'tish uchun ariza
-            </Link>
-          )}
-          {(st.expired && !st.hasPendingRequest && !st.hasApprovedRequest) && (
-            <Link href="/face-id/re-register"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium transition-opacity hover:opacity-90"
-              style={{ border: "1px solid rgba(245,158,11,0.4)", color: "#f59e0b", fontFamily: "var(--font-poppins)" }}>
               <RefreshCw className="w-4 h-4" />
               Qayta ro'yxatdan o'tish uchun ariza
             </Link>

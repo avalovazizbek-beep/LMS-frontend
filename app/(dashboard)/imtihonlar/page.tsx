@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Calendar, Clock, MapPin, CheckCircle2, AlertCircle, BookOpen } from "lucide-react"
+import Link from "next/link"
+import { Calendar, Clock, MapPin, CheckCircle2, AlertCircle, BookOpen, ScanFace } from "lucide-react"
 import { motion } from "framer-motion"
 import { hemisApi, HemisExam } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -46,7 +47,15 @@ export default function Imtihonlar() {
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Imtihonlar</h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Imtihon jadvali va natijalari</p>
         </div>
-        <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => setSelectedCode(code)} />
+        <div className="flex items-center gap-3 flex-wrap">
+          <Link href="/imtihonlar/demo"
+            className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm font-medium transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", border: "1px solid rgba(14,88,168,0.2)", fontFamily: "var(--font-poppins)" }}>
+            <ScanFace className="w-4 h-4" />
+            Demo imtihon (Face ID)
+          </Link>
+          <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => setSelectedCode(code)} />
+        </div>
       </motion.div>
 
       {/* Stats */}
