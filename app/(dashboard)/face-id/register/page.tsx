@@ -7,6 +7,7 @@ import {
   ArrowLeft, Camera, CheckCircle2, AlertCircle, Loader2, ScanFace, RotateCcw,
 } from "lucide-react"
 import { faceApi } from "@/lib/api"
+import { ensureFaceModels, areFaceModelsLoaded } from "@/lib/faceModelCache"
 
 declare global {
   interface Window { faceapi: any }
@@ -14,7 +15,6 @@ declare global {
 
 type Phase = "loading" | "camera" | "liveness" | "confirm" | "submitting" | "done" | "error"
 
-const MODEL_URL     = "/models"
 const TOTAL_SAMPLES = 3
 const HOLD_FRAMES   = 5
 const MIN_CONF      = 0.4
@@ -62,20 +62,20 @@ export default function FaceRegisterPage() {
     }
   }, [])
 
+  /* ── Check if models already loaded on mount ────────────────────── */
+  useEffect(() => {
+    if (areFaceModelsLoaded()) { setLoadedCount(3); setPhase("camera") }
+    else if (window.faceapi)   { setScriptReady(true) }
+  }, [])
+
   /* ── Load models ─────────────────────────────────────────────────── */
   useEffect(() => {
     if (!scriptReady) return
+    if (areFaceModelsLoaded()) { setLoadedCount(3); setPhase("camera"); return }
     ;(async () => {
       try {
-        const fa = window.faceapi
         setLoadStatus("Yuz aniqlash modeli yuklanmoqda... (1/3)")
-        await fa.nets.tinyFaceDetector.loadFromUri(MODEL_URL)
-        setLoadedCount(1)
-        setLoadStatus("Yuz nuqtalari modeli yuklanmoqda... (2/3)")
-        await fa.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
-        setLoadedCount(2)
-        setLoadStatus("Yuz tanish modeli yuklanmoqda... (3/3)")
-        await fa.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        await ensureFaceModels()
         setLoadedCount(3)
         setPhase("camera")
       } catch {
