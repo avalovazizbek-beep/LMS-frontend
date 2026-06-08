@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
 
@@ -11,14 +11,32 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [checkedAuth, setCheckedAuth] = useState(false)
   const pathname = usePathname()
   const isMeetingRoute = pathname === "/meeting"
+
+  useEffect(() => {
+    const token = sessionStorage.getItem("lms_token")
+    localStorage.removeItem("lms_token")
+    localStorage.removeItem("lms_role")
+
+    if (!token) {
+      router.replace("/login")
+      return
+    }
+
+    const id = window.setTimeout(() => setCheckedAuth(true), 0)
+    return () => window.clearTimeout(id)
+  }, [router])
+
+  if (!checkedAuth) return null
 
   return (
     <div
       className="flex h-screen overflow-hidden"
-      style={{ backgroundColor: "#f6f9ff" }}
+      style={{ backgroundColor: "var(--lms-bg)" }}
     >
       {/* Sidebar вЂ” fixed height, slides in/out */}
       <AnimatePresence initial={false}>

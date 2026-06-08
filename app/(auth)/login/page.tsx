@@ -2,71 +2,87 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff, GraduationCap, Lock, User, UserCog, ShieldCheck } from "lucide-react"
-import { authApi, hemisApi } from "@/lib/api"
+import { Eye, EyeOff, GraduationCap, KeyRound, Lock, ShieldCheck, User } from "lucide-react"
+import { hemisApi } from "@/lib/api"
+import { ThemeToggle } from "@/components/theme-toggle"
 
-type LoginMethod = "hemis" | "system"
-type HemisRole   = "student" | "employee"
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
 
 export default function LoginPage() {
   const router = useRouter()
+  const [login, setLogin] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showPwd, setShowPwd] = useState(false)
 
-  const [activeMethod, setActiveMethod] = useState<LoginMethod>("hemis")
-
-  /* ─── HEMIS login ─── */
-  const [hemisRole,     setHemisRole]     = useState<HemisRole>("student")
-  const [hemisLogin,    setHemisLogin]    = useState("")
-  const [hemisPassword, setHemisPassword] = useState("")
-  const [hemisLoading,  setHemisLoading]  = useState(false)
-  const [hemisError,    setHemisError]    = useState<string | null>(null)
-  const [showHemisPwd,  setShowHemisPwd]  = useState(false)
-
-  /* ─── System (admin) login ─── */
-  const [username,    setUsername]    = useState("")
-  const [password,    setPassword]    = useState("")
-  const [loading,     setLoading]     = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
-  const [showPwd,     setShowPwd]     = useState(false)
-
-  const handleHemisSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!hemisLogin.trim() || !hemisPassword.trim()) return
-    setHemisLoading(true)
-    setHemisError(null)
+  const startHemisOAuth = async () => {
+    setOauthLoading(true)
+    setError(null)
     try {
-      const res = hemisRole === "student"
-        ? await hemisApi.login(hemisLogin.trim(), hemisPassword.trim())
-        : await hemisApi.employeeLogin(hemisLogin.trim(), hemisPassword.trim())
-      localStorage.setItem("lms_token", res.token)
-      localStorage.setItem("lms_role", hemisRole)
-      router.push("/dashboard")
+      sessionStorage.removeItem("lms_token")
+      sessionStorage.removeItem("lms_role")
+      localStorage.removeItem("lms_token")
+      localStorage.removeItem("lms_role")
+      sessionStorage.removeItem("hemis_oauth_state")
+      sessionStorage.removeItem("hemis_oauth_role")
+      sessionStorage.removeItem("hemis_oauth_redirect_uri")
+      window.location.href = hemisApi.oauthStartUrl("employee")
     } catch (err: unknown) {
-      setHemisError(err instanceof Error ? err.message : "Login yoki parol noto'g'ri")
-    } finally {
-      setHemisLoading(false)
+      setError(err instanceof Error ? err.message : "HEMIS orqali kirishda xatolik")
+      setOauthLoading(false)
     }
   }
 
-  const handleSystemSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!username.trim() || !password.trim()) return
+    if (!login.trim() || !password.trim()) {
+      setError("Talaba sifatida kirish uchun login va parolni kiriting")
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const res = await authApi.login(username.trim(), password.trim())
-      localStorage.setItem("lms_token", res.token)
+      sessionStorage.removeItem("lms_token")
+      sessionStorage.removeItem("lms_role")
+      localStorage.removeItem("lms_token")
+      localStorage.removeItem("lms_role")
+      const res = await hemisApi.autoLogin(login.trim(), password.trim())
+      sessionStorage.setItem("lms_token", res.token)
+      sessionStorage.setItem("lms_role", res.role)
       router.push("/dashboard")
     } catch (err: unknown) {
+      const data = asRecord((err as { data?: unknown })?.data)
+      if (data.oauthRequired) {
+        setError(
+          typeof data.message === "string"
+            ? data.message
+            : "O'qituvchi yoki xodim HEMIS orqali kirish tugmasi bilan kiradi"
+        )
+        return
+      }
       setError(err instanceof Error ? err.message : "Login yoki parol noto'g'ri")
     } finally {
       setLoading(false)
     }
   }
 
+  const handleHemisOAuth = async () => {
+    await startHemisOAuth()
+  }
+
   return (
-    <main className="flex min-h-screen items-center justify-center" style={{ backgroundColor: "#f6f9ff" }}>
+    <main className="relative flex min-h-screen items-center justify-center" style={{ backgroundColor: "var(--lms-bg)" }}>
+      <div className="absolute right-5 top-5">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-[480px] px-4">
-        {/* Logo */}
         <div className="mb-8 flex flex-col items-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl" style={{ backgroundColor: "#0e58a8" }}>
             <GraduationCap className="h-9 w-9 text-white" />
@@ -75,185 +91,96 @@ export default function LoginPage() {
             Masofaviy Ta&apos;lim
           </h1>
           <p className="mt-1 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Tizimga kirish
+            Talaba login/paroli yoki HEMIS OAuth orqali kirish
           </p>
         </div>
 
-        <div className="rounded-[10px] bg-white p-8" style={{ boxShadow: "0px 0px 20px rgba(1,41,112,0.1)" }}>
-          {/* Method tabs */}
-          <div className="mb-6 flex overflow-hidden rounded-[10px]" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-            {([
-              { key: "hemis",  label: "HEMIS orqali" },
-              { key: "system", label: "Tizim kirish" },
-            ] as const).map(m => (
-              <button key={m.key} type="button"
-                onClick={() => { setActiveMethod(m.key); setHemisError(null); setError(null) }}
-                className="flex-1 py-2.5 text-sm font-medium transition-colors"
-                style={{
-                  fontFamily: "var(--font-poppins)",
-                  backgroundColor: activeMethod === m.key ? "#0e58a8" : "transparent",
-                  color: activeMethod === m.key ? "#fff" : "#7293b9",
-                }}>
-                {m.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ── HEMIS login ── */}
-          {activeMethod === "hemis" && (
-            <div className="flex flex-col gap-4">
-              {/* Role toggle */}
-              <div className="flex rounded-[8px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
-                <button type="button"
-                  onClick={() => { setHemisRole("student"); setHemisError(null) }}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors"
-                  style={{
-                    fontFamily: "var(--font-poppins)",
-                    backgroundColor: hemisRole === "student" ? "#0e58a8" : "transparent",
-                    color: hemisRole === "student" ? "#fff" : "#7293b9",
-                  }}>
-                  <User className="w-4 h-4" /> Talaba
-                </button>
-                <button type="button"
-                  onClick={() => { setHemisRole("employee"); setHemisError(null) }}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors"
-                  style={{
-                    fontFamily: "var(--font-poppins)",
-                    backgroundColor: hemisRole === "employee" ? "#1cc2dc" : "transparent",
-                    color: hemisRole === "employee" ? "#fff" : "#7293b9",
-                  }}>
-                  <UserCog className="w-4 h-4" /> Xodim
-                </button>
+        <div className="rounded-[10px] bg-[var(--lms-cell)] p-8" style={{ boxShadow: "var(--lms-shadow)" }}>
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            {error && (
+              <div className="rounded-[5px] px-3 py-2.5 text-sm"
+                style={{ backgroundColor: "#fff0f0", color: "#ef4444", border: "1px solid #ef4444", fontFamily: "var(--font-poppins)" }}>
+                {error}
               </div>
+            )}
 
-              <form className="flex flex-col gap-4" onSubmit={handleHemisSubmit}>
-                {hemisError && (
-                  <div className="rounded-[5px] px-3 py-2.5 text-sm"
-                    style={{ backgroundColor: "#fff0f0", color: "#ef4444", border: "1px solid #ef4444", fontFamily: "var(--font-poppins)" }}>
-                    {hemisError}
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                    HEMIS Login
-                  </label>
-                  <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
-                    style={{ border: "1px solid rgba(1,41,112,0.3)", backgroundColor: "#fff" }}>
-                    {hemisRole === "student"
-                      ? <User className="h-5 w-5 shrink-0" style={{ color: "#7293b9" }} />
-                      : <UserCog className="h-5 w-5 shrink-0" style={{ color: "#7293b9" }} />}
-                    <input type="text" value={hemisLogin}
-                      onChange={e => setHemisLogin(e.target.value)}
-                      placeholder={hemisRole === "student" ? "Talaba login" : "Xodim login"}
-                      className="flex-1 bg-transparent text-sm outline-none"
-                      style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                    Parol
-                  </label>
-                  <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
-                    style={{ border: "1px solid rgba(1,41,112,0.3)", backgroundColor: "#fff" }}>
-                    <Lock className="h-5 w-5 shrink-0" style={{ color: "#7293b9" }} />
-                    <input type={showHemisPwd ? "text" : "password"} value={hemisPassword}
-                      onChange={e => setHemisPassword(e.target.value)}
-                      placeholder="Parol kiriting"
-                      className="flex-1 bg-transparent text-sm outline-none"
-                      style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
-                    <button type="button" onClick={() => setShowHemisPwd(v => !v)}>
-                      {showHemisPwd
-                        ? <EyeOff className="h-5 w-5" style={{ color: "#7293b9" }} />
-                        : <Eye    className="h-5 w-5" style={{ color: "#7293b9" }} />}
-                    </button>
-                  </div>
-                </div>
-
-                <button type="submit" disabled={hemisLoading}
-                  className="mt-2 flex items-center justify-center rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                  style={{
-                    backgroundColor: hemisRole === "student" ? "#0e58a8" : "#1cc2dc",
-                    fontFamily: "var(--font-poppins)",
-                  }}>
-                  {hemisLoading
-                    ? "Kirish..."
-                    : hemisRole === "student" ? "Talaba sifatida kirish" : "Xodim sifatida kirish"}
-                </button>
-
-                <p className="text-center text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  {hemisRole === "student"
-                    ? "Universitet talaba login va parolini kiriting"
-                    : "Universitet xodim login va parolini kiriting"}
-                </p>
-              </form>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                HEMIS Login
+              </label>
+              <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
+                style={{ border: "1px solid rgba(1,41,112,0.3)", backgroundColor: "#fff" }}>
+                <User className="h-5 w-5 shrink-0" style={{ color: "#7293b9" }} />
+                <input
+                  type="text"
+                  value={login}
+                  onChange={e => setLogin(e.target.value)}
+                  placeholder="Login kiriting"
+                  className="flex-1 bg-transparent text-sm outline-none"
+                  style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+                />
+              </div>
             </div>
-          )}
 
-          {/* ── System / Admin login ── */}
-          {activeMethod === "system" && (
-            <form className="flex flex-col gap-4" onSubmit={handleSystemSubmit}>
-              <div className="flex items-center gap-2 mb-1">
-                <ShieldCheck className="w-5 h-5" style={{ color: "#0e58a8" }} />
-                <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  Tizim administratori
-                </p>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                Parol
+              </label>
+              <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
+                style={{ border: "1px solid rgba(1,41,112,0.3)", backgroundColor: "#fff" }}>
+                <Lock className="h-5 w-5 shrink-0" style={{ color: "#7293b9" }} />
+                <input
+                  type={showPwd ? "text" : "password"}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Parol kiriting"
+                  className="flex-1 bg-transparent text-sm outline-none"
+                  style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+                />
+                <button type="button" onClick={() => setShowPwd(v => !v)} aria-label={showPwd ? "Parolni yashirish" : "Parolni ko'rsatish"}>
+                  {showPwd
+                    ? <EyeOff className="h-5 w-5" style={{ color: "#7293b9" }} />
+                    : <Eye className="h-5 w-5" style={{ color: "#7293b9" }} />}
+                </button>
               </div>
+            </div>
 
-              {error && (
-                <div className="rounded-[5px] px-3 py-2.5 text-sm"
-                  style={{ backgroundColor: "#fff0f0", color: "#ef4444", border: "1px solid #ef4444", fontFamily: "var(--font-poppins)" }}>
-                  {error}
-                </div>
-              )}
+            <button type="submit" disabled={loading}
+              className="mt-2 flex items-center justify-center rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              {loading ? "Tekshirilmoqda..." : "Talaba sifatida kirish"}
+            </button>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  Foydalanuvchi nomi
-                </label>
-                <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
-                  style={{ border: "1px solid rgba(1,41,112,0.3)", backgroundColor: "#fff" }}>
-                  <User className="h-5 w-5 shrink-0" style={{ color: "#7293b9" }} />
-                  <input type="text" value={username}
-                    onChange={e => setUsername(e.target.value)}
-                    placeholder="Login kiriting"
-                    className="flex-1 bg-transparent text-sm outline-none"
-                    style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  Parol
-                </label>
-                <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
-                  style={{ border: "1px solid rgba(1,41,112,0.3)", backgroundColor: "#fff" }}>
-                  <Lock className="h-5 w-5 shrink-0" style={{ color: "#7293b9" }} />
-                  <input type={showPwd ? "text" : "password"} value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Parol kiriting"
-                    className="flex-1 bg-transparent text-sm outline-none"
-                    style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
-                  <button type="button" onClick={() => setShowPwd(v => !v)}>
-                    {showPwd
-                      ? <EyeOff className="h-5 w-5" style={{ color: "#7293b9" }} />
-                      : <Eye    className="h-5 w-5" style={{ color: "#7293b9" }} />}
-                  </button>
+            <div className="rounded-[8px] p-4" style={{ backgroundColor: "var(--lms-bg)", border: "1px solid var(--lms-border)" }}>
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "#1cc2dc" }} />
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                    O&apos;qituvchi va xodimlar HEMIS sahifasida kiradi
+                  </p>
+                  <p className="mt-1 text-xs leading-5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    HEMIS orqali kirishda parol LMS bazasiga yozilmaydi. HEMISda qaysi akkaunt tasdiqlansa, LMS shu akkaunt bilan ochiladi.
+                  </p>
                 </div>
               </div>
+            </div>
 
-              <button type="submit" disabled={loading}
-                className="mt-2 flex items-center justify-center rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                {loading ? "Kirish..." : "Kirish"}
-              </button>
+            <button type="button" onClick={handleHemisOAuth} disabled={oauthLoading}
+              className="flex items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{
+                backgroundColor: "#f0f5ff",
+                color: "#0e58a8",
+                border: "1px solid rgba(14,88,168,0.18)",
+                fontFamily: "var(--font-poppins)",
+              }}>
+              <KeyRound className="h-5 w-5" />
+              {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "HEMIS orqali kirish"}
+            </button>
 
-              <p className="text-center text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Demo: <strong>admin</strong> / <strong>admin123</strong>
-              </p>
-            </form>
-          )}
+            <p className="text-center text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              Talabalar login/parol bilan, o&apos;qituvchilar esa OAuth orqali kiradi.
+            </p>
+          </form>
         </div>
       </div>
     </main>

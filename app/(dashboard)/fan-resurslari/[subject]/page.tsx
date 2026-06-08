@@ -8,6 +8,9 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 
 type ResType = "pdf" | "video" | "link" | "other"
+type ResourceGroup = "lecture" | "presentation" | "laboratory" | "video_lesson" | "meeting_video" | "other"
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
 function detectTypeFromFile(filename: string, url: string): ResType {
   const name = (filename + url).toLowerCase()
@@ -26,6 +29,18 @@ function detectItemType(item: HemisResourceItem): ResType {
   return "other"
 }
 
+function detectGroup(resource: HemisResource, item: HemisResourceItem): ResourceGroup {
+  const code = `${resource.trainingType?.code ?? ""} ${item.resourceType?.code ?? ""}`.toLowerCase()
+  const name = `${resource.trainingType?.name ?? ""} ${item.resourceType?.name ?? ""} ${resource.title ?? ""}`.toLowerCase()
+  if (code.includes("meeting_video") || name.includes("meeting")) return "meeting_video"
+  if (code.includes("video_lesson") || name.includes("video dars")) return "video_lesson"
+  if (code.includes("laboratory") || name.includes("laborator")) return "laboratory"
+  if (code.includes("presentation") || name.includes("taqdimot") || name.includes("prezent")) return "presentation"
+  if (code.includes("lecture") || name.includes("ma'ruza") || name.includes("maruza")) return "lecture"
+  if (detectItemType(item) === "video") return "video_lesson"
+  return "other"
+}
+
 function formatSize(size?: number | string): string {
   if (size == null) return ""
   const n = Number(size)
@@ -40,7 +55,7 @@ function formatDate(ts?: number): string {
   return new Date(ts * 1000).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
-const typeConfig: Record<ResType, { icon: React.ComponentType<{ className?: string }>, bg: string, color: string, label: string }> = {
+const typeConfig: Record<ResType, { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>, bg: string, color: string, label: string }> = {
   pdf:   { icon: FileText, bg: "#fff0f0", color: "#ef4444", label: "Fayl"   },
   video: { icon: Video,    bg: "#f0f5ff", color: "#0e58a8", label: "Video"  },
   link:  { icon: Link2,    bg: "#f0fbfd", color: "#1cc2dc", label: "Havola" },
@@ -54,6 +69,23 @@ interface FlatItem {
   employee: string
   item: HemisResourceItem
   type: ResType
+  group: ResourceGroup
+}
+
+const groupConfig: Array<{ key: ResourceGroup; label: string }> = [
+  { key: "lecture", label: "Ma'ruzalar" },
+  { key: "presentation", label: "Taqdimotlar" },
+  { key: "laboratory", label: "Laboratoriyalar" },
+  { key: "video_lesson", label: "Video darslar" },
+  { key: "meeting_video", label: "Meeting videolar" },
+  { key: "other", label: "Boshqa resurslar" },
+]
+
+function resourceHref(type: ResType, href?: string, filename?: string) {
+  if (!href) return "#"
+  if (href.startsWith("/uploads/")) return `${API_BASE}${href}`
+  if (type === "link") return href
+  return hemisDownloadUrl(href, filename)
 }
 
 export default function FanResurslariDetail() {
@@ -82,11 +114,25 @@ export default function FanResurslariDetail() {
           employee: r.employee?.name ?? "",
           item,
           type: detectItemType(item),
+          group: detectGroup(r, item),
         })
       })
     })
     return result
   }, [data, subjectName])
+
+  const groupedItems = useMemo(() => {
+    const map: Record<ResourceGroup, FlatItem[]> = {
+      lecture: [],
+      presentation: [],
+      laboratory: [],
+      video_lesson: [],
+      meeting_video: [],
+      other: [],
+    }
+    flatItems.forEach((item) => map[item.group].push(item))
+    return map
+  }, [flatItems])
 
   if (loading) return <Loading />
   if (error)   return <ApiError message={error} onRetry={refetch} />
@@ -128,8 +174,22 @@ export default function FanResurslariDetail() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {flatItems.map(f => {
+        <div className="flex flex-col gap-6">
+          {groupConfig.map((group) => {
+            const items = groupedItems[group.key]
+            if (!items.length) return null
+            return (
+              <section key={group.key} className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                    {group.label}
+                  </h2>
+                  <span className="rounded-full bg-[#eef4ff] px-2.5 py-1 text-xs font-semibold text-[#0e58a8]">
+                    {items.length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {items.map(f => {
             const cfg   = typeConfig[f.type]
             const Icon  = cfg.icon
             const files = f.item.files ?? []
@@ -175,15 +235,18 @@ export default function FanResurslariDetail() {
                   </div>
                 )}
 
+                {f.type === "video" && href && (
+                  <video
+                    controls
+                    preload="metadata"
+                    className="aspect-video w-full rounded-[8px] bg-[#012970]"
+                    src={resourceHref(f.type, href, files[0]?.name)}
+                  />
+                )}
+
                 {/* Action */}
                 <a
-                  href={
-                    !href
-                      ? "#"
-                      : f.type === "link"
-                      ? href
-                      : hemisDownloadUrl(href, files[0]?.name)
-                  }
+                  href={resourceHref(f.type, href, files[0]?.name)}
                   {...(f.type === "link"
                     ? { target: "_blank", rel: "noopener noreferrer" }
                     : { download: true })}
@@ -199,6 +262,10 @@ export default function FanResurslariDetail() {
                   {f.type === "link" ? "Ochish" : "Yuklab olish"}
                 </a>
               </div>
+            )
+          })}
+                </div>
+              </section>
             )
           })}
         </div>

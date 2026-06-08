@@ -3,6 +3,31 @@ import { prisma } from "@/lib/prisma"
 import { signHemisToken } from "@/lib/hemis-jwt"
 import { HEMIS_STUDENT_URL, buildHemisUrl } from "@/lib/hemis-proxy"
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function textValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim()
+    if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  }
+  return undefined
+}
+
+function numberValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value
+    if (typeof value === "string") {
+      const parsed = Number(value)
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  return null
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { login, password } = await req.json()
@@ -55,6 +80,21 @@ export async function POST(req: NextRequest) {
     const hemisId = String(
       (profile.student_id_number as string) ?? (profile.id as string) ?? login
     )
+    const group = asRecord(profile.group)
+    const fullName = textValue(
+      profile.full_name,
+      profile.fullName,
+      profile.name,
+      profile.short_name,
+      login
+    )
+    const groupId = numberValue(
+      profile.group_id,
+      profile.groupId,
+      group.id,
+      group.code,
+      group.name
+    )
 
     // 3. Bazaga saqlash yoki yangilash
     const user = await prisma.hemisUser.upsert({
@@ -64,7 +104,13 @@ export async function POST(req: NextRequest) {
     })
 
     // 4. O'zimizning JWT
-    const token = await signHemisToken({ userId: user.id, role: "student" })
+    const token = await signHemisToken({
+      userId: user.id,
+      role: "student",
+      username: fullName,
+      fullName,
+      groupId,
+    })
     return NextResponse.json({ success: true, token })
   } catch (err) {
     console.error("[hemis/login] Server xatosi:", err)

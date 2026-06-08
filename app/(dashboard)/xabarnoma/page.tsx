@@ -7,7 +7,7 @@ import { notificationsApi, Notif } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 
-const typeConfig: Record<string, { icon: React.ComponentType<{ className?: string }>, bg: string, color: string }> = {
+const typeConfig: Record<string, { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>, bg: string, color: string }> = {
   system:   { icon: Info,        bg: "#f0f5ff", color: "#0e58a8" },
   teacher:  { icon: BookOpen,    bg: "#f0fbfd", color: "#1cc2dc" },
   schedule: { icon: Calendar,    bg: "#fff8e6", color: "#f59e0b" },

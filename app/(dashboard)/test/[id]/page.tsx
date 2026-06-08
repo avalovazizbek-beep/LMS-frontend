@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Clock, ChevronLeft, ChevronRight, Camera, AlertTriangle, CheckCircle2, Flag } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { Clock, ChevronLeft, ChevronRight, CheckCircle2, Flag } from "lucide-react"
+import FaceProctor from "@/components/ui/FaceProctor"
 
 const questions = [
   {
@@ -37,12 +38,13 @@ const questions = [
 ]
 
 export default function TestPage() {
-  const [answers, setAnswers] = useState<Record<number, number>>({})
-  const [current, setCurrent] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(30 * 60)
-  const [faceWarning, setFaceWarning] = useState(false)
+  const [answers,   setAnswers]   = useState<Record<number, number>>({})
+  const [current,   setCurrent]   = useState(0)
+  const [timeLeft,  setTimeLeft]  = useState(30 * 60)
   const [submitted, setSubmitted] = useState(false)
-  const [flagged, setFlagged] = useState<Set<number>>(new Set())
+  const [flagged,   setFlagged]   = useState<Set<number>>(new Set())
+
+  const handleTerminate = useCallback(() => setSubmitted(true), [])
 
   useEffect(() => {
     if (submitted) return
@@ -53,16 +55,6 @@ export default function TestPage() {
       })
     }, 1000)
     return () => clearInterval(timer)
-  }, [submitted])
-
-  // Simulate occasional face warning
-  useEffect(() => {
-    if (submitted) return
-    const warn = setTimeout(() => {
-      setFaceWarning(true)
-      setTimeout(() => setFaceWarning(false), 4000)
-    }, 15000)
-    return () => clearTimeout(warn)
   }, [submitted])
 
   const mm = String(Math.floor(timeLeft / 60)).padStart(2, "0")
@@ -89,17 +81,6 @@ export default function TestPage() {
 
   return (
     <div className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
-      {/* Face warning */}
-      {faceWarning && (
-        <div className="fixed top-4 right-4 z-50 flex items-start gap-3 p-4 rounded-[10px] max-w-sm" style={{ backgroundColor: "#fff8e6", border: "1px solid #f59e0b", boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}>
-          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
-          <div>
-            <p className="text-sm font-semibold" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>Ogohlantirish</p>
-            <p className="text-xs mt-0.5" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>Yuz aniqlanmadi. Kamerani tekshiring.</p>
-          </div>
-        </div>
-      )}
-
       {/* Test header */}
       <div className="bg-white px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
         <div>
@@ -107,11 +88,6 @@ export default function TestPage() {
           <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{questions.length} ta savol · {Object.keys(answers).length} ta javoblandi</p>
         </div>
         <div className="flex items-center gap-4">
-          {/* Camera indicator */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: "#f0fbfd" }}>
-            <Camera className="w-4 h-4" style={{ color: "#1cc2dc" }} />
-            <span className="text-xs font-medium" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>Monitoring</span>
-          </div>
           {/* Timer */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ backgroundColor: isLow ? "#fff0f0" : "#f0f5ff" }}>
             <Clock className="w-4 h-4" style={{ color: isLow ? "#ef4444" : "#0e58a8" }} />
@@ -120,6 +96,7 @@ export default function TestPage() {
         </div>
       </div>
 
+      <FaceProctor onTerminate={handleTerminate}>
       <div className="flex flex-1 gap-5 p-6">
         {/* Question nav */}
         <div className="w-48 shrink-0">
@@ -227,6 +204,7 @@ export default function TestPage() {
           </div>
         </div>
       </div>
+      </FaceProctor>
     </div>
   )
 }

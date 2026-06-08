@@ -2,11 +2,12 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   BookOpen, RefreshCw, Wallet, User, Mail, Video,
   Settings, Search, ChevronDown, GraduationCap, LayoutDashboard, ScanFace,
+  CalendarDays, ClipboardCheck, ClipboardList, FileText, BarChart2, UserCog,
 } from "lucide-react"
 
 type NavItem = { label: string; href: string }
@@ -102,14 +103,143 @@ const studentSections: Section[] = [
   },
 ]
 
+const employeeSections: Section[] = [
+  {
+    title: "E-hujjatlar",
+    icon: FileText,
+    items: [
+      { label: "Hujjatni imzolash", href: "/xodim/hujjat-imzolash" },
+    ],
+  },
+  {
+    title: "Xodimlar",
+    icon: UserCog,
+    items: [
+      { label: "Shaxsiy ish reja", href: "/xodim/shaxsiy-ish-reja" },
+    ],
+  },
+  {
+    title: "Fanlar bazasi",
+    icon: BookOpen,
+    items: [
+      { label: "Fan mavzulari", href: "/xodim/fan-mavzulari" },
+      { label: "Fan resurslari", href: "/xodim/fan-resurslari" },
+      { label: "Fan topshiriqlari", href: "/xodim/fan-topshiriqlari" },
+      { label: "Kurs topshiriqlari", href: "/xodim/kurs-topshiriqlari" },
+      { label: "Kalendar reja", href: "/xodim/kalendar-reja" },
+      { label: "Fan ma'lumotlari", href: "/xodim/fan-malumotlari" },
+    ],
+  },
+  {
+    title: "O'quv jarayoni",
+    icon: GraduationCap,
+    items: [
+      { label: "Imtihonlar ro'yxati", href: "/xodim/imtihonlar" },
+    ],
+  },
+  {
+    title: "Yakka darslar",
+    icon: CalendarDays,
+    items: [
+      { label: "Fan talabalari", href: "/xodim/fan-talabalari" },
+      { label: "Yakka dars jadvali", href: "/xodim/yakka-dars-jadvali" },
+      { label: "Yakka dars davomat", href: "/xodim/yakka-dars-davomat" },
+    ],
+  },
+  {
+    title: "Qayta o'qish",
+    icon: RefreshCw,
+    items: [
+      { label: "Qayta o'qish ro'yxati", href: "/xodim/qayta-oqish" },
+    ],
+  },
+  {
+    title: "O'zlashtirish",
+    icon: ClipboardCheck,
+    items: [
+      { label: "Shaxsiy qaydnoma kiritish", href: "/xodim/shaxsiy-qaydnoma-kiritish" },
+      { label: "Baholash so'rovlari", href: "/xodim/baholash-sorovlari" },
+    ],
+  },
+  {
+    title: "Mashg'ulotlar",
+    icon: CalendarDays,
+    items: [
+      { label: "Dars jadvali", href: "/xodim/dars-jadvali" },
+      { label: "Dars o'tish", href: "/xodim/dars-otish" },
+      { label: "Davomat jurnali", href: "/xodim/davomat-jurnali" },
+      { label: "Baholash jurnali", href: "/xodim/baholash-jurnali" },
+    ],
+  },
+  {
+    title: "Nazoratlar",
+    icon: ClipboardList,
+    items: [
+      { label: "Oraliq nazorat", href: "/xodim/oraliq-nazorat" },
+      { label: "Yakuniy nazorat", href: "/xodim/yakuniy-nazorat" },
+      { label: "Boshqa nazoratlar", href: "/xodim/boshqa-nazoratlar" },
+    ],
+  },
+  {
+    title: "Ilmiy faoliyat",
+    icon: GraduationCap,
+    items: [
+      { label: "Ilmiy faoliyat", href: "/xodim/ilmiy-faoliyat" },
+    ],
+  },
+  {
+    title: "Statistika",
+    icon: BarChart2,
+    items: [
+      { label: "Statistika", href: "/xodim/statistika" },
+    ],
+  },
+  {
+    title: "Hisobotlar",
+    icon: FileText,
+    items: [
+      { label: "Hisobotlar", href: "/xodim/hisobotlar" },
+    ],
+  },
+  {
+    title: "Xabarlar",
+    icon: Mail,
+    items: [
+      { label: "Xabarlar", href: "/xodim/xabarlar" },
+    ],
+  },
+  {
+    title: "Tizim",
+    icon: Settings,
+    items: [
+      { label: "Profil", href: "/tizim/profil" },
+      { label: "Sozlamalar", href: "/xodim/tizim" },
+    ],
+  },
+]
+
 export function Sidebar() {
   const pathname = usePathname()
+  const [role, setRole] = useState<string | null>(null)
+  const sections = role === "employee" ? employeeSections : studentSections
 
   // Accordion: faqat bitta bo'lim ochiq bo'ladi
   const [openSection, setOpenSection] = useState<string | null>(() => {
     const match = studentSections.find(s => s.items.some(i => pathname === i.href || pathname.startsWith(i.href + "/")))
     return match?.title ?? "O'quv reja"
   })
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setRole(sessionStorage.getItem("lms_role")), 0)
+    return () => window.clearTimeout(id)
+  }, [])
+
+  useEffect(() => {
+    const match = sections.find(s => s.items.some(i => pathname === i.href || pathname.startsWith(i.href + "/")))
+    if (!match) return
+    const id = window.setTimeout(() => setOpenSection(match.title), 0)
+    return () => window.clearTimeout(id)
+  }, [pathname, sections])
 
   const toggle = (title: string) =>
     setOpenSection((prev) => (prev === title ? null : title))
@@ -119,8 +249,8 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col w-[300px] h-screen bg-white shrink-0"
-      style={{ boxShadow: "0px 0px 20px rgba(1,41,112,0.1)" }}
+      className="flex flex-col w-[300px] h-screen bg-[var(--lms-cell)] shrink-0"
+      style={{ boxShadow: "var(--lms-shadow)" }}
     >
       {/* Logo + Search — qotgan, scroll bo'lmaydi */}
       <div className="shrink-0 flex flex-col gap-4 px-[25px] pt-5 pb-3">
@@ -132,20 +262,20 @@ export function Sidebar() {
         >
           <div
             className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
-            style={{ backgroundColor: "#0e58a8" }}
+            style={{ backgroundColor: "var(--lms-button)" }}
           >
             <GraduationCap className="w-6 h-6 text-white" />
           </div>
           <div className="flex flex-col min-w-0">
             <span
               className="font-semibold text-base leading-tight truncate"
-              style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+              style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}
             >
               LMS Portal
             </span>
             <span
               className="text-xs truncate"
-              style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}
+              style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}
             >
               Ta&apos;lim Tizimi
             </span>
@@ -153,14 +283,14 @@ export function Sidebar() {
         </motion.div>
 
         <form
-          className="h-9 px-2.5 py-2 w-full bg-white rounded-[5px] border border-[#104475] flex items-center gap-2"
+          className="h-9 px-2.5 py-2 w-full bg-[var(--lms-cell)] rounded-[5px] border border-[var(--lms-border)] flex items-center gap-2"
           role="search"
         >
-          <Search className="w-[18px] h-[18px] text-[#104475] shrink-0" />
+          <Search className="w-[18px] h-[18px] text-[var(--lms-primary)] shrink-0" />
           <input
             type="search"
             placeholder="Search"
-            className="flex-1 bg-transparent outline-none text-sm font-medium text-[#104475] placeholder:text-[#104475]"
+            className="flex-1 bg-transparent outline-none text-sm font-medium text-[var(--lms-primary)] placeholder:text-[var(--lms-muted)]"
             style={{ fontFamily: "var(--font-poppins)" }}
           />
         </form>
@@ -192,7 +322,7 @@ export function Sidebar() {
           </Link>
 
           {/* Accordion sections */}
-          {studentSections.map((section) => {
+          {sections.map((section) => {
             const SectionIcon = section.icon
             const isOpen = openSection === section.title
             return (

@@ -3,6 +3,14 @@ import { prisma } from "@/lib/prisma"
 import { signHemisToken } from "@/lib/hemis-jwt"
 import { HEMIS_EMPLOYEE_URL, buildHemisUrl } from "@/lib/hemis-proxy"
 
+function textValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim()
+    if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  }
+  return undefined
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { login, password } = await req.json()
@@ -49,6 +57,13 @@ export async function POST(req: NextRequest) {
     const hemisId = `emp_${String(
       (profile.employee_id_number as string) ?? (profile.id as string) ?? login
     )}`
+    const fullName = textValue(
+      profile.full_name,
+      profile.fullName,
+      profile.name,
+      profile.short_name,
+      login
+    )
 
     const user = await prisma.hemisUser.upsert({
       where: { hemisId },
@@ -56,7 +71,12 @@ export async function POST(req: NextRequest) {
       create: { hemisId, role: "employee", login, token: hemisToken, profile: JSON.stringify(profile) },
     })
 
-    const token = await signHemisToken({ userId: user.id, role: "employee" })
+    const token = await signHemisToken({
+      userId: user.id,
+      role: "employee",
+      username: fullName,
+      fullName,
+    })
     return NextResponse.json({ success: true, token })
   } catch (err) {
     console.error("[hemis/employee-login] Server xatosi:", err)

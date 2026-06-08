@@ -8,204 +8,272 @@ import {
 } from "lucide-react"
 import { faceApi } from "@/lib/api"
 
-/* ── Types ──────────────────────────────────────────────────────────── */
 declare global {
   interface Window { faceapi: any }
 }
 
-type Phase = "loading" | "camera" | "liveness" | "capturing" | "confirm" | "submitting" | "done" | "error"
+type Phase = "loading" | "camera" | "liveness" | "confirm" | "submitting" | "done" | "error"
 
-interface LivenessStep {
-  id: string
-  label: string
-  hint: string
-  check: (ratio: number) => boolean
-}
+const MODEL_URL     = "/models"
+const TOTAL_SAMPLES = 3
+const HOLD_FRAMES   = 5
+const MIN_CONF      = 0.4
+const CVS_W         = 640
+const CVS_H         = 480
 
-const LIVENESS_STEPS: LivenessStep[] = [
-  { id: "center1", label: "To'g'ri qarang",   hint: "Yuzingizni kameraga to'g'ri qarating",   check: r => r >= 0.38 && r <= 0.62 },
-  { id: "left",    label: "Chapga burilng",   hint: "Boshingizni biroz chapga burilng",         check: r => r < 0.38 },
-  { id: "center2", label: "Qaytib qarang",    hint: "Yana kameraga to'g'ri qarang",             check: r => r >= 0.38 && r <= 0.62 },
-]
-
-const MODEL_URL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights"
-const HOLD_MS   = 2000   // hold pose this long to capture
-const MIN_CONF  = 0.75
-
-/* ── Component ──────────────────────────────────────────────────────── */
 export default function FaceRegisterPage() {
-  const router    = useRouter()
-  const videoRef  = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const rafRef    = useRef<number>(0)
-  const holdRef   = useRef<{ startMs: number; stepIdx: number } | null>(null)
+  const router       = useRouter()
+  const videoRef     = useRef<HTMLVideoElement>(null)
+  const canvasRef    = useRef<HTMLCanvasElement>(null)
+  const rafRef       = useRef<number>(0)
+  const holdFrameRef = useRef<number>(0)
+  const capturingRef = useRef(false)
 
   const [phase,        setPhase]        = useState<Phase>("loading")
   const [scriptReady,  setScriptReady]  = useState(false)
-  const [modelsLoaded, setModelsLoaded] = useState(false)
-  const [loadStatus,   setLoadStatus]   = useState("Face-api yuklanmoqda...")
-  const [stepIdx,      setStepIdx]      = useState(0)
-  const [progress,     setProgress]     = useState(0)   // 0–100 for hold bar
+  const [loadStatus,   setLoadStatus]   = useState("AI modellari tayyorlanmoqda...")
+  const [loadedCount,  setLoadedCount]  = useState(0)
+  const [cameraReady,  setCameraReady]  = useState(false)
   const [samples,      setSamples]      = useState<number[][]>([])
-  const [statusMsg,    setStatusMsg]    = useState("")
   const [submitError,  setSubmitError]  = useState<string | null>(null)
-  const [capturing,    setCapturing]    = useState(false)
+  const [sampleIdx,    setSampleIdx]    = useState(0)
+  const [confidence,   setConfidence]   = useState(0)
+  const [faceDetected, setFaceDetected] = useState(false)
+  const [holdPct,      setHoldPct]      = useState(0)
+  const [captured,     setCaptured]     = useState(false)
 
-  /* ── Load models after script is ready ─────────────────────────── */
+  /* ── Suppress face-api.js internal errors ──────────────────────── */
+  useEffect(() => {
+    const onRejection = (e: PromiseRejectionEvent) => {
+      if (e.reason?.message?.includes("Box.constructor") || e.reason?.message?.includes("expected box"))
+        e.preventDefault()
+    }
+    const onError = (e: ErrorEvent) => {
+      if (e.message?.includes("Box.constructor") || e.message?.includes("expected box")) {
+        e.preventDefault()
+        return false
+      }
+    }
+    window.addEventListener("unhandledrejection", onRejection)
+    window.addEventListener("error", onError)
+    return () => {
+      window.removeEventListener("unhandledrejection", onRejection)
+      window.removeEventListener("error", onError)
+    }
+  }, [])
+
+  /* ── Load models ─────────────────────────────────────────────────── */
   useEffect(() => {
     if (!scriptReady) return
     ;(async () => {
       try {
         const fa = window.faceapi
-        setLoadStatus("TinyFaceDetector yuklanmoqda...")
+        setLoadStatus("Yuz aniqlash modeli yuklanmoqda... (1/3)")
         await fa.nets.tinyFaceDetector.loadFromUri(MODEL_URL)
-        setLoadStatus("FaceLandmark modeli yuklanmoqda...")
+        setLoadedCount(1)
+        setLoadStatus("Yuz nuqtalari modeli yuklanmoqda... (2/3)")
         await fa.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
-        setLoadStatus("FaceRecognition modeli yuklanmoqda...")
+        setLoadedCount(2)
+        setLoadStatus("Yuz tanish modeli yuklanmoqda... (3/3)")
         await fa.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        setModelsLoaded(true)
+        setLoadedCount(3)
         setPhase("camera")
       } catch {
-        setLoadStatus("Modellarni yuklashda xatolik. Internet aloqasini tekshiring.")
+        setLoadStatus("Xatolik. Sahifani qayta yuklang.")
       }
     })()
   }, [scriptReady])
 
-  /* ── Start camera ───────────────────────────────────────────────── */
-  async function startCamera() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" } })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-        setPhase("liveness")
-        setStepIdx(0)
-        setSamples([])
-        holdRef.current = null
-      }
-    } catch {
-      setPhase("error")
-      setSubmitError("Kameraga ruxsat berilmadi. Brauzer sozlamalarini tekshiring.")
-    }
-  }
+  /* ── Camera stream ───────────────────────────────────────────────── */
+  useEffect(() => {
+    if (phase !== "liveness") return
+    setCameraReady(false)
+    navigator.mediaDevices
+      .getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } })
+      .then(stream => {
+        const vid = videoRef.current
+        if (!vid) return
+        vid.srcObject = stream
+        vid.onloadedmetadata = () => {
+          vid.play().then(() => setCameraReady(true)).catch(() => setCameraReady(true))
+        }
+      })
+      .catch(() => {
+        setPhase("error")
+        setSubmitError("Kameraga ruxsat berilmadi. Brauzer sozlamalarini tekshiring.")
+      })
+  }, [phase])
 
-  /* ── Stop camera ────────────────────────────────────────────────── */
+  /* ── Stop camera ─────────────────────────────────────────────────── */
   function stopCamera() {
     cancelAnimationFrame(rafRef.current)
     const vid = videoRef.current
     if (vid?.srcObject) {
-      (vid.srcObject as MediaStream).getTracks().forEach(t => t.stop())
+      ;(vid.srcObject as MediaStream).getTracks().forEach(t => t.stop())
       vid.srcObject = null
     }
   }
 
-  /* ── Detect pose from landmarks ─────────────────────────────────── */
-  function getPoseRatio(landmarks: any): number {
-    const pts = landmarks.positions
-    if (!pts || pts.length < 17) return 0.5
-    const noseTip  = pts[30]
-    const leftJaw  = pts[0]
-    const rightJaw = pts[16]
-    const w = rightJaw.x - leftJaw.x
-    if (w < 10) return 0.5
-    return (noseTip.x - leftJaw.x) / w
+  /* ── Draw dynamic bounding box ───────────────────────────────────── */
+  function drawFaceBox(
+    ctx: CanvasRenderingContext2D,
+    box: { x: number; y: number; width: number; height: number },
+    vidW: number,
+    vidH: number,
+    conf: number,
+  ) {
+    ctx.clearRect(0, 0, CVS_W, CVS_H)
+
+    const sx = CVS_W / vidW
+    const sy = CVS_H / vidH
+
+    // Mirror x — video CSS is scaleX(-1), canvas is not
+    const bw = box.width  * sx
+    const bh = box.height * sy
+    const bx = CVS_W - box.x * sx - bw
+    const by = box.y * sy
+
+    const color = conf >= 70 ? "#22c55e" : "#fbbf24"
+    const cLen  = Math.min(bw, bh) * 0.22
+
+    // Dim vignette around face
+    ctx.save()
+    ctx.fillStyle = "rgba(0,0,0,0.4)"
+    ctx.beginPath()
+    ctx.rect(0, 0, CVS_W, CVS_H)
+    ctx.rect(bx - 6, by - 6, bw + 12, bh + 12)
+    ;(ctx as any).fill("evenodd")
+    ctx.restore()
+
+    // Box border with glow
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.lineWidth = 2.5
+    ctx.shadowColor = color
+    ctx.shadowBlur = 14
+    ctx.strokeRect(bx, by, bw, bh)
+    ctx.restore()
+
+    // Corner accents
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.lineWidth = 4
+    ctx.lineCap = "square"
+    ctx.shadowColor = color
+    ctx.shadowBlur = 6
+    // TL
+    ctx.beginPath(); ctx.moveTo(bx, by + cLen); ctx.lineTo(bx, by); ctx.lineTo(bx + cLen, by); ctx.stroke()
+    // TR
+    ctx.beginPath(); ctx.moveTo(bx + bw - cLen, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + cLen); ctx.stroke()
+    // BL
+    ctx.beginPath(); ctx.moveTo(bx, by + bh - cLen); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + cLen, by + bh); ctx.stroke()
+    // BR
+    ctx.beginPath(); ctx.moveTo(bx + bw - cLen, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - cLen); ctx.stroke()
+    ctx.restore()
   }
 
-  /* ── Detection loop ─────────────────────────────────────────────── */
-  const detect = useCallback(async (curStep: number, curSamples: number[][]) => {
+  /* ── Detection RAF loop ──────────────────────────────────────────── */
+  const detect = useCallback(async (curSample: number, curSamples: number[][]) => {
     const vid = videoRef.current
     const cvs = canvasRef.current
     if (!vid || !cvs || vid.paused || vid.ended) return
-
-    const fa = window.faceapi
-    const detection = await fa
-      .detectSingleFace(vid, new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: MIN_CONF }))
-      .withFaceLandmarks()
-      .withFaceDescriptor()
-
-    const ctx = cvs.getContext("2d")
-    if (ctx) {
-      ctx.clearRect(0, 0, cvs.width, cvs.height)
-    }
-
-    if (!detection) {
-      setStatusMsg("Yuz aniqlanmadi. Kamera oldiga yaqinroq turing.")
-      setProgress(0)
-      holdRef.current = null
-      rafRef.current = requestAnimationFrame(() => detect(curStep, curSamples))
+    if (!vid.videoWidth || !vid.videoHeight || vid.readyState < 2) {
+      rafRef.current = requestAnimationFrame(() => detect(curSample, curSamples))
       return
     }
 
-    // Draw box
-    if (ctx) {
-      const { x, y, width, height } = detection.detection.box
-      ctx.strokeStyle = "#1cc2dc"
-      ctx.lineWidth   = 2
-      ctx.strokeRect(x, y, width, height)
+    const fa  = window.faceapi
+    const ctx = cvs.getContext("2d")
+
+    let result: any = null
+    try {
+      result = await fa
+        .detectSingleFace(vid, new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: MIN_CONF }))
+        .withFaceLandmarks()
+        .withFaceDescriptor()
+    } catch {
+      holdFrameRef.current = 0
+      rafRef.current = requestAnimationFrame(() => detect(curSample, curSamples))
+      return
     }
 
-    const step  = LIVENESS_STEPS[curStep]
-    const ratio = getPoseRatio(detection.landmarks)
-    const pass  = step.check(ratio)
+    /* No face detected */
+    if (!result) {
+      holdFrameRef.current = 0
+      setFaceDetected(false)
+      setConfidence(0)
+      setHoldPct(0)
+      if (ctx) ctx.clearRect(0, 0, CVS_W, CVS_H)
+      rafRef.current = requestAnimationFrame(() => detect(curSample, curSamples))
+      return
+    }
 
-    if (pass) {
-      const now = Date.now()
-      if (!holdRef.current || holdRef.current.stepIdx !== curStep) {
-        holdRef.current = { startMs: now, stepIdx: curStep }
-      }
-      const elapsed = now - holdRef.current.startMs
-      const pct     = Math.min(100, Math.round((elapsed / HOLD_MS) * 100))
-      setProgress(pct)
-      setStatusMsg(`${step.label} ✓`)
+    const conf = Math.round(result.detection.score * 100)
+    setFaceDetected(true)
+    setConfidence(conf)
+    if (ctx) drawFaceBox(ctx, result.detection.box, vid.videoWidth, vid.videoHeight, conf)
 
-      if (elapsed >= HOLD_MS && !capturing) {
-        setCapturing(true)
-        holdRef.current = null
-        const descriptor = Array.from(detection.descriptor) as number[]
-        const newSamples = [...curSamples, descriptor]
-        setSamples(newSamples)
+    holdFrameRef.current++
+    const frames = holdFrameRef.current
+    const pct    = Math.min(100, Math.round((frames / HOLD_FRAMES) * 100))
+    setHoldPct(pct)
 
-        const nextStep = curStep + 1
-        if (nextStep >= LIVENESS_STEPS.length) {
+    if (frames >= HOLD_FRAMES && !capturingRef.current) {
+      capturingRef.current = true
+      holdFrameRef.current = 0
+      setHoldPct(100)
+      setCaptured(true)
+
+      const descriptor = Array.from(result.descriptor) as number[]
+      const newSamples = [...curSamples, descriptor]
+      setSamples(newSamples)
+
+      const nextSample = curSample + 1
+      setSampleIdx(nextSample)
+
+      setTimeout(() => {
+        setCaptured(false)
+        capturingRef.current = false
+        if (nextSample >= TOTAL_SAMPLES) {
+          if (ctx) ctx.clearRect(0, 0, CVS_W, CVS_H)
           setPhase("confirm")
           stopCamera()
           return
         }
-        setStepIdx(nextStep)
-        setProgress(0)
-        setCapturing(false)
-        rafRef.current = requestAnimationFrame(() => detect(nextStep, newSamples))
-        return
-      }
-    } else {
-      setProgress(0)
-      holdRef.current = null
-      setStatusMsg(step.hint)
+        setHoldPct(0)
+        setConfidence(0)
+        setFaceDetected(false)
+        rafRef.current = requestAnimationFrame(() => detect(nextSample, newSamples))
+      }, 900)
+      return
     }
 
-    setCapturing(false)
-    rafRef.current = requestAnimationFrame(() => detect(curStep, curSamples))
-  }, [capturing])
+    if (!capturingRef.current) {
+      rafRef.current = requestAnimationFrame(() => detect(curSample, curSamples))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── Start detection when phase = liveness ──────────────────────── */
+  /* ── Kick off detection once camera is live ──────────────────────── */
   useEffect(() => {
-    if (phase !== "liveness") return
-    setProgress(0)
-    setStatusMsg(LIVENESS_STEPS[0].hint)
+    if (!cameraReady) return
+    holdFrameRef.current = 0
+    setHoldPct(0)
+    setConfidence(0)
+    setFaceDetected(false)
     const tid = setTimeout(() => {
       rafRef.current = requestAnimationFrame(() => detect(0, []))
-    }, 500)
+    }, 400)
     return () => {
       clearTimeout(tid)
       cancelAnimationFrame(rafRef.current)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase])
+  }, [cameraReady])
 
-  /* ── Cleanup on unmount ─────────────────────────────────────────── */
+  /* ── Cleanup on unmount ──────────────────────────────────────────── */
   useEffect(() => () => { stopCamera() }, [])
 
-  /* ── Submit to backend ──────────────────────────────────────────── */
+  /* ── Submit ──────────────────────────────────────────────────────── */
   async function handleSubmit() {
     if (samples.length < 1) return
     setPhase("submitting")
@@ -218,30 +286,45 @@ export default function FaceRegisterPage() {
     }
   }
 
-  /* ── Restart ────────────────────────────────────────────────────── */
+  /* ── Restart ─────────────────────────────────────────────────────── */
   function restart() {
     setSamples([])
-    setStepIdx(0)
-    setProgress(0)
+    setSampleIdx(0)
     setSubmitError(null)
+    setCameraReady(false)
+    setFaceDetected(false)
+    setConfidence(0)
+    setHoldPct(0)
+    setCaptured(false)
+    holdFrameRef.current = 0
+    capturingRef.current = false
     setPhase("camera")
   }
 
-  /* ── Render ─────────────────────────────────────────────────────── */
+  function startCamera() {
+    setSampleIdx(0)
+    setSamples([])
+    holdFrameRef.current = 0
+    capturingRef.current = false
+    setPhase("liveness")
+  }
+
+  const confColor = confidence >= 70 ? "#22c55e" : confidence >= 45 ? "#f59e0b" : "#ef4444"
+
+  /* ── Render ──────────────────────────────────────────────────────── */
   return (
     <>
-      <Script
-        src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"
-        strategy="afterInteractive"
-        onLoad={() => setScriptReady(true)}
-      />
+      <Script src="/face-api.min.js" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
 
       <div className="flex flex-col gap-6 p-[30px] max-w-[720px]">
+
         {/* Header */}
         <div className="flex items-center gap-4">
-          <button onClick={() => { stopCamera(); router.back() }}
+          <button
+            onClick={() => { stopCamera(); router.back() }}
             className="flex items-center justify-center w-9 h-9 rounded-[8px] hover:bg-[#f0f5ff] transition-colors shrink-0"
-            style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
+            style={{ border: "1px solid rgba(1,41,112,0.15)" }}
+          >
             <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
           </button>
           <div>
@@ -249,26 +332,59 @@ export default function FaceRegisterPage() {
               Yuzni ro&apos;yxatdan o&apos;tkazish
             </h1>
             <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Kamera orqali 3 qadamli tekshiruv
+              Kamera orqali {TOTAL_SAMPLES} ta surat avtomatik olinadi
             </p>
           </div>
         </div>
 
-        {/* ── Loading phase ── */}
-        {(phase === "loading") && (
-          <div className="bg-white rounded-[10px] p-10 flex flex-col items-center gap-4"
+        {/* ── Loading ── */}
+        {phase === "loading" && (
+          <div className="bg-white rounded-[10px] p-8 flex flex-col items-center gap-5"
             style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <Loader2 className="w-10 h-10 animate-spin" style={{ color: "#0e58a8" }} />
-            <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              {loadStatus}
-            </p>
+            <div className="w-full flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  {loadStatus}
+                </p>
+                <span className="text-xs font-semibold" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {scriptReady ? `${loadedCount}/3` : "0/3"}
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full" style={{ backgroundColor: "rgba(1,41,112,0.08)" }}>
+                <div className="h-2 rounded-full transition-all duration-500"
+                  style={{ width: scriptReady ? `${(loadedCount / 3) * 100}%` : "5%", backgroundColor: "#0e58a8" }} />
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {["Skript", "Detektor", "Nuqtalar", "Tanish"].map((label, i) => {
+                const done   = i === 0 ? scriptReady : loadedCount >= i
+                const active = i === 0 ? !scriptReady : scriptReady && loadedCount === i - 1
+                return (
+                  <div key={label} className="flex flex-col items-center gap-1">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all"
+                      style={{
+                        backgroundColor: done ? "#0e58a8" : active ? "#e8f0fb" : "#f6f9ff",
+                        color: done ? "#fff" : active ? "#0e58a8" : "#c0cfe4",
+                        border: active ? "1.5px solid #0e58a8" : "none",
+                      }}>
+                      {done ? "✓" : i + 1}
+                    </div>
+                    <span className="text-[11px]"
+                      style={{ color: done ? "#0e58a8" : "#b0c4d8", fontFamily: "var(--font-poppins)" }}>
+                      {label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
             <p className="text-xs text-center" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Face-api.js modellari birinchi marta yuklanmoqda. Bu bir necha daqiqa olishi mumkin.
+              Yuz tanish modellari yuklanmoqda, iltimos kuting...
             </p>
           </div>
         )}
 
-        {/* ── Camera start phase ── */}
+        {/* ── Camera start ── */}
         {phase === "camera" && (
           <div className="bg-white rounded-[10px] p-8 flex flex-col items-center gap-5"
             style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -277,24 +393,24 @@ export default function FaceRegisterPage() {
               <Camera className="w-10 h-10" style={{ color: "#0e58a8" }} />
             </div>
             <div className="text-center">
-              <p className="text-base font-semibold mb-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              <p className="text-base font-semibold mb-1"
+                style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                 Kamerani yoqing
               </p>
               <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Yuzni ro&apos;yxatdan o&apos;tkazish uchun 3 qadamdan o&apos;tishingiz kerak bo&apos;ladi.
+                Kameraga qarang — yuz avtomatik aniqlanadi va {TOTAL_SAMPLES} ta surat olinadi.
                 Yaxshi yoritilgan joyda turing.
               </p>
             </div>
-            {/* Steps preview */}
-            <div className="flex items-center gap-3 w-full">
-              {LIVENESS_STEPS.map((s, i) => (
-                <div key={s.id} className="flex-1 flex flex-col items-center gap-1.5">
+            <div className="flex items-center gap-4">
+              {Array.from({ length: TOTAL_SAMPLES }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-1.5">
                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold"
                     style={{ backgroundColor: "#f0f5ff", color: "#0e58a8" }}>
                     {i + 1}
                   </div>
-                  <p className="text-xs text-center" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    {s.label}
+                  <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    Surat {i + 1}
                   </p>
                 </div>
               ))}
@@ -308,70 +424,142 @@ export default function FaceRegisterPage() {
           </div>
         )}
 
-        {/* ── Liveness phase ── */}
+        {/* ── Liveness / capture ── */}
         {phase === "liveness" && (
           <div className="bg-white rounded-[10px] overflow-hidden"
             style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
 
-            {/* Step indicators */}
-            <div className="flex border-b" style={{ borderColor: "rgba(1,41,112,0.08)" }}>
-              {LIVENESS_STEPS.map((s, i) => {
-                const done    = i < stepIdx
-                const active  = i === stepIdx
-                return (
-                  <div key={s.id} className="flex-1 flex flex-col items-center gap-1 py-3 px-2">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold"
-                      style={{
-                        backgroundColor: done ? "#22c55e" : active ? "#0e58a8" : "#f0f5ff",
-                        color:           done ? "#fff"    : active ? "#fff"    : "#7293b9",
-                      }}>
-                      {done ? "✓" : i + 1}
-                    </div>
-                    <p className="text-xs text-center" style={{
-                      color: active ? "#012970" : "#7293b9",
-                      fontFamily: "var(--font-poppins)",
-                      fontWeight: active ? 600 : 400,
+            {/* Sample dots */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b"
+              style={{ borderColor: "rgba(1,41,112,0.08)" }}>
+              <p className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                Olingan suratlar:
+              </p>
+              <div className="flex items-center gap-2 ml-1">
+                {Array.from({ length: TOTAL_SAMPLES }).map((_, i) => (
+                  <div key={i}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
+                    style={{
+                      backgroundColor: i < sampleIdx ? "#22c55e" : i === sampleIdx ? "#0e58a8" : "#f0f5ff",
+                      color:           i <= sampleIdx ? "#fff" : "#94a3b8",
+                      transform: i === sampleIdx && captured ? "scale(1.3)" : "scale(1)",
                     }}>
-                      {s.label}
-                    </p>
+                    {i < sampleIdx ? "✓" : i + 1}
                   </div>
-                )
-              })}
+                ))}
+              </div>
+              <span className="ml-auto text-xs font-bold"
+                style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                {sampleIdx} / {TOTAL_SAMPLES}
+              </span>
             </div>
 
             {/* Camera view */}
-            <div className="relative flex justify-center" style={{ backgroundColor: "#000" }}>
-              <video ref={videoRef} autoPlay playsInline muted
+            <div className="relative flex justify-center" style={{ backgroundColor: "#111" }}>
+              {!cameraReady && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3"
+                  style={{ backgroundColor: "#111" }}>
+                  <Loader2 className="w-9 h-9 animate-spin" style={{ color: "#0e58a8" }} />
+                  <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    Kamera yoqilmoqda...
+                  </p>
+                </div>
+              )}
+              {/* Green flash on capture */}
+              {captured && (
+                <div className="absolute inset-0 z-20 pointer-events-none"
+                  style={{ backgroundColor: "rgba(34,197,94,0.18)", transition: "opacity 0.3s" }} />
+              )}
+              <video
+                ref={videoRef}
+                autoPlay playsInline muted
                 className="block"
-                style={{ width: "100%", maxWidth: 640, height: 360, objectFit: "cover", transform: "scaleX(-1)" }} />
-              <canvas ref={canvasRef} width={640} height={360}
-                className="absolute top-0 left-0 w-full h-full"
-                style={{ transform: "scaleX(-1)", pointerEvents: "none" }} />
+                style={{
+                  width: "100%", maxWidth: CVS_W, height: CVS_H,
+                  objectFit: "cover", transform: "scaleX(-1)",
+                }}
+              />
+              <canvas
+                ref={canvasRef}
+                width={CVS_W}
+                height={CVS_H}
+                style={{
+                  position: "absolute", top: 0, left: 0,
+                  width: "100%", height: "100%",
+                  pointerEvents: "none", zIndex: 5,
+                }}
+              />
             </div>
 
-            {/* Status & progress */}
+            {/* ── Status bar ── */}
             <div className="p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
+
+              {/* Status text + confidence badge */}
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  {LIVENESS_STEPS[stepIdx]?.hint ?? ""}
+                  {captured
+                    ? "✓ Surat qabul qilindi!"
+                    : faceDetected
+                    ? "Yuz aniqlandi — barqaror turing"
+                    : "Yuzingizni kameraga to’g’rilang"}
                 </p>
-                <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  {statusMsg}
-                </p>
+                <span
+                  className="shrink-0 text-base font-bold px-3 py-1 rounded-full"
+                  style={{
+                    backgroundColor: faceDetected
+                      ? (confidence >= 70 ? "#dcfce7" : confidence >= 45 ? "#fff8e6" : "#fee2e2")
+                      : "#f1f5f9",
+                    color: faceDetected ? confColor : "#94a3b8",
+                    fontFamily: "var(--font-poppins)",
+                    minWidth: 60,
+                    textAlign: "center",
+                  }}>
+                  {faceDetected ? `${confidence}%` : "—"}
+                </span>
               </div>
-              {/* Hold progress bar */}
-              <div className="w-full h-2 rounded-full" style={{ backgroundColor: "rgba(1,41,112,0.08)" }}>
-                <div className="h-2 rounded-full transition-all duration-100"
-                  style={{ width: `${progress}%`, backgroundColor: progress === 100 ? "#22c55e" : "#1cc2dc" }} />
+
+              {/* Aniqlik darajasi */}
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    Aniqlik darajasi
+                  </span>
+                  <span className="text-xs font-semibold" style={{ color: confColor }}>
+                    {faceDetected ? `${confidence}%` : "—"}
+                  </span>
+                </div>
+                <div className="w-full h-3 rounded-full overflow-hidden"
+                  style={{ backgroundColor: "rgba(1,41,112,0.08)" }}>
+                  <div className="h-3 rounded-full transition-all duration-150"
+                    style={{ width: `${confidence}%`, backgroundColor: confColor }} />
+                </div>
               </div>
-              <p className="text-xs text-center" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Bu pozitsiyani {(HOLD_MS / 1000).toFixed(0)} soniya ushlab turing
-              </p>
+
+              {/* Barqarorlik (capture progress) */}
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    Barqarorlik — {holdPct >= 100 ? "qabul qilinyapti..." : "barqaror turing"}
+                  </span>
+                  <span className="text-xs font-semibold" style={{ color: "#0e58a8" }}>
+                    {holdPct}%
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full overflow-hidden"
+                  style={{ backgroundColor: "rgba(1,41,112,0.08)" }}>
+                  <div className="h-2 rounded-full transition-all duration-100"
+                    style={{
+                      width: `${holdPct}%`,
+                      backgroundColor: holdPct >= 100 ? "#22c55e" : "#0e58a8",
+                    }} />
+                </div>
+              </div>
+
             </div>
           </div>
         )}
 
-        {/* ── Confirm phase ── */}
+        {/* ── Confirm ── */}
         {phase === "confirm" && (
           <div className="bg-white rounded-[10px] p-6 flex flex-col gap-5"
             style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -389,15 +577,13 @@ export default function FaceRegisterPage() {
                 </p>
               </div>
             </div>
-
             <div className="flex items-center gap-3 p-3 rounded-[8px]"
               style={{ backgroundColor: "#f0f5ff", border: "1px solid rgba(14,88,168,0.2)" }}>
               <ScanFace className="w-5 h-5 shrink-0" style={{ color: "#0e58a8" }} />
               <p className="text-xs" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Ma&apos;lumotlar 30 kun davomida saqlangan bo&apos;ladi. Imtihon oldidan yuzingiz tekshiriladi.
+                Yuz ma&apos;lumotlari muddatsiz saqlanadi. Imtihon oldidan yuzingiz tekshiriladi.
               </p>
             </div>
-
             <div className="flex gap-3">
               <button onClick={handleSubmit}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold flex-1 justify-center transition-opacity hover:opacity-90"
@@ -438,8 +624,7 @@ export default function FaceRegisterPage() {
               Yuz muvaffaqiyatli ro&apos;yxatdan o&apos;tdi!
             </p>
             <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Ma&apos;lumotlaringiz 30 kun davomida saqlandi.
-              Imtihon oldidan yuz tasdiqlovi o&apos;tkaziladi.
+              Yuz ma&apos;lumotlari muvaffaqiyatli saqlandi. Imtihon oldidan yuz tasdiqlovi o&apos;tkaziladi.
             </p>
             <button onClick={() => router.push("/face-id")}
               className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium hover:opacity-90 transition-opacity"
@@ -471,6 +656,7 @@ export default function FaceRegisterPage() {
             </button>
           </div>
         )}
+
       </div>
     </>
   )

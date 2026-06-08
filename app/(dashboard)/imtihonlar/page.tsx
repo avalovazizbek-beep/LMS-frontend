@@ -46,7 +46,9 @@ export default function Imtihonlar() {
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Imtihonlar</h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Imtihon jadvali va natijalari</p>
         </div>
-        <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => setSelectedCode(code)} />
+        <div className="flex items-center gap-3 flex-wrap">
+          <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => setSelectedCode(code)} />
+        </div>
       </motion.div>
 
       {/* Stats */}

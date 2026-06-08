@@ -3,10 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { verifyHemisToken } from "@/lib/hemis-jwt"
 
 export const HEMIS_STUDENT_URL =
-  process.env.HEMIS_STUDENT_URL || "https://student.sies.uz/rest/v1"
+  process.env.HEMIS_STUDENT_URL || `${process.env.HEMIS_BASE || "https://student.sies.uz/rest"}/v1`
 
 export const HEMIS_EMPLOYEE_URL =
-  process.env.HEMIS_EMPLOYEE_URL || "https://hemis.sies.uz/rest/v1"
+  process.env.HEMIS_EMPLOYEE_URL || `${process.env.HEMIS_BASE || "https://student.sies.uz/rest"}/v1`
 
 export async function getUserFromRequest(req: NextRequest) {
   const auth = req.headers.get("Authorization")

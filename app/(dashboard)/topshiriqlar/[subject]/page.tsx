@@ -20,7 +20,7 @@ function formatDate(ts?: number): string {
 
 const statusConfig: Record<string, {
   label: string; bg: string; color: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
 }> = {
   "11": { label: "Berildi",   bg: "#fff8e6", color: "#f59e0b", icon: Clock         },
   "12": { label: "Topshirdi", bg: "#f0f5ff", color: "#0e58a8", icon: ClipboardList },

@@ -1,8 +1,10 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const MEETING_BASE =
+  process.env.NEXT_PUBLIC_MEETING_API_URL || "/api/meeting"
 
 function getToken() {
   if (typeof window === "undefined") return null
-  return localStorage.getItem("lms_token")
+  return sessionStorage.getItem("lms_token")
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -11,6 +13,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
@@ -18,13 +21,23 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const data = await res.json()
   // Only redirect to login on 401 if a session token already exists
   // (prevents redirect when wrong credentials are entered on login page)
-  if (res.status === 401 && typeof window !== "undefined" && localStorage.getItem("lms_token")) {
+  if (res.status === 401 && typeof window !== "undefined" && sessionStorage.getItem("lms_token")) {
+    sessionStorage.removeItem("lms_token")
+    sessionStorage.removeItem("lms_role")
     localStorage.removeItem("lms_token")
     localStorage.removeItem("lms_role")
     window.location.href = "/login"
     throw new Error("Sessiya tugadi")
   }
-  if (!res.ok) throw new Error((data as Record<string, unknown>).message as string || "Xatolik yuz berdi")
+  if (!res.ok) {
+    const error = new Error(readApiMessage(data) || "Xatolik yuz berdi") as Error & {
+      status?: number
+      data?: unknown
+    }
+    error.status = res.status
+    error.data = data
+    throw error
+  }
   return data
 }
 
@@ -43,6 +56,306 @@ const patch = <T>(path: string, body?: unknown) =>
     body: body ? JSON.stringify(body) : undefined,
   })
 const del = <T>(path: string) => request<T>(path, { method: "DELETE" })
+
+async function rawUpload<T>(path: string, file: File): Promise<T> {
+  const token = getToken()
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    body: file,
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      "ngrok-skip-browser-warning": "true",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(readApiMessage(data) || "Fayl yuklashda xatolik")
+  return data
+}
+
+async function meetingRequest<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = getToken()
+  const res = await fetch(`${MEETING_BASE}${path}`, {
+    ...options,
+    headers: {
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      "ngrok-skip-browser-warning": "true",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  })
+  const text = await res.text()
+  let data: unknown = null
+
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = text
+    }
+  }
+
+  if (!res.ok) throw new Error(readApiMessage(data) || "Meeting API xatoligi")
+  return data as T
+}
+
+const meetingGet = <T>(path: string) => meetingRequest<T>(path)
+const meetingPost = <T>(path: string, body?: unknown) =>
+  meetingRequest<T>(path, {
+    method: "POST",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function asArray(value: unknown): unknown[] | null {
+  return Array.isArray(value) ? value : null
+}
+
+function textValue(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim()
+    if (typeof value === "number" && Number.isFinite(value)) return String(value)
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue
+
+    const record = asRecord(value)
+    const nested = textValue(
+      record.fullName,
+      record.full_name,
+      record.name,
+      record.title,
+      record.username
+    )
+    if (nested) return nested
+  }
+  return undefined
+}
+
+function numberValue(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value
+    if (typeof value === "string") {
+      const parsed = Number(value)
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  return undefined
+}
+
+function readApiMessage(value: unknown): string | undefined {
+  const record = asRecord(value)
+  const message = textValue(record.message, record.error, record.detail)
+  const details = asArray(record.details)
+    ?.map((item) => textValue(item))
+    .filter(Boolean)
+    .slice(0, 3)
+    .join("; ")
+  return details ? `${message || "Xatolik yuz berdi"}: ${details}` : message
+}
+
+function unwrapData(value: unknown): unknown {
+  const record = asRecord(value)
+  return "data" in record ? record.data : value
+}
+
+function formatDateValue(...values: unknown[]): string {
+  const rawNumber = numberValue(...values)
+  const rawText = textValue(...values)
+  const raw = rawNumber ?? rawText
+  if (!raw) return "-"
+
+  const date =
+    typeof raw === "number"
+      ? new Date(raw < 1_000_000_000_000 ? raw * 1000 : raw)
+      : new Date(raw)
+
+  if (Number.isNaN(date.getTime())) return String(raw)
+  return date.toISOString().slice(0, 10)
+}
+
+function formatTimeValue(...values: unknown[]): string {
+  const rawNumber = numberValue(...values)
+  const rawText = textValue(...values)
+  const raw = rawNumber ?? rawText
+  if (!raw) return "-"
+
+  const date =
+    typeof raw === "number"
+      ? new Date(raw < 1_000_000_000_000 ? raw * 1000 : raw)
+      : new Date(raw)
+
+  if (Number.isNaN(date.getTime())) return String(raw)
+  return date.toLocaleTimeString("uz-UZ", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function normalizeDuration(...values: unknown[]): string {
+  const rawNumber = numberValue(...values)
+  const rawText = textValue(...values)
+  if (rawNumber !== undefined) return `${rawNumber} daqiqa`
+  return rawText || "60 daqiqa"
+}
+
+function normalizeDurationFromRange(startValue: unknown, endValue: unknown) {
+  const startRaw = textValue(startValue)
+  const endRaw = textValue(endValue)
+  if (!startRaw || !endRaw) return undefined
+
+  const start = new Date(startRaw)
+  const end = new Date(endRaw)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return undefined
+  }
+
+  const minutes = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000))
+  return `${minutes} daqiqa`
+}
+
+function combineArrays(...values: unknown[]) {
+  const items = values.flatMap((value) => asArray(value) ?? [])
+  return items.length ? items : null
+}
+
+function normalizeMeeting(value: unknown, index = 0): Meeting {
+  const raw = asRecord(value)
+  const settings = asRecord(raw.settings)
+  const permissions = asRecord(raw.permissions)
+  const groupIds = asArray(raw.groupIds)
+  const startsAt =
+    raw.startTime ?? raw.startsAt ?? raw.startAt ?? raw.scheduledAt ?? raw.start_time
+  const endsAt = raw.endTime ?? raw.endsAt ?? raw.endAt ?? raw.end_time
+  const participantArray = asArray(raw.participants)
+  const participantCount =
+    numberValue(
+      raw.participants,
+      raw.participantsCount,
+      raw.participantCount,
+      raw.attendeesCount,
+      raw.membersCount
+    ) ??
+    participantArray?.length ??
+    0
+  const rawStatus = (textValue(raw.status, raw.state) || "scheduled").toLowerCase()
+  const doneStatuses = new Set([
+    "done",
+    "ended",
+    "completed",
+    "finished",
+    "cancelled",
+  ])
+  const normalizedDuration =
+    normalizeDurationFromRange(startsAt, endsAt) ??
+    normalizeDuration(
+      raw.duration,
+      raw.durationMinutes,
+      settings.duration,
+      settings.durationMinutes
+    )
+
+  return {
+    id: textValue(raw.id, raw._id, raw.meetingId, raw.uuid) || `meeting-${index}`,
+    title: textValue(raw.title, raw.name, raw.topic) || "Meeting",
+    subject:
+      textValue(raw.subject, raw.course, raw.lesson, raw.description) || "",
+    host:
+      textValue(
+        raw.host,
+        raw.hostName,
+        raw.teacher,
+        raw.teacherName,
+        raw.createdBy,
+        raw.createdByUserId,
+        raw.owner,
+        raw.user
+      ) || "",
+    date: formatDateValue(raw.date, raw.meetingDate, startsAt),
+    time: formatTimeValue(raw.time, raw.startTime, startsAt),
+    duration: normalizedDuration,
+    participants: participantCount,
+    link: textValue(raw.link, raw.url, raw.joinUrl, raw.meetingUrl) || "#",
+    status: doneStatuses.has(rawStatus) ? "done" : "upcoming",
+    description: textValue(raw.description),
+    startTime: textValue(raw.startTime, startsAt),
+    endTime: textValue(raw.endTime, endsAt),
+    groupIds: groupIds?.map((item) => numberValue(item) ?? item) ?? [],
+    settings,
+    permissions,
+    canJoinNow: Boolean(raw.canJoinNow),
+    rawStatus,
+  }
+}
+
+function normalizeMeetingGroups(payload: unknown): {
+  upcoming: Meeting[]
+  past: Meeting[]
+} {
+  const body = unwrapData(payload)
+  const record = asRecord(body)
+  const upcomingRaw = combineArrays(record.upcoming, record.scheduled, record.live)
+  const pastRaw = combineArrays(
+    record.past,
+    record.done,
+    record.completed,
+    record.ended,
+    record.cancelled
+  )
+
+  if (upcomingRaw || pastRaw) {
+    return {
+      upcoming: (upcomingRaw || []).map((item, index) =>
+        normalizeMeeting(item, index)
+      ),
+      past: (pastRaw || []).map((item, index) => normalizeMeeting(item, index)),
+    }
+  }
+
+  const items =
+    asArray(body) ||
+    asArray(record.items) ||
+    asArray(record.meetings) ||
+    asArray(record.rows) ||
+    []
+  const meetings = items.map((item, index) => normalizeMeeting(item, index))
+
+  return {
+    upcoming: meetings.filter((meeting) => meeting.status !== "done"),
+    past: meetings.filter((meeting) => meeting.status === "done"),
+  }
+}
+
+function meetingItemResponse(payload: unknown): ItemRes<Meeting> {
+  return { success: true, data: normalizeMeeting(unwrapData(payload)) }
+}
+
+function joinTokenResponse(payload: unknown): ItemRes<JoinTokenResponse> {
+  const body = unwrapData(payload)
+  const record = asRecord(body)
+  const meeting = "meeting" in record ? normalizeMeeting(record.meeting) : undefined
+  const permissions = asRecord(record.permissions)
+
+  return {
+    success: true,
+    data: {
+      token: textValue(record.token, record.joinToken, record.accessToken) || "",
+      meeting,
+      permissions,
+      meetingId: textValue(record.meetingId, record.id, meeting?.id),
+      expiresIn: textValue(record.expiresIn),
+      expiresAt: textValue(record.expiresAt, record.expireAt, record.expires_at),
+      socketUrl: textValue(record.socketUrl, record.wsUrl, record.realtimeUrl),
+      raw: body,
+    },
+  }
+}
 
 /* ── Auth ───────────────────────────────────────────────────────── */
 export const authApi = {
@@ -132,15 +445,52 @@ export const documentsApi = {
 }
 
 /* ── Meetings ───────────────────────────────────────────────────── */
+async function getStudentMeetings() {
+  const res = await meetingGet<unknown>("/api/meetings/my")
+  return { success: true, data: normalizeMeetingGroups(res) }
+}
+
+async function getMeetingJoinToken(id: string) {
+  const res = await meetingPost<unknown>(`/api/meetings/${id}/join-token`)
+  return joinTokenResponse(res)
+}
+
 export const meetingsApi = {
-  getAll: () =>
-    get<{ success: boolean; data: { upcoming: Meeting[]; past: Meeting[] } }>(
-      "/api/meetings"
+  health: () => meetingGet<SuccessEnvelope<{ status?: string }>>("/health"),
+  getStudentMeetings,
+  getAll: getStudentMeetings,
+  getOne: async (id: string) => {
+    const res = await meetingGet<unknown>(`/api/meetings/${id}`)
+    return meetingItemResponse(res)
+  },
+  create: async (body: CreateMeetingRequest | Partial<Meeting>) => {
+    const res = await meetingPost<unknown>("/api/meetings", body)
+    return meetingItemResponse(res)
+  },
+  start: async (id: string) => {
+    const res = await meetingPost<unknown>(`/api/meetings/${id}/start`)
+    return meetingItemResponse(res)
+  },
+  end: async (id: string) => {
+    const res = await meetingPost<unknown>(`/api/meetings/${id}/end`)
+    return meetingItemResponse(res)
+  },
+  studentJoinToken: getMeetingJoinToken,
+  joinToken: getMeetingJoinToken,
+  attendance: (id: string) =>
+    meetingGet<SuccessEnvelope<AttendanceSummary[] | AttendanceSummary>>(
+      `/api/meetings/${id}/attendance`
     ),
-  create: (body: Partial<Meeting>) =>
-    post<ItemRes<Meeting>>("/api/meetings", body),
-  markDone: (id: string) => patch<ItemRes<Meeting>>(`/api/meetings/${id}/done`),
-  remove: (id: string) => del<MsgRes>(`/api/meetings/${id}`),
+  remove: (id: string) =>
+    meetingRequest<{ success: boolean; message: string }>(`/api/meetings/${id}`, { method: "DELETE" }),
+
+  syncAttendance: () =>
+    meetingPost<SuccessEnvelope<{ queued?: number }>>(
+      "/api/internal/attendance/sync"
+    ),
+  devUsers: () => meetingGet<SuccessEnvelope<unknown[]>>("/api/dev/users"),
+  devToken: (body: { userId?: string; role?: string; username?: string }) =>
+    meetingPost<SuccessEnvelope<{ token: string }>>("/api/dev/token", body),
 }
 
 /* ── Notifications ──────────────────────────────────────────────── */
@@ -187,6 +537,16 @@ export const scheduleApi = {
 export type ListRes<T> = { success: boolean; data: T[] }
 export type ItemRes<T> = { success: boolean; data: T }
 export type MsgRes = { success: boolean; message: string }
+export type SuccessEnvelope<T = unknown> = {
+  success: boolean
+  data: T
+  message?: string
+}
+export type ErrorEnvelope = {
+  success: false
+  message: string
+  error?: string
+}
 
 export interface User {
   id: string
@@ -252,6 +612,80 @@ export interface Meeting {
   participants: number
   link: string
   status: "upcoming" | "done"
+  description?: string
+  startTime?: string
+  endTime?: string
+  groupIds?: unknown[]
+  settings?: Record<string, unknown>
+  permissions?: Record<string, unknown>
+  canJoinNow?: boolean
+  rawStatus?: string
+}
+export interface MeetingSettings {
+  allowCamera?: boolean
+  allowMicrophone?: boolean
+  allowScreenShare?: boolean
+  allowChat?: boolean
+  [key: string]: unknown
+}
+export interface CreateMeetingRequest {
+  title: string
+  description?: string
+  startTime: string
+  endTime: string
+  groupIds: Array<number | string>
+  settings?: MeetingSettings
+  [key: string]: unknown
+}
+export interface MeetingPermissions extends MeetingSettings {
+  canManageMeeting?: boolean
+}
+export interface AttendanceSession {
+  id?: string
+  sessionId?: number
+  joinedAt?: string
+  leftAt?: string | null
+  totalSeconds?: number
+  totalMinutes?: number
+  totalDurationLabel?: string
+  status?: string
+  durationSeconds?: number
+  durationMinutes?: number
+  [key: string]: unknown
+}
+export interface AttendanceSummary {
+  attendanceId?: number
+  meetingId?: number
+  userId?: number
+  groupId?: number | null
+  studentId?: string
+  fullName?: string
+  firstName?: string
+  lastName?: string
+  firstJoinedAt?: string | null
+  lastLeftAt?: string | null
+  totalSeconds?: number
+  totalMinutes?: number
+  totalDurationLabel?: string
+  sessionCount?: number
+  currentlyInMeeting?: boolean
+  isPresent?: boolean
+  syncedToMainBackend?: boolean
+  totalDurationSeconds?: number
+  totalDurationMinutes?: number
+  sessions?: AttendanceSession[]
+  [key: string]: unknown
+}
+export interface JoinTokenResponse {
+  token: string
+  meeting?: Meeting
+  permissions?: MeetingPermissions | Record<string, unknown>
+  meetingId?: string
+  expiresIn?: string
+  expiresAt?: string
+  socketUrl?: string
+  raw?: unknown
+  [key: string]: unknown
 }
 export interface Notif {
   id: string
@@ -304,9 +738,8 @@ export interface Grade {
 /* ── Face ID API ─────────────────────────────────────────────────── */
 export interface FaceStatus {
   registered: boolean
-  expired?: boolean
+  confirmed?: boolean
   registeredAt?: number
-  expiresAt?: number
   hasPendingRequest?: boolean
   hasApprovedRequest?: boolean
 }
@@ -324,7 +757,7 @@ export const faceApi = {
   status: () =>
     get<{ success: boolean } & FaceStatus>("/api/face/status"),
   register: (descriptors: number[][]) =>
-    post<{ success: boolean; message: string; expiresAt?: number }>("/api/face/register", { descriptors }),
+    post<{ success: boolean; message: string }>("/api/face/register", { descriptors }),
   verify: (descriptor: number[]) =>
     post<{ success: boolean; verified: boolean; confidence?: number; distance?: number; reason?: string; message?: string }>("/api/face/verify", { descriptor }),
   requestReRegister: (reason: string) =>
@@ -350,17 +783,45 @@ export function hemisDownloadUrl(fileUrl?: string, filename?: string): string {
  *  Token: HEMIS tokeni bizning JWT ichida saqlanadi
  * ─────────────────────────────────────────────────────────────────── */
 export const hemisApi = {
+  autoLogin: (login: string, password: string) =>
+    hemisPost<{ success: boolean; token: string; role: "student" | "employee"; source?: string }>("/api/hemis/auto-login", { login, password }),
+
   login: (login: string, password: string) =>
     hemisPost<{ success: boolean; token: string }>("/api/hemis/login", { login, password }),
 
   employeeLogin: (login: string, password: string) =>
     hemisPost<{ success: boolean; token: string }>("/api/hemis/employee-login", { login, password }),
 
+  oauthUrl: (role: "student" | "employee" | "tutor" | "auto") => {
+    const q = new URLSearchParams({ role }).toString()
+    return hemisGet<{ success: boolean; url: string; state: string; redirectUri: string }>(`/api/hemis/oauth/url?${q}`)
+  },
+
+  oauthStartUrl: (role: "student" | "employee" | "tutor", login?: string) => {
+    const q = login ? `?${new URLSearchParams({ login }).toString()}` : ""
+    return `${BASE}/api/hemis/oauth/start/${role}${q}`
+  },
+
+  oauthCallback: (role: "student" | "employee" | "tutor" | "auto", code: string, redirectUri: string, state: string) =>
+    hemisPost<{ success: boolean; token: string; role: "student" | "employee" }>("/api/hemis/oauth/callback", {
+      role,
+      code,
+      redirectUri,
+      state,
+    }),
+
   me: () =>
     hemisGet<{ success: boolean; data: HemisStudent }>("/api/hemis/me"),
 
   employeeMe: () =>
     hemisGet<{ success: boolean; data: HemisEmployee }>("/api/hemis/employee-me"),
+
+  employeeData: (resource: string, params?: Record<string, string>) => {
+    const q = new URLSearchParams(params ?? {}).toString()
+    return hemisGet<{ success: boolean; data: unknown; source?: string }>(
+      `/api/hemis/employee/${resource}${q ? `?${q}` : ""}`
+    )
+  },
 
   schedule: (params?: { _week?: string; _group?: string; _semester?: string }) => {
     const q = new URLSearchParams(params as Record<string, string>).toString()
@@ -406,6 +867,34 @@ export const hemisApi = {
   resources: (params?: { _semester?: string }) => {
     const q = new URLSearchParams(params as Record<string, string>).toString()
     return hemisGet<{ success: boolean; data: HemisResource[] }>(`/api/hemis/resources${q ? `?${q}` : ""}`)
+  },
+
+  localResources: (params?: { subject?: string; kind?: string }) => {
+    const q = new URLSearchParams(params as Record<string, string>).toString()
+    return hemisGet<{ success: boolean; data: LocalResource[] }>(`/api/local-resources${q ? `?${q}` : ""}`)
+  },
+
+  uploadResourceVideo: (input: {
+    file: File
+    subjectName: string
+    subjectId?: string
+    title?: string
+    comment?: string
+    kind: LocalResourceKind
+    trainingType?: string
+    meetingId?: string
+  }) => {
+    const q = new URLSearchParams({
+      subjectName: input.subjectName,
+      filename: input.file.name,
+      kind: input.kind,
+      ...(input.subjectId ? { subjectId: input.subjectId } : {}),
+      ...(input.title ? { title: input.title } : {}),
+      ...(input.comment ? { comment: input.comment } : {}),
+      ...(input.trainingType ? { trainingType: input.trainingType } : {}),
+      ...(input.meetingId ? { meetingId: input.meetingId } : {}),
+    }).toString()
+    return rawUpload<{ success: boolean; data: LocalResource }>(`/api/local-resources/upload?${q}`, input.file)
   },
 
   tasks: (params?: { _semester?: string }) => {
@@ -586,6 +1075,36 @@ export interface HemisResourceFile {
   url: string
 }
 
+export type LocalResourceKind =
+  | "lecture"
+  | "presentation"
+  | "laboratory"
+  | "video_lesson"
+  | "meeting_video"
+  | "other"
+
+export interface LocalResource {
+  id: string
+  subjectId?: string
+  subjectName: string
+  title: string
+  comment?: string
+  kind: LocalResourceKind
+  trainingTypeName: string
+  employeeName?: string
+  meetingId?: string
+  file: {
+    name: string
+    originalName: string
+    mimeType: string
+    size: number
+    relativePath: string
+    url: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+
 export interface HemisResourceItem {
   id: number | string
   comment?: string
@@ -639,11 +1158,13 @@ export interface HemisContractData {
   contractAmount?: string | number
   paidAmount?: string | number
   debitAmount?: string | number
+  endRestDebetAmount?: string | number
   creditAmount?: string | number
   status?: string
   course?: string
   speciality?: string
   pdfLink?: string
+  contractUrl?: string
   lastPaymentDate?: string
   eduYear?: string
   fullName?: string

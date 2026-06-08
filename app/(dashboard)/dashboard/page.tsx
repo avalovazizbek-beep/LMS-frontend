@@ -7,11 +7,34 @@ import {
   CalendarDays, ClipboardCheck, BookOpen, GraduationCap, BarChart2, CreditCard,
 } from "lucide-react"
 import Link from "next/link"
-import { usersApi, hemisApi } from "@/lib/api"
+import { usersApi, hemisApi, type HemisEmployee } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 
 const staggerContainer = { hidden: {}, visible: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } } }
 const cardItem = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } }
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function statNumber(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value
+    if (typeof value === "string") {
+      const parsed = Number(value)
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  return 0
+}
+
+function academicYearStart() {
+  const now = new Date()
+  const year = now.getFullYear()
+  return now.getMonth() >= 8 ? year : year - 1
+}
 
 /* ── Admin Dashboard ─────────────────────────────────────────────── */
 function AdminDashboard() {
@@ -197,16 +220,146 @@ function StudentDashboard() {
 }
 
 /* ── Main export ─────────────────────────────────────────────────── */
+function TeacherDashboard() {
+  const { data: meData } = useApi(() => hemisApi.employeeMe())
+  const currentAcademicYear = String(academicYearStart())
+  const { data: dashboardData } = useApi(
+    () => hemisApi.employeeData("dashboard", { _education_year: currentAcademicYear }),
+    [currentAcademicYear]
+  )
+  const employee = meData?.data as HemisEmployee | undefined
+  const stats = asRecord(dashboardData?.data)
+  const lessonStats = asRecord(stats.lessons)
+  const controlStats = asRecord(stats.controls)
+
+  const cards = [
+    { label: "Davomat jurnali", value: statNumber(lessonStats.attendanceJournal, stats.attendanceJournal, stats.attendance_journal), icon: ClipboardCheck, href: "/xodim/davomat-jurnali", color: "#0e58a8", bg: "#f0f5ff" },
+    { label: "Mening dars jadvalim", value: statNumber(lessonStats.schedule, stats.schedule, stats.lesson_schedule), icon: CalendarDays, href: "/xodim/dars-jadvali", color: "#1cc2dc", bg: "#f0fbfd" },
+    { label: "Darslar ro'yxati", value: statNumber(lessonStats.lessonList, stats.lessonList, stats.lessons_count), icon: ClipboardList, href: "/xodim/dars-otish", color: "#012970", bg: "#f6f9ff" },
+    { label: "Oraliq nazorat", value: statNumber(controlStats.midterm, stats.midterm, stats.intermediate), icon: BookOpen, href: "/xodim/oraliq-nazorat", color: "#0e58a8", bg: "#f0f5ff" },
+    { label: "Yakuniy nazorat", value: statNumber(controlStats.final, stats.final, stats.final_control), icon: GraduationCap, href: "/xodim/yakuniy-nazorat", color: "#1cc2dc", bg: "#f0fbfd" },
+    { label: "Boshqa nazoratlar", value: statNumber(controlStats.other, stats.other, stats.other_control), icon: FileText, href: "/xodim/boshqa-nazoratlar", color: "#7293b9", bg: "#f6f9ff" },
+  ]
+
+  const quickLinks = [
+    { label: "Fan resurslari", href: "/xodim/fan-resurslari", icon: BookOpen },
+    { label: "Fan topshiriqlari", href: "/xodim/fan-topshiriqlari", icon: ClipboardList },
+    { label: "Kalendar reja", href: "/xodim/kalendar-reja", icon: CalendarDays },
+    { label: "Shaxsiy qaydnoma", href: "/xodim/shaxsiy-qaydnoma-kiritish", icon: ClipboardCheck },
+  ]
+
+  const renderCards = (items: typeof cards) => (
+    <motion.div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5" variants={staggerContainer} initial="hidden" animate="visible">
+      {items.map((card) => {
+        const Icon = card.icon
+        return (
+          <motion.div key={card.label} variants={cardItem}>
+            <Link href={card.href} className="flex items-center justify-between gap-4 bg-white rounded-[10px] p-5 transition-all hover:shadow-md hover:-translate-y-0.5"
+              style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
+              <div>
+                <div className="text-3xl font-semibold" style={{ color: card.color, fontFamily: "var(--font-poppins)" }}>
+                  {card.value}
+                </div>
+                <p className="text-sm mt-2" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  {card.label}
+                </p>
+              </div>
+              <div className="w-14 h-14 rounded-[10px] flex items-center justify-center" style={{ backgroundColor: card.bg }}>
+                <Icon className="w-7 h-7" style={{ color: card.color }} />
+              </div>
+            </Link>
+          </motion.div>
+        )
+      })}
+    </motion.div>
+  )
+
+  return (
+    <div className="flex flex-col gap-[30px] p-[30px]">
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+          O'qituvchi kabineti
+        </h1>
+        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+          {employee?.full_name ? `${employee.full_name} uchun HEMIS ma'lumotlari` : "HEMIS o'qituvchi profili yuklanmoqda"}
+        </p>
+      </motion.div>
+
+      {employee && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.35 }}
+          className="bg-white rounded-[10px] p-5 flex flex-col gap-4 sm:flex-row sm:items-center"
+          style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
+          <div className="w-16 h-16 rounded-full bg-[#0e58a8] flex items-center justify-center text-white text-2xl font-semibold shrink-0">
+            {employee.full_name?.charAt(0).toUpperCase() ?? "O"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-semibold truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              {employee.full_name}
+            </p>
+            <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {employee.staffPosition?.name || employee.employeeType?.name || "O'qituvchi"}
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {[employee.department?.name, employee.employmentForm?.name, employee.employeeStatus?.name].filter(Boolean).map((item) => (
+                <span key={String(item)} className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      <section className="bg-white rounded-[10px] p-5" style={{ borderTop: "4px solid #1cc2dc", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
+        <h2 className="text-[22px] font-medium mb-5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+          Mashg'ulotlar
+        </h2>
+        {renderCards(cards.slice(0, 3))}
+      </section>
+
+      <section className="bg-white rounded-[10px] p-5" style={{ borderTop: "4px solid #1cc2dc", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
+        <h2 className="text-[22px] font-medium mb-5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+          Nazoratlar
+        </h2>
+        {renderCards(cards.slice(3))}
+      </section>
+
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4" variants={staggerContainer} initial="hidden" animate="visible">
+        {quickLinks.map((link) => {
+          const Icon = link.icon
+          return (
+            <motion.div key={link.href} variants={cardItem}>
+              <Link href={link.href} className="flex items-center gap-3 bg-white rounded-[10px] p-4 transition-all hover:shadow-md"
+                style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+                <div className="w-10 h-10 rounded-[8px] flex items-center justify-center" style={{ backgroundColor: "#f6f9ff" }}>
+                  <Icon className="w-5 h-5" style={{ color: "#0e58a8" }} />
+                </div>
+                <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  {link.label}
+                </span>
+              </Link>
+            </motion.div>
+          )
+        })}
+      </motion.div>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
-    setRole(localStorage.getItem("lms_role") ?? "admin")
+    setRole(sessionStorage.getItem("lms_role") ?? "admin")
   }, [])
 
   if (role === null) return null
 
-  if (role === "student" || role === "employee") {
+  if (role === "employee") {
+    return <TeacherDashboard />
+  }
+
+  if (role === "student") {
     return <StudentDashboard />
   }
 
