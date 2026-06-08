@@ -934,6 +934,180 @@ export const hemisApi = {
     hemisGet<{ success: boolean; data: HemisCertificate[] }>("/api/hemis/certificate"),
 }
 
+/* ── Teaching (LMS'ning o'z bazasi: darslar/topshiriqlar/imtihonlar) ──
+   HEMIS bilan aloqa faqat guruh + dars jadvali uchun (login paytida bir
+   marta sinxronlanadi + qo'lda "yangilash"). Qolgan hamma narsa — darslik,
+   topshiriq, imtihon, baholash, topshirish — shu yerda, LMS'ning o'z
+   bazasida saqlanadi va dedline (availableFrom/deadline) bilan boshqariladi. */
+export type ContentStatus = "locked" | "open" | "closed"
+export type TeachingContentType = "lesson" | "assignment" | "exam"
+
+export interface TeachingFile {
+  name: string
+  originalName: string
+  mimeType: string
+  size: number
+  relativePath: string
+  url: string
+}
+
+export interface TeacherGroup {
+  id: number
+  name: string
+  direction?: string | null
+  course?: number | null
+}
+
+export interface TeacherScheduleItem {
+  id: number
+  groupId: number | null
+  subjectName: string
+  weekDay: string | null
+  lessonDate: string | null
+  startTime: string | null
+  endTime: string | null
+  room: string | null
+  syncedAt: string
+}
+
+export interface TeacherContent {
+  id: number
+  uuid: string
+  type: TeachingContentType
+  teacherUserId: number
+  groupId: number
+  subjectName: string
+  title: string
+  description: string | null
+  kind: string | null
+  file: TeachingFile | null
+  availableFrom: string
+  deadline: string | null
+  maxScore: number | null
+  durationMinutes: number | null
+  status: ContentStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TeachingSubmission {
+  id: number
+  contentId: number
+  studentUserId: number
+  studentFullName: string
+  groupId: number | null
+  file: TeachingFile | null
+  comment: string | null
+  submittedAt: string
+  grade: number | null
+  feedback: string | null
+  gradedAt: string | null
+  gradedByUserId: number | null
+}
+
+function buildParams(input: Record<string, string | number | null | undefined>): Record<string, string> {
+  const params: Record<string, string> = {}
+  for (const [key, value] of Object.entries(input)) {
+    if (value === null || value === undefined || value === "") continue
+    params[key] = String(value)
+  }
+  return params
+}
+
+export const teachingApi = {
+  groups: () => get<ListRes<TeacherGroup>>("/api/teaching/groups"),
+
+  sync: () =>
+    post<{ success: boolean; message: string; data: { groups: TeacherGroup[]; schedule: TeacherScheduleItem[] } }>(
+      "/api/teaching/sync",
+      {}
+    ),
+
+  schedule: () => get<ListRes<TeacherScheduleItem>>("/api/teaching/schedule"),
+
+  content: (params?: { type?: TeachingContentType; group?: number | string; subject?: string }) => {
+    const q = new URLSearchParams(buildParams(params ?? {})).toString()
+    return get<ListRes<TeacherContent>>(`/api/teaching/content${q ? `?${q}` : ""}`)
+  },
+
+  contentItem: (id: number | string) => get<ItemRes<TeacherContent>>(`/api/teaching/content/${id}`),
+
+  createContent: (input: {
+    type: TeachingContentType
+    groupId: number | string
+    subjectName: string
+    title: string
+    description?: string
+    kind?: string
+    availableFrom: string
+    deadline?: string | null
+    maxScore?: number | null
+    durationMinutes?: number | null
+    file?: File | null
+  }) => {
+    const meta = buildParams({
+      type: input.type,
+      groupId: input.groupId,
+      subjectName: input.subjectName,
+      title: input.title,
+      description: input.description,
+      kind: input.kind,
+      availableFrom: input.availableFrom,
+      deadline: input.deadline,
+      maxScore: input.maxScore,
+      durationMinutes: input.durationMinutes,
+    })
+
+    if (input.file) {
+      const q = new URLSearchParams({ ...meta, filename: input.file.name }).toString()
+      return rawUpload<ItemRes<TeacherContent>>(`/api/teaching/content?${q}`, input.file)
+    }
+    return post<ItemRes<TeacherContent>>("/api/teaching/content", meta)
+  },
+
+  updateContent: (
+    id: number | string,
+    body: Partial<{
+      title: string
+      description: string | null
+      subjectName: string
+      availableFrom: string
+      deadline: string | null
+      maxScore: number | null
+      durationMinutes: number | null
+    }>
+  ) => put<ItemRes<TeacherContent>>(`/api/teaching/content/${id}`, body),
+
+  removeContent: (id: number | string) => del<MsgRes>(`/api/teaching/content/${id}`),
+
+  submit: (contentId: number | string, input: { comment?: string; file?: File | null }) => {
+    if (input.file) {
+      const q = new URLSearchParams(buildParams({ filename: input.file.name, comment: input.comment })).toString()
+      return rawUpload<ItemRes<TeachingSubmission>>(`/api/teaching/content/${contentId}/submit?${q}`, input.file)
+    }
+    return post<ItemRes<TeachingSubmission>>(`/api/teaching/content/${contentId}/submit`, {
+      comment: input.comment ?? "",
+    })
+  },
+
+  mySubmission: (contentId: number | string) =>
+    get<ItemRes<TeachingSubmission | null>>(`/api/teaching/content/${contentId}/submissions/me`),
+
+  submissions: (contentId: number | string) =>
+    get<ListRes<TeachingSubmission>>(`/api/teaching/content/${contentId}/submissions`),
+
+  grade: (submissionId: number | string, body: { grade: number; feedback?: string }) =>
+    put<ItemRes<TeachingSubmission>>(`/api/teaching/submissions/${submissionId}/grade`, body),
+
+  /** Qulflanmagan fayllarni token bilan ochish uchun to'liq URL (video/pdf src, <a href> uchun). */
+  fileUrl: (relativeUrl: string) => {
+    if (!relativeUrl) return ""
+    const token = getToken()
+    const sep = relativeUrl.includes("?") ? "&" : "?"
+    return `${BASE}${relativeUrl}${token ? `${sep}token=${encodeURIComponent(token)}` : ""}`
+  },
+}
+
 /* ── HEMIS Types ─────────────────────────────────────────────────── */
 export interface HemisStudent {
   id: number | string

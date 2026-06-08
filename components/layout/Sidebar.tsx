@@ -105,6 +105,16 @@ const studentSections: Section[] = [
 
 const employeeSections: Section[] = [
   {
+    title: "Mening kabinetim",
+    icon: GraduationCap,
+    items: [
+      { label: "Guruhlarim",      href: "/oqituvchi-kabineti" },
+      { label: "Darslarim",       href: "/oqituvchi-kabineti/darslar" },
+      { label: "Topshiriqlarim",  href: "/oqituvchi-kabineti/topshiriqlar" },
+      { label: "Imtihonlarim",    href: "/oqituvchi-kabineti/imtihonlar" },
+    ],
+  },
+  {
     title: "E-hujjatlar",
     icon: FileText,
     items: [
