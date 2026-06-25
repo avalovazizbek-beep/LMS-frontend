@@ -1,8 +1,10 @@
 "use client"
 
 import { useRef, useState } from "react"
+import Link from "next/link"
 import {
   Lock, CheckCircle2, Clock, Download, Paperclip, X, Loader2, Send, AlertCircle,
+  Video, Link as LinkIcon, FileText,
 } from "lucide-react"
 import { teachingApi, type TeacherContent, type TeachingSubmission, type ContentStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -132,21 +134,106 @@ export function StudentContentCard({ item, submittable = false }: Props) {
           </div>
         )}
 
-        {!locked && item.file && (
-          isVideoFile(item.file.mimeType, item.file.originalName) ? (
-            <video controls preload="metadata" className="aspect-video w-full rounded-[8px] bg-[#012970]"
-              src={teachingApi.fileUrl(item.file.url)} />
-          ) : (
-            <a href={teachingApi.fileUrl(item.file.url)} target="_blank" rel="noreferrer" download
-              className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-xs font-medium"
-              style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              <Download className="w-3.5 h-3.5" />
-              {item.file.originalName}
-            </a>
-          )
+        {!locked && (item.docFile || item.videoFile || item.meetingLink) && (
+          <div className="flex flex-col gap-2">
+            {/* Hujjat fayli */}
+            {item.docFile && (
+              <a href={teachingApi.fileUrl(item.docFile.url)} target="_blank" rel="noreferrer" download
+                className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-xs font-medium"
+                style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                <FileText className="w-3.5 h-3.5" />
+                {item.docFile.originalName}
+              </a>
+            )}
+
+            {/* Video darslik */}
+            {item.videoFile && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
+                  <Video className="w-3.5 h-3.5" />
+                  Video darslik
+                </div>
+                <video controls preload="metadata" className="aspect-video w-full rounded-[8px] bg-black"
+                  src={teachingApi.fileUrl(item.videoFile.url)} />
+              </div>
+            )}
+
+            {/* Online meeting */}
+            {item.meetingLink && (
+              <a
+                href={item.meetingLink.startsWith("http") ? item.meetingLink : `https://${item.meetingLink}`}
+                target="_blank" rel="noreferrer"
+                className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-xs font-medium"
+                style={{ backgroundColor: "#ecfeff", color: "#0891b2", fontFamily: "var(--font-poppins)" }}>
+                <LinkIcon className="w-3.5 h-3.5" />
+                Online darsg&apos;a kirish
+              </a>
+            )}
+          </div>
         )}
 
-        {!locked && submittable && (
+        {!locked && submittable && item.type === "exam" && item.questionCount > 0 && (
+          <div className="pt-3" style={{ borderTop: "1px solid rgba(1,41,112,0.06)" }}>
+            {subLoading ? (
+              <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Yuklanmoqda…</p>
+            ) : mySubmission ? (() => {
+              const maxAttempts = item.attemptsCount && item.attemptsCount > 0 ? item.attemptsCount : null
+              const used = mySubmission.attemptsUsed ?? 1
+              const passThreshold = (item.maxScore && item.maxScore > 0) ? item.maxScore * 0.6 : 60
+              const alreadyPassed = mySubmission.grade !== null && mySubmission.grade !== undefined && mySubmission.grade >= passThreshold
+              const canRetry = !alreadyPassed && item.status === "open" && (maxAttempts === null || used < maxAttempts)
+              return (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CheckCircle2 className="w-4 h-4" style={{ color: "#22c55e" }} />
+                    <span className="text-xs font-medium" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>
+                      Topshirildi: {formatDateTime(mySubmission.submittedAt)}
+                    </span>
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                      style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                      Natija: {mySubmission.grade}{item.maxScore ? ` / ${item.maxScore}` : ""}
+                    </span>
+                    {maxAttempts !== null && (
+                      <span className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                        {used}/{maxAttempts} urinish
+                      </span>
+                    )}
+                  </div>
+                  {canRetry && (
+                    <Link href={`/imtihonlar/${item.id}`}
+                      className="flex items-center gap-2 w-fit px-4 py-2 rounded-[8px] text-sm font-medium"
+                      style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                      <Send className="w-4 h-4" /> Qayta topshirish ({maxAttempts! - used} urinish qoldi)
+                    </Link>
+                  )}
+                  {!canRetry && alreadyPassed && (
+                    <p className="text-xs font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                      ✓ Test muvaffaqiyatli topshirildi
+                    </p>
+                  )}
+                  {!canRetry && !alreadyPassed && maxAttempts !== null && used >= maxAttempts && (
+                    <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                      Barcha {maxAttempts} ta urinish ishlatildi
+                    </p>
+                  )}
+                </div>
+              )
+            })() : item.status === "open" ? (
+              <Link href={`/imtihonlar/${item.id}`}
+                className="flex items-center gap-2 w-fit px-4 py-2 rounded-[8px] text-sm font-medium"
+                style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                <Send className="w-4 h-4" /> Imtihonni boshlash
+              </Link>
+            ) : (
+              <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                Topshirish muddati tugagan — siz ulgurmadingiz.
+              </p>
+            )}
+          </div>
+        )}
+
+        {!locked && submittable && !(item.type === "exam" && item.questionCount > 0) && (
           <div className="pt-3" style={{ borderTop: "1px solid rgba(1,41,112,0.06)" }}>
             {subLoading ? (
               <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Yuklanmoqda…</p>

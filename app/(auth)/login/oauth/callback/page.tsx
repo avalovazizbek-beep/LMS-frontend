@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { GraduationCap, RefreshCw } from "lucide-react"
-import { hemisApi } from "@/lib/api"
+import { hemisApi, adminApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 type HemisRole = "student" | "employee" | "tutor" | "auto"
@@ -90,6 +90,10 @@ function OAuthCallbackContent() {
         sessionStorage.removeItem("hemis_oauth_state")
         sessionStorage.removeItem("hemis_oauth_role")
         sessionStorage.removeItem("hemis_oauth_redirect_uri")
+        try {
+          const adminCheck = await adminApi.check()
+          if (adminCheck.isAdmin) { router.replace("/admin"); return }
+        } catch { /* not admin */ }
         router.replace("/dashboard")
         return
       }
@@ -125,6 +129,11 @@ function OAuthCallbackContent() {
         sessionStorage.removeItem("hemis_oauth_state")
         sessionStorage.removeItem("hemis_oauth_role")
         sessionStorage.removeItem("hemis_oauth_redirect_uri")
+        // Check if this user has admin access
+        try {
+          const adminCheck = await adminApi.check()
+          if (adminCheck.isAdmin) { router.replace("/admin"); return }
+        } catch { /* not admin, continue to dashboard */ }
         router.replace("/dashboard")
       } catch (err: unknown) {
         if (!cancelled) {

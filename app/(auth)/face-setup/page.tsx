@@ -427,8 +427,8 @@ export default function FaceSetupPage() {
                   <CheckCircle2 className="h-5 w-5 shrink-0" style={{ color: "#22c55e" }} />
                   <p className="text-sm" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>Yuz ma&apos;lumotlari xavfsiz saqlandi</p>
                 </div>
-                <a href="/login" className="flex h-12 w-full items-center justify-center gap-2 rounded-[8px] font-medium text-white" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  Kirish sahifasiga o&apos;tish
+                <a href="/dashboard" className="flex h-12 w-full items-center justify-center gap-2 rounded-[8px] font-medium text-white" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  Davom etish
                 </a>
               </div>
             )}

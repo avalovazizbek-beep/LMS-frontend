@@ -1,4 +1,5 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const PUBLIC_BASE = process.env.NEXT_PUBLIC_PUBLIC_API_URL || BASE
 const MEETING_BASE =
   process.env.NEXT_PUBLIC_MEETING_API_URL || "/api/meeting"
 
@@ -73,6 +74,34 @@ async function rawUpload<T>(path: string, file: File): Promise<T> {
   return data
 }
 
+/** Fayl yuklash, foiz progress bilan (XMLHttpRequest orqali — fetch upload progressni qo'llamaydi) */
+function rawUploadWithProgress<T>(path: string, file: File, onProgress: (percent: number) => void): Promise<T> {
+  const token = getToken()
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open("POST", `${BASE}${path}`)
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream")
+    xhr.setRequestHeader("ngrok-skip-browser-warning", "true")
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
+    }
+
+    xhr.onload = () => {
+      let data: unknown = null
+      try { data = JSON.parse(xhr.responseText) } catch {}
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data as T)
+      } else {
+        reject(new Error(readApiMessage(data) || "Fayl yuklashda xatolik"))
+      }
+    }
+    xhr.onerror = () => reject(new Error("Fayl yuklashda xatolik"))
+    xhr.send(file)
+  })
+}
+
 async function meetingRequest<T>(
   path: string,
   options: RequestInit = {}
@@ -108,6 +137,31 @@ const meetingPost = <T>(path: string, body?: unknown) =>
     method: "POST",
     body: body === undefined ? undefined : JSON.stringify(body),
   })
+
+async function meetingUpload<T>(path: string, blob: Blob, filename: string): Promise<T> {
+  const token = getToken()
+  const url = `${MEETING_BASE}${path}${path.includes("?") ? "&" : "?"}filename=${encodeURIComponent(filename)}`
+  const res = await fetch(url, {
+    method: "POST",
+    body: blob,
+    headers: {
+      "Content-Type": blob.type || "application/octet-stream",
+      "ngrok-skip-browser-warning": "true",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+  const text = await res.text()
+  let data: unknown = null
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = text
+    }
+  }
+  if (!res.ok) throw new Error(readApiMessage(data) || "Yozuvni yuklashda xatolik")
+  return data as T
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -230,6 +284,7 @@ function normalizeMeeting(value: unknown, index = 0): Meeting {
   const settings = asRecord(raw.settings)
   const permissions = asRecord(raw.permissions)
   const groupIds = asArray(raw.groupIds)
+  const groupNames = asArray(raw.groupNames)?.map(n => textValue(n)).filter(Boolean) as string[] | undefined
   const startsAt =
     raw.startTime ?? raw.startsAt ?? raw.startAt ?? raw.scheduledAt ?? raw.start_time
   const endsAt = raw.endTime ?? raw.endsAt ?? raw.endAt ?? raw.end_time
@@ -266,6 +321,7 @@ function normalizeMeeting(value: unknown, index = 0): Meeting {
     title: textValue(raw.title, raw.name, raw.topic) || "Meeting",
     subject:
       textValue(raw.subject, raw.course, raw.lesson, raw.description) || "",
+    subjectName: textValue(raw.subjectName, raw.subject_name) || "",
     host:
       textValue(
         raw.host,
@@ -287,6 +343,7 @@ function normalizeMeeting(value: unknown, index = 0): Meeting {
     startTime: textValue(raw.startTime, startsAt),
     endTime: textValue(raw.endTime, endsAt),
     groupIds: groupIds?.map((item) => numberValue(item) ?? item) ?? [],
+    groupNames: groupNames ?? [],
     settings,
     permissions,
     canJoinNow: Boolean(raw.canJoinNow),
@@ -334,6 +391,35 @@ function normalizeMeetingGroups(payload: unknown): {
 
 function meetingItemResponse(payload: unknown): ItemRes<Meeting> {
   return { success: true, data: normalizeMeeting(unwrapData(payload)) }
+}
+
+function recordingFileUrl(id: string): string {
+  const token = getToken()
+  return `${MEETING_BASE}/api/meetings/recordings/${id}/file${token ? `?token=${encodeURIComponent(token)}` : ""}`
+}
+
+function normalizeRecording(value: unknown): MeetingRecording {
+  const raw = asRecord(value)
+  const groupIds = asArray(raw.groupIds)
+  const id = textValue(raw.id) || ""
+
+  return {
+    id,
+    meetingId: textValue(raw.meetingId) || "",
+    title: textValue(raw.title) || "Dars",
+    subjectName: textValue(raw.subjectName, raw.subject_name) || "",
+    groupIds: groupIds?.map((item) => numberValue(item) ?? 0) ?? [],
+    date: formatDateValue(raw.startTime, raw.createdAt),
+    time: formatTimeValue(raw.startTime, raw.createdAt),
+    fileUrl: id ? recordingFileUrl(id) : "",
+    createdAt: textValue(raw.createdAt) || "",
+  }
+}
+
+function recordingsResponse(payload: unknown): ListRes<MeetingRecording> {
+  const body = unwrapData(payload)
+  const items = asArray(body) || []
+  return { success: true, data: items.map(normalizeRecording) }
 }
 
 function joinTokenResponse(payload: unknown): ItemRes<JoinTokenResponse> {
@@ -491,6 +577,22 @@ export const meetingsApi = {
   devUsers: () => meetingGet<SuccessEnvelope<unknown[]>>("/api/dev/users"),
   devToken: (body: { userId?: string; role?: string; username?: string }) =>
     meetingPost<SuccessEnvelope<{ token: string }>>("/api/dev/token", body),
+
+  recordings: async (meetingId: string) => {
+    const res = await meetingGet<unknown>(`/api/meetings/${meetingId}/recordings`)
+    return recordingsResponse(res)
+  },
+  myRecordings: async () => {
+    const res = await meetingGet<unknown>("/api/meetings/recordings/mine")
+    return recordingsResponse(res)
+  },
+  recordingsBySubject: (subject: string) =>
+    meetingGet<{ success: boolean; data: SubjectRecording[] }>(
+      `/api/meetings/recordings/by-subject?subject=${encodeURIComponent(subject)}`
+    ),
+  uploadRecording: (meetingId: string, blob: Blob, filename: string) =>
+    meetingUpload<SuccessEnvelope<unknown>>(`/api/meetings/${meetingId}/recordings`, blob, filename),
+  recordingFileUrl,
 }
 
 /* ── Notifications ──────────────────────────────────────────────── */
@@ -511,26 +613,6 @@ export const boardApi = {
   update: (id: string, body: Partial<BoardPost>) =>
     put<ItemRes<BoardPost>>(`/api/board/${id}`, body),
   remove: (id: string) => del<MsgRes>(`/api/board/${id}`),
-}
-
-/* ── Schedule / Attendance / Grades ────────────────────────────── */
-export const scheduleApi = {
-  getAll: () => get<ListRes<Schedule>>("/api/schedule"),
-  create: (body: Partial<Schedule>) =>
-    post<ItemRes<Schedule>>("/api/schedule", body),
-  remove: (id: string) => del<MsgRes>(`/api/schedule/${id}`),
-  getAttendance: (studentId?: string) =>
-    get<ListRes<Attendance>>(
-      `/api/schedule/attendance${studentId ? `?studentId=${studentId}` : ""}`
-    ),
-  addAttendance: (body: Partial<Attendance>) =>
-    post<ItemRes<Attendance>>("/api/schedule/attendance", body),
-  getGrades: (studentId?: string) =>
-    get<ListRes<Grade> & { gpa: number }>(
-      `/api/schedule/grades${studentId ? `?studentId=${studentId}` : ""}`
-    ),
-  updateGrade: (id: string, body: Partial<Grade>) =>
-    put<ItemRes<Grade>>(`/api/schedule/grades/${id}`, body),
 }
 
 /* ── Shared Types ───────────────────────────────────────────────── */
@@ -605,6 +687,7 @@ export interface Meeting {
   id: string
   title: string
   subject: string
+  subjectName?: string
   host: string
   date: string
   time: string
@@ -616,6 +699,7 @@ export interface Meeting {
   startTime?: string
   endTime?: string
   groupIds?: unknown[]
+  groupNames?: string[]
   settings?: Record<string, unknown>
   permissions?: Record<string, unknown>
   canJoinNow?: boolean
@@ -631,11 +715,37 @@ export interface MeetingSettings {
 export interface CreateMeetingRequest {
   title: string
   description?: string
+  subjectName?: string
   startTime: string
   endTime: string
   groupIds: Array<number | string>
   settings?: MeetingSettings
   [key: string]: unknown
+}
+export interface MeetingRecording {
+  id: string
+  meetingId: string
+  title: string
+  subjectName: string
+  groupIds: number[]
+  date: string
+  time: string
+  fileUrl: string
+  createdAt: string
+}
+
+export interface SubjectRecording {
+  id: string
+  meetingId: string
+  title: string
+  subjectName: string
+  groupIds: number[]
+  groupNames: string[]
+  startTime: string
+  fileUrl: string
+  originalName: string
+  mimeType: string
+  createdAt: string
 }
 export interface MeetingPermissions extends MeetingSettings {
   canManageMeeting?: boolean
@@ -705,36 +815,6 @@ export interface BoardPost {
   pinned: boolean
   author: string
 }
-export interface Schedule {
-  id: string
-  day: string
-  subject: string
-  type: "Ma'ruza" | "Seminar" | "Amaliy" | "Laboratoriya"
-  time: string
-  room: string
-  teacher: string
-  group: string
-}
-export interface Attendance {
-  id: string
-  studentId: string
-  subject: string
-  date: string
-  status: "present" | "absent" | "excused"
-}
-export interface Grade {
-  id: string
-  studentId: string
-  subject: string
-  teacher: string
-  credits: number
-  midterm?: number
-  final?: number
-  independent?: number
-  total?: number
-  grade?: string
-}
-
 /* ── Face ID API ─────────────────────────────────────────────────── */
 export interface FaceStatus {
   registered: boolean
@@ -776,6 +856,44 @@ export function hemisDownloadUrl(fileUrl?: string, filename?: string): string {
   const params = new URLSearchParams({ url: fileUrl, token })
   if (filename) params.set("filename", filename)
   return `${BASE}/api/hemis/download?${params.toString()}`
+}
+
+// Bir nechta faylni bitta zip arxiv qilib yuklab olish uchun link yaratadi
+export function hemisDownloadZipUrl(files: Array<{ file?: string; name?: string }>, zipName?: string): string {
+  const validFiles = files.filter((f): f is { file: string; name?: string } => Boolean(f.file))
+  if (!validFiles.length) return "#"
+  const token = getToken() ?? ""
+  const params = new URLSearchParams({
+    files: JSON.stringify(validFiles.map((f) => ({ url: f.file, name: f.name }))),
+    token,
+  })
+  if (zipName) params.set("filename", zipName)
+  return `${BASE}/api/hemis/download-zip?${params.toString()}`
+}
+
+// HEMIS "Kalendar reja" sahifasidagi Calendar_plan-<Fan>.pdf faylini yuklab olish uchun link yaratadi
+export function hemisCalendarPlanPdfUrl(params: {
+  curriculum?: string | null
+  semester?: string | null
+  educationYear?: string | null
+  subject?: string | null
+  group?: string | null
+  trainingType?: string | null
+  educationLang?: string | null
+  filename?: string
+}): string {
+  if (!params.curriculum || !params.subject) return "#"
+  const token = getToken() ?? ""
+  const qp = new URLSearchParams({ token })
+  if (params.curriculum) qp.set("curriculum", params.curriculum)
+  if (params.semester) qp.set("semester", params.semester)
+  if (params.educationYear) qp.set("educationYear", params.educationYear)
+  if (params.subject) qp.set("subject", params.subject)
+  if (params.group) qp.set("group", params.group)
+  if (params.trainingType) qp.set("training_type", params.trainingType)
+  if (params.educationLang) qp.set("education_lang", params.educationLang)
+  if (params.filename) qp.set("filename", params.filename)
+  return `${BASE}/api/hemis/calendar-plan-pdf?${qp.toString()}`
 }
 
 /* ── HEMIS Proxy API ────────────────────────────────────────────────
@@ -883,6 +1001,7 @@ export const hemisApi = {
     kind: LocalResourceKind
     trainingType?: string
     meetingId?: string
+    url?: string
   }) => {
     const q = new URLSearchParams({
       subjectName: input.subjectName,
@@ -893,9 +1012,32 @@ export const hemisApi = {
       ...(input.comment ? { comment: input.comment } : {}),
       ...(input.trainingType ? { trainingType: input.trainingType } : {}),
       ...(input.meetingId ? { meetingId: input.meetingId } : {}),
+      ...(input.url ? { url: input.url } : {}),
     }).toString()
     return rawUpload<{ success: boolean; data: LocalResource }>(`/api/local-resources/upload?${q}`, input.file)
   },
+
+  createResourceLink: (input: {
+    subjectName: string
+    url: string
+    subjectId?: string
+    title?: string
+    comment?: string
+    kind?: LocalResourceKind
+    trainingType?: string
+    meetingId?: string
+  }) =>
+    post<{ success: boolean; data: LocalResource }>("/api/local-resources/url", input),
+
+  toggleResource: (id: string) =>
+    patch<{ success: boolean; data: LocalResource }>(`/api/local-resources/${id}/toggle`, {}),
+
+  updateResource: (
+    id: string,
+    body: Partial<{ title: string; comment: string | null; externalUrl: string | null; isActive: boolean }>
+  ) => put<{ success: boolean; data: LocalResource }>(`/api/local-resources/${id}`, body),
+
+  deleteResource: (id: string) => del<MsgRes>(`/api/local-resources/${id}`),
 
   tasks: (params?: { _semester?: string }) => {
     const q = new URLSearchParams(params as Record<string, string>).toString()
@@ -916,6 +1058,18 @@ export const hemisApi = {
       file_type: file.type || "application/octet-stream",
       file_data: fileData,
     })
+  },
+
+  taskSubmissions: (params?: { taskId?: string; groupId?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.taskId)  q.set("taskId",  String(params.taskId))
+    if (params?.groupId) q.set("groupId", String(params.groupId))
+    return get<{ success: boolean; data: HemisTaskSubmission[] }>(`/api/hemis/task-submissions${q.toString() ? "?" + q : ""}`)
+  },
+
+  taskSubmissionFileUrl: (fileName: string) => {
+    const token = getToken()
+    return `${BASE}/api/hemis/task-submission-file/${encodeURIComponent(fileName)}${token ? "?token=" + encodeURIComponent(token) : ""}`
   },
 
   contractList: () =>
@@ -940,7 +1094,14 @@ export const hemisApi = {
    topshiriq, imtihon, baholash, topshirish — shu yerda, LMS'ning o'z
    bazasida saqlanadi va dedline (availableFrom/deadline) bilan boshqariladi. */
 export type ContentStatus = "locked" | "open" | "closed"
-export type TeachingContentType = "lesson" | "assignment" | "exam"
+export type TeachingContentType =
+  | "lesson"           // Fan resurslari (darslar)
+  | "assignment"       // Fan topshiriqlari
+  | "exam"             // Fan imtihonlari
+  | "mavzu"            // Fan mavzulari
+  | "kurs-topshiriq"   // Kurs topshiriqlari
+  | "kalendar"         // Kalendar reja
+  | "malumot"          // Fan ma'lumotlari
 
 export interface TeachingFile {
   name: string
@@ -977,15 +1138,32 @@ export interface TeacherContent {
   teacherUserId: number
   groupId: number
   subjectName: string
+  topicKey: string | null
   title: string
   description: string | null
   kind: string | null
-  file: TeachingFile | null
+  controlType: string | null       // Nazorat turi (kurs-topshiriq uchun)
+  resourceType: string | null      // Resurs turi (Video material, Hujjat, Audio meeting...)
+  file: TeachingFile | null        // backward compat: docFile ?? videoFile
+  files: TeachingFile[]            // qo'shimcha biriktirilgan fayllar
+  docFile: TeachingFile | null     // hujjat (PDF, Word, PPT...)
+  videoFile: TeachingFile | null   // video darslik
+  meetingLink: string | null       // online meeting havolasi
+  meetingId: string | null
   availableFrom: string
   deadline: string | null
   maxScore: number | null
+  attemptsCount: number | null     // Urinishlar soni
+  questionDisplayCount: number | null  // Ko'rsatiladigan savollar soni
+  language: string | null
+  completionPoints: number | null  // Resurs uchun ball (ketma-ket qulflash uchun)
   durationMinutes: number | null
+  trainingLoad: number | null      // Yuklama (soat)
+  lessonDate: string | null        // Dars sanasi (kalendar reja)
+  delivered: boolean               // O'tildi
+  isActive: boolean                // Faol
   status: ContentStatus
+  questionCount: number
   createdAt: string
   updatedAt: string
 }
@@ -1003,6 +1181,120 @@ export interface TeachingSubmission {
   feedback: string | null
   gradedAt: string | null
   gradedByUserId: number | null
+  answers: number[] | null
+  autoGraded: boolean
+  attemptsUsed: number
+  questionIds: number[] | null
+  optionPerms: Record<number, number[]> | null
+}
+
+export interface ExamResultsTopic {
+  id: number
+  title: string
+  topicKey: string | null
+  maxScore: number | null
+  availableFrom: string
+  totalSubmitted: number
+}
+
+export interface ExamResultsStudent {
+  userId: number
+  fullName: string
+  studentIdNumber: string | null
+  scores: Record<number, number | null>
+  total: number
+}
+
+export interface ExamResultsData {
+  topics: ExamResultsTopic[]
+  students: ExamResultsStudent[]
+}
+
+/* ── Jurnal (mavzular + JN + ON + YN + davomat) ─────────────────────── */
+export interface JournalTopic {
+  key: string
+  idx: number
+  title: string
+  maxScore: number
+}
+
+export interface JournalStudent {
+  userId: number
+  fullName: string
+  studentIdNumber: string | null
+  topicScores: Record<string, number | null>
+  jn: number | null
+  on1: number | null
+  on2: number | null
+  yn: number | null
+  attendancePct: number | null
+}
+
+export interface JournalData {
+  topics: JournalTopic[]
+  students: JournalStudent[]
+}
+
+export interface PptxRun { t: string; b: boolean; i: boolean; sz: number; c: string | null }
+export interface PptxPara { r: PptxRun[]; a: string; ls: number | null }
+export interface PptxShape { x: number; y: number; w: number; h: number; fill: string | null; p: PptxPara[] }
+export interface PptxSlide { bg: string; shapes: PptxShape[] }
+
+export interface ContentProgress {
+  contentId: number
+  studentUserId: number
+  maxPositionSeconds: number
+  durationSeconds: number | null
+  pagesRead: number[]
+  totalPages: number | null
+  completed: boolean
+  completedAt: string | null
+}
+
+export interface StudentTopicSection extends TeacherContent {
+  progress?: ContentProgress | null
+  submission?: TeachingSubmission | null
+}
+
+export interface StudentTopicSectionWithLock extends StudentTopicSection {
+  sectionLocked?: boolean
+}
+
+export interface StudentTopic {
+  topicKey: string
+  title: string
+  locked: boolean
+  completed: boolean
+  sections: {
+    video: StudentTopicSectionWithLock | null
+    audio: StudentTopicSectionWithLock | null
+    theory: StudentTopicSectionWithLock | null
+    qollanma: StudentTopicSectionWithLock | null
+    test: StudentTopicSectionWithLock | null
+    assignment: StudentTopicSectionWithLock | null
+  }
+}
+
+/* ── Imtihon savollari (MCQ) ─────────────────────────────────────────── */
+export interface ExamQuestion {
+  id?: number
+  questionText: string
+  imageUrl?: string | null
+  optionImages?: (string | null)[] | null
+  options: string[]
+  correctIndex: number
+  correctIndexes?: number[]
+  points: number
+}
+
+export interface ExamQuestionPublic {
+  id: number
+  questionText: string
+  imageUrl: string | null
+  optionImages: (string | null)[] | null
+  options: string[]
+  optionPerm: number[]   // shuffled indices: optionPerm[shuffledPos] = originalIdx
+  points: number
 }
 
 function buildParams(input: Record<string, string | number | null | undefined>): Record<string, string> {
@@ -1032,37 +1324,91 @@ export const teachingApi = {
 
   contentItem: (id: number | string) => get<ItemRes<TeacherContent>>(`/api/teaching/content/${id}`),
 
+  /** Bitta mavzuga (topicKey) tegishli barcha qismlarni (video/audio/nazariy/test/topshiriq) olish */
+  contentByTopic: (params: { topicKey: string; groupId: number | string }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<ListRes<TeacherContent>>(`/api/teaching/content/by-topic?${q}`)
+  },
+
   createContent: (input: {
     type: TeachingContentType
     groupId: number | string
     subjectName: string
+    topicKey?: string
     title: string
     description?: string
     kind?: string
+    controlType?: string
+    resourceType?: string
     availableFrom: string
     deadline?: string | null
     maxScore?: number | null
+    attemptsCount?: number | null
+    language?: string
+    completionPoints?: number | null
     durationMinutes?: number | null
+    trainingLoad?: number | null
+    lessonDate?: string | null
+    delivered?: boolean
+    /** Hujjat fayli (PDF, Word, PPT va h.k.) */
+    docFile?: File | null
+    /** Eski nom — docFile bilan bir xil, backward compat */
     file?: File | null
+    meetingLink?: string | null
+    /** Fayl yuklash foizini kuzatish (faqat docFile/file berilganda ishlaydi) */
+    onUploadProgress?: (percent: number) => void
   }) => {
     const meta = buildParams({
       type: input.type,
       groupId: input.groupId,
       subjectName: input.subjectName,
+      topicKey: input.topicKey,
       title: input.title,
       description: input.description,
       kind: input.kind,
+      controlType: input.controlType,
+      resourceType: input.resourceType,
       availableFrom: input.availableFrom,
       deadline: input.deadline,
       maxScore: input.maxScore,
+      attemptsCount: input.attemptsCount,
+      language: input.language,
+      completionPoints: input.completionPoints,
       durationMinutes: input.durationMinutes,
+      trainingLoad: input.trainingLoad,
+      lessonDate: input.lessonDate,
+      delivered: input.delivered === undefined ? undefined : String(input.delivered),
+      meetingLink: input.meetingLink,
     })
 
-    if (input.file) {
-      const q = new URLSearchParams({ ...meta, filename: input.file.name }).toString()
-      return rawUpload<ItemRes<TeacherContent>>(`/api/teaching/content?${q}`, input.file)
+    const docFile = input.docFile ?? input.file ?? null
+    if (docFile) {
+      const q = new URLSearchParams({ ...meta, filename: docFile.name, materialType: "document" }).toString()
+      if (input.onUploadProgress) {
+        return rawUploadWithProgress<ItemRes<TeacherContent>>(`/api/teaching/content?${q}`, docFile, input.onUploadProgress)
+      }
+      return rawUpload<ItemRes<TeacherContent>>(`/api/teaching/content?${q}`, docFile)
     }
     return post<ItemRes<TeacherContent>>("/api/teaching/content", meta)
+  },
+
+  /** Mavjud kontentga qo'shimcha fayl biriktirish (bir nechta chaqirilishi mumkin) */
+  addContentFile: (id: number | string, file: File) => {
+    const q = new URLSearchParams({ filename: file.name }).toString()
+    return rawUpload<{ success: boolean; data: TeachingFile[] }>(`/api/teaching/content/${id}/files?${q}`, file)
+  },
+
+  removeContentFile: (id: number | string, fileId: number | string) =>
+    del<MsgRes>(`/api/teaching/content/${id}/files/${fileId}`),
+
+  uploadDocFile: (id: number | string, file: File) => {
+    const q = new URLSearchParams({ filename: file.name }).toString()
+    return rawUpload<ItemRes<TeacherContent>>(`/api/teaching/content/${id}/upload-doc?${q}`, file)
+  },
+
+  uploadVideoFile: (id: number | string, file: File) => {
+    const q = new URLSearchParams({ filename: file.name }).toString()
+    return rawUpload<ItemRes<TeacherContent>>(`/api/teaching/content/${id}/upload-video?${q}`, file)
   },
 
   updateContent: (
@@ -1071,12 +1417,26 @@ export const teachingApi = {
       title: string
       description: string | null
       subjectName: string
+      kind: string | null
+      controlType: string | null
       availableFrom: string
       deadline: string | null
       maxScore: number | null
+      attemptsCount: number | null
+      questionDisplayCount: number | null
+      language: string | null
+      completionPoints: number | null
       durationMinutes: number | null
+      trainingLoad: number | null
+      lessonDate: string | null
+      delivered: boolean
+      isActive: boolean
+      meetingLink: string | null
     }>
   ) => put<ItemRes<TeacherContent>>(`/api/teaching/content/${id}`, body),
+
+  toggleContent: (id: number | string) =>
+    patch<ItemRes<TeacherContent>>(`/api/teaching/content/${id}/toggle`, {}),
 
   removeContent: (id: number | string) => del<MsgRes>(`/api/teaching/content/${id}`),
 
@@ -1090,6 +1450,9 @@ export const teachingApi = {
     })
   },
 
+  mySubmissions: () =>
+    get<ListRes<TeachingSubmission>>(`/api/teaching/submissions/mine`),
+
   mySubmission: (contentId: number | string) =>
     get<ItemRes<TeachingSubmission | null>>(`/api/teaching/content/${contentId}/submissions/me`),
 
@@ -1099,12 +1462,221 @@ export const teachingApi = {
   grade: (submissionId: number | string, body: { grade: number; feedback?: string }) =>
     put<ItemRes<TeachingSubmission>>(`/api/teaching/submissions/${submissionId}/grade`, body),
 
+  examResults: (groupId: number | string, subject: string) => {
+    const q = new URLSearchParams({ groupId: String(groupId), subject }).toString()
+    return get<{ success: boolean; data: ExamResultsData }>(`/api/teaching/exam-results?${q}`)
+  },
+
+  mySubjects: (groupId?: number) => {
+    const q = groupId !== undefined ? `?groupId=${groupId}` : ""
+    return get<{ success: boolean; data: { groupId: number; subjectName: string }[] }>(`/api/teaching/my-subjects${q}`)
+  },
+
+  gradeJournal: (groupId: number | string, subject: string) => {
+    const q = new URLSearchParams({ groupId: String(groupId), subject }).toString()
+    return get<{ success: boolean; data: JournalData }>(`/api/teaching/grade-journal?${q}`)
+  },
+
+  myTopicScores: (subject: string) => {
+    const q = new URLSearchParams({ subject }).toString()
+    return get<{ success: boolean; data: { topics: Array<{ key: string; idx: number; title: string; maxScore: number; score: number | null }>; on1: number | null; on2: number | null; yn: number | null } }>(`/api/teaching/my-topic-scores?${q}`)
+  },
+
+  savePeriodGrade: (body: {
+    groupId: number
+    subjectName: string
+    studentUserId: number
+    gradeType: "ON1" | "ON2" | "YN"
+    grade: number | null
+  }) => post<{ success: boolean }>("/api/teaching/period-grade", body),
+
+  /** O'qituvchi: to'liq (correctIndex bilan) | Talaba: javobsiz (faqat status="open" bo'lsa) */
+  questions: (contentId: number | string) =>
+    get<ListRes<ExamQuestion | ExamQuestionPublic>>(`/api/teaching/content/${contentId}/questions`),
+
+  saveQuestions: (contentId: number | string, questions: ExamQuestion[]) =>
+    put<ListRes<ExamQuestion>>(`/api/teaching/content/${contentId}/questions`, { questions }),
+
+  submitExam: (contentId: number | string, answers: number[]) =>
+    post<ItemRes<{ submission: TeachingSubmission; maxScore: number | null }>>(
+      `/api/teaching/content/${contentId}/exam-submit`,
+      { answers }
+    ),
+
+  /** Talaba: bitta fan bo'yicha mavzular ro'yxati (ketma-ket qulflash holati bilan) */
+  studentTopics: (subject: string) => {
+    const q = new URLSearchParams(buildParams({ subject })).toString()
+    return get<ListRes<StudentTopic>>(`/api/teaching/content/topics?${q}`)
+  },
+
+  /** Talaba: video/audio/hujjat ko'rish progresini olish */
+  getProgress: (contentId: number | string) =>
+    get<ItemRes<ContentProgress>>(`/api/teaching/content/${contentId}/progress`),
+
+  /** Talaba: video/audio/hujjat ko'rish progresini saqlash */
+  saveProgress: (
+    contentId: number | string,
+    patch: { positionSeconds?: number; durationSeconds?: number; pagesRead?: number[]; totalPages?: number }
+  ) => put<ItemRes<ContentProgress>>(`/api/teaching/content/${contentId}/progress`, patch),
+
+  /** Talaba: qo'llanmani "Ko'rib chiqdim" deb belgilash (completed = true) */
+  markProgress: (contentId: number | string, completed: boolean) =>
+    put<ItemRes<ContentProgress>>(`/api/teaching/content/${contentId}/progress`, { completed }),
+
   /** Qulflanmagan fayllarni token bilan ochish uchun to'liq URL (video/pdf src, <a href> uchun). */
   fileUrl: (relativeUrl: string) => {
     if (!relativeUrl) return ""
     const token = getToken()
     const sep = relativeUrl.includes("?") ? "&" : "?"
     return `${BASE}${relativeUrl}${token ? `${sep}token=${encodeURIComponent(token)}` : ""}`
+  },
+
+  pptxSlides: (contentId: number | string) =>
+    get<{ count: number; slides: string[] }>(`/api/teaching/content/${contentId}/pptx-slides`),
+
+  pptxRichSlides: (contentId: number | string) =>
+    get<{ count: number; slides: PptxSlide[] }>(`/api/teaching/content/${contentId}/pptx-rich-slides`),
+
+  pptxAsPdfUrl: (contentId: number | string) => {
+    const token = getToken()
+    return `${BASE}/api/teaching/content/${contentId}/pptx-as-pdf${token ? `?token=${encodeURIComponent(token)}` : ""}`
+  },
+
+  /** Tashqi ko'ruvchilar (Office Online) uchun ommaviy URL — ngrok orqali. */
+  publicFileUrl: (relativeUrl: string) => {
+    if (!relativeUrl) return ""
+    const token = getToken()
+    const sep = relativeUrl.includes("?") ? "&" : "?"
+    return `${PUBLIC_BASE}${relativeUrl}${token ? `${sep}token=${encodeURIComponent(token)}` : ""}`
+  },
+
+  /** Savol rasmi yuklash — /api/teaching/question-image */
+  uploadQuestionImage: (file: File) => {
+    const q = new URLSearchParams({ filename: file.name }).toString()
+    return rawUpload<{ success: boolean; data: { url: string } }>(`/api/teaching/question-image?${q}`, file)
+  },
+
+  notifyStudent: (body: {
+    studentName: string
+    message: string
+    stats?: {
+      subject?: string
+      jn?: number | null
+      topics?: string
+      on1?: number | null
+      on2?: number | null
+      yn?: number | null
+      attendance?: number | null
+    }
+  }) => post<{ success: boolean; message: string }>("/api/teaching/notify-student", body),
+}
+
+/* ── Davomat (qo'lda) ───────────────────────────────────────────────── */
+export type AttendanceStatus = "present" | "absent" | "excused" | "late"
+
+export interface AttendanceRosterItem {
+  studentUserId: number
+  fullName: string
+  studentIdNumber: string | null
+  status: AttendanceStatus | null
+  comment: string | null
+}
+
+export interface AttendanceHistoryEntry {
+  lessonDate: string
+  subjectName: string
+  records: {
+    studentUserId: number
+    studentFullName: string
+    status: AttendanceStatus
+    comment: string | null
+  }[]
+}
+
+export interface StudentAttendanceEntry {
+  lessonDate: string
+  subjectName: string
+  status: AttendanceStatus
+  comment: string | null
+}
+
+export const attendanceApi = {
+  roster: (groupId: number | string, subject: string, date: string) => {
+    const q = new URLSearchParams(buildParams({ groupId, subject, date })).toString()
+    return get<ListRes<AttendanceRosterItem>>(`/api/teaching/attendance/roster?${q}`)
+  },
+
+  save: (body: {
+    groupId: number | string
+    subjectName: string
+    date: string
+    records: { studentUserId: number; fullName: string; status: AttendanceStatus; comment?: string }[]
+  }) => post<MsgRes>("/api/teaching/attendance", body),
+
+  history: (params: { groupId: number | string; subject?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<ListRes<AttendanceHistoryEntry>>(`/api/teaching/attendance?${q}`)
+  },
+
+  me: (params?: { subject?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams(buildParams(params ?? {})).toString()
+    return get<ListRes<StudentAttendanceEntry>>(`/api/teaching/attendance/me${q ? `?${q}` : ""}`)
+  },
+
+  sessionsMe: (params?: { from?: string; to?: string }) => {
+    const q = new URLSearchParams(buildParams(params ?? {})).toString()
+    return get<ListRes<PlatformSessionEntry>>(`/api/teaching/attendance/sessions/me${q ? `?${q}` : ""}`)
+  },
+}
+
+export interface PlatformSessionEntry {
+  sessionId: number
+  userId: number
+  fullName: string
+  groupId: number | null
+  role: string
+  loginAt: string
+  lastSeenAt: string
+  logoutAt: string | null
+  durationMinutes: number
+}
+
+/* ── Baholash (qo'lda) ──────────────────────────────────────────────── */
+export interface GradeRosterItem {
+  studentUserId: number
+  fullName: string
+  studentIdNumber: string | null
+  grade: number | null
+  comment: string | null
+}
+
+export interface GradeHistoryEntry {
+  lessonDate: string
+  subjectName: string
+  records: {
+    studentUserId: number
+    studentFullName: string
+    grade: number | null
+    comment: string | null
+  }[]
+}
+
+export const gradeApi = {
+  roster: (groupId: number | string, subject: string, date: string) => {
+    const q = new URLSearchParams(buildParams({ groupId, subject, date })).toString()
+    return get<ListRes<GradeRosterItem>>(`/api/teaching/grades/roster?${q}`)
+  },
+
+  save: (body: {
+    groupId: number | string
+    subjectName: string
+    date: string
+    records: { studentUserId: number; fullName: string; grade: number | null; comment?: string }[]
+  }) => post<MsgRes>("/api/teaching/grades", body),
+
+  history: (params: { groupId: number | string; subject?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<ListRes<GradeHistoryEntry>>(`/api/teaching/grades?${q}`)
   },
 }
 
@@ -1267,6 +1839,8 @@ export interface LocalResource {
   trainingTypeName: string
   employeeName?: string
   meetingId?: string
+  externalUrl?: string
+  isActive: boolean
   file: {
     name: string
     originalName: string
@@ -1344,6 +1918,21 @@ export interface HemisContractData {
   fullName?: string
 }
 
+export interface HemisTaskSubmission {
+  id: number
+  hemisTaskId: string
+  studentUserId: number
+  studentName: string
+  groupId: number | null
+  fileName: string | null
+  originalName: string | null
+  mimeType: string | null
+  fileSize: number | null
+  comment: string | null
+  submittedAt: string
+  downloadUrl: string | null
+}
+
 export interface HemisContractItem {
   id: number | string
   _data?: HemisContractData
@@ -1410,4 +1999,170 @@ export interface HemisEmployee {
   specialty?: string
   active?: boolean
   birth_date?: number
+}
+
+/* ── Admin Panel ─────────────────────────────────────────────────────── */
+export interface AdminUser {
+  hemisId: string
+  fullName: string
+  username: string
+  hemisRole: string
+  hemisRoleCodes: string[]
+  lmsRole: string | null
+  isAutoAdmin: boolean
+  grantedBy: string | null
+  grantedAt: string | null
+  note: string | null
+  contentCount: number
+  sessionCount: number
+  lastSeen: string
+  createdAt: string
+}
+
+export interface AdminStats {
+  totalStudents: number
+  totalEmployees: number
+  grantedAdmins: number
+  totalContent: number
+  totalVideos: number
+  totalMeetings: number
+  facePending: number
+  totalSubmissions: number
+  totalCompletions: number
+}
+
+export interface AdminTeacherStat {
+  hemisId: string
+  fullName: string
+  lastSeen: string
+  mavzular: number
+  videolar: number
+  audiolar: number
+  taqdimotlar: number
+  qollanmalar: number
+  testlar: number
+  amaliy: number
+  guruhlar: number
+  studentsCompleted: number
+  studentsSubmitted: number
+  meetingCount: number
+}
+
+export interface AdminTeacherTotals {
+  totalContent: number
+  totalTopics: number
+  totalExams: number
+  totalVideos: number
+  totalAssignments: number
+}
+
+export interface AdminStudentStat {
+  studentId: number
+  studentName: string
+  doneTopics: number
+  doneSubmissions: number
+  avgGrade: number | null
+  watchMinutes: number
+}
+
+export interface AdminAttendanceRow {
+  groupId: number
+  groupName: string
+  subjectName: string
+  lessonDate: string
+  total: number
+  present: number
+  absent: number
+  excused: number
+  late: number
+  presentPct: number
+}
+
+export interface PlatformAttendanceStudent {
+  studentId: number
+  studentName: string
+  status: "present" | "absent"
+}
+
+export interface PlatformAttendanceDay {
+  lessonDate: string
+  subjectName: string
+  total: number
+  present: number
+  absent: number
+  presentPct: number
+  isMeetingDay: boolean
+  meetingMinutes: number
+  students: PlatformAttendanceStudent[]
+}
+
+export interface AdminFaceRequest {
+  id: string
+  username: string
+  reason: string | null
+  status: "pending" | "approved" | "rejected"
+  admin_note: string
+  created_at: number
+  reviewed_at: number | null
+}
+
+export const adminApi = {
+  check: () => get<{ isAdmin: boolean; name: string; role: string; hemisRoles: string[]; lmsRole: string }>("/api/admin/check"),
+
+  users: (params?: { search?: string; lms_role?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams(buildParams(params ?? {})).toString()
+    return get<{ data: AdminUser[]; total: number }>(`/api/admin/users${q ? `?${q}` : ""}`)
+  },
+
+  setRole: (hemisId: string, lmsRole: string, note?: string) =>
+    patch<MsgRes>(`/api/admin/users/${encodeURIComponent(hemisId)}/role`, { lmsRole, note }),
+
+  stats: () => get<{ data: AdminStats }>("/api/admin/stats"),
+
+  teacherStats: () => get<{ data: AdminTeacherStat[] }>("/api/admin/teacher-stats"),
+
+  teacherStudents: (teacherId: number | string) =>
+    get<{ totals: AdminTeacherTotals; data: AdminStudentStat[] }>(`/api/admin/teacher-stats/${teacherId}/students`),
+
+  getSettings: () => get<{ data: Record<string, string> }>("/api/admin/settings"),
+  saveSettings: (settings: Record<string, unknown>) => put<MsgRes>("/api/admin/settings", settings),
+
+  faceRequests: (status?: string) => {
+    const q = status ? `?status=${encodeURIComponent(status)}` : ""
+    return get<{ data: AdminFaceRequest[] }>(`/api/admin/face-requests${q}`)
+  },
+
+  reviewFaceRequest: (id: string, action: "approve" | "reject", note?: string) =>
+    patch<MsgRes>(`/api/admin/face-requests/${id}`, { action, note }),
+
+  sessions: (limit?: number) => {
+    const q = limit ? `?limit=${limit}` : ""
+    return get<{ data: unknown[] }>(`/api/admin/sessions${q}`)
+  },
+
+  attendance: (params?: { groupId?: number; subject?: string; date?: string }) => {
+    const q = new URLSearchParams(buildParams(params ?? {})).toString()
+    return get<{ data: AdminAttendanceRow[] }>(`/api/admin/attendance${q ? `?${q}` : ""}`)
+  },
+
+  teacherJournal: (params: { teacherId: number; groupId: number; subject: string }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<{ data: JournalData }>(`/api/admin/teacher-journal?${q}`)
+  },
+
+  hemisSync: () => post<{ success: boolean; message: string; data: Record<string, unknown> }>("/api/admin/hemis-sync", {}),
+
+  teacherInfo: (teacherId: number | string) =>
+    get<{ data: { groups: { id: number; name: string }[]; subjects: string[] } }>(`/api/admin/teacher-info?teacherId=${teacherId}`),
+
+  platformAttendance: (params: { groupId: number; subject?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<{ data: PlatformAttendanceDay[] }>(`/api/admin/platform-attendance?${q}`)
+  },
+
+  lockedAssignments: () =>
+    get<ListRes<TeacherContent>>("/api/admin/locked-assignments"),
+
+  unlockContent: (id: number | string) =>
+    patch<ItemRes<TeacherContent>>(`/api/admin/content/${id}/toggle`, {}),
 }

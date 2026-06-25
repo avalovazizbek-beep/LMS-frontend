@@ -138,54 +138,49 @@ export default function DavomatHisobotiPage() {
         <div className="p-5" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
           <h2 className="font-medium text-lg" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Fanlarga ko&apos;ra davomat</h2>
         </div>
-        <div className="p-5 flex flex-col gap-4">
-          {subjectStats.length === 0 ? (
-            <p className="text-sm text-center py-4" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Ma&apos;lumot yuklanmoqda...
-            </p>
-          ) : subjectStats.map((s, i) => {
-            const isLow = s.pct < 85
-            return (
-              <motion.div key={s.name} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm font-medium flex-1 pr-2" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{s.name}</span>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      {s.attended}/{s.total} dars
-                    </span>
-                    <span className="text-sm font-semibold w-10 text-right" style={{ color: isLow ? "#ef4444" : "#22c55e", fontFamily: "var(--font-poppins)" }}>
-                      {s.total > 0 ? `${s.pct}%` : "—"}
-                    </span>
-                    {isLow && <TrendingDown className="w-4 h-4" style={{ color: "#ef4444" }} />}
-                  </div>
-                </div>
-                {s.total > 0 && (
-                  <div className="w-full h-2 rounded-full" style={{ backgroundColor: "#f6f9ff" }}>
-                    <motion.div className="h-2 rounded-full" initial={{ width: 0 }} animate={{ width: `${s.pct}%` }}
-                      transition={{ duration: 0.7, ease: "easeOut", delay: i * 0.06 }}
-                      style={{ backgroundColor: isLow ? "#ef4444" : "#22c55e" }} />
-                  </div>
-                )}
-                <div className="flex gap-3 mt-1 flex-wrap">
-                  {s.sababsiz > 0 && (
-                    <span className="text-xs" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }}>
-                      ✗ {s.sababsiz} sababsiz
-                    </span>
-                  )}
-                  {s.sababli > 0 && (
-                    <span className="text-xs" style={{ color: "#f59e0b", fontFamily: "var(--font-poppins)" }}>
-                      ~ {s.sababli} sababli
-                    </span>
-                  )}
-                  {isLow && s.missed > 0 && (
-                    <span className="text-xs" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }}>
-                      Ogohlantirish: {s.missed} dars o&apos;tkazildi
-                    </span>
-                  )}
-                </div>
-              </motion.div>
-            )
-          })}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px]">
+            <thead>
+              <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
+                {["#", "Fanlar", "Aud. soat", "Sababli", "Sababsiz", "Jami", "Foiz"].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
+                    style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {subjectStats.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    Ma&apos;lumot topilmadi
+                  </td>
+                </tr>
+              ) : subjectStats.map((s, i) => {
+                const isLow = s.pct < 85
+                return (
+                  <motion.tr key={s.name} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
+                    className="hover:bg-[#f6f9ff]/50 transition-colors"
+                    style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                    <td className="px-4 py-3 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
+                    <td className="px-4 py-3 text-sm font-medium max-w-[220px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{s.name}</td>
+                    <td className="px-4 py-3 text-sm text-center" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{s.total}</td>
+                    <td className="px-4 py-3 text-sm text-center" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>{s.sababli}</td>
+                    <td className="px-4 py-3 text-sm text-center" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{s.sababsiz}</td>
+                    <td className="px-4 py-3 text-sm text-center" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{s.missed}</td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1 text-sm font-semibold w-fit"
+                        style={{ color: isLow ? "#ef4444" : "#22c55e", fontFamily: "var(--font-poppins)" }}>
+                        {s.total > 0 ? `${s.pct}%` : "—"}
+                        {isLow && <TrendingDown className="w-3.5 h-3.5" />}
+                      </span>
+                    </td>
+                  </motion.tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 

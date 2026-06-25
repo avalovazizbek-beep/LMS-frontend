@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff, GraduationCap, KeyRound, Lock, ShieldCheck, User } from "lucide-react"
-import { hemisApi } from "@/lib/api"
+import { Eye, EyeOff, GraduationCap, KeyRound, Lock, User } from "lucide-react"
+import { hemisApi, faceApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -56,6 +56,17 @@ export default function LoginPage() {
       const res = await hemisApi.autoLogin(login.trim(), password.trim())
       sessionStorage.setItem("lms_token", res.token)
       sessionStorage.setItem("lms_role", res.role)
+      if (res.role === "student") {
+        try {
+          const faceStatus = await faceApi.status()
+          if (!faceStatus.registered) {
+            router.push("/face-setup")
+            return
+          }
+        } catch {
+          // Face ID tekshirishda xato bo'lsa dashboardga o'taveramiz
+        }
+      }
       router.push("/dashboard")
     } catch (err: unknown) {
       const data = asRecord((err as { data?: unknown })?.data)
@@ -148,22 +159,8 @@ export default function LoginPage() {
             <button type="submit" disabled={loading}
               className="mt-2 flex items-center justify-center rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              {loading ? "Tekshirilmoqda..." : "Talaba sifatida kirish"}
+              {loading ? "Tekshirilmoqda..." : "Kirish"}
             </button>
-
-            <div className="rounded-[8px] p-4" style={{ backgroundColor: "var(--lms-bg)", border: "1px solid var(--lms-border)" }}>
-              <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "#1cc2dc" }} />
-                <div>
-                  <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                    O&apos;qituvchi va xodimlar HEMIS sahifasida kiradi
-                  </p>
-                  <p className="mt-1 text-xs leading-5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    HEMIS orqali kirishda parol LMS bazasiga yozilmaydi. HEMISda qaysi akkaunt tasdiqlansa, LMS shu akkaunt bilan ochiladi.
-                  </p>
-                </div>
-              </div>
-            </div>
 
             <button type="button" onClick={handleHemisOAuth} disabled={oauthLoading}
               className="flex items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
@@ -177,9 +174,6 @@ export default function LoginPage() {
               {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "HEMIS orqali kirish"}
             </button>
 
-            <p className="text-center text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Talabalar login/parol bilan, o&apos;qituvchilar esa OAuth orqali kiradi.
-            </p>
           </form>
         </div>
       </div>

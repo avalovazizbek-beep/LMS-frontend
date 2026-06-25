@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Bell, Menu, ChevronDown, LogOut, User as UserIcon } from "lucide-react"
+import { Menu, ChevronDown, LogOut, User as UserIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { authApi, hemisApi, notificationsApi, HemisEmployee, HemisStudent } from "@/lib/api"
+import { authApi, hemisApi, HemisEmployee, HemisStudent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -31,16 +31,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
     return Promise.resolve(null)
   }, [role])
-  const { data: notifData } = useApi(() => {
-    if (typeof window !== "undefined" && sessionStorage.getItem("lms_role")) {
-      return Promise.resolve({ success: true, data: [], unread: 0 })
-    }
-    return notificationsApi.getAll()
-  })
-
   const adminUser  = meData?.user
   const hemisUser  = (hemisData as { success: boolean; data: HemisStudent | HemisEmployee } | null)?.data
-  const unread     = notifData?.unread ?? 0
 
   const fullName = hemisUser?.full_name || adminUser?.fullName || ""
   const userRoleLabel =
@@ -91,20 +83,6 @@ export function Header({ onMenuClick }: HeaderProps) {
       {/* O'ngdan: Bildirishnoma + Avatar + Dropdown */}
       <div className="flex items-center gap-4">
         <ThemeToggle />
-
-        {/* Bildirishnoma */}
-        <button type="button" aria-label="Notifications"
-          onClick={() => router.push("/xabarnoma")}
-          className="relative transition-opacity hover:opacity-70">
-          <Bell className="h-6 w-6 text-[var(--lms-primary)]" />
-          {unread > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#1cc2dc] px-1">
-              <span className="text-[9px] font-medium text-white" style={{ fontFamily: "var(--font-poppins)" }}>
-                {unread > 99 ? "99+" : unread}
-              </span>
-            </span>
-          )}
-        </button>
 
         {/* Foydalanuvchi dropdown */}
         <div ref={ref} className="relative">

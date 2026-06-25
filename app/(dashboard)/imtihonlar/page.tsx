@@ -16,7 +16,7 @@ const SECTIONS: Array<{ key: ContentStatus; label: string; emptyText: string }> 
 
 export default function Imtihonlar() {
   const { data, loading, error, refetch } = useApi(() => teachingApi.content({ type: "exam" }), [])
-  const exams: TeacherContent[] = data?.data ?? []
+  const exams: TeacherContent[] = (data?.data ?? []).filter(e => !e.topicKey)
 
   const grouped = useMemo(() => {
     const map: Record<ContentStatus, TeacherContent[]> = { locked: [], open: [], closed: [] }

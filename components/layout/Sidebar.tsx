@@ -5,10 +5,11 @@ import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  BookOpen, RefreshCw, Wallet, User, Mail, Video,
+  BookOpen, RefreshCw, Wallet, User, Video,
   Settings, Search, ChevronDown, GraduationCap, LayoutDashboard, ScanFace,
-  CalendarDays, ClipboardCheck, ClipboardList, FileText, BarChart2, UserCog,
+  CalendarDays, ClipboardCheck, ClipboardList, UserCog, ShieldCheck,
 } from "lucide-react"
+import { adminApi } from "@/lib/api"
 
 type NavItem = { label: string; href: string }
 type Section = {
@@ -26,14 +27,10 @@ const studentSections: Section[] = [
       { label: "Dars jadvali",      href: "/dars-jadvali" },
       { label: "Nazorat jadvali",   href: "/nazorat-jadvali" },
       { label: "Fanlar resurslari", href: "/fan-resurslari" },
-      { label: "Topshiriqlar",      href: "/topshiriqlar" },
       { label: "Davomat",           href: "/davomat" },
-      { label: "Davomat hisoboti",  href: "/davomat-hisoboti" },
       { label: "O'zlashtirish",     href: "/o-zlashtirish" },
-      { label: "Shaxsiy qaydnoma",  href: "/shaxsiy-qaydnoma" },
       { label: "Imtihonlar",        href: "/imtihonlar" },
       { label: "Reyting daftarcha", href: "/reyting" },
-      { label: "Fan tanlovi",       href: "/fan-tanlovi" },
     ],
   },
   {
@@ -74,14 +71,6 @@ const studentSections: Section[] = [
     ],
   },
   {
-    title: "Xabarlar",
-    icon: Mail,
-    items: [
-      { label: "Mening xabarlarim", href: "/xabarnoma" },
-      { label: "Xabar yaratish",    href: "/xabarnoma/yaratish" },
-    ],
-  },
-  {
     title: "Tizim",
     icon: Settings,
     items: [
@@ -105,55 +94,21 @@ const studentSections: Section[] = [
 
 const employeeSections: Section[] = [
   {
-    title: "Mening kabinetim",
-    icon: GraduationCap,
-    items: [
-      { label: "Guruhlarim",      href: "/oqituvchi-kabineti" },
-      { label: "Darslarim",       href: "/oqituvchi-kabineti/darslar" },
-      { label: "Topshiriqlarim",  href: "/oqituvchi-kabineti/topshiriqlar" },
-      { label: "Imtihonlarim",    href: "/oqituvchi-kabineti/imtihonlar" },
-    ],
-  },
-  {
-    title: "E-hujjatlar",
-    icon: FileText,
-    items: [
-      { label: "Hujjatni imzolash", href: "/xodim/hujjat-imzolash" },
-    ],
-  },
-  {
-    title: "Xodimlar",
-    icon: UserCog,
-    items: [
-      { label: "Shaxsiy ish reja", href: "/xodim/shaxsiy-ish-reja" },
-    ],
-  },
-  {
     title: "Fanlar bazasi",
     icon: BookOpen,
     items: [
-      { label: "Fan mavzulari", href: "/xodim/fan-mavzulari" },
-      { label: "Fan resurslari", href: "/xodim/fan-resurslari" },
-      { label: "Fan topshiriqlari", href: "/xodim/fan-topshiriqlari" },
-      { label: "Kurs topshiriqlari", href: "/xodim/kurs-topshiriqlari" },
-      { label: "Kalendar reja", href: "/xodim/kalendar-reja" },
-      { label: "Fan ma'lumotlari", href: "/xodim/fan-malumotlari" },
+      { label: "Fan mavzulari",            href: "/oqituvchi-kabineti/mavzular" },
+      { label: "Fan resurslari",           href: "/oqituvchi-kabineti/fan-resurslari" },
+      { label: "Baholash",                 href: "/oqituvchi-kabineti/baholash-page" },
+      { label: "Mavzular bo'yicha natijalar", href: "/oqituvchi-kabineti/natijalar" },
     ],
   },
   {
     title: "O'quv jarayoni",
     icon: GraduationCap,
     items: [
-      { label: "Imtihonlar ro'yxati", href: "/xodim/imtihonlar" },
-    ],
-  },
-  {
-    title: "Yakka darslar",
-    icon: CalendarDays,
-    items: [
-      { label: "Fan talabalari", href: "/xodim/fan-talabalari" },
-      { label: "Yakka dars jadvali", href: "/xodim/yakka-dars-jadvali" },
-      { label: "Yakka dars davomat", href: "/xodim/yakka-dars-davomat" },
+      { label: "Imtihonlar ro'yxati", href: "/oqituvchi-kabineti/oraliq-nazorat" },
+      { label: "Fan imtihonlari",     href: "/oqituvchi-kabineti/imtihonlar" },
     ],
   },
   {
@@ -175,10 +130,8 @@ const employeeSections: Section[] = [
     title: "Mashg'ulotlar",
     icon: CalendarDays,
     items: [
-      { label: "Dars jadvali", href: "/xodim/dars-jadvali" },
-      { label: "Dars o'tish", href: "/xodim/dars-otish" },
+      { label: "Dars jadvali",    href: "/xodim/dars-jadvali" },
       { label: "Davomat jurnali", href: "/xodim/davomat-jurnali" },
-      { label: "Baholash jurnali", href: "/xodim/baholash-jurnali" },
     ],
   },
   {
@@ -188,34 +141,6 @@ const employeeSections: Section[] = [
       { label: "Oraliq nazorat", href: "/xodim/oraliq-nazorat" },
       { label: "Yakuniy nazorat", href: "/xodim/yakuniy-nazorat" },
       { label: "Boshqa nazoratlar", href: "/xodim/boshqa-nazoratlar" },
-    ],
-  },
-  {
-    title: "Ilmiy faoliyat",
-    icon: GraduationCap,
-    items: [
-      { label: "Ilmiy faoliyat", href: "/xodim/ilmiy-faoliyat" },
-    ],
-  },
-  {
-    title: "Statistika",
-    icon: BarChart2,
-    items: [
-      { label: "Statistika", href: "/xodim/statistika" },
-    ],
-  },
-  {
-    title: "Hisobotlar",
-    icon: FileText,
-    items: [
-      { label: "Hisobotlar", href: "/xodim/hisobotlar" },
-    ],
-  },
-  {
-    title: "Xabarlar",
-    icon: Mail,
-    items: [
-      { label: "Xabarlar", href: "/xodim/xabarlar" },
     ],
   },
   {
@@ -231,17 +156,22 @@ const employeeSections: Section[] = [
 export function Sidebar() {
   const pathname = usePathname()
   const [role, setRole] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const sections = role === "employee" ? employeeSections : studentSections
 
-  // Accordion: faqat bitta bo'lim ochiq bo'ladi
   const [openSection, setOpenSection] = useState<string | null>(() => {
-    const match = studentSections.find(s => s.items.some(i => pathname === i.href || pathname.startsWith(i.href + "/")))
+    const allSections = [...studentSections, ...employeeSections]
+    const match = allSections.find(s => s.items.some(i => pathname === i.href || pathname.startsWith(i.href + "/")))
     return match?.title ?? "O'quv reja"
   })
 
   useEffect(() => {
     const id = window.setTimeout(() => setRole(sessionStorage.getItem("lms_role")), 0)
     return () => window.clearTimeout(id)
+  }, [])
+
+  useEffect(() => {
+    adminApi.check().then(r => setIsAdmin(r.isAdmin)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -270,24 +200,19 @@ export function Sidebar() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <div
-            className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
-            style={{ backgroundColor: "var(--lms-button)" }}
-          >
-            <GraduationCap className="w-6 h-6 text-white" />
-          </div>
+          <img src="/logo.png" alt="SamISI" className="w-10 h-10 rounded-full shrink-0 object-cover" />
           <div className="flex flex-col min-w-0">
             <span
               className="font-semibold text-base leading-tight truncate"
               style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}
             >
-              LMS Portal
+              SamISI
             </span>
             <span
               className="text-xs truncate"
               style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}
             >
-              Ta&apos;lim Tizimi
+              Masofaviy Ta&apos;lim
             </span>
           </div>
         </motion.div>
@@ -330,6 +255,28 @@ export function Sidebar() {
               Dashboard
             </span>
           </Link>
+
+          {/* Admin Panel link */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors group mt-1"
+              style={{ backgroundColor: pathname.startsWith("/admin") ? "#fef2f2" : "transparent" }}
+            >
+              <ShieldCheck
+                className="w-[22px] h-[22px] shrink-0 transition-transform group-hover:scale-110"
+                style={{ color: pathname.startsWith("/admin") ? "#b91c1c" : "#012970" }}
+              />
+              <span
+                className="text-[14px] font-medium truncate"
+                style={{
+                  color: pathname.startsWith("/admin") ? "#b91c1c" : "#012970",
+                  fontFamily: "var(--font-poppins)",
+                }}>
+                Admin Panel
+              </span>
+            </Link>
+          )}
 
           {/* Accordion sections */}
           {sections.map((section) => {

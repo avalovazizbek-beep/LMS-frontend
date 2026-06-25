@@ -1,9 +1,10 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import { useParams } from "next/navigation"
-import { FileVideo, Filter, Plus, Search, Upload } from "lucide-react"
-import { hemisApi, type LocalResourceKind } from "@/lib/api"
+import { ChevronLeft, ChevronRight, FileVideo, Filter, Plus, Search, Upload } from "lucide-react"
+import { hemisApi, teachingApi, type LocalResourceKind, type HemisSchedule } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 
@@ -13,6 +14,7 @@ type PageConfig = {
   description: string
   resource: string
   action?: string
+  actionHref?: string
   filters: string[]
   fields: Field[]
 }
@@ -59,7 +61,7 @@ const pageConfigs: Record<string, PageConfig> = {
     title: "Fan mavzulari",
     description: "Fan mavzulari ro'yxati",
     resource: "subject-topics",
-    filters: ["O'quv reja", "O'quv yili", "Semestr", "Fan"],
+    filters: ["O'quv reja", "O'quv yili", "Semestr"],
     fields: [
       { label: "Fanlar", keys: ["subject.name", "subject"] },
       { label: "O'quv reja", keys: ["curriculum.name", "_curriculum"] },
@@ -74,6 +76,7 @@ const pageConfigs: Record<string, PageConfig> = {
     description: "Fanlar bo'yicha resurslar",
     resource: "subject-resources",
     action: "Yaratish",
+    actionHref: "/xodim/fan-resurslari/yaratish",
     filters: ["Fakultet", "O'quv reja", "Fanlar ro'yxati", "Mashg'ulot", "Xodim", "Til", "Qidirish"],
     fields: [
       { label: "Sarlavha", keys: ["title", "name", "comment"] },
@@ -273,9 +276,11 @@ const pageConfigs: Record<string, PageConfig> = {
     resource: "grade-journal",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
-      ...commonSubjectFields,
-      { label: "Talaba", keys: ["student.name", "student"] },
-      { label: "Ball", keys: ["grade", "mark", "score"] },
+      { label: "Guruh", keys: ["group.name", "group"] },
+      { label: "Fanlar", keys: ["subject.name", "subject"] },
+      { label: "Mashg'ulot", keys: ["trainingType.name", "training_type"] },
+      { label: "O'quv yili", keys: ["educationYear.name", "education_year"] },
+      { label: "Semestr", keys: ["semester.name", "semester"] },
     ],
   },
   nazoratlar: {
@@ -381,6 +386,11 @@ const pageConfigs: Record<string, PageConfig> = {
       { label: "Qiymat", keys: ["value", "employee_id_number"] },
     ],
   },
+}
+
+function recordId(value: unknown): string {
+  const id = asRecord(value).id
+  return typeof id === "string" || typeof id === "number" ? String(id) : ""
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -590,9 +600,353 @@ function LocalResourceUploadCard({ onUploaded }: { onUploaded: () => void }) {
   )
 }
 
-export default function EmployeeWorkspacePage() {
-  const params = useParams()
-  const slug = Array.isArray(params.slug) ? params.slug.join("/") : String(params.slug ?? "")
+const UZ_MONTHS_SHORT = ["yan", "fev", "mar", "apr", "may", "iyun", "iyul", "avg", "sen", "okt", "noy", "dek"]
+const DAYS_UZ = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"]
+
+function getMonday(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function lessonTypeColors(name: string) {
+  const n = (name ?? "").toLowerCase()
+  if (n.includes("ma'ruza") || n.includes("maruza") || n.includes("lecture"))
+    return { bg: "#e3f2fd", border: "#2196f3", text: "#0d47a1", badge: "#bbdefb" }
+  if (n.includes("seminar") || n.includes("amaliy") || n.includes("prakt"))
+    return { bg: "#e8f5e9", border: "#4caf50", text: "#1b5e20", badge: "#c8e6c9" }
+  if (n.includes("lab"))
+    return { bg: "#fff3e0", border: "#ff9800", text: "#e65100", badge: "#ffe0b2" }
+  return { bg: "#f3e5f5", border: "#9c27b0", text: "#4a148c", badge: "#e1bee7" }
+}
+
+function DarsJadvaliCalendar() {
+  const today = new Date()
+  const [weekOffset, setWeekOffset] = useState(0)
+  const [edYear, setEdYear] = useState(String(academicYearStart()))
+  const [semesterVal, setSemesterVal] = useState("")
+
+  const weekStart = useMemo(() => {
+    const mon = getMonday(today)
+    mon.setDate(mon.getDate() + weekOffset * 7)
+    return mon
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekOffset])
+
+  const weekStartTs = useMemo(() => Math.floor(weekStart.getTime() / 1000), [weekStart])
+
+  const weekEndTs = useMemo(() => {
+    const end = new Date(weekStart)
+    end.setDate(end.getDate() + 6)
+    end.setHours(23, 59, 59)
+    return Math.floor(end.getTime() / 1000)
+  }, [weekStart])
+
+  const queryParams = useMemo(() => {
+    const p: Record<string, string> = { lesson_date_from: String(weekStartTs), lesson_date_to: String(weekEndTs), limit: "200" }
+    if (edYear) p._education_year = edYear
+    if (semesterVal) p._semester = semesterVal
+    return p
+  }, [weekStartTs, weekEndTs, edYear, semesterVal])
+
+  const { data, loading, error, refetch } = useApi(
+    () => hemisApi.employeeData("lesson-schedule", queryParams),
+    [weekStartTs, weekEndTs, edYear, semesterVal]
+  )
+
+  const allItems = useMemo(() => normalizeItems(data?.data) as HemisSchedule[], [data?.data])
+  const items = allItems
+
+  const weekDates = useMemo(() =>
+    Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(weekStart)
+      d.setDate(d.getDate() + i)
+      return d
+    }), [weekStart]
+  )
+
+  const pairs = useMemo(() => {
+    const map = new Map<string, { name: string; start_time?: string; end_time?: string; sortKey: number }>()
+    allItems.forEach(item => {
+      const p = item.lessonPair
+      if (!p) return
+      if (!map.has(p.name)) {
+        map.set(p.name, {
+          name: p.name,
+          start_time: p.start_time,
+          end_time: p.end_time,
+          sortKey: typeof p.id === "number" ? p.id : (parseInt(String(p.id ?? "")) || map.size + 1),
+        })
+      }
+    })
+    return Array.from(map.values()).sort((a, b) => a.sortKey - b.sortKey)
+  }, [allItems])
+
+  const grid = useMemo(() => {
+    const map = new Map<string, HemisSchedule[]>()
+    items.forEach(item => {
+      const d = new Date(item.lesson_date * 1000)
+      const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1
+      const pairName = item.lessonPair?.name ?? ""
+      const key = `${dayIdx}:${pairName}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(item)
+    })
+    return map
+  }, [items])
+
+  const weekEnd = useMemo(() => {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + 5)
+    return d
+  }, [weekStart])
+
+  const startYear = academicYearStart()
+
+  return (
+    <div className="flex flex-col gap-5 p-[30px]">
+      <div>
+        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+          Dars jadvali
+        </h1>
+        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+          Haftalik dars jadvali
+        </p>
+      </div>
+
+      <div className="rounded-[10px] bg-white p-3" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setWeekOffset(w => w - 1)}
+              className="flex h-8 w-8 items-center justify-center rounded-[5px] border border-[#d8e6f7] bg-white text-[#104475] hover:bg-[#f0f7ff]"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-medium text-[#012970]" style={{ fontFamily: "var(--font-poppins)", minWidth: 190, textAlign: "center" }}>
+              {weekStart.getDate()} {UZ_MONTHS_SHORT[weekStart.getMonth()]} — {weekEnd.getDate()} {UZ_MONTHS_SHORT[weekEnd.getMonth()]} {weekEnd.getFullYear()}
+            </span>
+            <button
+              onClick={() => setWeekOffset(w => w + 1)}
+              className="flex h-8 w-8 items-center justify-center rounded-[5px] border border-[#d8e6f7] bg-white text-[#104475] hover:bg-[#f0f7ff]"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setWeekOffset(0)}
+              className="rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-1.5 text-xs text-[#104475] hover:bg-[#f0f7ff]"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              Bugun
+            </button>
+          </div>
+          <div className="flex flex-1 flex-wrap gap-2">
+            <select
+              value={edYear}
+              onChange={e => setEdYear(e.target.value)}
+              className="rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              {[startYear, startYear - 1, startYear - 2, startYear - 3].map(y => (
+                <option key={y} value={y}>{y}-{y + 1}</option>
+              ))}
+            </select>
+            <select
+              value={semesterVal}
+              onChange={e => setSemesterVal(e.target.value)}
+              className="rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              <option value="">Barcha semestrlar</option>
+              {Array.from({ length: 8 }, (_, i) => i + 1).map(s => (
+                <option key={s} value={10 + s}>{s}-semestr</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <Loading />
+      ) : error ? (
+        <ApiError message={error} onRetry={refetch} />
+      ) : (
+        <div className="rounded-[10px] bg-white overflow-x-auto" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
+          <table className="w-full border-collapse" style={{ minWidth: 820 }}>
+            <thead>
+              <tr>
+                <th
+                  className="w-[110px] border-b border-r p-2 text-left text-xs font-semibold"
+                  style={{ borderColor: "rgba(1,41,112,0.1)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#f6f9ff" }}
+                >
+                  Vaqt
+                </th>
+                {weekDates.map((d, i) => {
+                  const isToday = d.toDateString() === today.toDateString()
+                  return (
+                    <th
+                      key={i}
+                      className="border-b border-r p-2 text-center text-xs font-semibold"
+                      style={{ borderColor: "rgba(1,41,112,0.1)", color: isToday ? "#0e58a8" : "#012970", fontFamily: "var(--font-poppins)", backgroundColor: isToday ? "#e8f4ff" : "#f6f9ff", minWidth: 120 }}
+                    >
+                      <div>{DAYS_UZ[i]}</div>
+                      <div className="mt-0.5 font-normal" style={{ color: isToday ? "#0e58a8" : "#7293b9" }}>
+                        {d.getDate()} {UZ_MONTHS_SHORT[d.getMonth()]}
+                      </div>
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {pairs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    Bu hafta dars topilmadi
+                  </td>
+                </tr>
+              ) : (
+                pairs.map(pair => (
+                  <tr key={pair.name}>
+                    <td
+                      className="border-b border-r p-2 align-top"
+                      style={{ borderColor: "rgba(1,41,112,0.08)", backgroundColor: "#fafbff", verticalAlign: "top" }}
+                    >
+                      <div className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>{pair.name}</div>
+                      {pair.start_time && (
+                        <div className="mt-0.5 text-[10px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
+                          {pair.start_time}{pair.end_time ? ` — ${pair.end_time}` : ""}
+                        </div>
+                      )}
+                    </td>
+                    {weekDates.map((d, dayIdx) => {
+                      const key = `${dayIdx}:${pair.name}`
+                      const cell = grid.get(key) ?? []
+                      const isToday = d.toDateString() === today.toDateString()
+                      return (
+                        <td
+                          key={dayIdx}
+                          className="border-b border-r p-1.5"
+                          style={{ borderColor: "rgba(1,41,112,0.08)", backgroundColor: isToday ? "#f8fbff" : "transparent", verticalAlign: "top" }}
+                        >
+                          <div className="flex flex-col gap-1">
+                            {cell.map((item, idx) => {
+                              const colors = lessonTypeColors(item.trainingType?.name ?? "")
+                              return (
+                                <div key={idx} style={{ backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 5, padding: "4px 6px" }}>
+                                  <div className="text-xs font-semibold leading-tight" style={{ color: colors.text, fontFamily: "var(--font-poppins)" }}>
+                                    {item.subject?.name ?? "—"}
+                                  </div>
+                                  <div className="mt-0.5 text-[10px]" style={{ color: colors.text, opacity: 0.85, fontFamily: "var(--font-poppins)" }}>
+                                    {item.group?.name ?? ""}
+                                  </div>
+                                  {item.trainingType?.name && (
+                                    <span className="mt-0.5 inline-block rounded px-1 py-0.5 text-[9px] font-medium" style={{ backgroundColor: colors.badge, color: colors.text, fontFamily: "var(--font-poppins)" }}>
+                                      {item.trainingType.name}
+                                    </span>
+                                  )}
+                                  {item.auditorium?.name && (
+                                    <div className="mt-0.5 text-[9px]" style={{ color: colors.text, opacity: 0.7, fontFamily: "var(--font-poppins)" }}>
+                                      {item.auditorium.name}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DavomatJurnaliSelector() {
+  const [groupId, setGroupId] = useState<number | "">("")
+  const { data: groupsRes, loading: lGroups } = useApi(() => teachingApi.groups(), [])
+  const groups = groupsRes?.data ?? []
+
+  const { data: subjectsRes, loading: lSubjects } = useApi(
+    () => groupId !== "" ? teachingApi.mySubjects(groupId as number) : Promise.resolve(null),
+    [groupId]
+  )
+  const subjects = useMemo(() => {
+    const list = subjectsRes?.data?.map(s => s.subjectName) ?? []
+    return [...new Set(list)].sort()
+  }, [subjectsRes])
+
+  const selectedGroup = groups.find(g => g.id === groupId)
+
+  const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
+  const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
+  const sel = "w-full px-3 py-2.5 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none bg-white"
+
+  return (
+    <div className="flex flex-col gap-5 p-[30px]">
+      <div>
+        <h1 className="text-[28px] font-medium" style={T}>Davomat jurnali</h1>
+        <p className="text-sm mt-1" style={L}>Guruh va fanni tanlang</p>
+      </div>
+
+      <div className="rounded-[10px] bg-white p-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="flex flex-col gap-1 min-w-[200px] max-w-xs">
+          <label className="text-xs font-medium" style={L}>O'quv guruhi</label>
+          <select
+            value={groupId}
+            onChange={e => setGroupId(Number(e.target.value) || "")}
+            className={sel}
+            style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+          >
+            <option value="">— Guruhni tanlang —</option>
+            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {lGroups && <div className="text-sm" style={L}>Yuklanmoqda...</div>}
+
+      {groupId !== "" && (
+        <div className="rounded-[10px] bg-white overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+          <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+            <span className="text-sm font-semibold" style={T}>{selectedGroup?.name} — fanlar</span>
+          </div>
+          {lSubjects ? (
+            <div className="p-6 text-center text-sm" style={L}>Yuklanmoqda...</div>
+          ) : subjects.length === 0 ? (
+            <div className="p-6 text-center text-sm" style={L}>Fanlar topilmadi</div>
+          ) : (
+            <div className="divide-y" style={{ borderColor: "rgba(1,41,112,0.06)" }}>
+              {subjects.map(subject => (
+                <a
+                  key={subject}
+                  href={`/oqituvchi-kabineti/davomat-jurnali?group=${groupId}&subject=${encodeURIComponent(subject)}&groupName=${encodeURIComponent(selectedGroup?.name ?? "")}`}
+                  className="flex items-center justify-between px-4 py-3 hover:bg-[#f6f9ff] transition-colors"
+                >
+                  <span className="text-sm font-medium" style={T}>{subject}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    Ochish →
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EmployeeGenericPage({ slug }: { slug: string }) {
   const config = pageConfigs[slug] ?? pageConfigs.tizim
   const [search, setSearch] = useState("")
   const [filters, setFilters] = useState<Record<string, string>>({
@@ -629,31 +983,32 @@ export default function EmployeeWorkspacePage() {
             {config.description}
           </p>
         </div>
-        {data?.source && (
-          <span className="self-start rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-xs text-[#104475]"
-            style={{ fontFamily: "var(--font-poppins)" }}>
-            Manba: {data.source}
-          </span>
-        )}
       </div>
 
       <div className="rounded-[10px] bg-white" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
-        <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-          <div className="flex flex-wrap gap-2">
-            {config.action && (
-              <button className="inline-flex items-center gap-2 rounded-[5px] bg-[#0e58a8] px-3 py-2 text-sm font-medium text-white"
+        <div className="flex flex-nowrap items-center gap-1.5 p-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+          <div className="flex flex-nowrap shrink-0 gap-1.5">
+            {config.action && config.actionHref && (
+              <Link href={config.actionHref} className="inline-flex items-center gap-1.5 rounded-[5px] bg-[#0e58a8] px-2.5 py-1.5 text-xs font-medium text-white"
                 style={{ fontFamily: "var(--font-poppins)" }}>
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
+                {config.action}
+              </Link>
+            )}
+            {config.action && !config.actionHref && (
+              <button className="inline-flex items-center gap-1.5 rounded-[5px] bg-[#0e58a8] px-2.5 py-1.5 text-xs font-medium text-white"
+                style={{ fontFamily: "var(--font-poppins)" }}>
+                <Plus className="h-3.5 w-3.5" />
                 {config.action}
               </button>
             )}
-            <button className="inline-flex items-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-sm text-[#104475]"
+            <button className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#d8e6f7] bg-white px-2.5 py-1.5 text-xs text-[#104475]"
               style={{ fontFamily: "var(--font-poppins)" }}>
-              <Filter className="h-4 w-4" />
+              <Filter className="h-3.5 w-3.5" />
               Filtrlar
             </button>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-1 flex-nowrap gap-1.5 min-w-0">
             {config.filters.map((filter) => {
               const param = filterParam(filter)
               if (param === "_education_year") {
@@ -663,7 +1018,7 @@ export default function EmployeeWorkspacePage() {
                     key={filter}
                     value={filters[param] ?? ""}
                     onChange={(event) => setFilters((current) => ({ ...current, [param]: event.target.value }))}
-                    className="min-w-[180px] rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-sm text-[#104475] outline-none"
+                    className="w-0 min-w-[90px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none"
                     style={{ fontFamily: "var(--font-poppins)" }}
                   >
                     <option value="">O'quv yili</option>
@@ -679,7 +1034,7 @@ export default function EmployeeWorkspacePage() {
                     key={filter}
                     value={filters[param] ?? ""}
                     onChange={(event) => setFilters((current) => ({ ...current, [param]: event.target.value }))}
-                    className="min-w-[180px] rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-sm text-[#104475] outline-none"
+                    className="w-0 min-w-[80px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none"
                     style={{ fontFamily: "var(--font-poppins)" }}
                   >
                     <option value="">Semestr</option>
@@ -697,7 +1052,7 @@ export default function EmployeeWorkspacePage() {
                     key={filter}
                     value={filters[param] ?? ""}
                     onChange={(event) => setFilters((current) => ({ ...current, [param]: event.target.value }))}
-                    className="min-w-[220px] rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-sm text-[#104475] outline-none"
+                    className="w-0 min-w-[100px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none"
                     style={{ fontFamily: "var(--font-poppins)" }}
                   >
                     <option value="">O'quv reja</option>
@@ -714,25 +1069,25 @@ export default function EmployeeWorkspacePage() {
                     value={filters[param] ?? ""}
                     onChange={(event) => setFilters((current) => ({ ...current, [param]: event.target.value }))}
                     placeholder={filter}
-                    className="min-w-[180px] rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-sm text-[#104475] outline-none placeholder:text-[#7293b9]"
+                    className="w-0 min-w-[80px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none placeholder:text-[#7293b9]"
                     style={{ fontFamily: "var(--font-poppins)" }}
                   />
                 )
               }
               return (
-                <div key={filter} className="min-w-[180px] rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-sm text-[#7293b9]"
+                <div key={filter} className="w-0 min-w-[80px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#7293b9]"
                   style={{ fontFamily: "var(--font-poppins)" }}>
                   {filter}
                 </div>
               )
             })}
-            <label className="flex min-w-[220px] items-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-[#7293b9]">
-              <Search className="h-4 w-4" />
+            <label className="flex w-0 min-w-[100px] flex-1 items-center gap-1.5 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-[#7293b9]">
+              <Search className="h-3.5 w-3.5 shrink-0" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Qidirish"
-                className="min-w-0 flex-1 bg-transparent text-sm text-[#104475] outline-none placeholder:text-[#7293b9]"
+                className="min-w-0 flex-1 bg-transparent text-xs text-[#104475] outline-none placeholder:text-[#7293b9]"
                 style={{ fontFamily: "var(--font-poppins)" }}
               />
             </label>
@@ -743,9 +1098,9 @@ export default function EmployeeWorkspacePage() {
           <table className="w-full min-w-[900px]">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                <th className="px-4 py-3 text-left text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>#</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>#</th>
                 {config.fields.map((field) => (
-                  <th key={field.label} className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  <th key={field.label} className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                     {field.label}
                   </th>
                 ))}
@@ -755,12 +1110,113 @@ export default function EmployeeWorkspacePage() {
               {rows.length ? (
                 rows.map((item, index) => (
                   <tr key={index} className="hover:bg-[#f6f9ff]" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-                    <td className="px-4 py-3 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{index + 1}</td>
-                    {config.fields.map((field) => (
-                      <td key={field.label} className="px-4 py-3 text-sm" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>
-                        {itemValue(item, field.keys)}
-                      </td>
-                    ))}
+                    <td className="px-4 py-2.5 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{index + 1}</td>
+                    {config.fields.map((field) => {
+                      const value = itemValue(item, field.keys)
+                      if (config.resource === "subject-topics" && field.label === "Fanlar" && value !== "-") {
+                        const record = asRecord(item)
+                        const subjectName = itemValue(record.subject, ["name"])
+                        const curriculumName = itemValue(record.curriculum, ["name", "code"])
+                        const semesterName = itemValue(record.semester, ["name", "code"])
+                        const href = `/oqituvchi-kabineti/mavzular?subject=${encodeURIComponent(subjectName !== "-" ? subjectName : value)}&curriculum=${encodeURIComponent(curriculumName !== "-" ? curriculumName : "")}&semester=${encodeURIComponent(semesterName !== "-" ? semesterName : "")}`
+                        return (
+                          <td key={field.label} className="px-4 py-2.5 text-sm">
+                            <Link href={href} className="font-medium hover:underline" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                              {value}
+                            </Link>
+                          </td>
+                        )
+                      }
+                      if (config.resource === "attendance-journal" && field.label === "Fanlar" && value !== "-") {
+                        const record = asRecord(item)
+                        const groupId = recordId(record.group)
+                        const groupName = itemValue(record.group, ["name"])
+                        const subjectName = itemValue(record.subject, ["name"])
+                        const trainingName = itemValue(record.trainingType, ["name"])
+                        const query = new URLSearchParams()
+                        if (groupId) query.set("group", groupId)
+                        if (groupName !== "-") query.set("groupName", groupName)
+                        if (subjectName !== "-") query.set("subject", subjectName)
+                        if (trainingName !== "-") query.set("training", trainingName)
+                        const href = `/oqituvchi-kabineti/davomat-jurnali?${query.toString()}`
+                        return (
+                          <td key={field.label} className="px-4 py-2.5 text-sm">
+                            <Link href={href} className="font-medium hover:underline" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                              {value}
+                            </Link>
+                          </td>
+                        )
+                      }
+                      if (config.resource === "grade-journal" && field.label === "Fanlar" && value !== "-") {
+                        const record = asRecord(item)
+                        const groupId = recordId(record.group)
+                        const groupName = itemValue(record.group, ["name"])
+                        const subjectName = itemValue(record.subject, ["name"])
+                        const trainingName = itemValue(record.trainingType, ["name"])
+                        const query = new URLSearchParams()
+                        if (groupId) query.set("group", groupId)
+                        if (groupName !== "-") query.set("groupName", groupName)
+                        if (subjectName !== "-") query.set("subject", subjectName)
+                        if (trainingName !== "-") query.set("training", trainingName)
+                        const href = `/oqituvchi-kabineti/baholash-jurnali?${query.toString()}`
+                        return (
+                          <td key={field.label} className="px-4 py-2.5 text-sm">
+                            <Link href={href} className="font-medium hover:underline" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                              {value}
+                            </Link>
+                          </td>
+                        )
+                      }
+                      if (config.resource === "subject-tasks" && field.label === "Fanlar" && value !== "-") {
+                        const record = asRecord(item)
+                        const subjectId = recordId(record.subject)
+                        const groupId = recordId(record.group)
+                        const curriculumId = recordId(record.curriculum) || recordId(asRecord(record.curriculumSubject).curriculum) || recordId(asRecord(record.curriculumSubjectDetail).curriculum)
+                        const trainingCode = itemValue(record.trainingType, ["code"])
+                        const semesterCode = itemValue(record.semester, ["code"])
+                        const eduYearCode = itemValue(record.educationYear, ["code"])
+                        const maxBall = itemValue(record, ["max_ball"])
+                        const query = new URLSearchParams()
+                        if (subjectId) query.set("subject", subjectId)
+                        if (groupId) query.set("group", groupId)
+                        if (curriculumId) query.set("curriculum", curriculumId)
+                        if (trainingCode !== "-") query.set("training", trainingCode)
+                        if (semesterCode !== "-") query.set("semester", semesterCode)
+                        if (eduYearCode !== "-") query.set("eduYear", eduYearCode)
+                        if (maxBall !== "-") query.set("maxBall", maxBall)
+                        query.set("name", value)
+                        const href = `/oqituvchi-kabineti/fan-topshiriqlari?${query.toString()}`
+                        return (
+                          <td key={field.label} className="px-4 py-2.5 text-sm">
+                            <Link href={href} className="font-medium hover:underline" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                              {value}
+                            </Link>
+                          </td>
+                        )
+                      }
+                      if (field.label === "Mashg'ulotlar" && value !== "-") {
+                        return (
+                          <td key={field.label} className="px-4 py-2.5 text-sm">
+                            <div className="flex flex-wrap gap-1.5">
+                              {value.split(",").map((part) => part.trim()).filter(Boolean).map((part, partIndex) => (
+                                <span
+                                  key={partIndex}
+                                  className="rounded-[4px] bg-[#28a745] px-2 py-0.5 text-xs font-medium text-white whitespace-nowrap"
+                                  style={{ fontFamily: "var(--font-poppins)" }}
+                                >
+                                  {part}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                        )
+                      }
+                      return (
+                        <td key={field.label} className="px-4 py-2.5 text-sm" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>
+                          {value}
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))
               ) : (
@@ -776,4 +1232,12 @@ export default function EmployeeWorkspacePage() {
       </div>
     </div>
   )
+}
+
+export default function EmployeeWorkspacePage() {
+  const params = useParams()
+  const slug = Array.isArray(params.slug) ? params.slug.join("/") : String(params.slug ?? "")
+  if (slug === "dars-jadvali") return <DarsJadvaliCalendar />
+  if (slug === "davomat-jurnali") return <DavomatJurnaliSelector />
+  return <EmployeeGenericPage slug={slug} />
 }

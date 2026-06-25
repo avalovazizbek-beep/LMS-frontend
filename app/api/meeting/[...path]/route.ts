@@ -39,10 +39,12 @@ function buildForwardHeaders(req: NextRequest) {
   const authorization = req.headers.get("authorization")
   const contentType = req.headers.get("content-type")
   const accept = req.headers.get("accept")
+  const xFileName = req.headers.get("x-file-name")
 
   if (authorization) headers.set("authorization", authorization)
   if (contentType) headers.set("content-type", contentType)
   if (accept) headers.set("accept", accept)
+  if (xFileName) headers.set("x-file-name", xFileName)
 
   return headers
 }
@@ -56,14 +58,16 @@ async function proxyMeeting(req: NextRequest, context: RouteContext) {
     const upstream = await fetch(target, {
       method: req.method,
       headers: buildForwardHeaders(req),
-      body: hasBody ? await req.text() : undefined,
+      body: hasBody ? await req.arrayBuffer() : undefined,
       cache: "no-store",
     })
     const body = await upstream.arrayBuffer()
     const headers = new Headers()
     const contentType = upstream.headers.get("content-type")
+    const contentDisposition = upstream.headers.get("content-disposition")
 
     if (contentType) headers.set("content-type", contentType)
+    if (contentDisposition) headers.set("content-disposition", contentDisposition)
 
     return new NextResponse(body, {
       status: upstream.status,

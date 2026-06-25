@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -11,8 +12,10 @@ import { io, type Socket } from "socket.io-client"
 import {
   ArrowLeft,
   ArrowUpRight,
+  BookOpen,
   CalendarDays,
   CheckCircle2,
+  Circle,
   Clock3,
   Loader2,
   Maximize2,
@@ -25,6 +28,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  Square,
   Trash2,
   Search,
   Send,
@@ -34,7 +38,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react"
-import { meetingsApi, hemisApi, type Meeting, type JoinTokenResponse, type CreateMeetingRequest } from "@/lib/api"
+import { meetingsApi, hemisApi, teachingApi, type Meeting, type MeetingRecording, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
 
@@ -93,10 +97,11 @@ function extractTeacherGroups(items: unknown[]): TeacherGroupOption[] {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-function roleLabel(role: string, groupId?: number | null): string {
+function roleLabel(role: string, groupId?: number | null, groupName?: string | null): string {
   if (role === "admin")   return "Admin"
   if (role === "teacher" || role === "employee") return "O'qituvchi"
-  return groupId ? `Talaba · Guruh ${groupId}` : "Talaba"
+  const label = groupName || (groupId ? `Guruh ${groupId}` : null)
+  return label ? `Talaba · ${label}` : "Talaba"
 }
 
 type Participant = {
@@ -244,8 +249,8 @@ function normalizeRemotePeers(value: unknown): RemotePeer[] {
         name: cleanName(socketText(record.fullName, record.name, record.username) || `Foydalanuvchi ${index + 1}`),
         role: socketText(record.role) || "student",
         groupId: socketNumber(record.groupId) ?? null,
-        cameraEnabled: Boolean(mediaState.cameraEnabled),
-        micEnabled: Boolean(mediaState.micEnabled),
+        cameraEnabled: mediaState.cameraEnabled === undefined ? undefined : Boolean(mediaState.cameraEnabled),
+        micEnabled: mediaState.micEnabled === undefined ? undefined : Boolean(mediaState.micEnabled),
         screenSharing: Boolean(mediaState.screenSharing),
       }
     })
@@ -451,6 +456,9 @@ function MeetingCard({
               <InfoPill icon={CalendarDays} label={meeting.date} />
               <InfoPill icon={Clock3} label={`${meeting.time} - ${meeting.duration}`} />
               <InfoPill icon={Users2} label={participantText(meeting.participants)} />
+              {meeting.groupNames && meeting.groupNames.length > 0 && (
+                <InfoPill icon={BookOpen} label={meeting.groupNames.join(", ")} />
+              )}
             </div>
           </div>
         </div>
@@ -781,6 +789,7 @@ function CreateMeetingModal({
 }) {
   const today = new Date().toISOString().slice(0, 10)
   const [title, setTitle]           = useState("")
+  const [subjectName, setSubjectName] = useState("")
   const [description, setDescription] = useState("")
   const [date, setDate]             = useState(today)
   const [startTime, setStartTime]   = useState("09:00")
@@ -828,6 +837,7 @@ function CreateMeetingModal({
     setError(null)
     const ids = selectedGroupIds
     if (!title.trim()) { setError("Sarlavha majburiy"); return }
+    if (!subjectName.trim()) { setError("Fan nomi majburiy"); return }
     if (!date) { setError("Sana majburiy"); return }
     if (!startTime || !endTime) { setError("Vaqt majburiy"); return }
     if (ids.length === 0) { setError("Kamida 1 ta guruh ID kerak"); return }
@@ -842,13 +852,14 @@ function CreateMeetingModal({
     try {
       const body: CreateMeetingRequest = {
         title: title.trim(),
+        subjectName: subjectName.trim(),
         description: description.trim() || undefined,
         startTime: startISO,
         endTime: endISO,
         groupIds: ids,
       }
       await meetingsApi.create(body)
-      setTitle(""); setDescription(""); setDate(today)
+      setTitle(""); setSubjectName(""); setDescription(""); setDate(today)
       setStartTime("09:00"); setEndTime("10:00")
       onCreated()
       onClose()
@@ -893,7 +904,21 @@ function CreateMeetingModal({
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder="Masalan: Matematika — oraliq muhokama"
+              placeholder="Masalan: Hosil va uning tatbiqlari"
+              className="h-10 rounded-[8px] border border-[#d8e6f7] px-3 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            />
+          </div>
+
+          {/* Subject name */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
+              Fan nomi <span className="text-red-500">*</span>
+            </label>
+            <input
+              value={subjectName}
+              onChange={e => setSubjectName(e.target.value)}
+              placeholder="Masalan: Matematik tahlil"
               className="h-10 rounded-[8px] border border-[#d8e6f7] px-3 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors"
               style={{ fontFamily: "var(--font-poppins)" }}
             />
@@ -1037,6 +1062,60 @@ function CreateMeetingModal({
           </div>
         </form>
       </motion.div>
+    </div>
+  )
+}
+
+function RecordingCard({ recording }: { recording: MeetingRecording }) {
+  return (
+    <div className="rounded-[8px] border border-[#d8e6f7] bg-white p-4">
+      <div className="flex flex-wrap gap-2">
+        <InfoPill icon={BookOpen} label={recording.subjectName || "Fan ko'rsatilmagan"} />
+        <InfoPill icon={CalendarDays} label={recording.date} />
+        <InfoPill
+          icon={Users2}
+          label={recording.groupIds.length ? `Guruh ${recording.groupIds.join(", ")}` : "Guruh ko'rsatilmagan"}
+        />
+      </div>
+      <p className="mt-2.5 text-sm font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
+        {recording.title}
+      </p>
+      <video
+        controls
+        preload="metadata"
+        className="mt-2.5 w-full rounded-[8px] bg-black"
+        src={recording.fileUrl}
+      />
+    </div>
+  )
+}
+
+function RecordingsSection() {
+  const { data, loading, error } = useApi(() => meetingsApi.myRecordings(), [])
+  const seen = new Set<string>()
+  const recordings = (data?.data ?? []).filter(r => {
+    const key = String(r.id ?? r.fileUrl ?? r.title)
+    if (seen.has(key)) return false
+    seen.add(key); return true
+  })
+
+  return (
+    <div className="rounded-[8px] border border-[#d8e6f7] bg-white p-5 shadow-[0_2px_12px_rgba(1,41,112,0.06)]">
+      <h3 className="text-lg font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
+        Darslar yozuvlari
+      </h3>
+      {error && (
+        <p className="mt-2 text-sm text-red-600" style={{ fontFamily: "var(--font-poppins)" }}>
+          {error}
+        </p>
+      )}
+      <div className="mt-4 space-y-3">
+        {recordings.length ? (
+          recordings.map((recording) => <RecordingCard key={recording.id} recording={recording} />)
+        ) : (
+          <EmptyMeetings loading={loading} />
+        )}
+      </div>
     </div>
   )
 }
@@ -1265,6 +1344,8 @@ function LobbyStage({
                 )}
               </div>
             </div>
+
+            <RecordingsSection />
           </aside>
         </div>
       </div>
@@ -1543,7 +1624,7 @@ function ParticipantTile({
   onClick?: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const hasVideo = Boolean(stream?.getVideoTracks().some(t => t.readyState === "live")) && (camOn || screenOn)
+  const hasVideo = Boolean(stream?.getVideoTracks().some(t => t.readyState === "live")) && (camOn !== false || screenOn)
 
   useEffect(() => {
     const video = videoRef.current
@@ -1646,9 +1727,14 @@ function CallStage({
   localUserName,
   localUserRole,
   localGroupId,
+  groupIdToName,
+  isRecording,
+  recordingError,
+  recordingUploading,
   onToggleMic,
   onToggleCamera,
   onToggleScreen,
+  onToggleRecording,
   onSelectVideo,
   onTogglePanel,
   onChatInputChange,
@@ -1679,9 +1765,14 @@ function CallStage({
   localUserName: string
   localUserRole: string
   localGroupId: number | null
+  groupIdToName: Map<number, string>
+  isRecording: boolean
+  recordingError: string | null
+  recordingUploading: boolean
   onToggleMic: () => void
   onToggleCamera: () => void
   onToggleScreen: () => void
+  onToggleRecording: () => void
   onSelectVideo: (videoId: ActiveVideoId) => void
   onTogglePanel: (panel: CallPanel) => void
   onChatInputChange: (value: string) => void
@@ -1689,6 +1780,13 @@ function CallStage({
   onFullscreen: () => void
   onLeave: () => void
 }) {
+  const videoSectionRef = useRef<HTMLElement | null>(null)
+  const handleFullscreen = () => {
+    const el = videoSectionRef.current
+    if (!el) { onFullscreen(); return }
+    if (!document.fullscreenElement) void el.requestFullscreen?.()
+    else void document.exitFullscreen?.()
+  }
   const activeRemote = activeVideoId === "self"
     ? null
     : (remoteStreams.find(r => r.socketId === activeVideoId) ?? null)
@@ -1696,10 +1794,10 @@ function CallStage({
   const activeStream      = activeRemote?.stream ?? localPreviewStream
   const activeLabel       = activeRemote ? activeRemote.name : (localUserName || "Siz")
   const activeSubLabel    = activeRemote
-    ? roleLabel(activeRemote.role, activeRemote.groupId)
-    : roleLabel(localUserRole, localGroupId)
+    ? roleLabel(activeRemote.role, activeRemote.groupId, groupIdToName.get(activeRemote.groupId ?? 0))
+    : roleLabel(localUserRole, localGroupId, groupIdToName.get(localGroupId ?? 0))
   const activeScreenSharing  = activeRemote?.screenSharing ?? screenSharing
-  const activeCameraEnabled  = activeRemote ? Boolean(activeRemote.cameraEnabled) : cameraEnabled
+  const activeCameraEnabled  = activeRemote ? (activeRemote.cameraEnabled !== false) : cameraEnabled
 
   const allowedRemoteStreams = isTeacher
     ? remoteStreams
@@ -1758,7 +1856,7 @@ function CallStage({
         <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
 
           {/* Video area */}
-          <section className="flex min-h-0 flex-col rounded-[8px] border border-[#d8e6f7] bg-white p-4 shadow-[0_2px_12px_rgba(1,41,112,0.06)]">
+          <section ref={videoSectionRef} className="flex min-h-0 flex-col rounded-[8px] border border-[#d8e6f7] bg-white p-4 shadow-[0_2px_12px_rgba(1,41,112,0.06)]">
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
                 <InfoPill icon={CalendarDays} label={meeting.subject || "Meeting"} />
@@ -1807,7 +1905,7 @@ function CallStage({
               <div className="absolute bottom-5 left-5 rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-[#012970] shadow-[0_6px_18px_rgba(1,41,112,0.16)]" style={{ fontFamily: "var(--font-poppins)" }}>
                 {activeLabel}
               </div>
-              <button type="button" aria-label="Kattalashtirish" onClick={onFullscreen}
+              <button type="button" aria-label="Kattalashtirish" onClick={handleFullscreen}
                 className="absolute right-5 bottom-5 grid h-10 w-10 place-items-center rounded-full bg-white text-[#104475] shadow-[0_6px_18px_rgba(1,41,112,0.16)]">
                 <Maximize2 className="h-4 w-4" />
               </button>
@@ -1821,6 +1919,15 @@ function CallStage({
                 <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
                 <CallControlButton label="Chiqish" icon={PhoneOff} tone="danger" onClick={onLeave} />
                 <CallControlButton label={screenSharing ? "Ekran ulashishni to'xtatish" : "Ekran ulashish"} icon={MonitorUp} tone="primary" active={screenSharing} onClick={onToggleScreen} />
+                {isTeacher && (
+                  <CallControlButton
+                    label={isRecording ? "Yozishni tugatish" : "Yozishni boshlash"}
+                    icon={isRecording ? Square : Circle}
+                    tone={isRecording ? "danger" : "primary"}
+                    active={isRecording}
+                    onClick={onToggleRecording}
+                  />
+                )}
                 <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => onTogglePanel("chat")} />
               </div>
               <button type="button" onClick={() => onTogglePanel(activePanel === "participants" ? "chat" : "participants")}
@@ -1859,6 +1966,24 @@ function CallStage({
               </div>
             )}
 
+            {recordingError && (
+              <div className="mt-4 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" style={{ fontFamily: "var(--font-poppins)" }}>
+                {recordingError}
+              </div>
+            )}
+
+            {(isRecording || recordingUploading) && (
+              <div className="mt-4 flex items-center gap-2 rounded-[8px] border border-[#d8e6f7] bg-[#f6f9ff] px-3 py-2 text-xs text-[#0e58a8]" style={{ fontFamily: "var(--font-poppins)" }}>
+                {isRecording && (
+                  <>
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                    Yozib olinmoqda...
+                  </>
+                )}
+                {recordingUploading && "Yozuv serverga yuklanmoqda..."}
+              </div>
+            )}
+
             {/* Participants */}
             {activePanel === "participants" && (
               <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 space-y-1">
@@ -1869,7 +1994,7 @@ function CallStage({
                     <p className="truncate text-sm font-medium text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
                       {localUserName || "Siz"} <span className="text-[#7293b9] text-xs font-normal">(Siz)</span>
                     </p>
-                    <p className="truncate text-xs text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>{roleLabel(localUserRole, localGroupId)}</p>
+                    <p className="truncate text-xs text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>{roleLabel(localUserRole, localGroupId, groupIdToName.get(localGroupId ?? 0))}</p>
                   </div>
                   <span className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
                 </div>
@@ -1889,7 +2014,7 @@ function CallStage({
                       <Avatar name={person.name} accent={person.accent} size="sm" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>{person.name}</p>
-                        <p className="truncate text-xs text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>{roleLabel(person.role, person.groupId)}</p>
+                        <p className="truncate text-xs text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>{roleLabel(person.role, person.groupId, groupIdToName.get(person.groupId ?? 0))}</p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {hasStream && (
@@ -1913,20 +2038,17 @@ function CallStage({
                     Hali hech kim kamera yoqmagan
                   </p>
                 ) : remoteStreams.map(remote => (
-                  <button key={remote.socketId} type="button" onClick={() => onSelectVideo(remote.socketId)}
-                    className={cn("relative w-full overflow-hidden rounded-[8px] border-2 transition-all text-left",
-                      activeVideoId === remote.socketId ? "border-[#0e58a8] shadow-[0_0_0_3px_rgba(14,88,168,0.15)]" : "border-[#d8e6f7] hover:border-[#0e58a8]/40")}
-                    style={{ aspectRatio: "16/9" }}>
-                    <ParticipantTile
-                      stream={remote.stream}
-                      name={remote.name}
-                      roleLine={roleLabel(remote.role, remote.groupId)}
-                      isActive={activeVideoId === remote.socketId}
-                      micOn={remote.micEnabled}
-                      camOn={remote.cameraEnabled}
-                      screenOn={remote.screenSharing}
-                    />
-                  </button>
+                  <ParticipantTile
+                    key={remote.socketId}
+                    stream={remote.stream}
+                    name={remote.name}
+                    roleLine={roleLabel(remote.role, remote.groupId, groupIdToName.get(remote.groupId ?? 0))}
+                    isActive={activeVideoId === remote.socketId}
+                    micOn={remote.micEnabled}
+                    camOn={remote.cameraEnabled}
+                    screenOn={remote.screenSharing}
+                    onClick={() => onSelectVideo(remote.socketId)}
+                  />
                 ))}
               </div>
             )}
@@ -1971,8 +2093,15 @@ function CallStage({
 
 export default function MeetingPage() {
   const { data, loading, error, refetch } = useApi(() => meetingsApi.getStudentMeetings())
+  const { data: groupsData } = useApi(() => teachingApi.groups(), [])
   const { role, fullName: localFullName, groupId: localGroupId, groupIds: teacherGroupIds } = useCurrentUserRole()
   const isTeacher = role === "employee"
+  const groupIdToName = useMemo(() => {
+    const map = new Map<number, string>()
+    const groups: TeacherGroup[] = groupsData?.data ?? []
+    groups.forEach(g => { if (g.id && g.name) map.set(g.id, g.name) })
+    return map
+  }, [groupsData])
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [viewState, setViewState] = useState<ViewState>({ stage: "lobby" })
   const [micEnabled, setMicEnabled] = useState(true)
@@ -1995,9 +2124,16 @@ export default function MeetingPage() {
   const [chatInput, setChatInput] = useState("")
   const [activePanel, setActivePanel] = useState<CallPanel>("participants")
   const [callSeconds, setCallSeconds] = useState(0)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingError, setRecordingError] = useState<string | null>(null)
+  const [recordingUploading, setRecordingUploading] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
   const screenStreamRef = useRef<MediaStream | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordedChunksRef = useRef<Blob[]>([])
+  const recordingScreenStreamRef = useRef<MediaStream | null>(null)
+  const recordingAudioContextRef = useRef<AudioContext | null>(null)
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   const remoteStreamsRef = useRef<Map<string, RemoteStream>>(new Map())
   const remotePeerStatesRef = useRef<Map<string, Partial<RemotePeer>>>(new Map())
@@ -2017,7 +2153,24 @@ export default function MeetingPage() {
       : null
 
   const invitedParticipants: Participant[] = []
-  const liveParticipants = socketParticipants.length ? socketParticipants : []
+  // Deduplicate by userId, exclude self, filter out student accounts without a groupId (demo/test accounts)
+  const liveParticipants = (() => {
+    const seenIds = new Set<number>()
+    const seenNames = new Set<string>()
+    return socketParticipants.filter(p => {
+      const isTeacherRole = p.role === "employee" || p.role === "teacher" || p.role === "admin"
+      const isValidStudent = !isTeacherRole && !!p.groupId
+      if (!isTeacherRole && !isValidStudent) return false  // no groupId & not teacher → skip (demo accounts)
+      if (p.userId != null) {
+        if (seenIds.has(p.userId)) return false
+        seenIds.add(p.userId)
+      } else {
+        if (seenNames.has(p.name)) return false
+        seenNames.add(p.name)
+      }
+      return true
+    })
+  })()
 
   const sourceLabel = loading
     ? "Yuklanmoqda"
@@ -2330,7 +2483,10 @@ export default function MeetingPage() {
     socketRef.current = null
   }
 
-  const leaveCall = () => {
+  const leaveCall = async () => {
+    if (mediaRecorderRef.current) {
+      await stopRecording()
+    }
     disconnectSocket()
     stopStream(localStreamRef.current)
     stopStream(screenStreamRef.current)
@@ -2412,11 +2568,108 @@ export default function MeetingPage() {
   }
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      void document.documentElement.requestFullscreen?.()
-      return
+    if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.()
+    else void document.exitFullscreen?.()
+  }
+
+  const stopRecording = async () => {
+    const recorder = mediaRecorderRef.current
+    const meetingId = callMeeting?.id
+    if (!recorder) return
+
+    await new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve()
+      if (recorder.state !== "inactive") recorder.stop()
+      else resolve()
+    })
+    mediaRecorderRef.current = null
+
+    stopStream(recordingScreenStreamRef.current)
+    recordingScreenStreamRef.current = null
+    if (recordingAudioContextRef.current) {
+      void recordingAudioContextRef.current.close()
+      recordingAudioContextRef.current = null
     }
-    void document.exitFullscreen?.()
+    setIsRecording(false)
+
+    const chunks = recordedChunksRef.current
+    recordedChunksRef.current = []
+    if (!chunks.length || !meetingId) return
+
+    const blob = new Blob(chunks, { type: "video/webm" })
+    setRecordingUploading(true)
+    try {
+      await meetingsApi.uploadRecording(meetingId, blob, "meeting.webm")
+    } catch (issue) {
+      setRecordingError(issue instanceof Error ? issue.message : "Yozuvni yuklashda xatolik")
+    } finally {
+      setRecordingUploading(false)
+    }
+  }
+
+  const startRecording = async () => {
+    try {
+      setRecordingError(null)
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        throw new Error("Brauzer ekran yozishni qo'llamaydi")
+      }
+
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: "browser" },
+        audio: true,
+        // @ts-ignore — Chrome/Edge specific: pre-selects current tab
+        preferCurrentTab: true,
+        selfBrowserSurface: "include",
+      })
+      recordingScreenStreamRef.current = screenStream
+
+      const screenAudioTracks = screenStream.getAudioTracks()
+      const micAudioTracks = localStreamRef.current?.getAudioTracks() ?? []
+      let audioTrack: MediaStreamTrack | null = null
+
+      if (screenAudioTracks.length && micAudioTracks.length) {
+        const audioContext = new AudioContext()
+        recordingAudioContextRef.current = audioContext
+        const destination = audioContext.createMediaStreamDestination()
+        audioContext.createMediaStreamSource(new MediaStream(screenAudioTracks)).connect(destination)
+        audioContext.createMediaStreamSource(new MediaStream(micAudioTracks)).connect(destination)
+        audioTrack = destination.stream.getAudioTracks()[0] ?? null
+      } else if (screenAudioTracks.length) {
+        audioTrack = screenAudioTracks[0]
+      } else if (micAudioTracks.length) {
+        audioTrack = micAudioTracks[0]
+      }
+
+      const tracks: MediaStreamTrack[] = [...screenStream.getVideoTracks()]
+      if (audioTrack) tracks.push(audioTrack)
+      const recordingStream = new MediaStream(tracks)
+
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+        ? "video/webm;codecs=vp9,opus"
+        : "video/webm"
+      const recorder = new MediaRecorder(recordingStream, { mimeType })
+      recordedChunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data)
+      }
+      recorder.start(1000)
+      mediaRecorderRef.current = recorder
+      setIsRecording(true)
+
+      screenStream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        void stopRecording()
+      }, { once: true })
+    } catch (issue) {
+      setRecordingError(mediaErrorText(issue))
+    }
+  }
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      void stopRecording()
+    } else {
+      void startRecording()
+    }
   }
 
   const sendChatMessage = () => {
@@ -2451,6 +2704,9 @@ export default function MeetingPage() {
       closePeerConnections()
       stopStream(localStreamRef.current)
       stopStream(screenStreamRef.current)
+      stopStream(recordingScreenStreamRef.current)
+      mediaRecorderRef.current?.stop()
+      void recordingAudioContextRef.current?.close()
     }
   }, [])
 
@@ -2562,6 +2818,10 @@ export default function MeetingPage() {
         appendChatMessage(messages, normalizeChatMessage(payload))
       )
     })
+    socket.on("meeting:ended", () => {
+      // O'qituvchi recording qilayotgan bo'lsa avtomatik to'xtatadi va yuklaydi
+      void leaveCall()
+    })
     socket.on("connect_error", (issue) => {
       setSocketStatus("Realtime xatosi")
       setSocketError(issue.message)
@@ -2670,9 +2930,14 @@ export default function MeetingPage() {
             localUserName={localFullName}
             localUserRole={role}
             localGroupId={localGroupId}
+            groupIdToName={groupIdToName}
+            isRecording={isRecording}
+            recordingError={recordingError}
+            recordingUploading={recordingUploading}
             onToggleMic={toggleMic}
             onToggleCamera={toggleCamera}
             onToggleScreen={toggleScreenShare}
+            onToggleRecording={toggleRecording}
             onSelectVideo={setActiveVideoId}
             onTogglePanel={setActivePanel}
             onChatInputChange={setChatInput}
