@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -200,7 +201,7 @@ export function Sidebar() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <img src="/logo.png" alt="SamISI" className="w-10 h-10 rounded-full shrink-0 object-cover" />
+          <Image src="/logo.png" alt="SamISI" width={40} height={40} className="w-10 h-10 rounded-full shrink-0 object-cover" />
           <div className="flex flex-col min-w-0">
             <span
               className="font-semibold text-base leading-tight truncate"
