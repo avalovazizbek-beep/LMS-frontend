@@ -173,12 +173,19 @@ function formatCallDuration(totalSeconds: number) {
     .join(":")
 }
 
-function getMeetingSocketUrl(joinToken: JoinTokenResponse | null) {
-  const socketUrl = joinToken?.socketUrl
-  if (socketUrl?.startsWith("http://") || socketUrl?.startsWith("https://")) {
-    return socketUrl.replace(/\/+$/, "")
-  }
-  return (process.env.NEXT_PUBLIC_MEETING_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "")
+function getMeetingSocketOptions(joinToken: JoinTokenResponse | null): { url: string; path: string } {
+  const raw = (() => {
+    const socketUrl = joinToken?.socketUrl
+    if (socketUrl?.startsWith("http://") || socketUrl?.startsWith("https://")) return socketUrl.replace(/\/+$/, "")
+    return (process.env.NEXT_PUBLIC_MEETING_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "")
+  })()
+  try {
+    const u = new URL(raw)
+    if (u.pathname && u.pathname !== "/") {
+      return { url: u.origin, path: u.pathname.replace(/\/+$/, "") + "/socket.io" }
+    }
+  } catch {}
+  return { url: raw, path: "/socket.io" }
 }
 
 function stopStream(stream: MediaStream | null) {
@@ -2738,7 +2745,9 @@ export default function MeetingPage() {
   useEffect(() => {
     if (viewState.stage !== "call" || !joinToken?.token) return
 
-    const socket = io(getMeetingSocketUrl(joinToken), {
+    const { url: socketOrigin, path: socketPath } = getMeetingSocketOptions(joinToken)
+    const socket = io(socketOrigin, {
+      path: socketPath,
       auth: { token: joinToken.token, joinToken: joinToken.token },
       transports: ["websocket", "polling"],
       extraHeaders: { "ngrok-skip-browser-warning": "true" },
