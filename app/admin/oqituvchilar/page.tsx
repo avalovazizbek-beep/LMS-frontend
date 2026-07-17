@@ -7,7 +7,7 @@ import {
   FileText, Search, ChevronLeft, ChevronRight, Music, Layers, Users, Clapperboard, ClipboardList,
   ExternalLink, FileSpreadsheet, Send, Loader2,
 } from "lucide-react"
-import { adminApi, type AdminTeacherStat, type AdminTeacherTopic, type AdminTeacherTopicContent } from "@/lib/api"
+import { adminApi, type AdminTeacherStat, type AdminTeacherTopic, type AdminTeacherTopicContent, type AdminExamQuestion } from "@/lib/api"
 import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
@@ -61,9 +61,49 @@ const CONTENT_KIND_LABEL: Record<string, string> = {
   video_lesson: "Video", audio: "Audio", theory: "Taqdimot", qollanma: "Qo'llanma", youtube: "YouTube",
 }
 
+function ExamQuestionsPreview({ contentId }: { contentId: number }) {
+  const [questions, setQuestions] = useState<AdminExamQuestion[] | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    adminApi.contentQuestions(contentId)
+      .then(r => { if (!cancelled) setQuestions(r.data ?? []) })
+      .catch(() => { if (!cancelled) setQuestions([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [contentId])
+
+  if (loading) return <div className="flex items-center justify-center py-3"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
+  if (!questions || questions.length === 0) return <p className="text-xs py-2 px-2" style={L}>Savollar topilmadi</p>
+
+  return (
+    <div className="flex flex-col gap-2 mt-2 pl-2" style={{ borderLeft: "2px solid rgba(14,88,168,0.15)" }}>
+      {questions.map((q, qi) => (
+        <div key={q.id} className="text-xs">
+          <p className="font-medium" style={T}>{qi + 1}. {q.questionText} <span style={L}>({q.points} ball)</span></p>
+          <div className="flex flex-col gap-0.5 mt-1 ml-3">
+            {q.options.map((opt, oi) => {
+              const isCorrect = q.correctIndexes?.includes(oi) ?? oi === q.correctIndex
+              return (
+                <span key={oi} className="flex items-center gap-1.5" style={{ color: isCorrect ? "#15803d" : "#7293b9", fontFamily: "var(--font-poppins)", fontWeight: isCorrect ? 600 : 400 }}>
+                  {isCorrect ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <span className="w-3 h-3 shrink-0" />}
+                  {opt}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: string; topicKey: string }) {
   const [items, setItems] = useState<AdminTeacherTopicContent[] | null>(null)
   const [loading, setLoading] = useState(true)
+  const [expandedTest, setExpandedTest] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -80,28 +120,44 @@ function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: stri
 
   return (
     <div className="px-4 pb-3 flex flex-col gap-2">
-      {items.map(it => (
-        <div key={it.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fff" }}>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-semibold shrink-0 px-1.5 py-0.5 rounded" style={{ backgroundColor: "#eef4ff", color: "#0e58a8" }}>
-              {it.type === "exam" ? "Test" : it.type === "assignment" ? "Topshiriq" : CONTENT_KIND_LABEL[it.kind ?? ""] ?? it.kind}
-            </span>
-            <span className="text-sm truncate" style={T}>
-              {it.fileName ?? (it.meetingLink ? it.meetingLink : it.type === "exam" ? `Maks. ball: ${it.maxScore ?? "—"}` : it.title)}
-            </span>
+      {items.map(it => {
+        const isTest = it.type === "exam"
+        const testOpen = expandedTest === it.id
+        return (
+          <div key={it.id} className="rounded-[6px] px-3 py-2" style={{ backgroundColor: "#fff" }}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-semibold shrink-0 px-1.5 py-0.5 rounded" style={{ backgroundColor: "#eef4ff", color: "#0e58a8" }}>
+                  {isTest ? "Test" : it.type === "assignment" ? "Topshiriq" : CONTENT_KIND_LABEL[it.kind ?? ""] ?? it.kind}
+                </span>
+                <span className="text-sm truncate" style={T}>
+                  {it.fileName ?? (it.meetingLink ? it.meetingLink : isTest ? `Maks. ball: ${it.maxScore ?? "—"}` : it.title)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {isTest && (
+                  <button onClick={() => setExpandedTest(testOpen ? null : it.id)}
+                    className="text-xs font-medium px-2 py-1 rounded hover:bg-[#f6f9ff] transition-colors"
+                    style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    {testOpen ? "Yopish" : "Savollarni ko'rish"}
+                  </button>
+                )}
+                {it.fileName && (
+                  <a href={adminApi.contentFileUrl(it.id)} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-[#f6f9ff]">
+                    <ExternalLink className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
+                  </a>
+                )}
+                {it.meetingLink && (
+                  <a href={it.meetingLink} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-[#f6f9ff]">
+                    <ExternalLink className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
+                  </a>
+                )}
+              </div>
+            </div>
+            {isTest && testOpen && <ExamQuestionsPreview contentId={it.id} />}
           </div>
-          {it.fileUrl && (
-            <a href={it.fileUrl} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-[#f6f9ff] shrink-0">
-              <ExternalLink className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
-            </a>
-          )}
-          {it.meetingLink && (
-            <a href={it.meetingLink} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-[#f6f9ff] shrink-0">
-              <ExternalLink className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
-            </a>
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

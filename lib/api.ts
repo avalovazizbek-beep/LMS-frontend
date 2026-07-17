@@ -2080,6 +2080,16 @@ export interface AdminTeacherTopicContent {
   deadline: string | null
 }
 
+export interface AdminExamQuestion {
+  id: number
+  questionText: string
+  imageUrl: string | null
+  options: string[]
+  correctIndex: number
+  correctIndexes: number[]
+  points: number
+}
+
 export interface AdminAttendanceRow {
   groupId: number
   groupName: string
@@ -2167,6 +2177,9 @@ export const adminApi = {
     get<{ data: AdminTeacherTopicContent[] }>(`/api/admin/teacher-stats/${teacherId}/topics/${encodeURIComponent(topicKey)}`),
 
   contentFileUrl: (contentId: number) => `${BASE}/api/admin/content/${contentId}/file?token=${encodeURIComponent(getToken() ?? "")}`,
+
+  contentQuestions: (contentId: number) =>
+    get<{ data: AdminExamQuestion[] }>(`/api/admin/content/${contentId}/questions`),
 
   sendReportTelegram: (body: { filename: string; caption?: string; pdfBase64: string }) =>
     post<{ success: boolean; message: string }>("/api/admin/send-report-telegram", body),
