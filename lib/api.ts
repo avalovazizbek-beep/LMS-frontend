@@ -563,6 +563,8 @@ export const meetingsApi = {
   },
   studentJoinToken: getMeetingJoinToken,
   joinToken: getMeetingJoinToken,
+  facePing: (id: string, body: { visible: boolean; intervalSeconds: number }) =>
+    meetingPost<{ success: boolean }>(`/api/meetings/${id}/face-ping`, body),
   attendance: (id: string) =>
     meetingGet<SuccessEnvelope<AttendanceSummary[] | AttendanceSummary>>(
       `/api/meetings/${id}/attendance`
@@ -1272,6 +1274,7 @@ export interface StudentTopic {
     qollanma: StudentTopicSectionWithLock | null
     test: StudentTopicSectionWithLock | null
     assignment: StudentTopicSectionWithLock | null
+    youtube: StudentTopicSectionWithLock | null
   }
 }
 
@@ -1559,6 +1562,8 @@ export const teachingApi = {
   notifyStudent: (body: {
     studentName: string
     message: string
+    /** Berilsa, xabar platforma ichida ("Xabarnomalar") shu talabaga ham ko'rinadi */
+    studentUserId?: number
     stats?: {
       subject?: string
       jn?: number | null
@@ -2078,6 +2083,30 @@ export interface AdminAttendanceRow {
   presentPct: number
 }
 
+export interface AdminAttendanceDetailRow {
+  studentId: number
+  studentName: string
+  status: string
+  comment: string | null
+}
+
+export interface AdminAttendanceStudentRow {
+  studentId: number
+  studentName: string
+  total: number
+  present: number
+  absent: number
+  excused: number
+  late: number
+  presentPct: number
+}
+
+export interface AdminAttendanceStudentDetailRow {
+  lessonDate: string
+  status: string
+  comment: string | null
+}
+
 export interface PlatformAttendanceStudent {
   studentId: number
   studentName: string
@@ -2143,6 +2172,21 @@ export const adminApi = {
   attendance: (params?: { groupId?: number; subject?: string; date?: string }) => {
     const q = new URLSearchParams(buildParams(params ?? {})).toString()
     return get<{ data: AdminAttendanceRow[] }>(`/api/admin/attendance${q ? `?${q}` : ""}`)
+  },
+
+  attendanceDetail: (params: { groupId: number; subject: string; date: string }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<{ data: AdminAttendanceDetailRow[] }>(`/api/admin/attendance/detail?${q}`)
+  },
+
+  attendanceStudents: (params: { groupId: number; subject: string }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<{ data: AdminAttendanceStudentRow[] }>(`/api/admin/attendance/students?${q}`)
+  },
+
+  attendanceStudentDetail: (params: { groupId: number; subject: string; studentId: number }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<{ data: AdminAttendanceStudentDetailRow[] }>(`/api/admin/attendance/student-detail?${q}`)
   },
 
   teacherJournal: (params: { teacherId: number; groupId: number; subject: string }) => {

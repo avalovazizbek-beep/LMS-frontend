@@ -2,7 +2,9 @@ import { Poppins } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { LanguageProvider } from "@/lib/i18n/LanguageContext"
 import { cn } from "@/lib/utils"
+import SplashScreen from "@/components/SplashScreen"
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -13,6 +15,10 @@ const poppins = Poppins({
 export const metadata = {
   title: "Masofaviy Ta'lim Tizimi",
   description: "LMS - Distance Learning Management System",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 }
 
 export default function RootLayout({
@@ -28,7 +34,10 @@ export default function RootLayout({
       style={{ fontFamily: "var(--font-poppins), sans-serif" }}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <SplashScreen />
+        <LanguageProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </LanguageProvider>
       </body>
     </html>
   )

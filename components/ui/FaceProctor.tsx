@@ -10,7 +10,8 @@ declare global {
 }
 
 /* ── Config ─────────────────────────────────────────────────────────── */
-const MODEL_URL           = "/models"
+const BASE_PATH           = process.env.NEXT_PUBLIC_BASE_PATH || ""
+const MODEL_URL           = `${BASE_PATH}/models`
 const TINY_CONF           = 0.30   // 0.25→0.30: kamroq soxta aniqlash
 const VERIFY_INTERVAL     = 6000   // 10s→6s: tezroq tekshiruv
 const ABSENT_LIMIT        = 10000
@@ -502,7 +503,7 @@ export default function FaceProctor({
   if (fixed) {
     return (
       <>
-        <Script src="/face-api.min.js" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
+        <Script src={`${BASE_PATH}/face-api.min.js`} strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
         {/* Katta kamera vidgeti — o'ng yuqori burchak */}
         <div style={{
           position: "fixed", top: 10, right: 10, zIndex: 10001,
@@ -602,7 +603,7 @@ export default function FaceProctor({
   /* ── Default mode (original layout) ─────────────────────────────────── */
   return (
     <>
-      <Script src="/face-api.min.js" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
+      <Script src={`${BASE_PATH}/face-api.min.js`} strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
       <div className="relative flex flex-col gap-4">
         <div className="self-end">{cameraWidget}</div>
         {blockedOverlay}

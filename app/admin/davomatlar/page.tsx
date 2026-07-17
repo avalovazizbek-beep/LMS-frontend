@@ -1,10 +1,17 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
-import { Search, ClipboardCheck, ChevronDown, ChevronUp, Users, Loader2, CalendarDays, CheckCircle2, XCircle, Video } from "lucide-react"
-import { adminApi, type AdminAttendanceRow, type PlatformAttendanceDay, type AdminTeacherStat } from "@/lib/api"
+import { Fragment, useMemo, useState, useEffect } from "react"
+import {
+  Search, ClipboardCheck, ChevronDown, ChevronUp, Users, Loader2, CalendarDays,
+  CheckCircle2, XCircle, Video, User, FileSpreadsheet, FileText,
+} from "lucide-react"
+import {
+  adminApi, type AdminAttendanceRow, type AdminAttendanceDetailRow, type AdminAttendanceStudentRow,
+  type AdminAttendanceStudentDetailRow, type PlatformAttendanceDay, type AdminTeacherStat,
+} from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { exportToExcel, exportToPdf } from "@/lib/exportUtils"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -15,7 +22,282 @@ function pctColor(pct: number) {
   return "#b91c1c"
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  present: "Keldi", absent: "Kelmadi", excused: "Uzrli", late: "Kechikdi",
+}
+const STATUS_COLOR: Record<string, string> = {
+  present: "#15803d", absent: "#b91c1c", excused: "#7293b9", late: "#d97706",
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
+      style={{ backgroundColor: `${STATUS_COLOR[status] ?? "#7293b9"}1a`, color: STATUS_COLOR[status] ?? "#7293b9" }}>
+      {status === "present" ? <CheckCircle2 className="w-3 h-3" /> : status === "absent" ? <XCircle className="w-3 h-3" /> : null}
+      {STATUS_LABEL[status] ?? status}
+    </span>
+  )
+}
+
+/* ── Bitta sananing ichidagi talabalar ro'yxati (ism-familiya + holat) ─── */
+function DateDetailRows({ groupId, subject, date }: { groupId: number; subject: string; date: string }) {
+  const [rows, setRows] = useState<AdminAttendanceDetailRow[] | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    adminApi.attendanceDetail({ groupId, subject, date })
+      .then(r => { if (!cancelled) setRows(r.data ?? []) })
+      .catch(() => { if (!cancelled) setRows([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [groupId, subject, date])
+
+  if (loading) return <div className="flex items-center justify-center py-5"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
+  if (!rows || rows.length === 0) return <p className="text-xs py-4 px-4" style={L}>Bu sana uchun talaba ma&apos;lumotlari topilmadi</p>
+
+  return (
+    <div className="px-4 pb-3">
+      <table className="w-full text-sm">
+        <thead>
+          <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+            <th className="text-left py-1.5 font-semibold text-xs" style={L}>#</th>
+            <th className="text-left py-1.5 font-semibold text-xs" style={L}>Ism familiya</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={L}>Holat</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.studentId} style={{ borderBottom: i < rows.length - 1 ? "1px solid rgba(1,41,112,0.04)" : "none" }}>
+              <td className="py-1.5 text-xs" style={L}>{i + 1}</td>
+              <td className="py-1.5" style={T}>{r.studentName}</td>
+              <td className="py-1.5 text-center"><StatusBadge status={r.status} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/* ── Talaba bo'yicha ro'yxat: har birining umumiy foizi, bosilsa sana-sana tarixi ─── */
+function StudentAttendanceView({ groupId, subject }: { groupId: number; subject: string }) {
+  const [rows, setRows] = useState<AdminAttendanceStudentRow[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [expandedStudent, setExpandedStudent] = useState<number | null>(null)
+  const [detail, setDetail] = useState<Record<number, AdminAttendanceStudentDetailRow[]>>({})
+  const [detailLoading, setDetailLoading] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    adminApi.attendanceStudents({ groupId, subject })
+      .then(r => { if (!cancelled) setRows(r.data ?? []) })
+      .catch(() => { if (!cancelled) setRows([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [groupId, subject])
+
+  async function toggleStudent(studentId: number) {
+    if (expandedStudent === studentId) { setExpandedStudent(null); return }
+    setExpandedStudent(studentId)
+    if (detail[studentId]) return
+    setDetailLoading(studentId)
+    try {
+      const r = await adminApi.attendanceStudentDetail({ groupId, subject, studentId })
+      setDetail(prev => ({ ...prev, [studentId]: r.data ?? [] }))
+    } catch { setDetail(prev => ({ ...prev, [studentId]: [] })) }
+    finally { setDetailLoading(null) }
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-5"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
+  if (!rows || rows.length === 0) return <p className="text-xs py-4 px-4" style={L}>Bu guruh/fan uchun talaba ma&apos;lumotlari topilmadi</p>
+
+  return (
+    <div className="px-4 pb-3 flex flex-col gap-2">
+      <table className="w-full text-sm">
+        <thead>
+          <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+            <th className="text-left py-1.5 font-semibold text-xs" style={L}>#</th>
+            <th className="text-left py-1.5 font-semibold text-xs" style={L}>Ism familiya</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>Keldi</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>Kelmadi</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={L}>Jami</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={T}>Foiz</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((s, i) => {
+            const isOpen = expandedStudent === s.studentId
+            return (
+              <Fragment key={s.studentId}>
+                <tr className="cursor-pointer hover:bg-[#f6f9ff]/60 transition-colors"
+                  style={{ borderBottom: isOpen ? "none" : "1px solid rgba(1,41,112,0.04)" }}
+                  onClick={() => toggleStudent(s.studentId)}>
+                  <td className="py-1.5 text-xs" style={L}>{i + 1}</td>
+                  <td className="py-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 shrink-0" style={{ color: "#7293b9" }} />
+                      <span style={T}>{s.studentName}</span>
+                    </div>
+                  </td>
+                  <td className="py-1.5 text-center font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{s.present}</td>
+                  <td className="py-1.5 text-center font-medium" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{s.absent}</td>
+                  <td className="py-1.5 text-center" style={L}>{s.total}</td>
+                  <td className="py-1.5 text-center">
+                    <span className="font-bold text-xs" style={{ color: pctColor(s.presentPct) }}>{s.presentPct}%</span>
+                  </td>
+                </tr>
+                {isOpen && (
+                  <tr>
+                    <td colSpan={6} className="pb-2" style={{ backgroundColor: "#f8fbff" }}>
+                      {detailLoading === s.studentId ? (
+                        <div className="flex items-center justify-center py-3"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
+                      ) : (detail[s.studentId]?.length ?? 0) === 0 ? (
+                        <p className="text-xs py-2 px-2" style={L}>Sana bo&apos;yicha ma&apos;lumot topilmadi</p>
+                      ) : (
+                        <table className="w-full text-xs mt-1">
+                          <tbody>
+                            {detail[s.studentId].map(d => (
+                              <tr key={d.lessonDate} style={{ borderBottom: "1px solid rgba(1,41,112,0.04)" }}>
+                                <td className="py-1 px-2" style={T}>{d.lessonDate}</td>
+                                <td className="py-1 px-2 text-right"><StatusBadge status={d.status} /></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 /* ── Qo'lda kiritilgan davomat (eski tab) ─────────────────────────────── */
+type AttGroup = { key: string; groupId: number; groupName: string; subjectName: string; rows: AdminAttendanceRow[] }
+
+function GroupAttendanceCard({ g, isOpen, onToggle }: { g: AttGroup; isOpen: boolean; onToggle: () => void }) {
+  const [viewMode, setViewMode] = useState<"sana" | "talaba">("sana")
+  const [expandedDate, setExpandedDate] = useState<string | null>(null)
+
+  const totalLessons = g.rows.length
+  const avgPct = totalLessons > 0 ? Math.round(g.rows.reduce((s, r) => s + r.presentPct, 0) / totalLessons) : 0
+  const totalStudents = g.rows[0]?.total ?? 0
+
+  return (
+    <div className="bg-white rounded-[10px] overflow-hidden"
+      style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
+      <button type="button" onClick={onToggle}
+        className="w-full px-5 py-4 flex items-center gap-4 hover:bg-[#f8fbff] transition-colors text-left">
+        <div className="w-10 h-10 rounded-[8px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
+          <Users className="w-5 h-5" style={{ color: "#0e58a8" }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold" style={T}>{g.groupName}</div>
+          <div className="text-xs mt-0.5 truncate" style={L}>{g.subjectName}</div>
+        </div>
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="text-right">
+            <div className="text-sm font-bold" style={{ color: pctColor(avgPct) }}>{avgPct}%</div>
+            <div className="text-xs" style={L}>o&apos;rtacha</div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-semibold" style={T}>{totalLessons}</div>
+            <div className="text-xs" style={L}>dars</div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-semibold" style={T}>{totalStudents}</div>
+            <div className="text-xs" style={L}>talaba</div>
+          </div>
+          {isOpen ? <ChevronUp className="w-4 h-4" style={L} /> : <ChevronDown className="w-4 h-4" style={L} />}
+        </div>
+      </button>
+
+      {isOpen && (
+        <div style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
+          {/* Ko'rinish tugmalari */}
+          <div className="flex gap-1 p-2" style={{ backgroundColor: "#f8fbff" }}>
+            {([
+              { key: "sana",    label: "Sana bo'yicha" },
+              { key: "talaba",  label: "Talaba bo'yicha" },
+            ] as { key: "sana" | "talaba"; label: string }[]).map(t => (
+              <button key={t.key} type="button" onClick={() => setViewMode(t.key)}
+                className="px-3 py-1.5 rounded-[6px] text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: viewMode === t.key ? "#fff" : "transparent",
+                  color: viewMode === t.key ? "#0e58a8" : "#7293b9",
+                  border: viewMode === t.key ? "1px solid rgba(14,88,168,0.2)" : "1px solid transparent",
+                  fontFamily: "var(--font-poppins)",
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {viewMode === "sana" ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ backgroundColor: "#f8fbff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+                    <th className="px-4 py-2 text-left font-semibold" style={L}>Sana</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={L}>Jami</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>Keldi</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>Kelmadi</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={{ color: "#d97706", fontFamily: "var(--font-poppins)" }}>Kechikdi</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={L}>Uzrli</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={T}>%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.rows.map((r, i) => {
+                    const dateOpen = expandedDate === r.lessonDate
+                    return (
+                      <Fragment key={r.lessonDate}>
+                        <tr className="cursor-pointer hover:bg-[#f6f9ff]/60 transition-colors"
+                          style={{ borderBottom: dateOpen ? "none" : (i < g.rows.length - 1 ? "1px solid rgba(1,41,112,0.05)" : "none") }}
+                          onClick={() => setExpandedDate(dateOpen ? null : r.lessonDate)}>
+                          <td className="px-4 py-2 flex items-center gap-1.5" style={T}>
+                            {dateOpen ? <ChevronUp className="w-3.5 h-3.5" style={L} /> : <ChevronDown className="w-3.5 h-3.5" style={L} />}
+                            {r.lessonDate}
+                          </td>
+                          <td className="px-3 py-2 text-center" style={L}>{r.total}</td>
+                          <td className="px-3 py-2 text-center font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{r.present}</td>
+                          <td className="px-3 py-2 text-center font-medium" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{r.absent}</td>
+                          <td className="px-3 py-2 text-center font-medium" style={{ color: "#d97706", fontFamily: "var(--font-poppins)" }}>{r.late}</td>
+                          <td className="px-3 py-2 text-center" style={L}>{r.excused}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="font-bold text-sm" style={{ color: pctColor(r.presentPct) }}>{r.presentPct}%</span>
+                          </td>
+                        </tr>
+                        {dateOpen && (
+                          <tr>
+                            <td colSpan={7} style={{ backgroundColor: "#f8fbff", borderBottom: i < g.rows.length - 1 ? "1px solid rgba(1,41,112,0.08)" : "none" }}>
+                              <DateDetailRows groupId={g.groupId} subject={g.subjectName} date={r.lessonDate} />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <StudentAttendanceView groupId={g.groupId} subject={g.subjectName} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ManualAttendance() {
   const [search, setSearch] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -34,7 +316,7 @@ function ManualAttendance() {
   }, [rows, search])
 
   const groups = useMemo(() => {
-    const map = new Map<string, { key: string; groupId: number; groupName: string; subjectName: string; rows: AdminAttendanceRow[] }>()
+    const map = new Map<string, AttGroup>()
     for (const r of filtered) {
       const key = `${r.groupId}::${r.subjectName}`
       if (!map.has(key)) map.set(key, { key, groupId: r.groupId, groupName: r.groupName, subjectName: r.subjectName, rows: [] })
@@ -43,19 +325,52 @@ function ManualAttendance() {
     return Array.from(map.values()).sort((a, b) => a.groupName.localeCompare(b.groupName) || a.subjectName.localeCompare(b.subjectName))
   }, [filtered])
 
+  function doExportExcel() {
+    exportToExcel("davomat-hisoboti", [{
+      name: "Davomat",
+      rows: filtered.map(r => ({
+        Guruh: r.groupName, Fan: r.subjectName, Sana: r.lessonDate,
+        Jami: r.total, Keldi: r.present, Kelmadi: r.absent, Kechikdi: r.late, Uzrli: r.excused,
+        "Foiz (%)": r.presentPct,
+      })),
+    }])
+  }
+
+  function doExportPdf() {
+    exportToPdf(
+      "davomat-hisoboti", "Davomat hisoboti",
+      ["Guruh", "Fan", "Sana", "Jami", "Keldi", "Kelmadi", "Kechikdi", "Uzrli", "Foiz (%)"],
+      filtered.map(r => [r.groupName, r.subjectName, r.lessonDate, r.total, r.present, r.absent, r.late, r.excused, `${r.presentPct}%`])
+    )
+  }
+
   if (loading) return <Loading />
   if (error)   return <ApiError message={error} onRetry={refetch} />
 
   return (
     <div className="flex flex-col gap-4">
-      <label className="flex items-center gap-2 px-3 py-2.5 rounded-[6px] bg-white w-full max-w-sm"
-        style={{ border: "1px solid rgba(1,41,112,0.2)" }}>
-        <Search className="w-4 h-4 shrink-0" style={L} />
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Guruh, fan yoki sana bo'yicha"
-          className="flex-1 bg-transparent outline-none text-sm"
-          style={T} />
-      </label>
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-2 px-3 py-2.5 rounded-[6px] bg-white w-full max-w-sm"
+          style={{ border: "1px solid rgba(1,41,112,0.2)" }}>
+          <Search className="w-4 h-4 shrink-0" style={L} />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Guruh, fan yoki sana bo'yicha"
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={T} />
+        </label>
+        <div className="flex items-center gap-2 ml-auto">
+          <button type="button" onClick={doExportExcel} disabled={!filtered.length}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#f0fdf4] disabled:opacity-50"
+            style={{ border: "1px solid rgba(21,128,61,0.25)", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+            <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+          </button>
+          <button type="button" onClick={doExportPdf} disabled={!filtered.length}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#fef2f2] disabled:opacity-50"
+            style={{ border: "1px solid rgba(185,28,28,0.25)", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+            <FileText className="w-3.5 h-3.5" /> PDF
+          </button>
+        </div>
+      </div>
 
       {groups.length === 0 ? (
         <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -64,78 +379,10 @@ function ManualAttendance() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {groups.map(g => {
-            const totalLessons = g.rows.length
-            const avgPct = totalLessons > 0
-              ? Math.round(g.rows.reduce((s, r) => s + r.presentPct, 0) / totalLessons)
-              : 0
-            const totalStudents = g.rows[0]?.total ?? 0
-            const isOpen = expanded === g.key
-
-            return (
-              <div key={g.key} className="bg-white rounded-[10px] overflow-hidden"
-                style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
-                <button type="button" onClick={() => setExpanded(isOpen ? null : g.key)}
-                  className="w-full px-5 py-4 flex items-center gap-4 hover:bg-[#f8fbff] transition-colors text-left">
-                  <div className="w-10 h-10 rounded-[8px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
-                    <Users className="w-5 h-5" style={{ color: "#0e58a8" }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold" style={T}>{g.groupName}</div>
-                    <div className="text-xs mt-0.5 truncate" style={L}>{g.subjectName}</div>
-                  </div>
-                  <div className="flex items-center gap-4 shrink-0">
-                    <div className="text-right">
-                      <div className="text-sm font-bold" style={{ color: pctColor(avgPct) }}>{avgPct}%</div>
-                      <div className="text-xs" style={L}>o&apos;rtacha</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold" style={T}>{totalLessons}</div>
-                      <div className="text-xs" style={L}>dars</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold" style={T}>{totalStudents}</div>
-                      <div className="text-xs" style={L}>talaba</div>
-                    </div>
-                    {isOpen ? <ChevronUp className="w-4 h-4" style={L} /> : <ChevronDown className="w-4 h-4" style={L} />}
-                  </div>
-                </button>
-
-                {isOpen && (
-                  <div className="overflow-x-auto" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: "#f8fbff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                          <th className="px-4 py-2 text-left font-semibold" style={L}>Sana</th>
-                          <th className="px-3 py-2 text-center font-semibold" style={L}>Jami</th>
-                          <th className="px-3 py-2 text-center font-semibold" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>Keldi</th>
-                          <th className="px-3 py-2 text-center font-semibold" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>Kelmadi</th>
-                          <th className="px-3 py-2 text-center font-semibold" style={{ color: "#d97706", fontFamily: "var(--font-poppins)" }}>Kechikdi</th>
-                          <th className="px-3 py-2 text-center font-semibold" style={L}>Uzrli</th>
-                          <th className="px-3 py-2 text-center font-semibold" style={T}>%</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {g.rows.map((r, i) => (
-                          <tr key={r.lessonDate} style={{ borderBottom: i < g.rows.length - 1 ? "1px solid rgba(1,41,112,0.05)" : "none" }}>
-                            <td className="px-4 py-2" style={T}>{r.lessonDate}</td>
-                            <td className="px-3 py-2 text-center" style={L}>{r.total}</td>
-                            <td className="px-3 py-2 text-center font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{r.present}</td>
-                            <td className="px-3 py-2 text-center font-medium" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{r.absent}</td>
-                            <td className="px-3 py-2 text-center font-medium" style={{ color: "#d97706", fontFamily: "var(--font-poppins)" }}>{r.late}</td>
-                            <td className="px-3 py-2 text-center" style={L}>{r.excused}</td>
-                            <td className="px-3 py-2 text-center">
-                              <span className="font-bold text-sm" style={{ color: pctColor(r.presentPct) }}>{r.presentPct}%</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {groups.map(g => (
+            <GroupAttendanceCard key={g.key} g={g} isOpen={expanded === g.key}
+              onToggle={() => setExpanded(expanded === g.key ? null : g.key)} />
+          ))}
         </div>
       )}
     </div>
@@ -326,6 +573,35 @@ function PlatformAttendance() {
 
       {result && result.length > 0 && (
         <div className="flex flex-col gap-3">
+          {/* Export tugmalari */}
+          <div className="flex items-center gap-2 justify-end">
+            <button type="button"
+              onClick={() => exportToExcel("platforma-davomati", [{
+                name: "Davomat",
+                rows: result.flatMap(day => day.students.map(s => ({
+                  Sana: day.lessonDate, Fan: day.subjectName, Talaba: s.studentName || `Talaba #${s.studentId}`,
+                  Holat: s.status === "present" ? "Keldi" : "Kelmadi",
+                }))),
+              }])}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#f0fdf4]"
+              style={{ border: "1px solid rgba(21,128,61,0.25)", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+            </button>
+            <button type="button"
+              onClick={() => exportToPdf(
+                "platforma-davomati", "Platforma davomati",
+                ["Sana", "Fan", "Talaba", "Holat"],
+                result.flatMap(day => day.students.map(s => [
+                  day.lessonDate, day.subjectName, s.studentName || `Talaba #${s.studentId}`,
+                  s.status === "present" ? "Keldi" : "Kelmadi",
+                ]))
+              )}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#fef2f2]"
+              style={{ border: "1px solid rgba(185,28,28,0.25)", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+              <FileText className="w-3.5 h-3.5" /> PDF
+            </button>
+          </div>
+
           {/* Summary row */}
           <div className="grid grid-cols-3 gap-4">
             {[

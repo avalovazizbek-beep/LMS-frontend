@@ -7,6 +7,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function getAbsenceType(r: HemisAttendance): "excused" | "absent" {
   if (r.explicable === true) return "excused"
@@ -29,6 +30,7 @@ function formatTime(iso: string) {
 type Tab = "hemis" | "platform" | "sessions"
 
 export default function Davomat() {
+  const { t } = useLanguage()
   const { currentCode, getSemesterId } = useCurrentSemester()
   const [selectedCode, setSelectedCode] = useState<number | null>(null)
   const [subjectFilter, setSubjectFilter] = useState("all")
@@ -81,9 +83,9 @@ export default function Davomat() {
   if (e1) return <ApiError message={e1} onRetry={() => { r1(); r2(); r3() }} />
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: "hemis",    label: "HEMIS davomati",    count: hemis.length },
-    { key: "platform", label: "Platformadan keldi", count: lmsRecords.length },
-    { key: "sessions", label: "Kirish tarixi",      count: sessions.length },
+    { key: "hemis",    label: t("davomat.tab.hemis"),    count: hemis.length },
+    { key: "platform", label: t("davomat.tab.platform"), count: lmsRecords.length },
+    { key: "sessions", label: t("davomat.tab.sessions"), count: sessions.length },
   ]
 
   return (
@@ -91,10 +93,10 @@ export default function Davomat() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Davomat
+            {t("davomat.title")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Darslarga davomat tarixi
+            {t("davomat.subtitle")}
           </p>
         </div>
         <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => setSelectedCode(code)} />
@@ -132,7 +134,7 @@ export default function Davomat() {
                   color: subjectFilter === "all" ? "#7293b9" : "#012970",
                   fontFamily: "var(--font-poppins)", minWidth: 220,
                 }}>
-                <option value="all">Fanlarni tanlang</option>
+                <option value="all">{t("davomat.subjectSelect")}</option>
                 {subjects.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
@@ -143,7 +145,7 @@ export default function Davomat() {
             style={{ border: "1px solid rgba(1,41,112,0.2)" }}>
             <Search className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder={tab === "hemis" ? "Fan / Xodim bo'yicha qidirish" : "Fan bo'yicha qidirish"}
+              placeholder={tab === "hemis" ? t("davomat.searchHemis") : t("davomat.searchPlatform")}
               className="flex-1 bg-transparent outline-none text-sm"
               style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
           </label>
@@ -158,7 +160,11 @@ export default function Davomat() {
             <table className="w-full min-w-[900px]">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
-                  {["#", "Semestr", "Dars sanasi", "Fanlar", "Mashg'ulot", "Sababli", "Soatlar", "Xodim"].map(h => (
+                  {[
+                    t("davomat.col.number"), t("davomat.col.semester"), t("davomat.col.lessonDate"),
+                    t("davomat.col.subject"), t("davomat.col.lessonType"), t("davomat.col.reason"),
+                    t("davomat.col.hours"), t("davomat.col.staff"),
+                  ].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                       style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
                       {h}
@@ -171,7 +177,7 @@ export default function Davomat() {
                   <tr><td colSpan={8} className="px-4 py-14 text-center" style={{ color: "#7293b9" }}>
                     <div className="flex flex-col items-center gap-2">
                       <ClipboardList className="w-8 h-8" style={{ color: "#d8e6f7" }} />
-                      <span className="text-sm">Davomat yozuvlari topilmadi</span>
+                      <span className="text-sm">{t("davomat.empty.hemis")}</span>
                     </div>
                   </td></tr>
                 ) : filteredHemis.map((r, i) => {
@@ -188,7 +194,7 @@ export default function Davomat() {
                         <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full w-fit whitespace-nowrap"
                           style={{ backgroundColor: isExcused ? "#fffbeb" : "#fef2f2", color: isExcused ? "#92400e" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                           {isExcused ? <AlertCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                          {isExcused ? "Sababli" : "Sababsiz"}
+                          {isExcused ? t("davomat.status.excused") : t("davomat.status.unexcused")}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-center" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{r.academic_hours ?? r.hours ?? "—"}</td>
@@ -202,7 +208,7 @@ export default function Davomat() {
           {filteredHemis.length > 0 && (
             <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
               <span className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Jami: {filteredHemis.length} ta yozuv
+                {t("davomat.totalRecords", { n: filteredHemis.length })}
               </span>
             </div>
           )}
@@ -215,14 +221,17 @@ export default function Davomat() {
           style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
           {e2 ? (
             <div className="p-8 text-center text-sm" style={{ color: "#b91c1c" }}>
-              Ma&apos;lumot yuklanmadi. <button onClick={r2} className="underline">Qayta urinish</button>
+              {t("davomat.notLoaded")} <button onClick={r2} className="underline">{t("davomat.retry")}</button>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[600px]">
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
-                    {["#", "Sana", "Fan", "Holat", "Izoh"].map(h => (
+                    {[
+                      t("davomat.col.number"), t("davomat.col.date"), t("davomat.col.subject"),
+                      t("davomat.col.status"), t("davomat.col.comment"),
+                    ].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                         style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
                     ))}
@@ -233,7 +242,7 @@ export default function Davomat() {
                     <tr><td colSpan={5} className="px-4 py-14 text-center" style={{ color: "#7293b9" }}>
                       <div className="flex flex-col items-center gap-2">
                         <Monitor className="w-8 h-8" style={{ color: "#d8e6f7" }} />
-                        <span className="text-sm">Platformadan davomat yozuvlari topilmadi</span>
+                        <span className="text-sm">{t("davomat.empty.platform")}</span>
                       </div>
                     </td></tr>
                   ) : filteredLms.map((r, i) => (
@@ -250,7 +259,7 @@ export default function Davomat() {
                             fontFamily: "var(--font-poppins)",
                           }}>
                           {r.status === "present" ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                          {r.status === "present" ? "Keldi" : r.status === "late" ? "Kech keldi" : r.status === "excused" ? "Sababli" : "Kelmadi"}
+                          {r.status === "present" ? t("davomat.status.present") : r.status === "late" ? t("davomat.status.late") : r.status === "excused" ? t("davomat.status.excused") : t("davomat.status.absent")}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
@@ -265,7 +274,7 @@ export default function Davomat() {
           {filteredLms.length > 0 && (
             <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
               <span className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Jami: {filteredLms.length} ta yozuv
+                {t("davomat.totalRecords", { n: filteredLms.length })}
               </span>
             </div>
           )}
@@ -280,7 +289,10 @@ export default function Davomat() {
             <table className="w-full min-w-[700px]">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
-                  {["#", "Sana", "Kirish vaqti", "Chiqish vaqti", "Davomiyligi"].map(h => (
+                  {[
+                    t("davomat.col.number"), t("davomat.col.date"), t("davomat.col.loginTime"),
+                    t("davomat.col.logoutTime"), t("davomat.col.duration"),
+                  ].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                       style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
                   ))}
@@ -291,7 +303,7 @@ export default function Davomat() {
                   <tr><td colSpan={5} className="px-4 py-14 text-center" style={{ color: "#7293b9" }}>
                     <div className="flex flex-col items-center gap-2">
                       <Clock className="w-8 h-8" style={{ color: "#d8e6f7" }} />
-                      <span className="text-sm">Kirish tarixi topilmadi</span>
+                      <span className="text-sm">{t("davomat.empty.sessions")}</span>
                     </div>
                   </td></tr>
                 ) : sessions.map((s, i) => (
@@ -301,10 +313,10 @@ export default function Davomat() {
                     <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{formatIso(s.loginAt)}</td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{formatTime(s.loginAt)}</td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: s.logoutAt ? "#b91c1c" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      {s.logoutAt ? formatTime(s.logoutAt) : "Hali chiqmagan"}
+                      {s.logoutAt ? formatTime(s.logoutAt) : t("davomat.status.notLoggedOut")}
                     </td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                      {s.durationMinutes > 0 ? `${s.durationMinutes} daqiqa` : "—"}
+                      {s.durationMinutes > 0 ? t("davomat.minutes", { n: s.durationMinutes }) : "—"}
                     </td>
                   </tr>
                 ))}
@@ -314,7 +326,7 @@ export default function Davomat() {
           {sessions.length > 0 && (
             <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
               <span className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Jami: {sessions.length} ta kirish
+                {t("davomat.totalLogins", { n: sessions.length })}
               </span>
             </div>
           )}

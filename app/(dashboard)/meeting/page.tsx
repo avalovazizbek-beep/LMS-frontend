@@ -41,6 +41,7 @@ import {
 import { meetingsApi, hemisApi, teachingApi, type Meeting, type MeetingRecording, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
+import MeetingFaceAttendanceTracker from "@/components/meeting/MeetingFaceAttendanceTracker"
 
 /* ── JWT payload decode (faqat o'qish uchun, imzo tekshirilmaydi) ── */
 function readJwtPayload(): Record<string, unknown> {
@@ -2988,6 +2989,13 @@ export default function MeetingPage() {
           />
         )}
       </AnimatePresence>
+      {callMeeting && !isTeacher && (
+        <MeetingFaceAttendanceTracker
+          meetingId={callMeeting.id}
+          stream={localStream}
+          cameraEnabled={cameraEnabled}
+        />
+      )}
     </div>
   )
 }

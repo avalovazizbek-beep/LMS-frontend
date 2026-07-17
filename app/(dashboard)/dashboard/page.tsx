@@ -9,6 +9,7 @@ import {
 import Link from "next/link"
 import { usersApi, hemisApi, type HemisEmployee } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const staggerContainer = { hidden: {}, visible: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } } }
 const cardItem = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } }
@@ -38,23 +39,24 @@ function academicYearStart() {
 
 /* ── Admin Dashboard ─────────────────────────────────────────────── */
 function AdminDashboard() {
+  const { t } = useLanguage()
   const { data: adminsData }     = useApi(() => usersApi.getAdmins())
   const { data: moderatorsData } = useApi(() => usersApi.getModerators())
   const { data: sellersData }    = useApi(() => usersApi.getSellers())
   const { data: mastersData }    = useApi(() => usersApi.getMasters())
 
   const stats = [
-    { label: "Jami adminlar",  value: adminsData?.data?.length     ?? "—", icon: Users,      color: "#0e58a8", bg: "#f0f5ff", href: "/foydalanuvchilar/adminlar" },
-    { label: "Moderatorlar",   value: moderatorsData?.data?.length ?? "—", icon: UserCog,    color: "#1cc2dc", bg: "#f0fbfd", href: "/foydalanuvchilar/moderatorlar" },
-    { label: "Sotuvchilar",    value: sellersData?.data?.length    ?? "—", icon: ShoppingBag, color: "#012970", bg: "#f6f9ff", href: "/foydalanuvchilar/sotuvchilar" },
-    { label: "Ustalar",        value: mastersData?.data?.length    ?? "—", icon: Wrench,     color: "#7293b9", bg: "#f6f9ff", href: "/foydalanuvchilar/ustalar" },
+    { label: t("dashboard.totalAdmins"), value: adminsData?.data?.length     ?? "—", icon: Users,      color: "#0e58a8", bg: "#f0f5ff", href: "/foydalanuvchilar/adminlar" },
+    { label: t("dashboard.moderators"),  value: moderatorsData?.data?.length ?? "—", icon: UserCog,    color: "#1cc2dc", bg: "#f0fbfd", href: "/foydalanuvchilar/moderatorlar" },
+    { label: t("dashboard.sellers"),     value: sellersData?.data?.length    ?? "—", icon: ShoppingBag, color: "#012970", bg: "#f6f9ff", href: "/foydalanuvchilar/sotuvchilar" },
+    { label: t("dashboard.masters"),     value: mastersData?.data?.length    ?? "—", icon: Wrench,     color: "#7293b9", bg: "#f6f9ff", href: "/foydalanuvchilar/ustalar" },
   ]
 
   const quickActions = [
-    { label: "Guruhlar",  icon: Users,        href: "/moliya/groups",        color: "#0e58a8" },
-    { label: "Imtihonlar", icon: ClipboardList, href: "/moliya/exams",        color: "#1cc2dc" },
-    { label: "Moliya",    icon: Wallet,       href: "/moliya/finance",       color: "#012970" },
-    { label: "Hujjatlar", icon: FileText,     href: "/moliya/documentation", color: "#7293b9" },
+    { label: t("dashboard.groups"),    icon: Users,        href: "/moliya/groups",        color: "#0e58a8" },
+    { label: t("sidebar.item.exams"),  icon: ClipboardList, href: "/moliya/exams",        color: "#1cc2dc" },
+    { label: t("dashboard.finance"),   icon: Wallet,       href: "/moliya/finance",       color: "#012970" },
+    { label: t("dashboard.documents"), icon: FileText,     href: "/moliya/documentation", color: "#7293b9" },
   ]
 
   const activity = [
@@ -67,8 +69,8 @@ function AdminDashboard() {
   return (
     <div className="flex flex-col gap-[30px] p-[30px]">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Dashboard</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Tizim umumiy ko&apos;rinishi</p>
+        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("sidebar.dashboard")}</h1>
+        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("dashboard.systemOverview")}</p>
       </motion.div>
 
       <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" variants={staggerContainer} initial="hidden" animate="visible">
@@ -97,7 +99,7 @@ function AdminDashboard() {
 
       <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-5" variants={staggerContainer} initial="hidden" animate="visible">
         <motion.div variants={cardItem} className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
-          <h2 className="text-[18px] font-medium mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Tezkor havolalar</h2>
+          <h2 className="text-[18px] font-medium mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("dashboard.quickLinks")}</h2>
           <div className="flex flex-col gap-2">
             {quickActions.map((action, i) => {
               const Icon = action.icon
@@ -116,7 +118,7 @@ function AdminDashboard() {
         </motion.div>
 
         <motion.div variants={cardItem} className="lg:col-span-2 bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
-          <h2 className="text-[18px] font-medium mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>So&apos;nggi faoliyat</h2>
+          <h2 className="text-[18px] font-medium mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("dashboard.recentActivity")}</h2>
           <div className="flex flex-col gap-3">
             {activity.map((item, i) => (
               <motion.div key={i} className="flex items-start gap-3 py-2" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}
@@ -138,26 +140,27 @@ function AdminDashboard() {
 
 /* ── Student Dashboard ───────────────────────────────────────────── */
 function StudentDashboard() {
+  const { t } = useLanguage()
   const { data: meData } = useApi(() => hemisApi.me())
   const student = meData?.data
 
   const links = [
-    { label: "Dars jadvali",   icon: CalendarDays,   href: "/dars-jadvali",     color: "#0e58a8", bg: "#f0f5ff" },
-    { label: "Davomat",        icon: ClipboardCheck, href: "/davomat",          color: "#1cc2dc", bg: "#f0fbfd" },
-    { label: "Baholar",        icon: BookOpen,        href: "/o-zlashtirish",    color: "#012970", bg: "#f6f9ff" },
-    { label: "Imtihonlar",     icon: GraduationCap,  href: "/imtihonlar",       color: "#7293b9", bg: "#f6f9ff" },
-    { label: "O'zlashtirish",  icon: BarChart2,       href: "/o-zlashtirish",    color: "#0e58a8", bg: "#f0f5ff" },
-    { label: "Moliyaviy",      icon: CreditCard,     href: "/moliyaviy",        color: "#1cc2dc", bg: "#f0fbfd" },
+    { label: t("sidebar.item.schedule"),    icon: CalendarDays,   href: "/dars-jadvali",     color: "#0e58a8", bg: "#f0f5ff" },
+    { label: t("sidebar.item.attendance"),  icon: ClipboardCheck, href: "/davomat",          color: "#1cc2dc", bg: "#f0fbfd" },
+    { label: t("dashboard.grades"),         icon: BookOpen,        href: "/o-zlashtirish",    color: "#012970", bg: "#f6f9ff" },
+    { label: t("sidebar.item.exams"),       icon: GraduationCap,  href: "/imtihonlar",       color: "#7293b9", bg: "#f6f9ff" },
+    { label: t("sidebar.item.performance"), icon: BarChart2,       href: "/o-zlashtirish",    color: "#0e58a8", bg: "#f0f5ff" },
+    { label: t("dashboard.finance"),        icon: CreditCard,     href: "/moliyaviy",        color: "#1cc2dc", bg: "#f0fbfd" },
   ]
 
   return (
     <div className="flex flex-col gap-[30px] p-[30px]">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Xush kelibsiz{student?.full_name ? `, ${student.full_name.split(" ")[0]}` : ""}!
+          {t("dashboard.welcome")}{student?.full_name ? `, ${student.full_name.split(" ")[0]}` : ""}!
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {student?.group?.name ? `Guruh: ${student.group.name}` : "Talaba kabineti"}
+          {student?.group?.name ? t("dashboard.group", { name: student.group.name }) : t("dashboard.studentCabinet")}
         </p>
       </motion.div>
 
@@ -221,6 +224,7 @@ function StudentDashboard() {
 
 /* ── Main export ─────────────────────────────────────────────────── */
 function TeacherDashboard() {
+  const { t } = useLanguage()
   const { data: meData } = useApi(() => hemisApi.employeeMe())
   const currentAcademicYear = String(academicYearStart())
   const { data: dashboardData } = useApi(
@@ -233,19 +237,19 @@ function TeacherDashboard() {
   const controlStats = asRecord(stats.controls)
 
   const cards = [
-    { label: "Davomat jurnali", value: statNumber(lessonStats.attendanceJournal, stats.attendanceJournal, stats.attendance_journal), icon: ClipboardCheck, href: "/xodim/davomat-jurnali", color: "#0e58a8", bg: "#f0f5ff" },
-    { label: "Mening dars jadvalim", value: statNumber(lessonStats.schedule, stats.schedule, stats.lesson_schedule), icon: CalendarDays, href: "/xodim/dars-jadvali", color: "#1cc2dc", bg: "#f0fbfd" },
-    { label: "Darslar ro'yxati", value: statNumber(lessonStats.lessonList, stats.lessonList, stats.lessons_count), icon: ClipboardList, href: "/xodim/dars-otish", color: "#012970", bg: "#f6f9ff" },
-    { label: "Oraliq nazorat", value: statNumber(controlStats.midterm, stats.midterm, stats.intermediate), icon: BookOpen, href: "/xodim/oraliq-nazorat", color: "#0e58a8", bg: "#f0f5ff" },
-    { label: "Yakuniy nazorat", value: statNumber(controlStats.final, stats.final, stats.final_control), icon: GraduationCap, href: "/xodim/yakuniy-nazorat", color: "#1cc2dc", bg: "#f0fbfd" },
-    { label: "Boshqa nazoratlar", value: statNumber(controlStats.other, stats.other, stats.other_control), icon: FileText, href: "/xodim/boshqa-nazoratlar", color: "#7293b9", bg: "#f6f9ff" },
+    { label: t("dashboard.attendanceJournal"), value: statNumber(lessonStats.attendanceJournal, stats.attendanceJournal, stats.attendance_journal), icon: ClipboardCheck, href: "/xodim/davomat-jurnali", color: "#0e58a8", bg: "#f0f5ff" },
+    { label: t("dashboard.mySchedule"), value: statNumber(lessonStats.schedule, stats.schedule, stats.lesson_schedule), icon: CalendarDays, href: "/xodim/dars-jadvali", color: "#1cc2dc", bg: "#f0fbfd" },
+    { label: t("dashboard.lessonList"), value: statNumber(lessonStats.lessonList, stats.lessonList, stats.lessons_count), icon: ClipboardList, href: "/xodim/dars-otish", color: "#012970", bg: "#f6f9ff" },
+    { label: t("dashboard.midtermControl"), value: statNumber(controlStats.midterm, stats.midterm, stats.intermediate), icon: BookOpen, href: "/xodim/oraliq-nazorat", color: "#0e58a8", bg: "#f0f5ff" },
+    { label: t("dashboard.finalControl"), value: statNumber(controlStats.final, stats.final, stats.final_control), icon: GraduationCap, href: "/xodim/yakuniy-nazorat", color: "#1cc2dc", bg: "#f0fbfd" },
+    { label: t("dashboard.otherControls"), value: statNumber(controlStats.other, stats.other, stats.other_control), icon: FileText, href: "/xodim/boshqa-nazoratlar", color: "#7293b9", bg: "#f6f9ff" },
   ]
 
   const quickLinks = [
-    { label: "Fan resurslari", href: "/xodim/fan-resurslari", icon: BookOpen },
-    { label: "Fan topshiriqlari", href: "/xodim/fan-topshiriqlari", icon: ClipboardList },
-    { label: "Kalendar reja", href: "/xodim/kalendar-reja", icon: CalendarDays },
-    { label: "Shaxsiy qaydnoma", href: "/xodim/shaxsiy-qaydnoma-kiritish", icon: ClipboardCheck },
+    { label: t("dashboard.subjectResources"), href: "/xodim/fan-resurslari", icon: BookOpen },
+    { label: t("dashboard.subjectTasks"), href: "/xodim/fan-topshiriqlari", icon: ClipboardList },
+    { label: t("dashboard.calendarPlan"), href: "/xodim/kalendar-reja", icon: CalendarDays },
+    { label: t("dashboard.personalRecord"), href: "/xodim/shaxsiy-qaydnoma-kiritish", icon: ClipboardCheck },
   ]
 
   const renderCards = (items: typeof cards) => (
@@ -278,10 +282,10 @@ function TeacherDashboard() {
     <div className="flex flex-col gap-[30px] p-[30px]">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          O'qituvchi kabineti
+          {t("dashboard.teacherCabinet")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {employee?.full_name ? `${employee.full_name} uchun HEMIS ma'lumotlari` : "HEMIS o'qituvchi profili yuklanmoqda"}
+          {employee?.full_name ? t("dashboard.hemisDataFor", { name: employee.full_name }) : t("dashboard.hemisLoading")}
         </p>
       </motion.div>
 
@@ -312,14 +316,14 @@ function TeacherDashboard() {
 
       <section className="bg-white rounded-[10px] p-5" style={{ borderTop: "4px solid #1cc2dc", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <h2 className="text-[22px] font-medium mb-5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Mashg'ulotlar
+          {t("dashboard.lessonsSection")}
         </h2>
         {renderCards(cards.slice(0, 3))}
       </section>
 
       <section className="bg-white rounded-[10px] p-5" style={{ borderTop: "4px solid #1cc2dc", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <h2 className="text-[22px] font-medium mb-5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Nazoratlar
+          {t("dashboard.controlsSection")}
         </h2>
         {renderCards(cards.slice(3))}
       </section>

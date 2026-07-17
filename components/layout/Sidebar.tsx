@@ -11,10 +11,12 @@ import {
   CalendarDays, ClipboardCheck, ClipboardList, UserCog, ShieldCheck,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
-type NavItem = { label: string; href: string }
+type NavItem = { label: string; href: string; tKey?: string }
 type Section = {
   title: string
+  tKey?: string
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
   items: NavItem[]
 }
@@ -22,73 +24,79 @@ type Section = {
 const studentSections: Section[] = [
   {
     title: "O'quv reja",
+    tKey: "sidebar.section.studyPlan",
     icon: BookOpen,
     items: [
-      { label: "O'quv reja",        href: "/o-qish-rejasi" },
-      { label: "Dars jadvali",      href: "/dars-jadvali" },
-      { label: "Nazorat jadvali",   href: "/nazorat-jadvali" },
-      { label: "Fanlar resurslari", href: "/fan-resurslari" },
-      { label: "Davomat",           href: "/davomat" },
-      { label: "O'zlashtirish",     href: "/o-zlashtirish" },
-      { label: "Imtihonlar",        href: "/imtihonlar" },
-      { label: "Reyting daftarcha", href: "/reyting" },
+      { label: "O'quv reja",        href: "/o-qish-rejasi",   tKey: "sidebar.item.studyPlan" },
+      { label: "Dars jadvali",      href: "/dars-jadvali",    tKey: "sidebar.item.schedule" },
+      { label: "Nazorat jadvali",   href: "/nazorat-jadvali", tKey: "sidebar.item.controlSchedule" },
+      { label: "Fanlar resurslari", href: "/fan-resurslari",  tKey: "sidebar.item.subjectResources" },
+      { label: "Davomat",           href: "/davomat",         tKey: "sidebar.item.attendance" },
+      { label: "O'zlashtirish",     href: "/o-zlashtirish",   tKey: "sidebar.item.performance" },
+      { label: "Imtihonlar",        href: "/imtihonlar",      tKey: "sidebar.item.exams" },
+      { label: "Reyting daftarcha", href: "/reyting",         tKey: "sidebar.item.rating" },
     ],
   },
   {
     title: "Qayta o'qish",
+    tKey: "sidebar.section.retake",
     icon: RefreshCw,
     items: [
-      { label: "Ariza qayta o'qish",       href: "/qayta-o-qish" },
-      { label: "Q.O'qish mashg'ulotlari",  href: "/qayta-o-qish/mashgulotlar" },
-      { label: "Q.O'qish nazorat jadvali", href: "/qayta-o-qish/nazorat-jadvali" },
-      { label: "Q.O'qish o'zlashtirish",   href: "/qayta-o-qish/ozlashtirish" },
+      { label: "Ariza qayta o'qish",       href: "/qayta-o-qish",                tKey: "sidebar.item.retakeApplication" },
+      { label: "Q.O'qish mashg'ulotlari",  href: "/qayta-o-qish/mashgulotlar",   tKey: "sidebar.item.retakeLessons" },
+      { label: "Q.O'qish nazorat jadvali", href: "/qayta-o-qish/nazorat-jadvali", tKey: "sidebar.item.retakeControlSchedule" },
+      { label: "Q.O'qish o'zlashtirish",   href: "/qayta-o-qish/ozlashtirish",   tKey: "sidebar.item.retakePerformance" },
     ],
   },
   {
     title: "Talaba ma'lumoti",
+    tKey: "sidebar.section.studentInfo",
     icon: User,
     items: [
-      { label: "Rezyume",                   href: "/talaba-malumotlari" },
-      { label: "Buyruqlar",                 href: "/talaba-malumotlari/buyruqlar" },
-      { label: "Shartnomalar",              href: "/talaba-malumotlari/shartnomalar" },
-      { label: "Ma'lumotnomalar",           href: "/talaba-malumotlari/malumotnomalar" },
-      { label: "Talaba hujjati",            href: "/talaba-malumotlari/hujjat" },
-      { label: "Bitiruv varaqa",            href: "/talaba-malumotlari/bitiruv-varaqa" },
-      { label: "Talaba GPA bali",           href: "/talaba-malumotlari/gpa" },
-      { label: "Fan sertifikatlari",        href: "/talaba-malumotlari/sertifikatlar" },
-      { label: "Plagiat ma'lumotlari",      href: "/talaba-malumotlari/plagiat" },
-      { label: "Shaxsiy ma'lumotlar",       href: "/talaba-malumotlari/shaxsiy" },
-      { label: "Bitiruv ishi",              href: "/talaba-malumotlari/bitiruv-ishi" },
-      { label: "Ijtimoiy faollik arizasi",  href: "/talaba-malumotlari/ijtimoiy-faollik" },
-      { label: "Student Grant Application", href: "/talaba-malumotlari/grant" },
+      { label: "Rezyume",                   href: "/talaba-malumotlari",                     tKey: "sidebar.item.resume" },
+      { label: "Buyruqlar",                 href: "/talaba-malumotlari/buyruqlar",           tKey: "sidebar.item.orders" },
+      { label: "Shartnomalar",              href: "/talaba-malumotlari/shartnomalar",        tKey: "sidebar.item.contracts" },
+      { label: "Ma'lumotnomalar",           href: "/talaba-malumotlari/malumotnomalar",      tKey: "sidebar.item.references" },
+      { label: "Talaba hujjati",            href: "/talaba-malumotlari/hujjat",              tKey: "sidebar.item.studentDocument" },
+      { label: "Bitiruv varaqa",            href: "/talaba-malumotlari/bitiruv-varaqa",      tKey: "sidebar.item.graduationSheet" },
+      { label: "Talaba GPA bali",           href: "/talaba-malumotlari/gpa",                 tKey: "sidebar.item.gpa" },
+      { label: "Fan sertifikatlari",        href: "/talaba-malumotlari/sertifikatlar",       tKey: "sidebar.item.subjectCertificates" },
+      { label: "Plagiat ma'lumotlari",      href: "/talaba-malumotlari/plagiat",             tKey: "sidebar.item.plagiarism" },
+      { label: "Shaxsiy ma'lumotlar",       href: "/talaba-malumotlari/shaxsiy",             tKey: "sidebar.item.personalInfo" },
+      { label: "Bitiruv ishi",              href: "/talaba-malumotlari/bitiruv-ishi",        tKey: "sidebar.item.thesis" },
+      { label: "Ijtimoiy faollik arizasi",  href: "/talaba-malumotlari/ijtimoiy-faollik",    tKey: "sidebar.item.socialActivity" },
+      { label: "Student Grant Application", href: "/talaba-malumotlari/grant",               tKey: "sidebar.item.grantApplication" },
     ],
   },
   {
     title: "Moliyaviy to'lov",
+    tKey: "sidebar.section.finance",
     icon: Wallet,
     items: [
-      { label: "Kontraktlar ro'yxati", href: "/moliyaviy" },
-      { label: "Stipendiya hisobi",    href: "/moliyaviy/stipendiya" },
+      { label: "Kontraktlar ro'yxati", href: "/moliyaviy",             tKey: "sidebar.item.contractsList" },
+      { label: "Stipendiya hisobi",    href: "/moliyaviy/stipendiya",  tKey: "sidebar.item.scholarship" },
     ],
   },
   {
     title: "Tizim",
+    tKey: "sidebar.section.system",
     icon: Settings,
     items: [
-      { label: "Profil",            href: "/tizim/profil" },
-      { label: "Hemis so'rovnoma",  href: "/tizim/hemis" },
-      { label: "Global so'rovnoma", href: "/tizim/global" },
-      { label: "Kirish tarixi",     href: "/tizim/kirish-tarixi" },
+      { label: "Profil",            href: "/tizim/profil",         tKey: "sidebar.item.profile" },
+      { label: "Hemis so'rovnoma",  href: "/tizim/hemis",          tKey: "sidebar.item.hemisSurvey" },
+      { label: "Global so'rovnoma", href: "/tizim/global",         tKey: "sidebar.item.globalSurvey" },
+      { label: "Kirish tarixi",     href: "/tizim/kirish-tarixi",  tKey: "sidebar.item.loginHistory" },
     ],
   },
   {
     title: "Face ID",
+    tKey: "sidebar.section.faceId",
     icon: ScanFace,
     items: [
-      { label: "Face ID holati",     href: "/face-id" },
-      { label: "Yuzni ro'yxatdan o'tkazish", href: "/face-id/register" },
-      { label: "Qayta ro'yxatdan o'tish",    href: "/face-id/re-register" },
-      { label: "Arizalar",           href: "/face-id/requests" },
+      { label: "Face ID holati",     href: "/face-id",             tKey: "sidebar.item.faceIdStatus" },
+      { label: "Yuzni ro'yxatdan o'tkazish", href: "/face-id/register",   tKey: "sidebar.item.faceIdRegister" },
+      { label: "Qayta ro'yxatdan o'tish",    href: "/face-id/re-register", tKey: "sidebar.item.faceIdReregister" },
+      { label: "Arizalar",           href: "/face-id/requests",    tKey: "sidebar.item.applications" },
     ],
   },
 ]
@@ -96,66 +104,74 @@ const studentSections: Section[] = [
 const employeeSections: Section[] = [
   {
     title: "Fanlar bazasi",
+    tKey: "sidebar.section.subjectBase",
     icon: BookOpen,
     items: [
-      { label: "Fan mavzulari",            href: "/oqituvchi-kabineti/mavzular" },
-      { label: "Fan resurslari",           href: "/oqituvchi-kabineti/fan-resurslari" },
-      { label: "Baholash",                 href: "/oqituvchi-kabineti/baholash-page" },
-      { label: "Mavzular bo'yicha natijalar", href: "/oqituvchi-kabineti/natijalar" },
+      { label: "Fan mavzulari",            href: "/oqituvchi-kabineti/mavzular",         tKey: "sidebar.item.subjectTopics" },
+      { label: "Fan resurslari",           href: "/oqituvchi-kabineti/fan-resurslari",   tKey: "sidebar.item.subjectResources" },
+      { label: "Baholash",                 href: "/oqituvchi-kabineti/baholash-page",    tKey: "sidebar.item.grading" },
+      { label: "Mavzular bo'yicha natijalar", href: "/oqituvchi-kabineti/natijalar",     tKey: "sidebar.item.topicResults" },
     ],
   },
   {
     title: "O'quv jarayoni",
+    tKey: "sidebar.section.studyProcess",
     icon: GraduationCap,
     items: [
-      { label: "Imtihonlar ro'yxati", href: "/oqituvchi-kabineti/oraliq-nazorat" },
-      { label: "Fan imtihonlari",     href: "/oqituvchi-kabineti/imtihonlar" },
+      { label: "Imtihonlar ro'yxati", href: "/oqituvchi-kabineti/oraliq-nazorat", tKey: "sidebar.item.examsList" },
+      { label: "Fan imtihonlari",     href: "/oqituvchi-kabineti/imtihonlar",    tKey: "sidebar.item.subjectExams" },
     ],
   },
   {
     title: "Qayta o'qish",
+    tKey: "sidebar.section.retake",
     icon: RefreshCw,
     items: [
-      { label: "Qayta o'qish ro'yxati", href: "/xodim/qayta-oqish" },
+      { label: "Qayta o'qish ro'yxati", href: "/xodim/qayta-oqish", tKey: "sidebar.item.retakeList" },
     ],
   },
   {
     title: "O'zlashtirish",
+    tKey: "sidebar.item.performance",
     icon: ClipboardCheck,
     items: [
-      { label: "Shaxsiy qaydnoma kiritish", href: "/xodim/shaxsiy-qaydnoma-kiritish" },
-      { label: "Baholash so'rovlari", href: "/xodim/baholash-sorovlari" },
+      { label: "Shaxsiy qaydnoma kiritish", href: "/xodim/shaxsiy-qaydnoma-kiritish", tKey: "sidebar.item.personalRecordEntry" },
+      { label: "Baholash so'rovlari", href: "/xodim/baholash-sorovlari",              tKey: "sidebar.item.gradingRequests" },
     ],
   },
   {
     title: "Mashg'ulotlar",
+    tKey: "sidebar.section.lessons",
     icon: CalendarDays,
     items: [
-      { label: "Dars jadvali",    href: "/xodim/dars-jadvali" },
-      { label: "Davomat jurnali", href: "/xodim/davomat-jurnali" },
+      { label: "Dars jadvali",    href: "/xodim/dars-jadvali",     tKey: "sidebar.item.schedule" },
+      { label: "Davomat jurnali", href: "/xodim/davomat-jurnali",  tKey: "dashboard.attendanceJournal" },
     ],
   },
   {
     title: "Nazoratlar",
+    tKey: "dashboard.controlsSection",
     icon: ClipboardList,
     items: [
-      { label: "Oraliq nazorat", href: "/xodim/oraliq-nazorat" },
-      { label: "Yakuniy nazorat", href: "/xodim/yakuniy-nazorat" },
-      { label: "Boshqa nazoratlar", href: "/xodim/boshqa-nazoratlar" },
+      { label: "Oraliq nazorat", href: "/xodim/oraliq-nazorat",     tKey: "dashboard.midtermControl" },
+      { label: "Yakuniy nazorat", href: "/xodim/yakuniy-nazorat",   tKey: "dashboard.finalControl" },
+      { label: "Boshqa nazoratlar", href: "/xodim/boshqa-nazoratlar", tKey: "dashboard.otherControls" },
     ],
   },
   {
     title: "Tizim",
+    tKey: "sidebar.section.system",
     icon: Settings,
     items: [
-      { label: "Profil", href: "/tizim/profil" },
-      { label: "Sozlamalar", href: "/xodim/tizim" },
+      { label: "Profil", href: "/tizim/profil",   tKey: "sidebar.item.profile" },
+      { label: "Sozlamalar", href: "/xodim/tizim", tKey: "sidebar.item.settings" },
     ],
   },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const { t } = useLanguage()
   const [role, setRole] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const sections = role === "employee" ? employeeSections : studentSections
@@ -201,7 +217,7 @@ export function Sidebar() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <Image src="/logo.png" alt="SamISI" width={40} height={40} className="w-10 h-10 rounded-full shrink-0 object-cover" />
+          <Image src="/logo.png" alt="SamISI" width={40} height={40} className="w-10 h-10 shrink-0 object-contain" />
           <div className="flex flex-col min-w-0">
             <span
               className="font-semibold text-base leading-tight truncate"
@@ -213,7 +229,7 @@ export function Sidebar() {
               className="text-xs truncate"
               style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}
             >
-              Masofaviy Ta&apos;lim
+              {t("sidebar.appSubtitle")}
             </span>
           </div>
         </motion.div>
@@ -225,7 +241,7 @@ export function Sidebar() {
           <Search className="w-[18px] h-[18px] text-[var(--lms-primary)] shrink-0" />
           <input
             type="search"
-            placeholder="Search"
+            placeholder={t("sidebar.searchPlaceholder")}
             className="flex-1 bg-transparent outline-none text-sm font-medium text-[var(--lms-primary)] placeholder:text-[var(--lms-muted)]"
             style={{ fontFamily: "var(--font-poppins)" }}
           />
@@ -253,7 +269,7 @@ export function Sidebar() {
                 fontFamily: "var(--font-poppins)",
               }}
             >
-              Dashboard
+              {t("sidebar.dashboard")}
             </span>
           </Link>
 
@@ -274,7 +290,7 @@ export function Sidebar() {
                   color: pathname.startsWith("/admin") ? "#b91c1c" : "#012970",
                   fontFamily: "var(--font-poppins)",
                 }}>
-                Admin Panel
+                {t("sidebar.adminPanel")}
               </span>
             </Link>
           )}
@@ -298,7 +314,7 @@ export function Sidebar() {
                     className="flex-1 text-left text-[14px] font-medium"
                     style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
                   >
-                    {section.title}
+                    {section.tKey ? t(section.tKey) : section.title}
                   </span>
                   <motion.div
                     animate={{ rotate: isOpen ? 0 : -90 }}
@@ -351,7 +367,7 @@ export function Sidebar() {
                                     fontWeight: active ? 500 : 400,
                                   }}
                                 >
-                                  {item.label}
+                                  {item.tKey ? t(item.tKey) : item.label}
                                 </span>
                               </Link>
                             </motion.div>
@@ -382,7 +398,7 @@ export function Sidebar() {
                 fontFamily: "var(--font-poppins)",
               }}
             >
-              Meeting
+              {t("sidebar.meeting")}
             </span>
           </Link>
         </nav>

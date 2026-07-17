@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, BookOpen, CheckCircle2, ClipboardList, HelpCircle, Lock, Circle, Library, ExternalLink, Video, Play } from "lucide-react"
+import { ArrowLeft, BookOpen, CheckCircle2, ClipboardList, HelpCircle, Lock, Circle, Library, ExternalLink, Video, Play, Clapperboard } from "lucide-react"
 import { teachingApi, hemisApi, meetingsApi, type StudentTopic, type StudentTopicSectionWithLock, type LocalResource, type SubjectRecording } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -11,6 +11,11 @@ import { LockedMediaPlayer } from "@/components/teaching/LockedMediaPlayer"
 import { TheoryViewer } from "@/components/teaching/TheoryViewer"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+
+function getYoutubeEmbedUrl(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]+)/i)
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null
+}
 
 function getToken() {
   if (typeof window === "undefined") return ""
@@ -21,7 +26,7 @@ function MeetingRecordingsSection({ subjectName, topicTitle }: { subjectName: st
   const { data } = useApi(() => meetingsApi.recordingsBySubject(subjectName), [subjectName])
   const all: SubjectRecording[] = data?.data ?? []
   // Deduplicate by id (same recording may appear multiple times)
-  const seen = new Set<number>()
+  const seen = new Set<string | number>()
   const allUnique = all.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true })
   const items = topicTitle
     ? allUnique.filter(r => {
@@ -304,11 +309,11 @@ function SectionAccordion({
 }
 
 function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: () => void }) {
-  const { video, audio, theory, qollanma, test, assignment } = topic.sections
+  const { video, audio, theory, qollanma, test, assignment, youtube } = topic.sections
 
   // First unlocked + incomplete section is opened by default; falls back to first existing section
   function pickFirstOpen() {
-    const seq: Array<[string, { sectionLocked: boolean; progress?: { completed?: boolean } | null; submission?: unknown } | undefined]> = [
+    const seq: Array<[string, { sectionLocked?: boolean; progress?: { completed?: boolean } | null; submission?: unknown } | null | undefined]> = [
       ["video", video],
       ["audio", audio],
       ["theory", theory],
@@ -326,7 +331,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
   }
   const firstOpen = pickFirstOpen()
 
-  const hasAny = !!(video || audio || theory || qollanma || test || assignment)
+  const hasAny = !!(video || audio || theory || qollanma || test || assignment || youtube)
 
   return (
     <>
@@ -359,6 +364,32 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
             initialProgress={video.progress}
             onCompleted={onProgress}
           />
+        </SectionAccordion>
+      )}
+
+      {youtube && youtube.meetingLink && (
+        <SectionAccordion
+          id="youtube"
+          title="Qo'shimcha video (YouTube) · ixtiyoriy"
+          icon={<Clapperboard className="w-4 h-4" style={{ color: "#0e58a8" }} />}
+          locked={false}
+          completed={false}
+          defaultOpen={false}>
+          <div className="aspect-video w-full rounded-[8px] overflow-hidden bg-black">
+            {getYoutubeEmbedUrl(youtube.meetingLink) ? (
+              <iframe
+                src={getYoutubeEmbedUrl(youtube.meetingLink)!}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <a href={youtube.meetingLink} target="_blank" rel="noreferrer"
+                className="flex items-center justify-center w-full h-full text-sm" style={{ color: "#fff" }}>
+                Videoni ochish
+              </a>
+            )}
+          </div>
         </SectionAccordion>
       )}
 

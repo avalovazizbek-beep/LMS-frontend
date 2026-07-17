@@ -40,8 +40,8 @@ function ScoreCell({ score, max }: { score: number | null; max: number }) {
 }
 
 /* ── Telegram xabar modal ─────────────────────────────────────────────── */
-function NotifyModal({ name, subject, jn, on1, on2, yn, att, onClose }: {
-  name: string; subject: string; jn: number | null; on1: number | null; on2: number | null; yn: number | null; att: number | null; onClose: () => void
+function NotifyModal({ name, userId, subject, jn, on1, on2, yn, att, onClose }: {
+  name: string; userId: number; subject: string; jn: number | null; on1: number | null; on2: number | null; yn: number | null; att: number | null; onClose: () => void
 }) {
   const [msg, setMsg] = useState("")
   const [sending, setSending] = useState(false)
@@ -51,7 +51,7 @@ function NotifyModal({ name, subject, jn, on1, on2, yn, att, onClose }: {
     if (!msg.trim()) return
     setSending(true); setRes(null)
     try {
-      const r = await teachingApi.notifyStudent({ studentName: name, message: msg.trim(), stats: { subject, jn, on1, on2, yn, attendance: att } })
+      const r = await teachingApi.notifyStudent({ studentName: name, studentUserId: userId, message: msg.trim(), stats: { subject, jn, on1, on2, yn, attendance: att } })
       setRes({ ok: true, text: r.message || "Yuborildi" })
     } catch (e) { setRes({ ok: false, text: e instanceof Error ? e.message : "Xatolik" }) }
     finally { setSending(false) }
@@ -64,7 +64,7 @@ function NotifyModal({ name, subject, jn, on1, on2, yn, att, onClose }: {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4" style={{ color: "#0e58a8" }} />
-            <span className="text-sm font-semibold" style={T}>Telegram xabar</span>
+            <span className="text-sm font-semibold" style={T}>Talabaga xabar</span>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 transition-colors"><X className="w-4 h-4" style={{ color: "#94a3b8" }} /></button>
         </div>
@@ -88,7 +88,7 @@ function NotifyModal({ name, subject, jn, on1, on2, yn, att, onClose }: {
           className="flex items-center justify-center gap-2 py-2.5 rounded-[8px] text-sm font-semibold text-white disabled:opacity-50"
           style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           {sending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
-          {sending ? "Yuborilmoqda..." : "Telegram ga yuborish"}
+          {sending ? "Yuborilmoqda..." : "Yuborish (platforma + Telegram)"}
         </button>
       </div>
     </div>
@@ -198,7 +198,7 @@ function JournalTable({ journal, subject }: { journal: JournalData; subject: str
       )}
 
       {notify && (
-        <NotifyModal name={notify.fullName} subject={subject} jn={notify.jn} on1={null} on2={null} yn={null} att={null}
+        <NotifyModal name={notify.fullName} userId={notify.userId} subject={subject} jn={notify.jn} on1={null} on2={null} yn={null} att={null}
           onClose={() => setNotify(null)} />
       )}
     </div>

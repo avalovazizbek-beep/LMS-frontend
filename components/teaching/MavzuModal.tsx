@@ -3,7 +3,7 @@
 import { useState } from "react"
 import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
-  Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
+  Upload, Trash2, CheckCircle2, Loader2, ExternalLink, Clapperboard, Plus,
 } from "lucide-react"
 import { teachingApi, type TeacherContent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -108,6 +108,78 @@ function UploadSection({
   )
 }
 
+const YOUTUBE_URL_PATTERN = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)[\w-]+/i
+
+function YoutubeLinkSection({
+  item, uploading, onAdd, onDelete,
+}: {
+  item?: TeacherContent
+  uploading: boolean
+  onAdd: (url: string) => void
+  onDelete: () => void
+}) {
+  const [url, setUrl] = useState("")
+  const [invalid, setInvalid] = useState(false)
+
+  function submit() {
+    const trimmed = url.trim()
+    if (!YOUTUBE_URL_PATTERN.test(trimmed)) {
+      setInvalid(true)
+      return
+    }
+    setInvalid(false)
+    onAdd(trimmed)
+    setUrl("")
+  }
+
+  return (
+    <div className="rounded-[10px] p-4 flex flex-col gap-2" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+      <div className="flex items-center gap-2">
+        <Clapperboard className="w-4 h-4" style={{ color: "#0e58a8" }} />
+        <span className="text-sm font-semibold" style={titleStyle}>YouTube video</span>
+        {item && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
+      </div>
+      <p className="text-xs" style={labelStyle}>Qo&apos;shimcha video material — ixtiyoriy, majburiy emas. YouTube havolasi kifoya.</p>
+
+      {item ? (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#f6f9ff" }}>
+          <a href={item.meetingLink ?? "#"} target="_blank" rel="noreferrer"
+            className="text-sm truncate" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            {item.meetingLink}
+          </a>
+          <button onClick={onDelete} className="p-1.5 rounded hover:bg-white transition-colors shrink-0">
+            <Trash2 className="w-4 h-4" style={{ color: "#dc2626" }} />
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <input
+              type="url"
+              value={url}
+              onChange={e => { setUrl(e.target.value); setInvalid(false) }}
+              placeholder="https://youtube.com/watch?v=..."
+              className="flex-1 px-3 py-2 rounded-[6px] text-sm outline-none"
+              style={{ border: `1px solid ${invalid ? "#dc2626" : "rgba(1,41,112,0.2)"}`, color: "#012970", fontFamily: "var(--font-poppins)" }}
+            />
+            <button onClick={submit} disabled={uploading || !url.trim()}
+              className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm font-medium shrink-0 transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
+              style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Qo&apos;shish
+            </button>
+          </div>
+          {invalid && (
+            <span className="text-xs" style={{ color: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+              To&apos;g&apos;ri YouTube havolasini kiriting (youtube.com yoki youtu.be)
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjectName }: MavzuModalProps) {
   const { data, loading, error, refetch } = useApi(
     () => teachingApi.contentByTopic({ topicKey, groupId }),
@@ -121,6 +193,7 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
   const [showQuestions, setShowQuestions] = useState(false)
 
   const video = items.find(i => i.type === "mavzu" && i.kind === "video_lesson")
+  const youtube = items.find(i => i.type === "mavzu" && i.kind === "youtube")
   const audio = items.find(i => i.type === "mavzu" && i.kind === "audio")
   const theory = items.find(i => i.type === "mavzu" && i.kind === "theory")
   const qollanma = items.find(i => i.type === "mavzu" && i.kind === "qollanma")
@@ -151,6 +224,28 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
     } finally {
       setUploadingKind(null)
       setUploadProgress(null)
+    }
+  }
+
+  async function addYoutubeLink(url: string) {
+    setOpErr(null)
+    setUploadingKind("youtube")
+    try {
+      await teachingApi.createContent({
+        type: "mavzu",
+        groupId,
+        subjectName,
+        topicKey,
+        title: topicName,
+        kind: "youtube",
+        availableFrom: now(),
+        meetingLink: url,
+      })
+      await refetch()
+    } catch (err) {
+      setOpErr(err instanceof Error ? err.message : "Havola qo'shishda xatolik yuz berdi")
+    } finally {
+      setUploadingKind(null)
     }
   }
 
@@ -189,6 +284,13 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
             progress={uploadingKind === "video_lesson" ? uploadProgress : null}
             onUpload={f => upload("video_lesson", "mavzu", f)}
             onDelete={() => remove(video)}
+          />
+
+          <YoutubeLinkSection
+            item={youtube}
+            uploading={uploadingKind === "youtube"}
+            onAdd={addYoutubeLink}
+            onDelete={() => remove(youtube)}
           />
 
           <UploadSection

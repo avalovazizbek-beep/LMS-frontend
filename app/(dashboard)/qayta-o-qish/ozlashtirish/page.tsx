@@ -1,16 +1,18 @@
 "use client"
 
 import { TrendingUp } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function QaytaOqishOzlashtirish() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Q.O&apos;qish O&apos;zlashtirish
+          {t("sidebar.item.retakePerformance")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Qayta o&apos;qish baholar ko&apos;rsatkichi
+          {t("retakePerf.subtitle")}
         </p>
       </div>
 
@@ -21,10 +23,10 @@ export default function QaytaOqishOzlashtirish() {
           <TrendingUp className="w-8 h-8" style={{ color: "#22c55e" }} />
         </div>
         <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          O&apos;zlashtirish ma&apos;lumotlari topilmadi
+          {t("retakePerf.notFound")}
         </p>
         <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Qayta o&apos;qish baholar ma&apos;lumotlari hali mavjud emas
+          {t("retakePerf.noneYet")}
         </p>
       </div>
     </div>

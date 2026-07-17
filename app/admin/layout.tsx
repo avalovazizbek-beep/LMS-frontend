@@ -79,7 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Logo */}
           <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
             <div className="flex items-center gap-2">
-              <Image src="/logo.png" alt="SamISI" width={32} height={32} className="w-8 h-8 rounded-full object-cover shrink-0" />
+              <Image src="/logo.png" alt="SamISI" width={32} height={32} className="w-8 h-8 object-contain shrink-0" />
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-white" style={{ fontFamily: "var(--font-poppins)" }}>
                   SamISI Admin

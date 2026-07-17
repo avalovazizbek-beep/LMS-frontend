@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { authApi, hemisApi, HemisEmployee, HemisStudent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
 
 interface HeaderProps { onMenuClick?: () => void }
 
@@ -82,6 +83,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
       {/* O'ngdan: Bildirishnoma + Avatar + Dropdown */}
       <div className="flex items-center gap-4">
+        <LanguageSwitcher />
         <ThemeToggle />
 
         {/* Foydalanuvchi dropdown */}
