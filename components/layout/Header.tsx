@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Menu, ChevronDown, LogOut, User as UserIcon } from "lucide-react"
+import { Menu, ChevronDown, LogOut, User as UserIcon, Bell } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { authApi, hemisApi, HemisEmployee, HemisStudent } from "@/lib/api"
+import { authApi, hemisApi, HemisEmployee, HemisStudent, notificationsApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
@@ -15,7 +15,20 @@ export function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [role, setRole] = useState<string | null>(null)
+  const [unread, setUnread] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () => {
+      notificationsApi.getAll()
+        .then(r => { if (!cancelled) setUnread(r.unread ?? 0) })
+        .catch(() => {})
+    }
+    load()
+    const id = window.setInterval(load, 30000)
+    return () => { cancelled = true; window.clearInterval(id) }
+  }, [])
 
   useEffect(() => {
     const id = window.setTimeout(() => setRole(sessionStorage.getItem("lms_role")), 0)
@@ -85,6 +98,18 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="flex items-center gap-4">
         <LanguageSwitcher />
         <ThemeToggle />
+
+        {/* Bildirishnoma */}
+        <button type="button" aria-label="Xabarnomalar" onClick={() => router.push("/xabarnoma")}
+          className="relative flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--lms-bg)]">
+          <Bell className="h-[19px] w-[19px] text-[var(--lms-primary)]" />
+          {unread > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+              style={{ backgroundColor: "#ef4444", fontFamily: "var(--font-poppins)" }}>
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </button>
 
         {/* Foydalanuvchi dropdown */}
         <div ref={ref} className="relative">
