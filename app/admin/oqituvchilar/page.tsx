@@ -4,9 +4,11 @@ import React, { useEffect, useState, useCallback, useMemo } from "react"
 import {
   BookOpen, Video, CalendarCheck, CheckCircle2,
   RefreshCw, TrendingUp, ChevronDown, ChevronUp, User, Clock,
-  FileText, Search, ChevronLeft, ChevronRight, Music, Layers, Users, Clapperboard, ClipboardList
+  FileText, Search, ChevronLeft, ChevronRight, Music, Layers, Users, Clapperboard, ClipboardList,
+  ExternalLink, FileSpreadsheet, Send, Loader2,
 } from "lucide-react"
-import { adminApi, type AdminTeacherStat, type AdminTeacherTopic } from "@/lib/api"
+import { adminApi, type AdminTeacherStat, type AdminTeacherTopic, type AdminTeacherTopicContent } from "@/lib/api"
+import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -55,11 +57,62 @@ function ContentBadge({ active, icon: Icon, label, color }: {
   )
 }
 
-function TeacherTopicsTable({ state, onChange }: {
+const CONTENT_KIND_LABEL: Record<string, string> = {
+  video_lesson: "Video", audio: "Audio", theory: "Taqdimot", qollanma: "Qo'llanma", youtube: "YouTube",
+}
+
+function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: string; topicKey: string }) {
+  const [items, setItems] = useState<AdminTeacherTopicContent[] | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    adminApi.teacherTopicContent(teacherHemisId, topicKey)
+      .then(r => { if (!cancelled) setItems(r.data ?? []) })
+      .catch(() => { if (!cancelled) setItems([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [teacherHemisId, topicKey])
+
+  if (loading) return <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
+  if (!items || items.length === 0) return <p className="text-xs py-3 px-4" style={L}>Material topilmadi</p>
+
+  return (
+    <div className="px-4 pb-3 flex flex-col gap-2">
+      {items.map(it => (
+        <div key={it.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fff" }}>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs font-semibold shrink-0 px-1.5 py-0.5 rounded" style={{ backgroundColor: "#eef4ff", color: "#0e58a8" }}>
+              {it.type === "exam" ? "Test" : it.type === "assignment" ? "Topshiriq" : CONTENT_KIND_LABEL[it.kind ?? ""] ?? it.kind}
+            </span>
+            <span className="text-sm truncate" style={T}>
+              {it.fileName ?? (it.meetingLink ? it.meetingLink : it.type === "exam" ? `Maks. ball: ${it.maxScore ?? "—"}` : it.title)}
+            </span>
+          </div>
+          {it.fileUrl && (
+            <a href={it.fileUrl} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-[#f6f9ff] shrink-0">
+              <ExternalLink className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
+            </a>
+          )}
+          {it.meetingLink && (
+            <a href={it.meetingLink} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-[#f6f9ff] shrink-0">
+              <ExternalLink className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
+            </a>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
+  teacherHemisId: string
   state: RowState
   onChange: (patch: Partial<RowState>) => void
 }) {
   const { topics, topicSearch } = state
+  const [expandedTopic, setExpandedTopic] = useState<string | null>(null)
 
   const filtered = useMemo(() =>
     topics.filter(t => !topicSearch.trim() || t.title.toLowerCase().includes(topicSearch.toLowerCase())),
@@ -87,7 +140,7 @@ function TeacherTopicsTable({ state, onChange }: {
             placeholder="Mavzu izlash..." className="w-full pl-8 pr-3 py-1.5 text-xs rounded-[6px] outline-none"
             style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }} />
         </div>
-        <span className="text-xs ml-auto" style={L}>{filtered.length} mavzu</span>
+        <span className="text-xs ml-auto" style={L}>{filtered.length} mavzu · materialni ko'rish uchun bosing</span>
       </div>
 
       {/* Topics table */}
@@ -96,39 +149,53 @@ function TeacherTopicsTable({ state, onChange }: {
           <thead>
             <tr style={{ backgroundColor: "#f0f7ff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
               {["#", "MAVZU", "FAN", "GURUH", "MATERIALLAR"].map(h => (
-                <th key={h} className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide ${h === "MATERIALLAR" ? "text-left" : "text-left"}`}
+                <th key={h} className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-left"
                   style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((tp, i) => (
-              <tr key={tp.topicKey} className="hover:bg-white/70 transition-colors"
-                style={{ borderBottom: "1px solid rgba(1,41,112,0.04)" }}>
-                <td className="px-4 py-3 text-xs w-10" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0f5ff" }}>
-                      <BookOpen className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
-                    </div>
-                    <span className="text-sm font-medium" style={T}>{tp.title}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm" style={L}>{tp.subjectName ?? "—"}</td>
-                <td className="px-4 py-3 text-sm" style={L}>{tp.groupName ?? (tp.groupId ? `#${tp.groupId}` : "—")}</td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    <ContentBadge active={tp.hasVideo} icon={Video} label="Video" color="#ea580c" />
-                    <ContentBadge active={tp.hasAudio} icon={Music} label="Audio" color="#15803d" />
-                    <ContentBadge active={tp.hasTheory} icon={FileText} label="Taqdimot" color="#7c3aed" />
-                    <ContentBadge active={tp.hasQollanma} icon={Layers} label="Qo'llanma" color="#0891b2" />
-                    <ContentBadge active={tp.hasYoutube} icon={Clapperboard} label="YouTube" color="#dc2626" />
-                    <ContentBadge active={tp.hasTest} icon={CheckCircle2} label="Test" color="#b91c1c" />
-                    <ContentBadge active={tp.hasAssignment} icon={ClipboardList} label="Topshiriq" color="#d97706" />
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {filtered.map((tp, i) => {
+              const isOpen = expandedTopic === tp.topicKey
+              return (
+                <React.Fragment key={tp.topicKey}>
+                  <tr className="hover:bg-white/70 transition-colors cursor-pointer"
+                    style={{ borderBottom: isOpen ? "none" : "1px solid rgba(1,41,112,0.04)" }}
+                    onClick={() => setExpandedTopic(isOpen ? null : tp.topicKey)}>
+                    <td className="px-4 py-3 text-xs w-10" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0f5ff" }}>
+                          <BookOpen className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
+                        </div>
+                        <span className="text-sm font-medium" style={T}>{tp.title}</span>
+                        {isOpen ? <ChevronUp className="w-3.5 h-3.5" style={L} /> : <ChevronDown className="w-3.5 h-3.5" style={L} />}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm" style={L}>{tp.subjectName ?? "—"}</td>
+                    <td className="px-4 py-3 text-sm" style={L}>{tp.groupName ?? (tp.groupId ? `#${tp.groupId}` : "—")}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        <ContentBadge active={tp.hasVideo} icon={Video} label="Video" color="#ea580c" />
+                        <ContentBadge active={tp.hasAudio} icon={Music} label="Audio" color="#15803d" />
+                        <ContentBadge active={tp.hasTheory} icon={FileText} label="Taqdimot" color="#7c3aed" />
+                        <ContentBadge active={tp.hasQollanma} icon={Layers} label="Qo'llanma" color="#0891b2" />
+                        <ContentBadge active={tp.hasYoutube} icon={Clapperboard} label="YouTube" color="#dc2626" />
+                        <ContentBadge active={tp.hasTest} icon={CheckCircle2} label="Test" color="#b91c1c" />
+                        <ContentBadge active={tp.hasAssignment} icon={ClipboardList} label="Topshiriq" color="#d97706" />
+                      </div>
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr>
+                      <td colSpan={5} style={{ backgroundColor: "#f8fbff" }}>
+                        <TopicContentDetail teacherHemisId={teacherHemisId} topicKey={tp.topicKey} />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -178,6 +245,42 @@ export default function AdminOqituvchilar() {
     }
   }
 
+  const reportColumns = ["#", "O'qituvchi", "Mavzular", "Videolar", "Audiolar", "Testlar", "Guruhlar", "Meetinglar", "Talabalar", "So'nggi faollik"]
+  const reportRows = (): (string | number)[][] =>
+    filtered.map((s, i) => [i + 1, s.fullName, s.mavzular, s.videolar, s.audiolar, s.testlar, s.guruhlar, s.meetingCount, s.studentsCompleted, fmtDate(s.lastSeen)])
+
+  function doExportExcel() {
+    exportToExcel("oqituvchi-hisoboti", [{
+      name: "O'qituvchilar",
+      rows: filtered.map((s, i) => ({
+        "#": i + 1, "O'qituvchi": s.fullName, Mavzular: s.mavzular, Videolar: s.videolar, Audiolar: s.audiolar,
+        Testlar: s.testlar, Guruhlar: s.guruhlar, Meetinglar: s.meetingCount, Talabalar: s.studentsCompleted,
+        "So'nggi faollik": fmtDate(s.lastSeen),
+      })),
+    }])
+  }
+
+  function doExportPdf() {
+    exportToPdf("oqituvchi-hisoboti", "O'qituvchi hisoboti", reportColumns, reportRows(), "Kontent va talabalar o'zlashtirishi")
+  }
+
+  const [sendingTelegram, setSendingTelegram] = useState(false)
+  const [telegramMsg, setTelegramMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  async function doSendTelegram() {
+    setSendingTelegram(true)
+    setTelegramMsg(null)
+    try {
+      const pdfBase64 = buildPdfBase64("O'qituvchi hisoboti", reportColumns, reportRows(), "Kontent va talabalar o'zlashtirishi")
+      const res = await adminApi.sendReportTelegram({ filename: "oqituvchi-hisoboti.pdf", caption: "O'qituvchi hisoboti", pdfBase64 })
+      setTelegramMsg({ ok: true, text: res.message || "Yuborildi" })
+    } catch (e) {
+      setTelegramMsg({ ok: false, text: e instanceof Error ? e.message : "Xatolik" })
+    } finally {
+      setSendingTelegram(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5 p-8">
       {/* Header */}
@@ -186,12 +289,36 @@ export default function AdminOqituvchilar() {
           <h1 className="text-[28px] font-semibold" style={T}>O'qituvchi hisoboti</h1>
           <p className="text-sm mt-1" style={L}>Har bir o'qituvchi bo'yicha kontent va talabalar o'zlashtirishining to'liq hisoboti</p>
         </div>
-        <button onClick={load}
-          className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px] hover:bg-blue-100 transition-colors"
-          style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-          <RefreshCw className="w-3.5 h-3.5" /> Yangilash
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={doExportExcel} disabled={!filtered.length}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors hover:bg-[#f0fdf4] disabled:opacity-50"
+            style={{ border: "1px solid rgba(21,128,61,0.25)", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+            <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+          </button>
+          <button onClick={doExportPdf} disabled={!filtered.length}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors hover:bg-[#fef2f2] disabled:opacity-50"
+            style={{ border: "1px solid rgba(185,28,28,0.25)", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+            <FileText className="w-3.5 h-3.5" /> PDF
+          </button>
+          <button onClick={doSendTelegram} disabled={!filtered.length || sendingTelegram}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors hover:bg-[#eff6ff] disabled:opacity-50"
+            style={{ border: "1px solid rgba(14,88,168,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            {sendingTelegram ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Telegram
+          </button>
+          <button onClick={load}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px] hover:bg-blue-100 transition-colors"
+            style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            <RefreshCw className="w-3.5 h-3.5" /> Yangilash
+          </button>
+        </div>
       </div>
+
+      {telegramMsg && (
+        <div className="text-xs px-3 py-2 rounded-[6px] w-fit"
+          style={{ backgroundColor: telegramMsg.ok ? "#f0fdf4" : "#fef2f2", color: telegramMsg.ok ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+          {telegramMsg.text}
+        </div>
+      )}
 
       {/* Search bar */}
       <div className="bg-white rounded-[10px] px-4 py-3 flex items-center gap-3"
@@ -343,6 +470,7 @@ export default function AdminOqituvchilar() {
                               style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", backgroundColor: "#f8fbff" }}>
                               <div style={{ borderTop: "2px solid rgba(1,41,112,0.07)" }}>
                                 <TeacherTopicsTable
+                                  teacherHemisId={s.hemisId}
                                   state={rowState}
                                   onChange={patch => patchRow(s.hemisId, patch)}
                                 />

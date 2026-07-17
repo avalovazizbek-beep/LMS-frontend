@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState, useEffect } from "react"
 import {
   Search, ClipboardCheck, ChevronDown, ChevronUp, Users, Loader2, CalendarDays,
-  CheckCircle2, XCircle, Video, User, FileSpreadsheet, FileText,
+  CheckCircle2, XCircle, Video, User, FileSpreadsheet, FileText, Send,
 } from "lucide-react"
 import {
   adminApi, type AdminAttendanceRow, type AdminAttendanceDetailRow, type AdminAttendanceStudentRow,
@@ -11,7 +11,7 @@ import {
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
-import { exportToExcel, exportToPdf } from "@/lib/exportUtils"
+import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -344,6 +344,27 @@ function ManualAttendance() {
     )
   }
 
+  const [sendingTelegram, setSendingTelegram] = useState(false)
+  const [telegramMsg, setTelegramMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  async function doSendTelegram() {
+    setSendingTelegram(true)
+    setTelegramMsg(null)
+    try {
+      const pdfBase64 = buildPdfBase64(
+        "Davomat hisoboti",
+        ["Guruh", "Fan", "Sana", "Jami", "Keldi", "Kelmadi", "Kechikdi", "Uzrli", "Foiz (%)"],
+        filtered.map(r => [r.groupName, r.subjectName, r.lessonDate, r.total, r.present, r.absent, r.late, r.excused, `${r.presentPct}%`])
+      )
+      const res = await adminApi.sendReportTelegram({ filename: "davomat-hisoboti.pdf", caption: "Davomat hisoboti", pdfBase64 })
+      setTelegramMsg({ ok: true, text: res.message || "Yuborildi" })
+    } catch (e) {
+      setTelegramMsg({ ok: false, text: e instanceof Error ? e.message : "Xatolik" })
+    } finally {
+      setSendingTelegram(false)
+    }
+  }
+
   if (loading) return <Loading />
   if (error)   return <ApiError message={error} onRetry={refetch} />
 
@@ -369,8 +390,20 @@ function ManualAttendance() {
             style={{ border: "1px solid rgba(185,28,28,0.25)", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
             <FileText className="w-3.5 h-3.5" /> PDF
           </button>
+          <button type="button" onClick={doSendTelegram} disabled={!filtered.length || sendingTelegram}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#eff6ff] disabled:opacity-50"
+            style={{ border: "1px solid rgba(14,88,168,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            {sendingTelegram ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Telegram
+          </button>
         </div>
       </div>
+
+      {telegramMsg && (
+        <div className="text-xs px-3 py-2 rounded-[6px] w-fit"
+          style={{ backgroundColor: telegramMsg.ok ? "#f0fdf4" : "#fef2f2", color: telegramMsg.ok ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+          {telegramMsg.text}
+        </div>
+      )}
 
       {groups.length === 0 ? (
         <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>

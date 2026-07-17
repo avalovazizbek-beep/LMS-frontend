@@ -2068,6 +2068,18 @@ export interface AdminTeacherTopic {
   hasAssignment: boolean
 }
 
+export interface AdminTeacherTopicContent {
+  id: number
+  kind: string | null
+  type: string
+  title: string
+  fileName: string | null
+  fileUrl: string | null
+  meetingLink: string | null
+  maxScore: number | null
+  deadline: string | null
+}
+
 export interface AdminAttendanceRow {
   groupId: number
   groupName: string
@@ -2150,6 +2162,14 @@ export const adminApi = {
 
   teacherTopics: (teacherId: number | string) =>
     get<{ data: AdminTeacherTopic[] }>(`/api/admin/teacher-stats/${teacherId}/topics`),
+
+  teacherTopicContent: (teacherId: number | string, topicKey: string) =>
+    get<{ data: AdminTeacherTopicContent[] }>(`/api/admin/teacher-stats/${teacherId}/topics/${encodeURIComponent(topicKey)}`),
+
+  contentFileUrl: (contentId: number) => `${BASE}/api/admin/content/${contentId}/file?token=${encodeURIComponent(getToken() ?? "")}`,
+
+  sendReportTelegram: (body: { filename: string; caption?: string; pdfBase64: string }) =>
+    post<{ success: boolean; message: string }>("/api/admin/send-report-telegram", body),
 
   getSettings: () => get<{ data: Record<string, string> }>("/api/admin/settings"),
   saveSettings: (settings: Record<string, unknown>) => put<MsgRes>("/api/admin/settings", settings),
