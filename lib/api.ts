@@ -2053,21 +2053,19 @@ export interface AdminTeacherStat {
   meetingCount: number
 }
 
-export interface AdminTeacherTotals {
-  totalContent: number
-  totalTopics: number
-  totalExams: number
-  totalVideos: number
-  totalAssignments: number
-}
-
-export interface AdminStudentStat {
-  studentId: number
-  studentName: string
-  doneTopics: number
-  doneSubmissions: number
-  avgGrade: number | null
-  watchMinutes: number
+export interface AdminTeacherTopic {
+  topicKey: string
+  title: string
+  subjectName: string | null
+  groupId: number | null
+  groupName: string | null
+  hasVideo: boolean
+  hasAudio: boolean
+  hasTheory: boolean
+  hasQollanma: boolean
+  hasYoutube: boolean
+  hasTest: boolean
+  hasAssignment: boolean
 }
 
 export interface AdminAttendanceRow {
@@ -2150,8 +2148,8 @@ export const adminApi = {
 
   teacherStats: () => get<{ data: AdminTeacherStat[] }>("/api/admin/teacher-stats"),
 
-  teacherStudents: (teacherId: number | string) =>
-    get<{ totals: AdminTeacherTotals; data: AdminStudentStat[] }>(`/api/admin/teacher-stats/${teacherId}/students`),
+  teacherTopics: (teacherId: number | string) =>
+    get<{ data: AdminTeacherTopic[] }>(`/api/admin/teacher-stats/${teacherId}/topics`),
 
   getSettings: () => get<{ data: Record<string, string> }>("/api/admin/settings"),
   saveSettings: (settings: Record<string, unknown>) => put<MsgRes>("/api/admin/settings", settings),

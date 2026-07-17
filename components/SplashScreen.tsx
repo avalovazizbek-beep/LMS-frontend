@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ""
+
 export default function SplashScreen() {
   const [visible, setVisible] = useState(true)
   const [fadeOut, setFadeOut] = useState(false)
@@ -47,7 +49,7 @@ export default function SplashScreen() {
           filter: "blur(4px)",
         }} />
         <Image
-          src="/logo.png"
+          src={`${BASE_PATH}/logo.png`}
           alt="SamISI"
           width={140}
           height={140}

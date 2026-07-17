@@ -13,6 +13,8 @@ import {
 import { adminApi } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ""
+
 type NavItem = { label: string; href: string; tKey?: string }
 type Section = {
   title: string
@@ -217,7 +219,7 @@ export function Sidebar() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <Image src="/logo.png" alt="SamISI" width={40} height={40} className="w-10 h-10 shrink-0 object-contain" />
+          <Image src={`${BASE_PATH}/logo.png`} alt="SamISI" width={40} height={40} className="w-10 h-10 shrink-0 object-contain" />
           <div className="flex flex-col min-w-0">
             <span
               className="font-semibold text-base leading-tight truncate"

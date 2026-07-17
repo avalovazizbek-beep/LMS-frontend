@@ -4,9 +4,9 @@ import React, { useEffect, useState, useCallback, useMemo } from "react"
 import {
   BookOpen, Video, CalendarCheck, CheckCircle2,
   RefreshCw, TrendingUp, ChevronDown, ChevronUp, User, Clock,
-  FileText, Eye, Search, ChevronLeft, ChevronRight, Music, Layers, Users
+  FileText, Search, ChevronLeft, ChevronRight, Music, Layers, Users, Clapperboard, ClipboardList
 } from "lucide-react"
-import { adminApi, type AdminTeacherStat, type AdminStudentStat, type AdminTeacherTotals } from "@/lib/api"
+import { adminApi, type AdminTeacherStat, type AdminTeacherTopic } from "@/lib/api"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -17,30 +17,6 @@ function fmtDate(s: string) {
   const d = new Date(s)
   if (isNaN(d.getTime())) return "—"
   return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "short", year: "numeric" })
-}
-
-function fmtTime(min: number) {
-  if (!min) return "—"
-  if (min < 60) return `${Math.round(min)} daq`
-  return `${Math.floor(min / 60)}s ${Math.round(min % 60)}d`
-}
-
-function ProgressCircle({ pct }: { pct: number }) {
-  const size = 44
-  const r = (size - 6) / 2
-  const circ = 2 * Math.PI * r
-  const dash = (pct / 100) * circ
-  const color = pct >= 80 ? "#15803d" : pct >= 50 ? "#0e58a8" : pct >= 20 ? "#ea580c" : "#94a3b8"
-  return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: "rotate(-90deg)", position: "absolute" }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8f0fb" strokeWidth={5} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={5}
-          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
-      </svg>
-      <span className="text-[11px] font-bold z-10" style={{ color, fontFamily: "var(--font-poppins)" }}>{pct}%</span>
-    </div>
-  )
 }
 
 function pageNums(cur: number, total: number): (number | "...")[] {
@@ -57,129 +33,105 @@ function pageNums(cur: number, total: number): (number | "...")[] {
 interface RowState {
   expanded: boolean
   loading: boolean
-  totals: AdminTeacherTotals | null
-  students: AdminStudentStat[]
-  studentSearch: string
-  studentPage: number
+  topics: AdminTeacherTopic[]
+  topicSearch: string
 }
 
-function StudentSubTable({ state, onChange }: {
+function ContentBadge({ active, icon: Icon, label, color }: {
+  active: boolean
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+  label: string
+  color: string
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+      style={{
+        backgroundColor: active ? `${color}1a` : "#f1f5f9",
+        color: active ? color : "#cbd5e1",
+        fontFamily: "var(--font-poppins)",
+      }}>
+      <Icon className="w-2.5 h-2.5" />{label}
+    </span>
+  )
+}
+
+function TeacherTopicsTable({ state, onChange }: {
   state: RowState
   onChange: (patch: Partial<RowState>) => void
 }) {
-  const { students, totals, studentSearch, studentPage } = state
-  const tot = totals ?? { totalContent: 1, totalTopics: 1, totalExams: 1, totalVideos: 1, totalAssignments: 1 }
+  const { topics, topicSearch } = state
 
   const filtered = useMemo(() =>
-    students.filter(s => !studentSearch.trim() || s.studentName.toLowerCase().includes(studentSearch.toLowerCase())),
-    [students, studentSearch]
+    topics.filter(t => !topicSearch.trim() || t.title.toLowerCase().includes(topicSearch.toLowerCase())),
+    [topics, topicSearch]
   )
-  const pc = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const pg = Math.min(studentPage, pc - 1)
-  const slice = filtered.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE)
 
   if (state.loading)
     return <div className="flex items-center justify-center py-8"><RefreshCw className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
 
-  if (!students.length)
+  if (!topics.length)
     return (
       <div className="py-7 text-center">
-        <User className="w-6 h-6 mx-auto mb-2" style={{ color: "#d8e6f7" }} />
-        <p className="text-sm" style={L}>Bu o'qituvchi materiallarini ko'rgan talabalar yo'q</p>
+        <BookOpen className="w-6 h-6 mx-auto mb-2" style={{ color: "#d8e6f7" }} />
+        <p className="text-sm" style={L}>Bu o'qituvchining kontentli mavzulari yo'q</p>
       </div>
     )
 
   return (
     <div>
-      {/* Student search bar */}
+      {/* Topic search bar */}
       <div className="px-5 py-2.5 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
         <div className="relative max-w-[280px] w-full">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#7293b9" }} />
-          <input value={studentSearch} onChange={e => onChange({ studentSearch: e.target.value, studentPage: 0 })}
-            placeholder="Talaba izlash..." className="w-full pl-8 pr-3 py-1.5 text-xs rounded-[6px] outline-none"
+          <input value={topicSearch} onChange={e => onChange({ topicSearch: e.target.value })}
+            placeholder="Mavzu izlash..." className="w-full pl-8 pr-3 py-1.5 text-xs rounded-[6px] outline-none"
             style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }} />
         </div>
-        <span className="text-xs ml-auto" style={L}>{filtered.length} talaba</span>
+        <span className="text-xs ml-auto" style={L}>{filtered.length} mavzu</span>
       </div>
 
-      {/* Student table */}
+      {/* Topics table */}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[800px]">
           <thead>
             <tr style={{ backgroundColor: "#f0f7ff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              {["#", "TALABA", "UMUMIY KO'RSATKICH", "MAVZULAR", "VIDEOLAR", "TESTLAR", "O'RTACHA BAL", "TOMOSHA VAQTI"].map(h => (
-                <th key={h} className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide ${h === "#" || h === "TALABA" ? "text-left" : "text-center"}`}
+              {["#", "MAVZU", "FAN", "GURUH", "MATERIALLAR"].map(h => (
+                <th key={h} className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide ${h === "MATERIALLAR" ? "text-left" : "text-left"}`}
                   style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {slice.map((st, si) => {
-              const pct = tot.totalContent > 0 ? Math.min(100, Math.round((st.doneTopics / tot.totalContent) * 100)) : 0
-              return (
-                <tr key={st.studentId} className="hover:bg-white/70 transition-colors"
-                  style={{ borderBottom: "1px solid rgba(1,41,112,0.04)" }}>
-                  <td className="px-4 py-3 text-xs w-10" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{pg * PAGE_SIZE + si + 1}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0f5ff" }}>
-                        <User className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
-                      </div>
-                      <span className="text-sm font-medium" style={T}>{st.studentName}</span>
+            {filtered.map((tp, i) => (
+              <tr key={tp.topicKey} className="hover:bg-white/70 transition-colors"
+                style={{ borderBottom: "1px solid rgba(1,41,112,0.04)" }}>
+                <td className="px-4 py-3 text-xs w-10" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0f5ff" }}>
+                      <BookOpen className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-center"><div className="flex justify-center"><ProgressCircle pct={pct} /></div></td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-xs font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{st.doneTopics}/{tot.totalContent}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-xs font-medium" style={{ color: "#ea580c", fontFamily: "var(--font-poppins)" }}>{st.doneTopics}/{tot.totalVideos}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-xs font-medium" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{st.doneSubmissions}/{tot.totalExams}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {st.avgGrade !== null
-                      ? <span className="text-sm font-semibold" style={{ color: st.avgGrade >= 56 ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>{st.avgGrade}</span>
-                      : <span className="text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="flex items-center justify-center gap-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      <Eye className="w-3 h-3" />{fmtTime(st.watchMinutes)}
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
+                    <span className="text-sm font-medium" style={T}>{tp.title}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-sm" style={L}>{tp.subjectName ?? "—"}</td>
+                <td className="px-4 py-3 text-sm" style={L}>{tp.groupName ?? (tp.groupId ? `#${tp.groupId}` : "—")}</td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-1">
+                    <ContentBadge active={tp.hasVideo} icon={Video} label="Video" color="#ea580c" />
+                    <ContentBadge active={tp.hasAudio} icon={Music} label="Audio" color="#15803d" />
+                    <ContentBadge active={tp.hasTheory} icon={FileText} label="Taqdimot" color="#7c3aed" />
+                    <ContentBadge active={tp.hasQollanma} icon={Layers} label="Qo'llanma" color="#0891b2" />
+                    <ContentBadge active={tp.hasYoutube} icon={Clapperboard} label="YouTube" color="#dc2626" />
+                    <ContentBadge active={tp.hasTest} icon={CheckCircle2} label="Test" color="#b91c1c" />
+                    <ContentBadge active={tp.hasAssignment} icon={ClipboardList} label="Topshiriq" color="#d97706" />
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-
-      {/* Student sub-pagination */}
-      {pc > 1 && (
-        <div className="flex items-center justify-between px-5 py-2.5" style={{ borderTop: "1px solid rgba(1,41,112,0.06)" }}>
-          <span className="text-xs" style={L}>{pg * PAGE_SIZE + 1}–{Math.min((pg + 1) * PAGE_SIZE, filtered.length)} / {filtered.length}</span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => onChange({ studentPage: Math.max(0, pg - 1) })} disabled={pg === 0}
-              className="p-1 rounded disabled:opacity-30 hover:bg-blue-50 transition-colors" style={{ color: "#0e58a8" }}>
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            {pageNums(pg, pc).map((n, idx) =>
-              n === "..." ? <span key={`e${idx}`} className="px-1 text-xs" style={L}>…</span> : (
-                <button key={n} onClick={() => onChange({ studentPage: n as number })}
-                  className="w-6 h-6 rounded text-xs font-medium transition-colors"
-                  style={{ backgroundColor: n === pg ? "#0e58a8" : "transparent", color: n === pg ? "#fff" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  {(n as number) + 1}
-                </button>
-              )
-            )}
-            <button onClick={() => onChange({ studentPage: Math.min(pc - 1, pg + 1) })} disabled={pg >= pc - 1}
-              className="p-1 rounded disabled:opacity-30 hover:bg-blue-50 transition-colors" style={{ color: "#0e58a8" }}>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -216,11 +168,11 @@ export default function AdminOqituvchilar() {
   async function toggleExpand(hemisId: string) {
     const cur = rows[hemisId]
     if (cur?.expanded) { patchRow(hemisId, { expanded: false }); return }
-    if (cur?.students?.length > 0) { patchRow(hemisId, { expanded: true }); return }
-    setRows(prev => ({ ...prev, [hemisId]: { expanded: true, loading: true, totals: null, students: [], studentSearch: "", studentPage: 0 } }))
+    if (cur?.topics?.length > 0) { patchRow(hemisId, { expanded: true }); return }
+    setRows(prev => ({ ...prev, [hemisId]: { expanded: true, loading: true, topics: [], topicSearch: "" } }))
     try {
-      const res = await adminApi.teacherStudents(hemisId)
-      setRows(prev => ({ ...prev, [hemisId]: { ...prev[hemisId], loading: false, totals: res.totals, students: res.data ?? [] } }))
+      const res = await adminApi.teacherTopics(hemisId)
+      setRows(prev => ({ ...prev, [hemisId]: { ...prev[hemisId], loading: false, topics: res.data ?? [] } }))
     } catch {
       setRows(prev => ({ ...prev, [hemisId]: { ...prev[hemisId], loading: false } }))
     }
@@ -384,13 +336,13 @@ export default function AdminOqituvchilar() {
                           </td>
                         </tr>
 
-                        {/* Expanded student sub-table */}
+                        {/* Expanded topic list */}
                         {isExpanded && (
                           <tr>
                             <td colSpan={11} className="p-0"
                               style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", backgroundColor: "#f8fbff" }}>
                               <div style={{ borderTop: "2px solid rgba(1,41,112,0.07)" }}>
-                                <StudentSubTable
+                                <TeacherTopicsTable
                                   state={rowState}
                                   onChange={patch => patchRow(s.hemisId, patch)}
                                 />
