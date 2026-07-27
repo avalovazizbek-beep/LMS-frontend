@@ -15,6 +15,7 @@ import {
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
@@ -48,6 +49,7 @@ function UploadSection({
   onReplace?: (file: File) => void
   extra?: React.ReactNode
 }) {
+  const { t } = useLanguage()
   const replaceRef = useRef<HTMLInputElement>(null)
   return (
     <div className="rounded-[10px] p-4 flex flex-col gap-2"
@@ -74,7 +76,7 @@ function UploadSection({
           <div className="flex items-center gap-1 shrink-0">
             {item.file && (
               <a href={teachingApi.fileUrl(item.file.url)} target="_blank" rel="noreferrer"
-                className="p-1.5 rounded hover:bg-white transition-colors" title="Faylni ochish">
+                className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.openFile")}>
                 <ExternalLink className="w-4 h-4" style={{ color: "#0e58a8" }} />
               </a>
             )}
@@ -83,12 +85,12 @@ function UploadSection({
                 <input ref={replaceRef} type="file" accept={accept} className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) { onReplace(f); replaceRef.current!.value = "" } }} />
                 <button onClick={() => replaceRef.current?.click()}
-                  className="p-1.5 rounded hover:bg-white transition-colors" title="Almashtirish (yangi fayl)">
+                  className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.replace")}>
                   <Pencil className="w-4 h-4" style={{ color: "#d97706" }} />
                 </button>
               </>
             )}
-            <button onClick={onDelete} className="p-1.5 rounded hover:bg-white transition-colors" title="O'chirish">
+            <button onClick={onDelete} className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.delete")}>
               <Trash2 className="w-4 h-4" style={{ color: "#dc2626" }} />
             </button>
           </div>
@@ -98,13 +100,13 @@ function UploadSection({
           className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-[6px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
           style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-          {uploading ? "Yaratilmoqda..." : "Test yaratish"}
+          {uploading ? t("fanResurslariOq.upload.creating") : t("fanResurslariOq.upload.createTest")}
         </button>
       ) : uploading ? (
         <div className="flex flex-col gap-1.5 w-full max-w-[260px]">
           <div className="flex items-center gap-2 text-sm font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Yuklanmoqda... {progress != null ? `${progress}%` : ""}
+            {t("fanResurslariOq.upload.uploading")} {progress != null ? `${progress}%` : ""}
           </div>
           <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: "#eef4ff" }}>
             <div className="h-full rounded-full transition-all"
@@ -115,7 +117,7 @@ function UploadSection({
         <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-[6px] text-sm font-medium cursor-pointer w-fit transition-colors hover:bg-[#f6f9ff]"
           style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <Upload className="w-4 h-4" />
-          Fayl yuklash
+          {t("fanResurslariOq.upload.uploadFile")}
           <input type="file" accept={accept} className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f) }} />
         </label>
@@ -137,6 +139,7 @@ function MeetingSection({
   topicTitle: string
   onRefetch: () => void
 }) {
+  const { t } = useLanguage()
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({
     title: topicTitle,
@@ -178,7 +181,7 @@ function MeetingSection({
       setCreating(false)
       onRefetch()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Meeting yaratishda xatolik")
+      setErr(e instanceof Error ? e.message : t("fanResurslariOq.meeting.createError"))
     } finally {
       setLoading(false)
     }
@@ -191,7 +194,7 @@ function MeetingSection({
       await teachingApi.removeContent(meetingItem.id)
       onRefetch()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "O'chirishda xatolik")
+      setErr(e instanceof Error ? e.message : t("fanResurslariOq.meeting.deleteError"))
     } finally {
       setLoading(false)
     }
@@ -204,7 +207,7 @@ function MeetingSection({
       await meetingsApi.uploadRecording(meetingItem.meetingLink, file, file.name)
       onRefetch()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Yozuvni yuklashda xatolik")
+      setErr(e instanceof Error ? e.message : t("fanResurslariOq.meeting.recordingUploadError"))
     } finally {
       setUploadingRec(false)
     }
@@ -215,10 +218,10 @@ function MeetingSection({
       style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
       <div className="flex items-center gap-2">
         <VideoIcon className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        <span className="text-sm font-semibold" style={titleStyle}>Meeting (Online dars)</span>
+        <span className="text-sm font-semibold" style={titleStyle}>{t("fanResurslariOq.meeting.title")}</span>
         {meetingItem && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
       </div>
-      <p className="text-xs" style={labelStyle}>Online dars yarating — talabalar dars jadvalida ko&apos;radi</p>
+      <p className="text-xs" style={labelStyle}>{t("fanResurslariOq.meeting.description")}</p>
 
       {err && (
         <p className="text-xs px-3 py-2 rounded-[6px]"
@@ -249,16 +252,16 @@ function MeetingSection({
           </div>
 
           <div className="flex flex-col gap-1">
-            <p className="text-xs font-medium" style={labelStyle}>Yozuv (Recording)</p>
+            <p className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.meeting.recording")}</p>
             {uploadingRec ? (
               <div className="flex items-center gap-2 text-sm" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                <Loader2 className="w-4 h-4 animate-spin" /> Yuklanmoqda...
+                <Loader2 className="w-4 h-4 animate-spin" /> {t("fanResurslariOq.meeting.uploading")}
               </div>
             ) : (
               <label className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm font-medium cursor-pointer w-fit transition-colors hover:bg-[#f6f9ff]"
                 style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 <Upload className="w-4 h-4" />
-                Yozuv yuklash
+                {t("fanResurslariOq.meeting.uploadRecording")}
                 <input type="file" accept="video/*" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleRecordingUpload(f) }} />
               </label>
@@ -269,7 +272,7 @@ function MeetingSection({
         <div className="flex flex-col gap-3 p-3 rounded-[8px]"
           style={{ backgroundColor: "#f8fafc", border: "1px solid rgba(1,41,112,0.08)" }}>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium" style={labelStyle}>Sarlavha</label>
+            <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.meeting.titleLabel")}</label>
             <input
               value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -279,21 +282,21 @@ function MeetingSection({
           </div>
           <div className="flex flex-wrap gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={labelStyle}>Sana</label>
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.meeting.dateLabel")}</label>
               <input type="date" value={form.date}
                 onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
                 className="px-3 py-2 rounded-[5px] text-sm outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={labelStyle}>Boshlanish</label>
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.meeting.startLabel")}</label>
               <input type="time" value={form.startTime}
                 onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
                 className="px-3 py-2 rounded-[5px] text-sm outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={labelStyle}>Tugash</label>
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.meeting.endLabel")}</label>
               <input type="time" value={form.endTime}
                 onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
                 className="px-3 py-2 rounded-[5px] text-sm outline-none"
@@ -305,12 +308,12 @@ function MeetingSection({
               className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-sm font-medium text-white disabled:opacity-60"
               style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarDays className="w-4 h-4" />}
-              {loading ? "Yaratilmoqda..." : "Meeting yaratish"}
+              {loading ? t("fanResurslariOq.meeting.creating") : t("fanResurslariOq.meeting.create")}
             </button>
             <button onClick={() => { setCreating(false); setErr(null) }}
               className="px-3 py-2 rounded-[6px] text-sm"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Bekor
+              {t("fanResurslariOq.meeting.cancel")}
             </button>
           </div>
         </div>
@@ -319,7 +322,7 @@ function MeetingSection({
           className="flex items-center gap-2 px-3 py-2.5 rounded-[6px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff]"
           style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <CalendarDays className="w-4 h-4" />
-          Meeting yaratish
+          {t("fanResurslariOq.meeting.create")}
         </button>
       )}
     </div>
@@ -328,6 +331,7 @@ function MeetingSection({
 
 /* ── Test natijalari modali ──────────────────────────────────────────── */
 function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: () => void }) {
+  const { t } = useLanguage()
   const [selectedSub, setSelectedSub] = useState<TeachingSubmission | null>(null)
 
   const { data: subsData, loading: lSubs } = useApi(
@@ -376,12 +380,12 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
             )}
             <div>
               <h2 className="text-base font-semibold" style={titleStyle}>
-                {selectedSub ? selectedSub.studentFullName : "Test natijalari"}
+                {selectedSub ? selectedSub.studentFullName : t("fanResurslariOq.results.title")}
               </h2>
               <p className="text-xs mt-0.5" style={labelStyle}>
                 {selectedSub
-                  ? `Ball: ${selectedSub.grade ?? "—"} / ${test.maxScore ?? "?"} · ${fmtDate(selectedSub.submittedAt)}`
-                  : `${test.title} · ${submissions.length} ta topshirdi · O'rtacha: ${avgScore}`}
+                  ? t("fanResurslariOq.results.scoreLine", { grade: selectedSub.grade ?? "—", max: test.maxScore ?? "?", date: fmtDate(selectedSub.submittedAt) })
+                  : t("fanResurslariOq.results.summaryLine", { title: test.title, count: submissions.length, avg: avgScore })}
               </p>
             </div>
           </div>
@@ -395,7 +399,7 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
           {loading ? (
             <div className="flex items-center justify-center py-16 gap-2" style={labelStyle}>
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Yuklanmoqda...</span>
+              <span className="text-sm">{t("fanResurslariOq.results.loading")}</span>
             </div>
           ) : selectedSub ? (
             /* ── Talaba javoblari ── */
@@ -437,8 +441,8 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
                             <span style={{ color: isCorrect ? "#15803d" : isChosen ? "#b91c1c" : "#445b7a" }}>
                               {String.fromCharCode(65 + shuffledPos)}){" "}{opt}
                             </span>
-                            {isChosen && !isCorrect && <span className="ml-auto text-xs" style={{ color: "#b91c1c" }}>Talaba tanladi</span>}
-                            {isCorrect && <span className="ml-auto text-xs font-semibold" style={{ color: "#15803d" }}>To&apos;g&apos;ri javob</span>}
+                            {isChosen && !isCorrect && <span className="ml-auto text-xs" style={{ color: "#b91c1c" }}>{t("fanResurslariOq.results.studentChose")}</span>}
+                            {isCorrect && <span className="ml-auto text-xs font-semibold" style={{ color: "#15803d" }}>{t("fanResurslariOq.results.correctAnswer")}</span>}
                           </div>
                         )
                       })}
@@ -452,13 +456,13 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
             submissions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 gap-3">
                 <Users className="w-10 h-10" style={{ color: "#d8e6f7" }} />
-                <p className="text-sm" style={labelStyle}>Hali hech kim topshirmagan</p>
+                <p className="text-sm" style={labelStyle}>{t("fanResurslariOq.results.noSubmissions")}</p>
               </div>
             ) : (
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f8fafc" }}>
-                    {["#", "Talaba", "Ball", "Foiz", "Topshirilgan", "Ko'rish"].map(h => (
+                    {["#", t("fanResurslariOq.results.colStudent"), t("fanResurslariOq.results.colScore"), t("fanResurslariOq.results.colPercent"), t("fanResurslariOq.results.colSubmitted"), t("fanResurslariOq.results.colView")].map(h => (
                       <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>{h}</th>
                     ))}
                   </tr>
@@ -492,7 +496,7 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
                             <button onClick={() => setSelectedSub(sub)}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#0e58a8] hover:text-white"
                               style={{ border: "1px solid rgba(14,88,168,0.3)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                              <BarChart3 className="w-3 h-3" /> Ko&apos;rish
+                              <BarChart3 className="w-3 h-3" /> {t("fanResurslariOq.results.viewBtn")}
                             </button>
                           ) : <span className="text-xs" style={labelStyle}>—</span>}
                         </td>
@@ -507,11 +511,11 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
 
         <div className="px-5 py-3 shrink-0 flex items-center justify-between text-xs"
           style={{ borderTop: "1px solid rgba(1,41,112,0.08)", ...labelStyle }}>
-          <span>Jami: {submissions.length} ta topshirdi</span>
+          <span>{t("fanResurslariOq.results.totalSubmitted", { n: submissions.length })}</span>
           <button onClick={onClose}
             className="px-4 py-2 rounded-[8px] text-sm font-medium"
             style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
-            Yopish
+            {t("fanResurslariOq.results.close")}
           </button>
         </div>
       </div>
@@ -521,6 +525,7 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
 
 /* ── Resurslar panel ─────────────────────────────────────────────────── */
 function ResourcesPanel({ sel }: { sel: Selection }) {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(
     () => teachingApi.contentByTopic({ topicKey: sel.topicKey, groupId: sel.groupId }),
     [sel.topicKey, sel.groupId]
@@ -580,7 +585,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       await refetch()
       setSettingsOk(true)
     } catch (e) {
-      setSettingsErr(e instanceof Error ? e.message : "Saqlashda xatolik")
+      setSettingsErr(e instanceof Error ? e.message : t("fanResurslariOq.errors.saveError"))
     } finally {
       setSavingSettings(false)
     }
@@ -601,7 +606,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       })
       await refetch()
     } catch (err) {
-      setOpErr(err instanceof Error ? err.message : "Yuklashda xatolik yuz berdi")
+      setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.uploadError"))
     } finally {
       setUploadingKind(null)
       setUploadProgress(null)
@@ -615,7 +620,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       await teachingApi.removeContent(item.id)
       await refetch()
     } catch (err) {
-      setOpErr(err instanceof Error ? err.message : "O'chirishda xatolik yuz berdi")
+      setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.deleteError"))
     }
   }
 
@@ -634,7 +639,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       })
       await refetch()
     } catch (err) {
-      setOpErr(err instanceof Error ? err.message : "Almashtirishda xatolik yuz berdi")
+      setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.replaceError"))
     } finally {
       setUploadingKind(null)
       setUploadProgress(null)
@@ -657,8 +662,8 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       {/* Video */}
       <UploadSection
         icon={<Video className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title="Video"
-        description="Mavzu bo'yicha video dars"
+        title={t("fanResurslariOq.video.title")}
+        description={t("fanResurslariOq.video.description")}
         item={video} accept="video/*"
         uploading={uploadingKind === "video_lesson"}
         progress={uploadingKind === "video_lesson" ? uploadProgress : null}
@@ -670,8 +675,8 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       {/* Audio */}
       <UploadSection
         icon={<Music className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title="Audio"
-        description="Mavzu bo'yicha audio material"
+        title={t("fanResurslariOq.audio.title")}
+        description={t("fanResurslariOq.audio.description")}
         item={audio} accept="audio/*"
         uploading={uploadingKind === "audio"}
         progress={uploadingKind === "audio" ? uploadProgress : null}
@@ -683,8 +688,8 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       {/* Taqdimot */}
       <UploadSection
         icon={<BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title="Taqdimot (Prezentatsiya)"
-        description="PDF, PPT, PPTX — talaba slaydlarni ko'rib chiqadi"
+        title={t("fanResurslariOq.presentation.title")}
+        description={t("fanResurslariOq.presentation.description")}
         item={theory} accept=".pdf,.ppt,.pptx"
         uploading={uploadingKind === "theory"}
         progress={uploadingKind === "theory" ? uploadProgress : null}
@@ -696,8 +701,8 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       {/* Qo'llanma */}
       <UploadSection
         icon={<Library className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title="Qo'llanma (Adabiyotlar)"
-        description="Qo'shimcha adabiyot va materiallar — PDF, Word, ZIP"
+        title={t("fanResurslariOq.guide.title")}
+        description={t("fanResurslariOq.guide.description")}
         item={qollanma} accept=".pdf,.doc,.docx,.zip,.rar"
         uploading={uploadingKind === "qollanma"}
         progress={uploadingKind === "qollanma" ? uploadProgress : null}
@@ -711,12 +716,12 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       {/* Test — full width (settings, buttons ko'p) */}
       <UploadSection
         icon={<HelpCircle className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title="Test"
-        description="MCQ test — yuklansa, shu mavzu uchun Topshiriq bloklanadi"
+        title={t("fanResurslariOq.test.title")}
+        description={t("fanResurslariOq.test.description")}
         item={test} accept="" noFile
         uploading={uploadingKind === "test"}
         disabled={!!assignment && !test}
-        disabledMessage="Bu mavzuga Topshiriq yuklangan — Test qo'shib bo'lmaydi"
+        disabledMessage={t("fanResurslariOq.test.disabledMessage")}
         onUpload={() => {}}
         onCreate={() => upload("test", "exam", null)}
         onDelete={() => remove(test)}
@@ -726,32 +731,32 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
               <button onClick={() => setShowQuestions(true)}
                 className="px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                Savollarni tahrirlash
+                {t("fanResurslariOq.test.editQuestions")}
               </button>
               <button onClick={() => setShowTestResults(true)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 <BarChart3 className="w-4 h-4" />
-                Test natijalari
+                {t("fanResurslariOq.test.resultsBtn")}
               </button>
             </div>
             <div className="flex flex-wrap items-end gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={labelStyle}>Maks ball (0 = 100)</label>
+                <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.maxScoreLabel")}</label>
                 <input type="number" min={0} max={1000} value={settings.testMaxScore}
                   onChange={e => setSt("testMaxScore", Math.max(0, Number(e.target.value) || 0))}
                   className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
                   style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={labelStyle}>Vaqt (daqiqa, 0 = cheksiz)</label>
+                <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.durationLabel")}</label>
                 <input type="number" min={0} max={300} value={settings.testDuration}
                   onChange={e => setSt("testDuration", Math.max(0, Number(e.target.value) || 0))}
                   className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
                   style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={labelStyle}>Urunishlar soni (0 = cheksiz)</label>
+                <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.attemptsLabel")}</label>
                 <input type="number" min={0} max={10} value={settings.testAttempts}
                   onChange={e => setSt("testAttempts", Math.max(0, Number(e.target.value) || 0))}
                   className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
@@ -759,9 +764,9 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium" style={labelStyle}>
-                  Savollar soni (0 = hammasi
-                  {test?.questionCount ? `, jami ${test.questionCount} ta` : ""}
-                  )
+                  {t("fanResurslariOq.test.questionCountLabel", {
+                    extra: test?.questionCount ? t("fanResurslariOq.test.questionCountExtra", { n: test.questionCount }) : "",
+                  })}
                 </label>
                 <input type="number" min={0} max={test?.questionCount || 9999} value={settings.testDisplayCount}
                   onChange={e => setSt("testDisplayCount", Math.max(0, Number(e.target.value) || 0))}
@@ -770,12 +775,12 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
               </div>
             </div>
             <p className="text-xs" style={labelStyle}>
-              Maks ball: {settings.testMaxScore > 0 ? settings.testMaxScore : 100} ·{" "}
-              {settings.testDuration > 0 ? `${settings.testDuration} daqiqa` : "Cheksiz vaqt"} ·{" "}
-              {settings.testAttempts > 0 ? `${settings.testAttempts} marta urinish` : "Cheksiz urinish"} ·{" "}
+              {t("fanResurslariOq.test.summaryMaxScore", { n: settings.testMaxScore > 0 ? settings.testMaxScore : 100 })} ·{" "}
+              {settings.testDuration > 0 ? t("fanResurslariOq.test.durationMinutes", { n: settings.testDuration }) : t("fanResurslariOq.test.unlimitedTime")} ·{" "}
+              {settings.testAttempts > 0 ? t("fanResurslariOq.test.attemptsTimes", { n: settings.testAttempts }) : t("fanResurslariOq.test.unlimitedAttempts")} ·{" "}
               {settings.testDisplayCount > 0
-                ? `${settings.testDisplayCount} ta savol ko'rsatiladi`
-                : `Hammasi (${test?.questionCount ?? 0} ta)`}
+                ? t("fanResurslariOq.test.questionsShown", { n: settings.testDisplayCount })
+                : t("fanResurslariOq.test.allQuestions", { n: test?.questionCount ?? 0 })}
             </p>
             {showQuestions && (
               <QuestionsModal content={test} onClose={() => setShowQuestions(false)} onSaved={refetch} />
@@ -790,13 +795,13 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       {/* Topshiriq — full width */}
       <UploadSection
         icon={<ClipboardList className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title="Topshiriq"
-        description="Talaba bajarib topshiradigan vazifa fayli"
+        title={t("fanResurslariOq.assignment.title")}
+        description={t("fanResurslariOq.assignment.description")}
         item={assignment} accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar"
         uploading={uploadingKind === "assignment"}
         progress={uploadingKind === "assignment" ? uploadProgress : null}
         disabled={!!test && !assignment}
-        disabledMessage="Bu mavzuga Test yuklangan — Topshiriq qo'shib bo'lmaydi"
+        disabledMessage={t("fanResurslariOq.assignment.disabledMessage")}
         onUpload={f => upload("assignment", "assignment", f)}
         onDelete={() => remove(assignment)}
       />
@@ -822,18 +827,18 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
             className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold text-white disabled:opacity-60"
             style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {savingSettings ? "Saqlanmoqda..." : "Test sozlamalarini saqlash"}
+            {savingSettings ? t("fanResurslariOq.saveBar.saving") : t("fanResurslariOq.saveBar.save")}
           </button>
           {settingsOk && !savingSettings && (
             <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-              <CheckCircle2 className="w-4 h-4" /> Saqlandi
+              <CheckCircle2 className="w-4 h-4" /> {t("fanResurslariOq.saveBar.saved")}
             </span>
           )}
           {settingsErr && (
             <span className="text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{settingsErr}</span>
           )}
           <span className="text-xs ml-auto" style={labelStyle}>
-            Maks ball, vaqt va urunish sozlamalari saqlanadi
+            {t("fanResurslariOq.saveBar.hint")}
           </span>
         </div>
       )}
@@ -843,6 +848,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
 
 /* ── Mavzu yozuvlari (o'qituvchi uchun) ─────────────────────────────── */
 function TeacherRecordingsSection({ subjectName, topicTitle }: { subjectName: string; topicTitle: string }) {
+  const { t } = useLanguage()
   const { data } = useApi(() => meetingsApi.recordingsBySubject(subjectName), [subjectName])
   const all: SubjectRecording[] = data?.data ?? []
 
@@ -859,10 +865,10 @@ function TeacherRecordingsSection({ subjectName, topicTitle }: { subjectName: st
       style={{ border: "1px solid rgba(1,41,112,0.1)", backgroundColor: "white" }}>
       <div className="flex items-center gap-2">
         <VideoIcon className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        <span className="text-sm font-semibold" style={titleStyle}>Mavzu yozuvlari</span>
+        <span className="text-sm font-semibold" style={titleStyle}>{t("fanResurslariOq.recordings.title")}</span>
         <span className="text-xs px-2 py-0.5 rounded-full font-medium ml-auto"
           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-          {filtered.length} ta
+          {t("fanResurslariOq.recordings.count", { n: filtered.length })}
         </span>
       </div>
       {filtered.map(r => (
@@ -878,7 +884,7 @@ function TeacherRecordingsSection({ subjectName, topicTitle }: { subjectName: st
           <a href={r.fileUrl} target="_blank" rel="noreferrer"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold shrink-0 text-white"
             style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            <ExternalLink className="w-3.5 h-3.5" /> Ko&apos;rish
+            <ExternalLink className="w-3.5 h-3.5" /> {t("fanResurslariOq.recordings.view")}
           </a>
         </div>
       ))}
@@ -888,6 +894,7 @@ function TeacherRecordingsSection({ subjectName, topicTitle }: { subjectName: st
 
 /* ── Bosh sahifa ─────────────────────────────────────────────────────── */
 export default function FanResurslariPage() {
+  const { t } = useLanguage()
   const { data: groupsRes, loading: lGroups, error: eGroups } = useApi(() => teachingApi.groups(), [])
 
   const groups = groupsRes?.data ?? []
@@ -939,7 +946,7 @@ export default function FanResurslariPage() {
     return map
   }, [allItems])
 
-  const selectedTopic = topics.find(t => t.key === topicKey)
+  const selectedTopic = topics.find(tp => tp.key === topicKey)
   const groupName = groups.find(g => g.id === activeGroupId)?.name ?? ""
 
   function handleGroupChange(val: string) {
@@ -968,26 +975,26 @@ export default function FanResurslariPage() {
         style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
         <div className="flex items-start justify-between gap-6 flex-wrap">
           <div>
-            <h1 className="text-[22px] font-semibold" style={titleStyle}>Fan resurslari</h1>
-            <p className="text-xs mt-0.5" style={labelStyle}>Mavzu tanlang — video, audio, taqdimot va test materiallarini boshqaring</p>
+            <h1 className="text-[22px] font-semibold" style={titleStyle}>{t("fanResurslariOq.pageTitle")}</h1>
+            <p className="text-xs mt-0.5" style={labelStyle}>{t("fanResurslariOq.pageSubtitle")}</p>
           </div>
           <div className="flex items-end gap-3 flex-wrap">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={labelStyle}>Guruh</label>
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.group")}</label>
               <select value={groupId} onChange={e => handleGroupChange(e.target.value)}
                 className="px-3 py-2 rounded-[6px] text-sm outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 140, backgroundColor: "white" }}>
-                <option value="">— Tanlang —</option>
+                <option value="">{t("fanResurslariOq.selectPlaceholder")}</option>
                 {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={labelStyle}>Fan nomi</label>
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.subjectName")}</label>
               <select value={subjectName} onChange={e => handleSubjectChange(e.target.value)}
                 disabled={!activeGroupId || subjects.length === 0}
                 className="px-3 py-2 rounded-[6px] text-sm outline-none disabled:opacity-50"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 200, backgroundColor: "white" }}>
-                <option value="">— Tanlang —</option>
+                <option value="">{t("fanResurslariOq.selectPlaceholder")}</option>
                 {subjects.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
@@ -1004,9 +1011,9 @@ export default function FanResurslariPage() {
           </div>
           <div className="text-center">
             <p className="text-base font-semibold" style={titleStyle}>
-              {!activeGroupId ? "Guruhni tanlang" : "Fan nomini tanlang"}
+              {!activeGroupId ? t("fanResurslariOq.selectGroupPrompt") : t("fanResurslariOq.selectSubjectPrompt")}
             </p>
-            <p className="text-sm mt-1" style={labelStyle}>Yuqoridagi filtrlardan tanlang</p>
+            <p className="text-sm mt-1" style={labelStyle}>{t("fanResurslariOq.selectFromFiltersAbove")}</p>
           </div>
         </div>
       ) : (
@@ -1066,8 +1073,8 @@ export default function FanResurslariPage() {
                   <BookMarked className="w-7 h-7" style={{ color: "#0e58a8" }} />
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-semibold" style={titleStyle}>Mavzuni tanlang</p>
-                  <p className="text-xs mt-1" style={labelStyle}>O'ng tomondagi ro'yxatdan mavzu tanlang</p>
+                  <p className="text-sm font-semibold" style={titleStyle}>{t("fanResurslariOq.selectTopic")}</p>
+                  <p className="text-xs mt-1" style={labelStyle}>{t("fanResurslariOq.selectTopicHint")}</p>
                 </div>
               </div>
             )}
@@ -1080,12 +1087,12 @@ export default function FanResurslariPage() {
             <div className="px-4 py-3 sticky top-0 bg-white z-10"
               style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Kurs mavzulari
+                {t("fanResurslariOq.sidebar.courseTopics")}
               </p>
               {lTopics && (
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#7293b9" }} />
-                  <span className="text-xs" style={labelStyle}>Yuklanmoqda...</span>
+                  <span className="text-xs" style={labelStyle}>{t("fanResurslariOq.sidebar.loading")}</span>
                 </div>
               )}
             </div>
@@ -1094,13 +1101,13 @@ export default function FanResurslariPage() {
             <div className="py-2">
               {topics.length === 0 && !lTopics ? (
                 <div className="px-4 py-6 text-center">
-                  <p className="text-xs" style={labelStyle}>Hali mavzu qo'shilmagan</p>
+                  <p className="text-xs" style={labelStyle}>{t("fanResurslariOq.sidebar.noTopicsYet")}</p>
                 </div>
-              ) : topics.map((t, idx) => {
-                const count  = topicCounts.get(t.key) ?? 0
-                const isActive = t.key === topicKey
+              ) : topics.map((tp, idx) => {
+                const count  = topicCounts.get(tp.key) ?? 0
+                const isActive = tp.key === topicKey
                 return (
-                  <button key={t.key} onClick={() => setTopicKey(t.key)}
+                  <button key={tp.key} onClick={() => setTopicKey(tp.key)}
                     className="w-full text-left px-4 py-3 flex items-start gap-3 transition-all"
                     style={{
                       backgroundColor: isActive ? "#eef4ff" : "transparent",
@@ -1118,24 +1125,24 @@ export default function FanResurslariPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium leading-snug"
                         style={{ color: isActive ? "#012970" : "#445b7a", fontFamily: "var(--font-poppins)" }}>
-                        {t.title}
+                        {tp.title}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         {count > 0 ? (
                           <span className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                            {count} ta material
+                            {t("fanResurslariOq.sidebar.materialCount", { n: count })}
                           </span>
                         ) : (
                           <span className="text-xs" style={{ color: "#b0c2d8", fontFamily: "var(--font-poppins)" }}>
-                            Hali bo&apos;sh
+                            {t("fanResurslariOq.sidebar.empty")}
                           </span>
                         )}
                         {count > 0 && (
                           <div className="flex items-center gap-0.5">
-                            {allItems.some(i => i.topicKey === t.key && i.kind === "video_lesson") && <Video className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                            {allItems.some(i => i.topicKey === t.key && i.kind === "audio") && <Music className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                            {allItems.some(i => i.topicKey === t.key && i.kind === "theory") && <BookOpen className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                            {allItems.some(i => i.topicKey === t.key && i.type === "exam") && <HelpCircle className="w-3 h-3" style={{ color: "#94a3b8" }} />}
+                            {allItems.some(i => i.topicKey === tp.key && i.kind === "video_lesson") && <Video className="w-3 h-3" style={{ color: "#94a3b8" }} />}
+                            {allItems.some(i => i.topicKey === tp.key && i.kind === "audio") && <Music className="w-3 h-3" style={{ color: "#94a3b8" }} />}
+                            {allItems.some(i => i.topicKey === tp.key && i.kind === "theory") && <BookOpen className="w-3 h-3" style={{ color: "#94a3b8" }} />}
+                            {allItems.some(i => i.topicKey === tp.key && i.type === "exam") && <HelpCircle className="w-3 h-3" style={{ color: "#94a3b8" }} />}
                           </div>
                         )}
                       </div>
