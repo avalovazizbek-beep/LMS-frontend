@@ -7,16 +7,104 @@ import { ChevronLeft, ChevronRight, FileVideo, Filter, Plus, Search, Upload } fr
 import { hemisApi, teachingApi, type LocalResourceKind, type HemisSchedule } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+
+type TFunc = (key: string, params?: Record<string, string | number>) => string
 
 type Field = { label: string; keys: string[] }
 type PageConfig = {
-  title: string
-  description: string
+  titleKey: string
+  descriptionKey: string
   resource: string
-  action?: string
+  actionKey?: string
   actionHref?: string
   filters: string[]
   fields: Field[]
+}
+
+// Field label (uz canonical text, used for lookups/comparisons) -> translation key
+const FIELD_LABEL_KEYS: Record<string, string> = {
+  "Fanlar": "xodimSlug.field.subjects",
+  "O'quv reja": "xodimSlug.field.curriculum",
+  "Guruh": "xodimSlug.field.group",
+  "Mashg'ulot": "xodimSlug.field.trainingType",
+  "Semestr": "xodimSlug.field.semester",
+  "Hujjat nomi": "xodimSlug.field.documentName",
+  "Hujjat holati": "xodimSlug.field.documentStatus",
+  "Toifa": "xodimSlug.field.category",
+  "Imzo": "xodimSlug.field.signature",
+  "Imzo sanasi": "xodimSlug.field.signatureDate",
+  "Xodim": "xodimSlug.field.employee",
+  "Kafedra": "xodimSlug.field.department",
+  "O'quv yili": "xodimSlug.field.educationYear",
+  "Lavozim": "xodimSlug.field.position",
+  "Stavka": "xodimSlug.field.rate",
+  "Umumiy yuklama": "xodimSlug.field.totalLoad",
+  "Ilmiy / Uslubiy": "xodimSlug.field.scientificMethodic",
+  "Shaxsiy reja": "xodimSlug.field.personalPlanFile",
+  "Ta'lim turi": "xodimSlug.field.educationType",
+  "Kafedra / Bo'lim": "xodimSlug.field.departmentUnit",
+  "Mashg'ulotlar": "xodimSlug.field.trainings",
+  "Sarlavha": "xodimSlug.field.headline",
+  "Fanlar ro'yxati": "xodimSlug.field.subjectsList",
+  "Files": "xodimSlug.field.files",
+  "Yaratilgan": "xodimSlug.field.created",
+  "Faol": "xodimSlug.field.active",
+  "Topshiriqlar": "xodimSlug.field.tasks",
+  "Ta'lim tili": "xodimSlug.field.educationLanguage",
+  "Nazorat turi": "xodimSlug.field.controlType",
+  "Fayl nomi": "xodimSlug.field.fileName",
+  "Nomi": "xodimSlug.field.name",
+  "Guruhlar": "xodimSlug.field.groups",
+  "Savollar soni": "xodimSlug.field.questionCount",
+  "Boshlanish": "xodimSlug.field.startTime",
+  "Tugash": "xodimSlug.field.endTime",
+  "Vaqti (daqiqa)": "xodimSlug.field.durationMinutes",
+  "FaceID": "xodimSlug.field.faceId",
+  "Talaba": "xodimSlug.field.student",
+  "Fan": "xodimSlug.field.subject",
+  "Dars sanasi": "xodimSlug.field.lessonDate",
+  "Auditoriya": "xodimSlug.field.classroom",
+  "Juftlik": "xodimSlug.field.pair",
+  "Qoldirdi (S/SZ)": "xodimSlug.field.absence",
+  "Ball": "xodimSlug.field.score",
+  "Holat": "xodimSlug.field.status",
+  "Sana": "xodimSlug.field.date",
+  "Turi": "xodimSlug.field.type",
+  "Ko'rsatkich": "xodimSlug.field.metric",
+  "Qiymat": "xodimSlug.field.value",
+  "Hisobot": "xodimSlug.field.report",
+  "Fayl": "xodimSlug.field.file",
+  "Mavzu": "xodimSlug.field.subjectTitle",
+  "Xabar": "xodimSlug.field.message",
+  "Vaqt": "xodimSlug.field.time",
+  "Parametr": "xodimSlug.field.parameter",
+}
+
+// Filter label (uz canonical text, used for filterParam() matching) -> translation key
+const FILTER_LABEL_KEYS: Record<string, string> = {
+  "Hujjat turini tanlang": "xodimSlug.filter.documentTypeSelect",
+  "Holatini tanlang": "xodimSlug.filter.statusSelect",
+  "Nom va Raqam bo'yicha qidirish": "xodimSlug.filter.nameNumberSearch",
+  "Mehnat shaklini tanlang": "xodimSlug.filter.employmentTypeSelect",
+  "Stavkani tanlang": "xodimSlug.filter.rateSelect",
+  "O'quv reja": "xodimSlug.filter.curriculum",
+  "O'quv yili": "xodimSlug.filter.educationYear",
+  "Semestr": "xodimSlug.filter.semester",
+  "Fakultet": "xodimSlug.filter.faculty",
+  "Fanlar ro'yxati": "xodimSlug.filter.subjectsList",
+  "Mashg'ulot": "xodimSlug.filter.trainingType",
+  "Xodim": "xodimSlug.filter.employee",
+  "Til": "xodimSlug.filter.language",
+  "Qidirish": "xodimSlug.filter.search",
+  "Guruh": "xodimSlug.filter.group",
+  "Fan": "xodimSlug.filter.subject",
+  "O'quv yilini tanlang": "xodimSlug.filter.educationYearSelect",
+  "Guruhni tanlang": "xodimSlug.filter.groupSelect",
+  "Nom bo'yicha qidirish": "xodimSlug.filter.nameSearch",
+  "Talaba": "xodimSlug.filter.student",
+  "Turi": "xodimSlug.filter.type",
+  "Holat": "xodimSlug.filter.status",
 }
 
 const commonSubjectFields: Field[] = [
@@ -29,8 +117,8 @@ const commonSubjectFields: Field[] = [
 
 const pageConfigs: Record<string, PageConfig> = {
   "hujjat-imzolash": {
-    title: "Hujjatni imzolash",
-    description: "HEMIS e-hujjatlar bo'limi",
+    titleKey: "xodimSlug.hujjatImzolash.title",
+    descriptionKey: "xodimSlug.hujjatImzolash.description",
     resource: "document-signing",
     filters: ["Hujjat turini tanlang", "Holatini tanlang", "Nom va Raqam bo'yicha qidirish"],
     fields: [
@@ -42,8 +130,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "shaxsiy-ish-reja": {
-    title: "Shaxsiy ish reja",
-    description: "O'qituvchi shaxsiy ish rejasi",
+    titleKey: "xodimSlug.shaxsiyIshReja.title",
+    descriptionKey: "xodimSlug.shaxsiyIshReja.description",
     resource: "personal-plan",
     filters: ["Mehnat shaklini tanlang", "Stavkani tanlang"],
     fields: [
@@ -58,8 +146,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "fan-mavzulari": {
-    title: "Fan mavzulari",
-    description: "Fan mavzulari ro'yxati",
+    titleKey: "xodimSlug.fanMavzulari.title",
+    descriptionKey: "xodimSlug.fanMavzulari.description",
     resource: "subject-topics",
     filters: ["O'quv reja", "O'quv yili", "Semestr"],
     fields: [
@@ -72,10 +160,10 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "fan-resurslari": {
-    title: "Fan resurslari",
-    description: "Fanlar bo'yicha resurslar",
+    titleKey: "xodimSlug.fanResurslari.title",
+    descriptionKey: "xodimSlug.fanResurslari.description",
     resource: "subject-resources",
-    action: "Yaratish",
+    actionKey: "xodimSlug.fanResurslari.action",
     actionHref: "/xodim/fan-resurslari/yaratish",
     filters: ["Fakultet", "O'quv reja", "Fanlar ro'yxati", "Mashg'ulot", "Xodim", "Til", "Qidirish"],
     fields: [
@@ -87,8 +175,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "fan-topshiriqlari": {
-    title: "Fan topshiriqlari",
-    description: "Fan topshiriqlari ro'yxati",
+    titleKey: "xodimSlug.fanTopshiriqlari.title",
+    descriptionKey: "xodimSlug.fanTopshiriqlari.description",
     resource: "subject-tasks",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -98,8 +186,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "kurs-topshiriqlari": {
-    title: "Kurs topshiriqlari",
-    description: "Kurs ishlari va topshiriqlar",
+    titleKey: "xodimSlug.kursTopshiriqlari.title",
+    descriptionKey: "xodimSlug.kursTopshiriqlari.description",
     resource: "course-tasks",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -111,8 +199,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "kalendar-reja": {
-    title: "Kalendar reja",
-    description: "Fanlar kalendar rejasi",
+    titleKey: "xodimSlug.kalendarReja.title",
+    descriptionKey: "xodimSlug.kalendarReja.description",
     resource: "calendar-plan",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -125,8 +213,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "fan-malumotlari": {
-    title: "Fan ma'lumotlari",
-    description: "O'qituvchi fanlari",
+    titleKey: "xodimSlug.fanMalumotlari.title",
+    descriptionKey: "xodimSlug.fanMalumotlari.description",
     resource: "subject-info",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -137,10 +225,10 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   imtihonlar: {
-    title: "Imtihonlar ro'yxati",
-    description: "O'qituvchi yaratgan imtihonlar",
+    titleKey: "xodimSlug.imtihonlar.title",
+    descriptionKey: "xodimSlug.imtihonlar.description",
     resource: "exams",
-    action: "Imtihon yaratish",
+    actionKey: "xodimSlug.imtihonlar.action",
     filters: ["O'quv yilini tanlang", "Guruhni tanlang", "Nom bo'yicha qidirish"],
     fields: [
       { label: "Nomi", keys: ["name", "title", "subject.name"] },
@@ -155,8 +243,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "fan-talabalari": {
-    title: "Fan talabalari",
-    description: "Fanlarga biriktirilgan talabalar",
+    titleKey: "xodimSlug.fanTalabalari.title",
+    descriptionKey: "xodimSlug.fanTalabalari.description",
     resource: "single-students",
     filters: ["O'quv yili", "Semestr", "Fan", "Talaba"],
     fields: [
@@ -167,8 +255,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "yakka-dars-jadvali": {
-    title: "Yakka dars jadvali",
-    description: "Yakka darslar jadvali",
+    titleKey: "xodimSlug.yakkaDarsJadvali.title",
+    descriptionKey: "xodimSlug.yakkaDarsJadvali.description",
     resource: "single-schedule",
     filters: ["O'quv yili", "Semestr", "Fan", "Mashg'ulot"],
     fields: [
@@ -178,8 +266,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "yakka-dars-davomat": {
-    title: "Yakka dars davomat",
-    description: "Yakka dars davomatlari",
+    titleKey: "xodimSlug.yakkaDarsDavomat.title",
+    descriptionKey: "xodimSlug.yakkaDarsDavomat.description",
     resource: "single-attendance",
     filters: ["O'quv yili", "Semestr", "Fan", "Mashg'ulot", "Talaba"],
     fields: [
@@ -196,15 +284,15 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "qayta-oqish": {
-    title: "Qayta o'qish",
-    description: "Qayta o'qish ro'yxati",
+    titleKey: "xodimSlug.qaytaOqish.title",
+    descriptionKey: "xodimSlug.qaytaOqish.description",
     resource: "retraining",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: commonSubjectFields,
   },
   "shaxsiy-qaydnoma-kiritish": {
-    title: "Shaxsiy qaydnoma kiritish",
-    description: "Baholarni kiritish oynasi",
+    titleKey: "xodimSlug.shaxsiyQaydnomaKiritish.title",
+    descriptionKey: "xodimSlug.shaxsiyQaydnomaKiritish.description",
     resource: "personal-records",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -214,8 +302,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "baholash-sorovlari": {
-    title: "Baholash so'rovlari",
-    description: "Talaba baholash so'rovlari",
+    titleKey: "xodimSlug.baholashSorovlari.title",
+    descriptionKey: "xodimSlug.baholashSorovlari.description",
     resource: "grading-surveys",
     filters: ["O'quv yili", "Semestr", "Fan"],
     fields: [
@@ -225,8 +313,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   mashgulotlar: {
-    title: "Mashg'ulotlar",
-    description: "Mashg'ulotlar ro'yxati",
+    titleKey: "xodimSlug.mashgulotlar.title",
+    descriptionKey: "xodimSlug.mashgulotlar.description",
     resource: "lesson-list",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -236,8 +324,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "dars-jadvali": {
-    title: "Dars jadvali",
-    description: "O'qituvchi dars jadvali",
+    titleKey: "xodimSlug.darsJadvaliCfg.title",
+    descriptionKey: "xodimSlug.darsJadvaliCfg.description",
     resource: "lesson-schedule",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -247,8 +335,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "dars-otish": {
-    title: "Dars o'tish",
-    description: "Darslar ro'yxati",
+    titleKey: "xodimSlug.darsOtish.title",
+    descriptionKey: "xodimSlug.darsOtish.description",
     resource: "lesson-list",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -258,8 +346,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "davomat-jurnali": {
-    title: "Davomat jurnali",
-    description: "Davomat jurnali ro'yxati",
+    titleKey: "xodimSlug.davomatJurnaliCfg.title",
+    descriptionKey: "xodimSlug.davomatJurnaliCfg.description",
     resource: "attendance-journal",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -271,8 +359,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "baholash-jurnali": {
-    title: "Baholash jurnali",
-    description: "Baholash jurnali ro'yxati",
+    titleKey: "xodimSlug.baholashJurnali.title",
+    descriptionKey: "xodimSlug.baholashJurnali.description",
     resource: "grade-journal",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -284,8 +372,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   nazoratlar: {
-    title: "Nazoratlar",
-    description: "Nazorat ishlari ro'yxati",
+    titleKey: "xodimSlug.nazoratlar.title",
+    descriptionKey: "xodimSlug.nazoratlar.description",
     resource: "controls",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -295,8 +383,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "oraliq-nazorat": {
-    title: "Oraliq nazorat",
-    description: "Oraliq nazoratlar ro'yxati",
+    titleKey: "xodimSlug.oraliqNazorat.title",
+    descriptionKey: "xodimSlug.oraliqNazorat.description",
     resource: "midterm-controls",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -307,8 +395,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "yakuniy-nazorat": {
-    title: "Yakuniy nazorat",
-    description: "Yakuniy nazoratlar ro'yxati",
+    titleKey: "xodimSlug.yakuniyNazorat.title",
+    descriptionKey: "xodimSlug.yakuniyNazorat.description",
     resource: "final-controls",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -319,8 +407,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "boshqa-nazoratlar": {
-    title: "Boshqa nazoratlar",
-    description: "Boshqa nazoratlar ro'yxati",
+    titleKey: "xodimSlug.boshqaNazoratlar.title",
+    descriptionKey: "xodimSlug.boshqaNazoratlar.description",
     resource: "other-controls",
     filters: ["O'quv yili", "Semestr", "Guruh", "Fan"],
     fields: [
@@ -331,8 +419,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   "ilmiy-faoliyat": {
-    title: "Ilmiy faoliyat",
-    description: "Ilmiy faoliyat ma'lumotlari",
+    titleKey: "xodimSlug.ilmiyFaoliyat.title",
+    descriptionKey: "xodimSlug.ilmiyFaoliyat.description",
     resource: "scientific-activity",
     filters: ["O'quv yili", "Turi", "Qidirish"],
     fields: [
@@ -343,8 +431,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   statistika: {
-    title: "Statistika",
-    description: "O'qituvchi statistikasi",
+    titleKey: "xodimSlug.statistika.title",
+    descriptionKey: "xodimSlug.statistika.description",
     resource: "statistics",
     filters: ["O'quv yili", "Semestr"],
     fields: [
@@ -353,8 +441,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   hisobotlar: {
-    title: "Hisobotlar",
-    description: "Hisobotlar ro'yxati",
+    titleKey: "xodimSlug.hisobotlar.title",
+    descriptionKey: "xodimSlug.hisobotlar.description",
     resource: "reports",
     filters: ["O'quv yili", "Turi", "Qidirish"],
     fields: [
@@ -365,8 +453,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   xabarlar: {
-    title: "Xabarlar",
-    description: "O'qituvchi xabarlari",
+    titleKey: "xodimSlug.xabarlar.title",
+    descriptionKey: "xodimSlug.xabarlar.description",
     resource: "messages",
     filters: ["Holat", "Qidirish"],
     fields: [
@@ -377,8 +465,8 @@ const pageConfigs: Record<string, PageConfig> = {
     ],
   },
   tizim: {
-    title: "Tizim",
-    description: "O'qituvchi tizim sozlamalari",
+    titleKey: "xodimSlug.tizim.title",
+    descriptionKey: "xodimSlug.tizim.description",
     resource: "settings",
     filters: ["Qidirish"],
     fields: [
@@ -399,7 +487,7 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {}
 }
 
-function itemValue(item: unknown, keys: string[]): string {
+function itemValue(item: unknown, keys: string[], t: TFunc): string {
   const read = (source: unknown, path: string): unknown => {
     return path.split(".").reduce<unknown>((current, key) => {
       const record = asRecord(current)
@@ -414,7 +502,7 @@ function itemValue(item: unknown, keys: string[]): string {
       const text: string = value
         .map((entry) => {
           if (typeof entry === "string" || typeof entry === "number") return String(entry)
-          return itemValue(entry, ["name", "title", "full_name", "file.name", "files"])
+          return itemValue(entry, ["name", "title", "full_name", "file.name", "files"], t)
         })
         .filter((entry) => entry && entry !== "-")
         .join(", ")
@@ -423,11 +511,11 @@ function itemValue(item: unknown, keys: string[]): string {
       continue
     }
     if (typeof value === "object") {
-      const nested: string = itemValue(value, ["name", "title", "full_name", "label", "url"])
+      const nested: string = itemValue(value, ["name", "title", "full_name", "label", "url"], t)
       if (nested && nested !== "-") return nested
       continue
     }
-    if (typeof value === "boolean") return value ? "Ha" : "Yo'q"
+    if (typeof value === "boolean") return value ? t("xodimSlug.common.yes") : t("xodimSlug.common.no")
     return String(value)
   }
   return "-"
@@ -443,14 +531,14 @@ function normalizeItems(data: unknown) {
   return []
 }
 
-function filterOptions(data: unknown, param: string) {
+function filterOptions(data: unknown, param: string, t: TFunc) {
   const options = asRecord(asRecord(data).options)[param]
   if (!Array.isArray(options)) return []
   return options
     .map((item) => {
       const record = asRecord(item)
-      const value = typeof item === "string" || typeof item === "number" ? String(item) : itemValue(record, ["value", "id", "code"])
-      const label = typeof item === "string" || typeof item === "number" ? String(item) : itemValue(record, ["label", "name", "title"])
+      const value = typeof item === "string" || typeof item === "number" ? String(item) : itemValue(record, ["value", "id", "code"], t)
+      const label = typeof item === "string" || typeof item === "number" ? String(item) : itemValue(record, ["label", "name", "title"], t)
       return value && label && value !== "-" && label !== "-" ? { value, label } : undefined
     })
     .filter((item): item is { value: string; label: string } => Boolean(item))
@@ -473,15 +561,16 @@ function filterParam(label: string) {
   return null
 }
 
-const resourceKindOptions: Array<{ value: LocalResourceKind; label: string; trainingType: string }> = [
-  { value: "lecture", label: "Ma'ruza videosi", trainingType: "Ma'ruza" },
-  { value: "presentation", label: "Taqdimot videosi", trainingType: "Taqdimot" },
-  { value: "laboratory", label: "Laboratoriya videosi", trainingType: "Laboratoriya" },
-  { value: "video_lesson", label: "Video dars", trainingType: "Video dars" },
-  { value: "meeting_video", label: "Meeting video", trainingType: "Meeting video" },
+const resourceKindOptions: Array<{ value: LocalResourceKind; labelKey: string; trainingType: string }> = [
+  { value: "lecture", labelKey: "xodimSlug.upload.kind.lecture", trainingType: "Ma'ruza" },
+  { value: "presentation", labelKey: "xodimSlug.upload.kind.presentation", trainingType: "Taqdimot" },
+  { value: "laboratory", labelKey: "xodimSlug.upload.kind.laboratory", trainingType: "Laboratoriya" },
+  { value: "video_lesson", labelKey: "xodimSlug.upload.kind.videoLesson", trainingType: "Video dars" },
+  { value: "meeting_video", labelKey: "xodimSlug.upload.kind.meetingVideo", trainingType: "Meeting video" },
 ]
 
 function LocalResourceUploadCard({ onUploaded }: { onUploaded: () => void }) {
+  const { t } = useLanguage()
   const [subjectName, setSubjectName] = useState("")
   const [title, setTitle] = useState("")
   const [kind, setKind] = useState<LocalResourceKind>("video_lesson")
@@ -494,15 +583,15 @@ function LocalResourceUploadCard({ onUploaded }: { onUploaded: () => void }) {
   async function handleUpload() {
     setMessage("")
     if (!subjectName.trim()) {
-      setMessage("Fan nomini kiriting")
+      setMessage(t("xodimSlug.upload.errorSubjectRequired"))
       return
     }
     if (!file) {
-      setMessage("Video fayl tanlang")
+      setMessage(t("xodimSlug.upload.errorFileRequired"))
       return
     }
     if (file.size > 2 * 1024 * 1024 * 1024) {
-      setMessage("Video hajmi 2GB dan oshmasligi kerak")
+      setMessage(t("xodimSlug.upload.errorSizeLimit"))
       return
     }
 
@@ -517,10 +606,10 @@ function LocalResourceUploadCard({ onUploaded }: { onUploaded: () => void }) {
       })
       setFile(null)
       setTitle("")
-      setMessage("Video saqlandi. Talabalar fan resurslarida ko'radi.")
+      setMessage(t("xodimSlug.upload.success"))
       onUploaded()
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Video yuklanmadi")
+      setMessage(err instanceof Error ? err.message : t("xodimSlug.upload.errorUploadFailed"))
     } finally {
       setUploading(false)
     }
@@ -534,10 +623,10 @@ function LocalResourceUploadCard({ onUploaded }: { onUploaded: () => void }) {
         </div>
         <div>
           <h2 className="text-base font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-            Video resurs yuklash
+            {t("xodimSlug.upload.title")}
           </h2>
           <p className="text-xs text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-            Video dars yoki meeting yozuvi 2GB gacha local backendda saqlanadi.
+            {t("xodimSlug.upload.description")}
           </p>
         </div>
       </div>
@@ -546,14 +635,14 @@ function LocalResourceUploadCard({ onUploaded }: { onUploaded: () => void }) {
         <input
           value={subjectName}
           onChange={(event) => setSubjectName(event.target.value)}
-          placeholder="Fan nomi"
+          placeholder={t("xodimSlug.upload.subjectPlaceholder")}
           className="rounded-[5px] border border-[#d8e6f7] px-3 py-2 text-sm text-[#104475] outline-none"
           style={{ fontFamily: "var(--font-poppins)" }}
         />
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Sarlavha"
+          placeholder={t("xodimSlug.upload.titlePlaceholder")}
           className="rounded-[5px] border border-[#d8e6f7] px-3 py-2 text-sm text-[#104475] outline-none"
           style={{ fontFamily: "var(--font-poppins)" }}
         />
@@ -565,13 +654,13 @@ function LocalResourceUploadCard({ onUploaded }: { onUploaded: () => void }) {
         >
           {resourceKindOptions.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {t(option.labelKey)}
             </option>
           ))}
         </select>
         <label className="flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#d8e6f7] px-3 py-2 text-sm text-[#104475]">
           <Upload className="h-4 w-4" />
-          <span className="min-w-0 truncate">{file?.name || "Video tanlash"}</span>
+          <span className="min-w-0 truncate">{file?.name || t("xodimSlug.upload.chooseVideo")}</span>
           <input
             type="file"
             accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/x-msvideo"
@@ -583,7 +672,7 @@ function LocalResourceUploadCard({ onUploaded }: { onUploaded: () => void }) {
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-          {message || "Meeting yozuvi uchun turini \"Meeting video\" qilib yuklang."}
+          {message || t("xodimSlug.upload.hint")}
         </p>
         <button
           type="button"
@@ -593,15 +682,22 @@ function LocalResourceUploadCard({ onUploaded }: { onUploaded: () => void }) {
           style={{ fontFamily: "var(--font-poppins)" }}
         >
           <Upload className="h-4 w-4" />
-          {uploading ? "Yuklanmoqda..." : "Yuklash"}
+          {uploading ? t("xodimSlug.upload.uploading") : t("xodimSlug.upload.uploadBtn")}
         </button>
       </div>
     </div>
   )
 }
 
-const UZ_MONTHS_SHORT = ["yan", "fev", "mar", "apr", "may", "iyun", "iyul", "avg", "sen", "okt", "noy", "dek"]
-const DAYS_UZ = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"]
+const MONTH_SHORT_KEYS = [
+  "xodimSlug.month.jan", "xodimSlug.month.feb", "xodimSlug.month.mar", "xodimSlug.month.apr",
+  "xodimSlug.month.may", "xodimSlug.month.jun", "xodimSlug.month.jul", "xodimSlug.month.aug",
+  "xodimSlug.month.sep", "xodimSlug.month.oct", "xodimSlug.month.nov", "xodimSlug.month.dec",
+]
+const DAY_KEYS = [
+  "xodimSlug.day.mon", "xodimSlug.day.tue", "xodimSlug.day.wed",
+  "xodimSlug.day.thu", "xodimSlug.day.fri", "xodimSlug.day.sat",
+]
 
 function getMonday(date: Date): Date {
   const d = new Date(date)
@@ -624,6 +720,7 @@ function lessonTypeColors(name: string) {
 }
 
 function DarsJadvaliCalendar() {
+  const { t } = useLanguage()
   const today = new Date()
   const [weekOffset, setWeekOffset] = useState(0)
   const [edYear, setEdYear] = useState(String(academicYearStart()))
@@ -710,10 +807,10 @@ function DarsJadvaliCalendar() {
     <div className="flex flex-col gap-5 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Dars jadvali
+          {t("xodimSlug.calendar.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Haftalik dars jadvali
+          {t("xodimSlug.calendar.subtitle")}
         </p>
       </div>
 
@@ -727,7 +824,7 @@ function DarsJadvaliCalendar() {
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="text-sm font-medium text-[#012970]" style={{ fontFamily: "var(--font-poppins)", minWidth: 190, textAlign: "center" }}>
-              {weekStart.getDate()} {UZ_MONTHS_SHORT[weekStart.getMonth()]} — {weekEnd.getDate()} {UZ_MONTHS_SHORT[weekEnd.getMonth()]} {weekEnd.getFullYear()}
+              {weekStart.getDate()} {t(MONTH_SHORT_KEYS[weekStart.getMonth()])} — {weekEnd.getDate()} {t(MONTH_SHORT_KEYS[weekEnd.getMonth()])} {weekEnd.getFullYear()}
             </span>
             <button
               onClick={() => setWeekOffset(w => w + 1)}
@@ -740,7 +837,7 @@ function DarsJadvaliCalendar() {
               className="rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-1.5 text-xs text-[#104475] hover:bg-[#f0f7ff]"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
-              Bugun
+              {t("xodimSlug.calendar.today")}
             </button>
           </div>
           <div className="flex flex-1 flex-wrap gap-2">
@@ -760,9 +857,9 @@ function DarsJadvaliCalendar() {
               className="rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
-              <option value="">Barcha semestrlar</option>
+              <option value="">{t("xodimSlug.calendar.allSemesters")}</option>
               {Array.from({ length: 8 }, (_, i) => i + 1).map(s => (
-                <option key={s} value={10 + s}>{s}-semestr</option>
+                <option key={s} value={10 + s}>{t("xodimSlug.calendar.semesterOption", { n: s })}</option>
               ))}
             </select>
           </div>
@@ -782,7 +879,7 @@ function DarsJadvaliCalendar() {
                   className="w-[110px] border-b border-r p-2 text-left text-xs font-semibold"
                   style={{ borderColor: "rgba(1,41,112,0.1)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#f6f9ff" }}
                 >
-                  Vaqt
+                  {t("xodimSlug.calendar.timeCol")}
                 </th>
                 {weekDates.map((d, i) => {
                   const isToday = d.toDateString() === today.toDateString()
@@ -792,9 +889,9 @@ function DarsJadvaliCalendar() {
                       className="border-b border-r p-2 text-center text-xs font-semibold"
                       style={{ borderColor: "rgba(1,41,112,0.1)", color: isToday ? "#0e58a8" : "#012970", fontFamily: "var(--font-poppins)", backgroundColor: isToday ? "#e8f4ff" : "#f6f9ff", minWidth: 120 }}
                     >
-                      <div>{DAYS_UZ[i]}</div>
+                      <div>{t(DAY_KEYS[i])}</div>
                       <div className="mt-0.5 font-normal" style={{ color: isToday ? "#0e58a8" : "#7293b9" }}>
-                        {d.getDate()} {UZ_MONTHS_SHORT[d.getMonth()]}
+                        {d.getDate()} {t(MONTH_SHORT_KEYS[d.getMonth()])}
                       </div>
                     </th>
                   )
@@ -805,7 +902,7 @@ function DarsJadvaliCalendar() {
               {pairs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Bu hafta dars topilmadi
+                    {t("xodimSlug.calendar.noLessons")}
                   </td>
                 </tr>
               ) : (
@@ -872,6 +969,7 @@ function DarsJadvaliCalendar() {
 }
 
 function DavomatJurnaliSelector() {
+  const { t } = useLanguage()
   const [groupId, setGroupId] = useState<number | "">("")
   const { data: groupsRes, loading: lGroups } = useApi(() => teachingApi.groups(), [])
   const groups = groupsRes?.data ?? []
@@ -894,36 +992,36 @@ function DavomatJurnaliSelector() {
   return (
     <div className="flex flex-col gap-5 p-[30px]">
       <div>
-        <h1 className="text-[28px] font-medium" style={T}>Davomat jurnali</h1>
-        <p className="text-sm mt-1" style={L}>Guruh va fanni tanlang</p>
+        <h1 className="text-[28px] font-medium" style={T}>{t("xodimSlug.davomatJurnaliCfg.title")}</h1>
+        <p className="text-sm mt-1" style={L}>{t("xodimSlug.davomatSelector.subtitle")}</p>
       </div>
 
       <div className="rounded-[10px] bg-white p-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="flex flex-col gap-1 min-w-[200px] max-w-xs">
-          <label className="text-xs font-medium" style={L}>O'quv guruhi</label>
+          <label className="text-xs font-medium" style={L}>{t("xodimSlug.davomatSelector.groupLabel")}</label>
           <select
             value={groupId}
             onChange={e => setGroupId(Number(e.target.value) || "")}
             className={sel}
             style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
           >
-            <option value="">— Guruhni tanlang —</option>
+            <option value="">{t("xodimSlug.davomatSelector.selectGroupOption")}</option>
             {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         </div>
       </div>
 
-      {lGroups && <div className="text-sm" style={L}>Yuklanmoqda...</div>}
+      {lGroups && <div className="text-sm" style={L}>{t("xodimSlug.common.loading")}</div>}
 
       {groupId !== "" && (
         <div className="rounded-[10px] bg-white overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-            <span className="text-sm font-semibold" style={T}>{selectedGroup?.name} — fanlar</span>
+            <span className="text-sm font-semibold" style={T}>{t("xodimSlug.davomatSelector.subjectsHeader", { name: selectedGroup?.name ?? "" })}</span>
           </div>
           {lSubjects ? (
-            <div className="p-6 text-center text-sm" style={L}>Yuklanmoqda...</div>
+            <div className="p-6 text-center text-sm" style={L}>{t("xodimSlug.common.loading")}</div>
           ) : subjects.length === 0 ? (
-            <div className="p-6 text-center text-sm" style={L}>Fanlar topilmadi</div>
+            <div className="p-6 text-center text-sm" style={L}>{t("xodimSlug.davomatSelector.noSubjects")}</div>
           ) : (
             <div className="divide-y" style={{ borderColor: "rgba(1,41,112,0.06)" }}>
               {subjects.map(subject => (
@@ -934,7 +1032,7 @@ function DavomatJurnaliSelector() {
                 >
                   <span className="text-sm font-medium" style={T}>{subject}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                    Ochish →
+                    {t("xodimSlug.davomatSelector.open")}
                   </span>
                 </a>
               ))}
@@ -947,6 +1045,7 @@ function DavomatJurnaliSelector() {
 }
 
 function EmployeeGenericPage({ slug }: { slug: string }) {
+  const { t } = useLanguage()
   const config = pageConfigs[slug] ?? pageConfigs.tizim
   const [search, setSearch] = useState("")
   const [filters, setFilters] = useState<Record<string, string>>({
@@ -965,9 +1064,9 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
     const query = search.trim().toLowerCase()
     if (!query) return items
     return items.filter((item) =>
-      config.fields.some((field) => itemValue(item, field.keys).toLowerCase().includes(query))
+      config.fields.some((field) => itemValue(item, field.keys, t).toLowerCase().includes(query))
     )
-  }, [config.fields, data?.data, search])
+  }, [config.fields, data?.data, search, t])
 
   if (loading) return <Loading />
   if (error) return <ApiError message={error} onRetry={refetch} />
@@ -977,10 +1076,10 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {config.title}
+            {t(config.titleKey)}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {config.description}
+            {t(config.descriptionKey)}
           </p>
         </div>
       </div>
@@ -988,29 +1087,30 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
       <div className="rounded-[10px] bg-white" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <div className="flex flex-nowrap items-center gap-1.5 p-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <div className="flex flex-nowrap shrink-0 gap-1.5">
-            {config.action && config.actionHref && (
+            {config.actionKey && config.actionHref && (
               <Link href={config.actionHref} className="inline-flex items-center gap-1.5 rounded-[5px] bg-[#0e58a8] px-2.5 py-1.5 text-xs font-medium text-white"
                 style={{ fontFamily: "var(--font-poppins)" }}>
                 <Plus className="h-3.5 w-3.5" />
-                {config.action}
+                {t(config.actionKey)}
               </Link>
             )}
-            {config.action && !config.actionHref && (
+            {config.actionKey && !config.actionHref && (
               <button className="inline-flex items-center gap-1.5 rounded-[5px] bg-[#0e58a8] px-2.5 py-1.5 text-xs font-medium text-white"
                 style={{ fontFamily: "var(--font-poppins)" }}>
                 <Plus className="h-3.5 w-3.5" />
-                {config.action}
+                {t(config.actionKey)}
               </button>
             )}
             <button className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#d8e6f7] bg-white px-2.5 py-1.5 text-xs text-[#104475]"
               style={{ fontFamily: "var(--font-poppins)" }}>
               <Filter className="h-3.5 w-3.5" />
-              Filtrlar
+              {t("xodimSlug.page.filtersBtn")}
             </button>
           </div>
           <div className="flex flex-1 flex-nowrap gap-1.5 min-w-0">
             {config.filters.map((filter) => {
               const param = filterParam(filter)
+              const filterLabel = t(FILTER_LABEL_KEYS[filter] ?? "") || filter
               if (param === "_education_year") {
                 const start = academicYearStart()
                 return (
@@ -1021,7 +1121,7 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                     className="w-0 min-w-[90px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none"
                     style={{ fontFamily: "var(--font-poppins)" }}
                   >
-                    <option value="">O'quv yili</option>
+                    <option value="">{t("xodimSlug.filter.educationYear")}</option>
                     {[start, start - 1, start - 2, start - 3].map((year) => (
                       <option key={year} value={year}>{year}-{year + 1}</option>
                     ))}
@@ -1037,16 +1137,16 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                     className="w-0 min-w-[80px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none"
                     style={{ fontFamily: "var(--font-poppins)" }}
                   >
-                    <option value="">Semestr</option>
+                    <option value="">{t("xodimSlug.filter.semester")}</option>
                     {Array.from({ length: 8 }, (_, index) => {
                       const semester = index + 1
-                      return <option key={semester} value={10 + semester}>{semester}-semestr</option>
+                      return <option key={semester} value={10 + semester}>{t("xodimSlug.calendar.semesterOption", { n: semester })}</option>
                     })}
                   </select>
                 )
               }
               if (param === "_curriculum") {
-                const options = filterOptions(data, param)
+                const options = filterOptions(data, param, t)
                 return (
                   <select
                     key={filter}
@@ -1055,7 +1155,7 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                     className="w-0 min-w-[100px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none"
                     style={{ fontFamily: "var(--font-poppins)" }}
                   >
-                    <option value="">O'quv reja</option>
+                    <option value="">{t("xodimSlug.filter.curriculum")}</option>
                     {options.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
@@ -1068,7 +1168,7 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                     key={filter}
                     value={filters[param] ?? ""}
                     onChange={(event) => setFilters((current) => ({ ...current, [param]: event.target.value }))}
-                    placeholder={filter}
+                    placeholder={filterLabel}
                     className="w-0 min-w-[80px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none placeholder:text-[#7293b9]"
                     style={{ fontFamily: "var(--font-poppins)" }}
                   />
@@ -1077,7 +1177,7 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
               return (
                 <div key={filter} className="w-0 min-w-[80px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#7293b9]"
                   style={{ fontFamily: "var(--font-poppins)" }}>
-                  {filter}
+                  {filterLabel}
                 </div>
               )
             })}
@@ -1086,7 +1186,7 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Qidirish"
+                placeholder={t("xodimSlug.filter.search")}
                 className="min-w-0 flex-1 bg-transparent text-xs text-[#104475] outline-none placeholder:text-[#7293b9]"
                 style={{ fontFamily: "var(--font-poppins)" }}
               />
@@ -1101,7 +1201,7 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                 <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>#</th>
                 {config.fields.map((field) => (
                   <th key={field.label} className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                    {field.label}
+                    {t(FIELD_LABEL_KEYS[field.label] ?? "") || field.label}
                   </th>
                 ))}
               </tr>
@@ -1112,12 +1212,12 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                   <tr key={index} className="hover:bg-[#f6f9ff]" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
                     <td className="px-4 py-2.5 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{index + 1}</td>
                     {config.fields.map((field) => {
-                      const value = itemValue(item, field.keys)
+                      const value = itemValue(item, field.keys, t)
                       if (config.resource === "subject-topics" && field.label === "Fanlar" && value !== "-") {
                         const record = asRecord(item)
-                        const subjectName = itemValue(record.subject, ["name"])
-                        const curriculumName = itemValue(record.curriculum, ["name", "code"])
-                        const semesterName = itemValue(record.semester, ["name", "code"])
+                        const subjectName = itemValue(record.subject, ["name"], t)
+                        const curriculumName = itemValue(record.curriculum, ["name", "code"], t)
+                        const semesterName = itemValue(record.semester, ["name", "code"], t)
                         const href = `/oqituvchi-kabineti/mavzular?subject=${encodeURIComponent(subjectName !== "-" ? subjectName : value)}&curriculum=${encodeURIComponent(curriculumName !== "-" ? curriculumName : "")}&semester=${encodeURIComponent(semesterName !== "-" ? semesterName : "")}`
                         return (
                           <td key={field.label} className="px-4 py-2.5 text-sm">
@@ -1130,9 +1230,9 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                       if (config.resource === "attendance-journal" && field.label === "Fanlar" && value !== "-") {
                         const record = asRecord(item)
                         const groupId = recordId(record.group)
-                        const groupName = itemValue(record.group, ["name"])
-                        const subjectName = itemValue(record.subject, ["name"])
-                        const trainingName = itemValue(record.trainingType, ["name"])
+                        const groupName = itemValue(record.group, ["name"], t)
+                        const subjectName = itemValue(record.subject, ["name"], t)
+                        const trainingName = itemValue(record.trainingType, ["name"], t)
                         const query = new URLSearchParams()
                         if (groupId) query.set("group", groupId)
                         if (groupName !== "-") query.set("groupName", groupName)
@@ -1150,9 +1250,9 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                       if (config.resource === "grade-journal" && field.label === "Fanlar" && value !== "-") {
                         const record = asRecord(item)
                         const groupId = recordId(record.group)
-                        const groupName = itemValue(record.group, ["name"])
-                        const subjectName = itemValue(record.subject, ["name"])
-                        const trainingName = itemValue(record.trainingType, ["name"])
+                        const groupName = itemValue(record.group, ["name"], t)
+                        const subjectName = itemValue(record.subject, ["name"], t)
+                        const trainingName = itemValue(record.trainingType, ["name"], t)
                         const query = new URLSearchParams()
                         if (groupId) query.set("group", groupId)
                         if (groupName !== "-") query.set("groupName", groupName)
@@ -1172,10 +1272,10 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                         const subjectId = recordId(record.subject)
                         const groupId = recordId(record.group)
                         const curriculumId = recordId(record.curriculum) || recordId(asRecord(record.curriculumSubject).curriculum) || recordId(asRecord(record.curriculumSubjectDetail).curriculum)
-                        const trainingCode = itemValue(record.trainingType, ["code"])
-                        const semesterCode = itemValue(record.semester, ["code"])
-                        const eduYearCode = itemValue(record.educationYear, ["code"])
-                        const maxBall = itemValue(record, ["max_ball"])
+                        const trainingCode = itemValue(record.trainingType, ["code"], t)
+                        const semesterCode = itemValue(record.semester, ["code"], t)
+                        const eduYearCode = itemValue(record.educationYear, ["code"], t)
+                        const maxBall = itemValue(record, ["max_ball"], t)
                         const query = new URLSearchParams()
                         if (subjectId) query.set("subject", subjectId)
                         if (groupId) query.set("group", groupId)
@@ -1222,7 +1322,7 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
               ) : (
                 <tr>
                   <td colSpan={config.fields.length + 1} className="px-4 py-12 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Hech narsa topilmadi
+                    {t("xodimSlug.page.notFound")}
                   </td>
                 </tr>
               )}

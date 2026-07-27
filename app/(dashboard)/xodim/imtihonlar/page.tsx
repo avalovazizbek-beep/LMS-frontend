@@ -6,11 +6,12 @@ import Link from "next/link"
 import { teachingApi, type TeacherContent, type TeacherGroup, type ContentStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
-const STATUS_LABEL: Record<ContentStatus, { label: string; color: string; bg: string }> = {
-  locked: { label: "Qulflangan", color: "#b91c1c", bg: "#fef2f2" },
-  open:   { label: "Ochiq",      color: "#15803d", bg: "#f0fdf4" },
-  closed: { label: "Yopilgan",   color: "#92400e", bg: "#fffbeb" },
+const STATUS_LABEL: Record<ContentStatus, { labelKey: string; color: string; bg: string }> = {
+  locked: { labelKey: "typeContentOq.status.locked", color: "#b91c1c", bg: "#fef2f2" },
+  open:   { labelKey: "typeContentOq.status.open",   color: "#15803d", bg: "#f0fdf4" },
+  closed: { labelKey: "typeContentOq.status.closed", color: "#92400e", bg: "#fffbeb" },
 }
 
 function fmt(iso: string | null) {
@@ -21,6 +22,7 @@ function fmt(iso: string | null) {
 }
 
 export default function ImtihonlarRoyxati() {
+  const { t } = useLanguage()
   const { data: contentRes, loading, error, refetch } = useApi(
     () => teachingApi.content({ type: "exam" }),
     []
@@ -61,10 +63,10 @@ export default function ImtihonlarRoyxati() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Imtihonlar ro&apos;yxati
+            {t("xodimImtihonlar.title")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            O&apos;qituvchi tomonidan yaratilgan barcha imtihonlar
+            {t("xodimImtihonlar.subtitle")}
           </p>
         </div>
         <Link
@@ -73,7 +75,7 @@ export default function ImtihonlarRoyxati() {
           style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}
         >
           <ExternalLink className="w-4 h-4" />
-          Imtihon yaratish
+          {t("xodimImtihonlar.createBtn")}
         </Link>
       </div>
 
@@ -85,7 +87,7 @@ export default function ImtihonlarRoyxati() {
           className="rounded-[6px] border border-[#d8e6f7] bg-white px-3 py-2 text-sm text-[#104475] outline-none min-w-[200px]"
           style={{ fontFamily: "var(--font-poppins)" }}
         >
-          <option value="">Barcha fanlar</option>
+          <option value="">{t("xodimImtihonlar.allSubjects")}</option>
           {subjects.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
@@ -95,7 +97,7 @@ export default function ImtihonlarRoyxati() {
           className="rounded-[6px] border border-[#d8e6f7] bg-white px-3 py-2 text-sm text-[#104475] outline-none min-w-[180px]"
           style={{ fontFamily: "var(--font-poppins)" }}
         >
-          <option value="">Barcha guruhlar</option>
+          <option value="">{t("xodimImtihonlar.allGroups")}</option>
           {groups.map(g => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
         </select>
 
@@ -105,7 +107,7 @@ export default function ImtihonlarRoyxati() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Sarlavha yoki fan bo'yicha qidirish"
+            placeholder={t("xodimImtihonlar.searchPlaceholder")}
             className="min-w-0 flex-1 bg-transparent text-sm text-[#104475] outline-none placeholder:text-[#7293b9]"
             style={{ fontFamily: "var(--font-poppins)" }}
           />
@@ -119,7 +121,7 @@ export default function ImtihonlarRoyxati() {
           <table className="w-full min-w-[900px]">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                {["#", "Fan", "Sarlavha", "Guruh", "Ochilish vaqti", "Muddat", "Maks. ball", "Davomiyligi", "Holat"].map(h => (
+                {["#", t("xodimImtihonlar.colSubject"), t("xodimImtihonlar.colTitle"), t("xodimImtihonlar.colGroup"), t("xodimImtihonlar.colOpensAt"), t("xodimImtihonlar.colDeadline"), t("xodimImtihonlar.colMaxScore"), t("xodimImtihonlar.colDuration"), t("xodimImtihonlar.colStatus")].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-sm font-semibold whitespace-nowrap"
                     style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                     {h}
@@ -162,7 +164,7 @@ export default function ImtihonlarRoyxati() {
                       {item.durationMinutes != null ? (
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
-                          {item.durationMinutes} daq.
+                          {t("xodimImtihonlar.durationMin", { n: item.durationMinutes })}
                         </span>
                       ) : "—"}
                     </td>
@@ -172,7 +174,7 @@ export default function ImtihonlarRoyxati() {
                         {item.status === "open" ? <CheckCircle2 className="w-3 h-3" /> :
                          item.status === "locked" ? <Lock className="w-3 h-3" /> :
                          <Clock className="w-3 h-3" />}
-                        {st.label}
+                        {t(st.labelKey)}
                       </span>
                     </td>
                   </tr>
@@ -182,8 +184,8 @@ export default function ImtihonlarRoyxati() {
                   <td colSpan={9} className="px-4 py-12 text-center text-sm"
                     style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                     {items.length === 0
-                      ? "Hozircha imtihon yaratilmagan. \"Imtihon yaratish\" tugmasi orqali qo'shing."
-                      : "Filtr bo'yicha imtihon topilmadi"}
+                      ? t("xodimImtihonlar.emptyNone")
+                      : t("xodimImtihonlar.emptyFiltered")}
                   </td>
                 </tr>
               )}

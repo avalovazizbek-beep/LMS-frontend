@@ -7,26 +7,44 @@ import { Plus } from "lucide-react"
 import { teachingApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const inputCls =
   "w-full px-3 py-2 rounded-[5px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none transition-colors text-[#445b7a]"
 const labelCls = "text-sm font-medium mb-1.5 block"
 
-const TRAINING_TYPE_OPTIONS = ["Ma'ruza", "Amaliy", "Laboratoriya", "Seminar", "Mustaqil ta'lim"]
-const RESOURCE_TYPE_OPTIONS = ["Video material", "Hujjat", "Taqdimot", "Havola", "Audio meeting"]
-const LANGUAGE_OPTIONS = ["O'zbek", "Rus", "Ingliz"]
+const TRAINING_TYPE_OPTIONS = [
+  { value: "Ma'ruza", labelKey: "xodimFanResurslariYaratish.trainingType.lecture" },
+  { value: "Amaliy", labelKey: "xodimFanResurslariYaratish.trainingType.practice" },
+  { value: "Laboratoriya", labelKey: "xodimFanResurslariYaratish.trainingType.laboratory" },
+  { value: "Seminar", labelKey: "xodimFanResurslariYaratish.trainingType.seminar" },
+  { value: "Mustaqil ta'lim", labelKey: "xodimFanResurslariYaratish.trainingType.independentStudy" },
+]
+const RESOURCE_TYPE_OPTIONS = [
+  { value: "Video material", labelKey: "xodimFanResurslariYaratish.resourceType.videoMaterial" },
+  { value: "Hujjat", labelKey: "xodimFanResurslariYaratish.resourceType.document" },
+  { value: "Taqdimot", labelKey: "xodimFanResurslariYaratish.resourceType.presentation" },
+  { value: "Havola", labelKey: "xodimFanResurslariYaratish.resourceType.link" },
+  { value: "Audio meeting", labelKey: "xodimFanResurslariYaratish.resourceType.audioMeeting" },
+]
+const LANGUAGE_OPTIONS = [
+  { value: "O'zbek", labelKey: "xodimFanResurslariYaratish.language.uzbek" },
+  { value: "Rus", labelKey: "xodimFanResurslariYaratish.language.russian" },
+  { value: "Ingliz", labelKey: "xodimFanResurslariYaratish.language.english" },
+]
 
 export default function FanResurslariYaratishPage() {
+  const { t } = useLanguage()
   const router = useRouter()
   const { data, loading, error } = useApi(() => teachingApi.groups(), [])
   const groups = data?.data ?? []
 
   const [groupId, setGroupId] = useState("")
   const [subjectName, setSubjectName] = useState("")
-  const [trainingType, setTrainingType] = useState(TRAINING_TYPE_OPTIONS[0])
+  const [trainingType, setTrainingType] = useState(TRAINING_TYPE_OPTIONS[0].value)
   const [title, setTitle] = useState("")
-  const [language, setLanguage] = useState(LANGUAGE_OPTIONS[0])
-  const [resourceType, setResourceType] = useState(RESOURCE_TYPE_OPTIONS[0])
+  const [language, setLanguage] = useState(LANGUAGE_OPTIONS[0].value)
+  const [resourceType, setResourceType] = useState(RESOURCE_TYPE_OPTIONS[0].value)
   const [comment, setComment] = useState("")
   const [url, setUrl] = useState("")
   const [files, setFiles] = useState<File[]>([])
@@ -38,7 +56,7 @@ export default function FanResurslariYaratishPage() {
 
   async function handleSave() {
     if (!groupId || !subjectName.trim() || !title.trim()) {
-      setFormError("Guruh, fan nomi va sarlavha to'ldirilishi shart")
+      setFormError(t("xodimFanResurslariYaratish.errorRequired"))
       return
     }
     setSaving(true)
@@ -62,7 +80,7 @@ export default function FanResurslariYaratishPage() {
       }
       router.push("/xodim/fan-resurslari")
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Xatolik yuz berdi")
+      setFormError(err instanceof Error ? err.message : t("xodimFanResurslariYaratish.errorGeneric"))
     } finally {
       setSaving(false)
     }
@@ -71,11 +89,11 @@ export default function FanResurslariYaratishPage() {
   return (
     <div className="flex flex-col gap-5 p-[30px]">
       <div className="flex items-center gap-2 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-        <Link href="/dashboard" className="hover:underline">Asosiy</Link>
+        <Link href="/dashboard" className="hover:underline">{t("xodimFanResurslariYaratish.breadcrumbHome")}</Link>
         <span>/</span>
-        <Link href="/xodim/fan-resurslari" className="hover:underline">Fan resurslari</Link>
+        <Link href="/xodim/fan-resurslari" className="hover:underline">{t("xodimFanResurslariYaratish.breadcrumbResources")}</Link>
         <span>/</span>
-        <span style={{ color: "#012970" }}>Yaratish</span>
+        <span style={{ color: "#012970" }}>{t("xodimFanResurslariYaratish.breadcrumbCreate")}</span>
       </div>
 
       {formError && (
@@ -88,10 +106,10 @@ export default function FanResurslariYaratishPage() {
         <div className="lg:col-span-2 rounded-[10px] bg-white p-5 flex flex-col gap-4"
           style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Guruh</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelGroup")}</label>
             <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
               value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-              <option value="">Guruhni tanlang</option>
+              <option value="">{t("xodimFanResurslariYaratish.selectGroup")}</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
@@ -100,35 +118,35 @@ export default function FanResurslariYaratishPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Fan nomi</label>
+              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelSubjectName")}</label>
               <input className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                 value={subjectName} onChange={(e) => setSubjectName(e.target.value)}
-                placeholder="Fan nomini kiriting" />
+                placeholder={t("xodimFanResurslariYaratish.placeholderSubjectName")} />
             </div>
             <div>
-              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Mashg'ulot</label>
+              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelTrainingType")}</label>
               <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                 value={trainingType} onChange={(e) => setTrainingType(e.target.value)}>
                 {TRAINING_TYPE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>{option}</option>
+                  <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
                 ))}
               </select>
             </div>
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Sarlavha</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelTitle")}</label>
             <input className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
               value={title} onChange={(e) => setTitle(e.target.value)}
-              placeholder="Resurs sarlavhasini kiriting" />
+              placeholder={t("xodimFanResurslariYaratish.placeholderTitle")} />
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Til</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelLanguage")}</label>
             <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
               value={language} onChange={(e) => setLanguage(e.target.value)}>
               {LANGUAGE_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
+                <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
               ))}
             </select>
           </div>
@@ -137,31 +155,31 @@ export default function FanResurslariYaratishPage() {
         <div className="rounded-[10px] bg-white p-5 flex flex-col gap-4"
           style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Resurs turi</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelResourceType")}</label>
             <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
               value={resourceType} onChange={(e) => setResourceType(e.target.value)}>
               {RESOURCE_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
+                <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Izoh</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelComment")}</label>
             <textarea className={inputCls} style={{ fontFamily: "var(--font-poppins)", minHeight: 90 }}
               value={comment} onChange={(e) => setComment(e.target.value)}
-              placeholder="Resurs haqida izoh" />
+              placeholder={t("xodimFanResurslariYaratish.placeholderComment")} />
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Url</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelUrl")}</label>
             <input className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
               value={url} onChange={(e) => setUrl(e.target.value)}
               placeholder="https://..." />
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Fayllar</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelFiles")}</label>
             <div className="flex flex-col gap-2">
               {files.map((item, index) => (
                 <div key={`${item.name}-${index}`} className="flex items-center justify-between gap-2 rounded-[5px] border border-[#d8e6f7] bg-[#f6f9ff] px-3 py-2 text-sm text-[#104475]"
@@ -169,14 +187,14 @@ export default function FanResurslariYaratishPage() {
                   <span className="truncate">{item.name}</span>
                   <button type="button" onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}
                     className="shrink-0 text-xs" style={{ color: "#b91c1c" }}>
-                    Olib tashlash
+                    {t("xodimFanResurslariYaratish.removeFile")}
                   </button>
                 </div>
               ))}
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-[#f6f9ff] px-3 py-2 text-sm text-[#104475]"
                 style={{ fontFamily: "var(--font-poppins)" }}>
                 <Plus className="h-4 w-4" />
-                Fayllarni qo'shish
+                {t("xodimFanResurslariYaratish.addFiles")}
                 <input type="file" multiple className="hidden"
                   onChange={(e) => setFiles((current) => [...current, ...Array.from(e.target.files ?? [])])} />
               </label>
@@ -189,7 +207,7 @@ export default function FanResurslariYaratishPage() {
         <button onClick={handleSave} disabled={saving}
           className="inline-flex items-center gap-2 rounded-[5px] bg-[#0e58a8] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
           style={{ fontFamily: "var(--font-poppins)" }}>
-          {saving ? "Saqlanmoqda..." : "Saqlash"}
+          {saving ? t("xodimFanResurslariYaratish.saving") : t("xodimFanResurslariYaratish.save")}
         </button>
       </div>
     </div>
