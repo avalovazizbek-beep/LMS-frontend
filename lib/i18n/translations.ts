@@ -1096,6 +1096,16 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "fanTopshDetail.pagination": { uz: "1-{n} / jami {n} ta",            ru: "1-{n} / всего {n}",                   en: "1-{n} / total {n}",                kaa: "1-{n} / jámi {n} ta" },
   "fanTopshDetail.assignmentFallback": { uz: "Topshiriq {n}",          ru: "Задание {n}",                        en: "Assignment {n}",                   kaa: "Tapsırma {n}" },
 
+  // ── Davomat (o'qituvchi) sahifasi ──────────────────────────────────────
+  "oqDavomat.title":        { uz: "Davomat",                        ru: "Посещаемость",                        en: "Attendance",                       kaa: "Qatnasıw" },
+  "oqDavomat.subtitle":     { uz: "Guruh, fan va sanani tanlab, talabalar davomatini belgilang", ru: "Выберите группу, предмет и дату, чтобы отметить посещаемость", en: "Select a group, subject and date to mark attendance", kaa: "Gruppa, pán hám sánedi tańlap, studentler qatnasıwın belgileń" },
+  "oqDavomat.col.status":   { uz: "Holat",                          ru: "Статус",                               en: "Status",                            kaa: "Jaǵday" },
+  "oqDavomat.attendanceSaved": { uz: "Davomat saqlandi",             ru: "Посещаемость сохранена",              en: "Attendance saved",                 kaa: "Qatnasıw saqlandı" },
+  "oqDavomat.status.present": { uz: "Keldi",                         ru: "Пришёл",                               en: "Present",                           kaa: "Keldi" },
+  "oqDavomat.status.absent": { uz: "Kelmadi",                        ru: "Не пришёл",                            en: "Absent",                            kaa: "Kelmedi" },
+  "oqDavomat.status.excused": { uz: "Sababli",                       ru: "Уважительная",                        en: "Excused",                           kaa: "Sebepli" },
+  "oqDavomat.status.late":  { uz: "Kech qoldi",                      ru: "Опоздал",                              en: "Late",                              kaa: "Keship qaldı" },
+
   // ── Imtihon topshirish sahifasi ──────────────────────────────────────
   "examTake.notFound":       { uz: "Imtihon topilmadi",         ru: "Экзамен не найден",                 en: "Exam not found",              kaa: "Emtihan tabılmadı" },
   "examTake.finished":       { uz: "Imtihon yakunlandi!",       ru: "Экзамен завершён!",                 en: "Exam finished!",              kaa: "Emtihan juwmaqlandı!" },
