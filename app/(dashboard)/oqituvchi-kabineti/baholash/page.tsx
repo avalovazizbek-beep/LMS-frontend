@@ -10,6 +10,7 @@ import {
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const inputCls =
   "w-full px-3 py-2.5 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none transition-colors"
@@ -34,6 +35,7 @@ function gradeColor(grade: number): string {
 }
 
 export default function OqituvchiBaholash() {
+  const { t } = useLanguage()
   const searchParams = useSearchParams()
   const initialGroup = searchParams.get("group")
   const initialSubject = searchParams.get("subject") ?? ""
@@ -79,7 +81,7 @@ export default function OqituvchiBaholash() {
       setRoster(res.data)
       setLoadedOnce(true)
     } catch (e) {
-      setRosterError(e instanceof Error ? e.message : "Xatolik yuz berdi")
+      setRosterError(e instanceof Error ? e.message : t("oqBaholash.error"))
     } finally {
       setLoadingRoster(false)
     }
@@ -114,10 +116,10 @@ export default function OqituvchiBaholash() {
           comment: r.comment ?? undefined,
         })),
       })
-      setSaveMsg("Baholar saqlandi")
+      setSaveMsg(t("oqBaholash.gradesSaved"))
       refetchHistory()
     } catch (e) {
-      setSaveMsg(e instanceof Error ? e.message : "Xatolik yuz berdi")
+      setSaveMsg(e instanceof Error ? e.message : t("oqBaholash.error"))
     } finally {
       setSaving(false)
     }
@@ -130,10 +132,10 @@ export default function OqituvchiBaholash() {
     <div className="flex flex-col gap-5 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Baholash
+          {t("oqBaholash.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Guruh, fan va sanani tanlab, talabalarga baho qo'ying
+          {t("oqBaholash.subtitle")}
         </p>
       </div>
 
@@ -142,14 +144,14 @@ export default function OqituvchiBaholash() {
         style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Guruh</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqBaholash.group")}</label>
             <div className="relative">
               <select
                 value={groupId}
                 onChange={(e) => { setGroupId(e.target.value ? Number(e.target.value) : ""); setSubjectName(""); setRoster([]); setLoadedOnce(false) }}
                 className={`${inputCls} appearance-none pr-8`}
                 style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                <option value="">Guruhni tanlang</option>
+                <option value="">{t("oqBaholash.selectGroup")}</option>
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "#7293b9" }} />
@@ -157,7 +159,7 @@ export default function OqituvchiBaholash() {
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Fan</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqBaholash.subject")}</label>
             {subjects.length > 0 ? (
               <div className="relative">
                 <select
@@ -165,7 +167,7 @@ export default function OqituvchiBaholash() {
                   onChange={(e) => { setSubjectName(e.target.value); setRoster([]); setLoadedOnce(false) }}
                   className={`${inputCls} appearance-none pr-8`}
                   style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  <option value="">Fanni tanlang</option>
+                  <option value="">{t("oqBaholash.selectSubject")}</option>
                   {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "#7293b9" }} />
@@ -175,7 +177,7 @@ export default function OqituvchiBaholash() {
                 type="text"
                 value={subjectName}
                 onChange={(e) => { setSubjectName(e.target.value); setRoster([]); setLoadedOnce(false) }}
-                placeholder="Fan nomini kiriting"
+                placeholder={t("oqBaholash.subjectPlaceholder")}
                 className={inputCls}
                 style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
               />
@@ -183,7 +185,7 @@ export default function OqituvchiBaholash() {
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Sana</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqBaholash.date")}</label>
             <input
               type="date"
               value={date}
@@ -201,7 +203,7 @@ export default function OqituvchiBaholash() {
             className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
             <Users className="w-4 h-4" />
-            {loadingRoster ? "Yuklanmoqda..." : "Ro'yxatni yuklash"}
+            {loadingRoster ? t("oqBaholash.loading") : t("oqBaholash.loadRoster")}
           </button>
         </div>
       </div>
@@ -216,7 +218,7 @@ export default function OqituvchiBaholash() {
             <table className="w-full min-w-[700px]">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
-                  {["#", "F.I.Sh.", "Baho", "Izoh"].map((h) => (
+                  {[t("oqBaholash.col.hash"), t("oqBaholash.col.fullName"), t("oqBaholash.col.grade"), t("oqBaholash.col.comment")].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                       style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
                       {h}
@@ -229,7 +231,7 @@ export default function OqituvchiBaholash() {
                   <tr>
                     <td colSpan={4} className="px-4 py-14 text-center text-sm"
                       style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      Bu guruhda talaba topilmadi
+                      {t("oqBaholash.noStudents")}
                     </td>
                   </tr>
                 ) : roster.map((s, i) => (
@@ -249,7 +251,7 @@ export default function OqituvchiBaholash() {
                         max={100}
                         value={s.grade ?? ""}
                         onChange={(e) => setGrade(s.studentUserId, e.target.value)}
-                        placeholder="0-100"
+                        placeholder={t("oqBaholash.gradePlaceholder")}
                         className="w-20 px-2.5 py-1.5 rounded-[6px] text-sm font-medium border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none text-center"
                         style={{ color: s.grade !== null ? gradeColor(s.grade) : "#012970", fontFamily: "var(--font-poppins)" }}
                       />
@@ -259,7 +261,7 @@ export default function OqituvchiBaholash() {
                         type="text"
                         value={s.comment ?? ""}
                         onChange={(e) => setComment(s.studentUserId, e.target.value)}
-                        placeholder="Izoh (ixtiyoriy)"
+                        placeholder={t("oqBaholash.commentPlaceholder")}
                         className="w-full px-2.5 py-1.5 rounded-[6px] text-xs border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none"
                         style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
                       />
@@ -274,7 +276,7 @@ export default function OqituvchiBaholash() {
             <div className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap"
               style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
               {saveMsg && (
-                <span className="text-sm" style={{ color: saveMsg === "Baholar saqlandi" ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                <span className="text-sm" style={{ color: saveMsg === t("oqBaholash.gradesSaved") ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                   {saveMsg}
                 </span>
               )}
@@ -284,7 +286,7 @@ export default function OqituvchiBaholash() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50 ml-auto"
                 style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                 <Save className="w-4 h-4" />
-                {saving ? "Saqlanmoqda..." : "Saqlash"}
+                {saving ? t("oqBaholash.saving") : t("oqBaholash.save")}
               </button>
             </div>
           )}
@@ -298,9 +300,9 @@ export default function OqituvchiBaholash() {
           <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
             <History className="w-4 h-4" style={{ color: "#0e58a8" }} />
             <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Oldingi sanalar
+              {t("oqBaholash.previousDates")}
             </span>
-            <button onClick={() => refetchHistory()} className="ml-auto" title="Yangilash">
+            <button onClick={() => refetchHistory()} className="ml-auto" title={t("oqBaholash.refresh")}>
               <RefreshCw className="w-4 h-4" style={{ color: "#7293b9" }} />
             </button>
           </div>
@@ -308,7 +310,7 @@ export default function OqituvchiBaholash() {
             <div className="px-5 py-6"><Loading /></div>
           ) : history.length === 0 ? (
             <div className="px-5 py-8 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Hozircha yozuv yo'q
+              {t("oqBaholash.noRecordsYet")}
             </div>
           ) : (
             <div className="divide-y" style={{ borderColor: "rgba(1,41,112,0.06)" }}>
@@ -322,12 +324,12 @@ export default function OqituvchiBaholash() {
                     </span>
                     <span className="text-xs font-medium px-2.5 py-1 rounded-full"
                       style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                      Baholandi: {grades.length}
+                      {t("oqBaholash.gradedCount", { n: grades.length })}
                     </span>
                     {average !== null && (
                       <span className="text-xs font-medium px-2.5 py-1 rounded-full"
                         style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                        O'rtacha: {average.toFixed(1)}
+                        {t("oqBaholash.averageLabel", { n: average.toFixed(1) })}
                       </span>
                     )}
                   </div>

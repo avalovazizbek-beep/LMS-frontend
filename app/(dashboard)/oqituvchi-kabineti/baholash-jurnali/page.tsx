@@ -7,6 +7,7 @@ import { ChevronLeft } from "lucide-react"
 import { teachingApi, gradeApi, authApi, hemisApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function todayStr() {
   const d = new Date()
@@ -64,6 +65,7 @@ function timeRangeLabel(col: DateColumn) {
 }
 
 export default function BaholashJurnaliPage() {
+  const { t } = useLanguage()
   const searchParams = useSearchParams()
   const groupId = searchParams.get("group")
   const subjectName = searchParams.get("subject") ?? ""
@@ -174,7 +176,7 @@ export default function BaholashJurnaliPage() {
       })
     } catch (e) {
       setOverrides((prev) => new Map(prev).set(key, current))
-      setSaveError(e instanceof Error ? e.message : "Saqlashda xatolik yuz berdi")
+      setSaveError(e instanceof Error ? e.message : t("baholashJurnali.saveError"))
     } finally {
       setSavingKey(null)
     }
@@ -191,13 +193,13 @@ export default function BaholashJurnaliPage() {
       <div className="flex items-center gap-2 text-sm flex-wrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
         <Link href="/xodim/baholash-jurnali" className="flex items-center gap-1 hover:underline">
           <ChevronLeft className="w-4 h-4" />
-          Baholash jurnali
+          {t("baholashJurnali.title")}
         </Link>
       </div>
 
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Baholash jurnali
+          {t("baholashJurnali.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
           {resolvedGroupName} — {subjectName || "-"}
@@ -215,10 +217,10 @@ export default function BaholashJurnaliPage() {
                   {dateColumns.length > 0 && (
                     <tr style={{ backgroundColor: "#eef4ff" }}>
                       <th rowSpan={2} className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[50px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>#</th>
-                      <th rowSpan={2} className={`${borderCls} px-4 py-2 text-left text-xs font-semibold whitespace-nowrap w-full`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Talabaning F.I.Sh.</th>
-                      <th rowSpan={2} className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[70px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>O&apos;rtacha</th>
+                      <th rowSpan={2} className={`${borderCls} px-4 py-2 text-left text-xs font-semibold whitespace-nowrap w-full`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.studentFullName")}</th>
+                      <th rowSpan={2} className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[70px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("baholashJurnali.average")}</th>
                       <th colSpan={dateColumns.length} className={`${borderCls} px-2 py-2 text-center text-xs font-semibold whitespace-nowrap`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                        Dars sanasi
+                        {t("baholashJurnali.lessonDate")}
                       </th>
                     </tr>
                   )}
@@ -226,8 +228,8 @@ export default function BaholashJurnaliPage() {
                     {dateColumns.length === 0 && (
                       <>
                         <th className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[50px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>#</th>
-                        <th className={`${borderCls} px-4 py-2 text-left text-xs font-semibold whitespace-nowrap w-full`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Talabaning F.I.Sh.</th>
-                        <th className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[70px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>O&apos;rtacha</th>
+                        <th className={`${borderCls} px-4 py-2 text-left text-xs font-semibold whitespace-nowrap w-full`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.studentFullName")}</th>
+                        <th className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[70px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("baholashJurnali.average")}</th>
                       </>
                     )}
                     {dateColumns.map((col) => {
@@ -276,7 +278,7 @@ export default function BaholashJurnaliPage() {
                                 onClick={() => !isEditing && setEditingKey(key)}
                                 className={`${borderCls} px-1 py-1 text-sm text-center font-medium cursor-text select-none transition-opacity hover:ring-2 hover:ring-inset hover:ring-[#0e58a8]`}
                                 style={{ color: style.color, backgroundColor: style.bg, fontFamily: "var(--font-poppins)", opacity: isSaving ? 0.5 : 1 }}
-                                title="Bahoni yozish uchun bosing"
+                                title={t("baholashJurnali.clickToWrite")}
                               >
                                 {isEditing ? (
                                   <input
@@ -306,14 +308,14 @@ export default function BaholashJurnaliPage() {
                   ) : (
                     <tr>
                       <td colSpan={3 + dateColumns.length} className={`${borderCls} px-4 py-12 text-center text-sm`} style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                        Bu guruhda talaba topilmadi
+                        {t("davomatJurnaliOq.noStudents")}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
               <p className="text-xs mt-2.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Katakchani bosib bahoni qo&apos;lda yozing: 0-100 oralig&apos;ida son kiriting, bo&apos;sh qoldirsangiz baho o&apos;chiriladi. Yozib bo&apos;lgach Enter bosing.
+                {t("baholashJurnali.manualHint")}
               </p>
             </div>
           )}
@@ -321,23 +323,23 @@ export default function BaholashJurnaliPage() {
 
         <div className="w-full lg:w-[300px] shrink-0 rounded-[10px] bg-white p-4 self-start" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
           <h2 className="text-sm font-semibold mb-3" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Ma&apos;lumot
+            {t("davomatJurnaliOq.info")}
           </h2>
           <div className="flex flex-col gap-2.5 text-sm">
             <div className="flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", paddingBottom: 8 }}>
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Guruh</span>
+              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.group")}</span>
               <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{resolvedGroupName}</span>
             </div>
             <div className="flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", paddingBottom: 8 }}>
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Fanlar</span>
+              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.subjects")}</span>
               <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{subjectName || "-"}</span>
             </div>
             <div className="flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", paddingBottom: 8 }}>
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Mashg&apos;ulot</span>
+              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.lesson")}</span>
               <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{trainingType || "-"}</span>
             </div>
             <div className="flex items-start justify-between gap-3">
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Xodim</span>
+              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.staff")}</span>
               <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{meRes?.user?.fullName ?? "-"}</span>
             </div>
           </div>
