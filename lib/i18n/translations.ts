@@ -1782,6 +1782,68 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "xodimFanResurslariYaratish.language.uzbek":                  { uz: "O'zbek",              ru: "Узбекский",                     en: "Uzbek",                kaa: "Ózbek" },
   "xodimFanResurslariYaratish.language.russian":                { uz: "Rus",                 ru: "Русский",                       en: "Russian",              kaa: "Rus" },
   "xodimFanResurslariYaratish.language.english":                { uz: "Ingliz",              ru: "Английский",                    en: "English",              kaa: "Ingliz" },
+
+  // ── Foydalanuvchilar: umumiy (adminlar/moderatorlar/sotuvchilar/ustalar) ──
+  "foydalanuvchilarUmumiy.searchPlaceholder": { uz: "Qidirish...",                    ru: "Поиск...",                        en: "Search...",                     kaa: "Izlew..." },
+  "foydalanuvchilarUmumiy.colIndex":          { uz: "#",                              ru: "#",                                en: "#",                              kaa: "#" },
+  "foydalanuvchilarUmumiy.colFio":            { uz: "F.I.O",                          ru: "Ф.И.О",                           en: "Full name",                     kaa: "Á.T.Á." },
+  "foydalanuvchilarUmumiy.colUsername":       { uz: "Username",                       ru: "Имя пользователя",                en: "Username",                      kaa: "Login" },
+  "foydalanuvchilarUmumiy.colPhone":          { uz: "Telefon",                        ru: "Телефон",                         en: "Phone",                         kaa: "Telefon" },
+  "foydalanuvchilarUmumiy.colStatus":         { uz: "Status",                         ru: "Статус",                          en: "Status",                        kaa: "Jaǵday" },
+  "foydalanuvchilarUmumiy.colAction":         { uz: "Amal",                           ru: "Действие",                        en: "Action",                        kaa: "Ámel" },
+  "foydalanuvchilarUmumiy.statusActive":      { uz: "Aktiv",                          ru: "Активен",                         en: "Active",                        kaa: "Aktiv" },
+  "foydalanuvchilarUmumiy.statusInactive":    { uz: "Nofaol",                         ru: "Неактивен",                       en: "Inactive",                      kaa: "Nofaal" },
+  "foydalanuvchilarUmumiy.edit":              { uz: "Tahrirlash",                     ru: "Редактировать",                   en: "Edit",                          kaa: "Redaktorlaw" },
+  "foydalanuvchilarUmumiy.delete":            { uz: "O'chirish",                      ru: "Удалить",                         en: "Delete",                        kaa: "Óshiriw" },
+  "foydalanuvchilarUmumiy.confirmDelete":     { uz: "O'chirishni tasdiqlaysizmi?",    ru: "Подтвердите удаление?",           en: "Confirm deletion?",             kaa: "Óshiriwdi tastıyıqlaysızba?" },
+  "foydalanuvchilarUmumiy.requiredFields":    { uz: "Barcha majburiy maydonlarni to'ldiring", ru: "Заполните все обязательные поля", en: "Fill in all required fields", kaa: "Barlıq májbúriy maydanlardı toltırıń" },
+  "foydalanuvchilarUmumiy.genericError":      { uz: "Xatolik",                        ru: "Ошибка",                          en: "Error",                         kaa: "Qátelik" },
+  "foydalanuvchilarUmumiy.labelFio":          { uz: "F.I.O *",                        ru: "Ф.И.О *",                         en: "Full name *",                   kaa: "Á.T.Á. *" },
+  "foydalanuvchilarUmumiy.labelUsername":     { uz: "Username *",                     ru: "Имя пользователя *",              en: "Username *",                    kaa: "Login *" },
+  "foydalanuvchilarUmumiy.labelPhone":        { uz: "Telefon *",                      ru: "Телефон *",                       en: "Phone *",                       kaa: "Telefon *" },
+  "foydalanuvchilarUmumiy.labelPasswordNew":  { uz: "Parol *",                        ru: "Пароль *",                        en: "Password *",                    kaa: "Parol *" },
+  "foydalanuvchilarUmumiy.labelPasswordEdit": { uz: "Parol (o'zgartirish uchun)",     ru: "Пароль (для изменения)",          en: "Password (to change)",          kaa: "Parol (ózgertiw ushın)" },
+  "foydalanuvchilarUmumiy.placeholderFio":    { uz: "To'liq ism familiya",            ru: "Полное имя и фамилия",            en: "Full name",                     kaa: "Tolıq atı-jóni" },
+  "foydalanuvchilarUmumiy.placeholderUsername": { uz: "foydalanuvchi_nomi",           ru: "имя_пользователя",                en: "username",                      kaa: "paydalanıwshı_atı" },
+  "foydalanuvchilarUmumiy.placeholderPhone":  { uz: "+998901234567",                  ru: "+998901234567",                   en: "+998901234567",                 kaa: "+998901234567" },
+
+  // ── Foydalanuvchilar: adminlar ─────────────────────────────────────────────
+  "foydalanuvchilarAdminlar.title":            { uz: "Adminlar",                      ru: "Администраторы",                  en: "Admins",                        kaa: "Administratorlar" },
+  "foydalanuvchilarAdminlar.allAdmins":        { uz: "Barcha adminlar",               ru: "Все администраторы",              en: "All admins",                    kaa: "Barlıq administratorlar" },
+  "foydalanuvchilarAdminlar.addBtn":           { uz: "Admin qo'shish",                ru: "Добавить администратора",         en: "Add admin",                     kaa: "Administrator qosıw" },
+  "foydalanuvchilarAdminlar.modalTitleEdit":   { uz: "Admin tahrirlash",              ru: "Редактировать администратора",    en: "Edit admin",                    kaa: "Administratordı redaktorlaw" },
+  "foydalanuvchilarAdminlar.passwordRequired": { uz: "Yangi admin uchun parol kerak", ru: "Для нового администратора требуется пароль", en: "Password required for a new admin", kaa: "Jaңa administrator ushın parol kerek" },
+  "foydalanuvchilarAdminlar.colRole":          { uz: "Rol",                           ru: "Роль",                            en: "Role",                          kaa: "Rol" },
+  "foydalanuvchilarAdminlar.roleSuperAdmin":   { uz: "Super Admin",                   ru: "Супер администратор",             en: "Super Admin",                   kaa: "Super Administrator" },
+  "foydalanuvchilarAdminlar.roleAdmin":        { uz: "Admin",                         ru: "Администратор",                   en: "Admin",                         kaa: "Administrator" },
+
+  // ── Foydalanuvchilar: moderatorlar ─────────────────────────────────────────
+  "foydalanuvchilarModeratorlar.title":            { uz: "Moderatorlar",              ru: "Модераторы",                      en: "Moderators",                    kaa: "Moderatorlar" },
+  "foydalanuvchilarModeratorlar.allModerators":    { uz: "Barcha moderatorlar",       ru: "Все модераторы",                  en: "All moderators",                kaa: "Barlıq moderatorlar" },
+  "foydalanuvchilarModeratorlar.addBtn":           { uz: "Moderator qo'shish",        ru: "Добавить модератора",             en: "Add moderator",                 kaa: "Moderator qosıw" },
+  "foydalanuvchilarModeratorlar.modalTitleEdit":   { uz: "Moderator tahrirlash",      ru: "Редактировать модератора",        en: "Edit moderator",                kaa: "Moderatordı redaktorlaw" },
+  "foydalanuvchilarModeratorlar.passwordRequired": { uz: "Yangi moderator uchun parol kerak", ru: "Для нового модератора требуется пароль", en: "Password required for a new moderator", kaa: "Jaңa moderator ushın parol kerek" },
+  "foydalanuvchilarModeratorlar.tabTable":         { uz: "Jadval",                    ru: "Таблица",                         en: "Table",                         kaa: "Kesте" },
+  "foydalanuvchilarModeratorlar.tabCard":          { uz: "Card",                      ru: "Карточки",                        en: "Cards",                         kaa: "Kartochka" },
+  "foydalanuvchilarModeratorlar.colFio":           { uz: "FIO",                       ru: "ФИО",                             en: "Full name",                     kaa: "ATA" },
+  "foydalanuvchilarModeratorlar.colAccountPermission": { uz: "Account Permission",    ru: "Права доступа",                   en: "Account Permission",            kaa: "Akkaunt huqıqları" },
+  "foydalanuvchilarModeratorlar.badgeModerator":   { uz: "Moderator",                 ru: "Модератор",                       en: "Moderator",                     kaa: "Moderator" },
+
+  // ── Foydalanuvchilar: sotuvchilar ──────────────────────────────────────────
+  "foydalanuvchilarSotuvchilar.title":            { uz: "Sotuvchilar",                ru: "Продавцы",                        en: "Sellers",                       kaa: "Satıwshılar" },
+  "foydalanuvchilarSotuvchilar.allSellers":       { uz: "Barcha sotuvchilar",         ru: "Все продавцы",                    en: "All sellers",                   kaa: "Barlıq satıwshılar" },
+  "foydalanuvchilarSotuvchilar.addBtn":           { uz: "Sotuvchi qo'shish",          ru: "Добавить продавца",               en: "Add seller",                    kaa: "Satıwshı qosıw" },
+  "foydalanuvchilarSotuvchilar.modalTitleEdit":   { uz: "Sotuvchi tahrirlash",        ru: "Редактировать продавца",          en: "Edit seller",                   kaa: "Satıwshını redaktorlaw" },
+  "foydalanuvchilarSotuvchilar.passwordRequired": { uz: "Yangi sotuvchi uchun parol kerak", ru: "Для нового продавца требуется пароль", en: "Password required for a new seller", kaa: "Jaңa satıwshı ushın parol kerek" },
+  "foydalanuvchilarSotuvchilar.statTotal":        { uz: "Jami sotuvchilar",           ru: "Всего продавцов",                 en: "Total sellers",                 kaa: "Jámi satıwshılar" },
+
+  // ── Foydalanuvchilar: ustalar ───────────────────────────────────────────────
+  "foydalanuvchilarUstalar.title":            { uz: "Ustalar",                       ru: "Мастера",                         en: "Masters",                       kaa: "Ustalar" },
+  "foydalanuvchilarUstalar.allMasters":       { uz: "Barcha ustalar",                ru: "Все мастера",                     en: "All masters",                   kaa: "Barlıq ustalar" },
+  "foydalanuvchilarUstalar.addBtn":           { uz: "Usta qo'shish",                 ru: "Добавить мастера",                en: "Add master",                    kaa: "Usta qosıw" },
+  "foydalanuvchilarUstalar.modalTitleEdit":   { uz: "Usta tahrirlash",               ru: "Редактировать мастера",           en: "Edit master",                   kaa: "Ustanı redaktorlaw" },
+  "foydalanuvchilarUstalar.passwordRequired": { uz: "Yangi usta uchun parol kerak",  ru: "Для нового мастера требуется пароль", en: "Password required for a new master", kaa: "Jaңa usta ushın parol kerek" },
+  "foydalanuvchilarUstalar.statTotal":        { uz: "Jami ustalar",                  ru: "Всего мастеров",                  en: "Total masters",                 kaa: "Jámi ustalar" },
 }
 
 export function translate(lang: Lang, key: string, params?: Record<string, string | number>): string {

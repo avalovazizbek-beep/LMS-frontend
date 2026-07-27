@@ -7,6 +7,7 @@ import { usersApi, User } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { Modal, FInput, FSelect, ModalFooter } from "@/components/ui/Modal"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 type TabKey = "table" | "card"
 type SortKey = "fullName" | "username" | "phone" | null
@@ -20,6 +21,7 @@ function SortIcon({ column, sortKey, sortDir }: { column: string; sortKey: SortK
 }
 
 export default function ModeratorsPage() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => usersApi.getModerators())
   const moderators: User[] = data?.data ?? []
   const [activeTab, setActiveTab] = useState<TabKey>("table")
@@ -54,8 +56,8 @@ export default function ModeratorsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.fullName || !form.username || !form.phone) { setFormErr("Barcha majburiy maydonlarni to'ldiring"); return }
-    if (!editing && !form.password) { setFormErr("Yangi moderator uchun parol kerak"); return }
+    if (!form.fullName || !form.username || !form.phone) { setFormErr(t("foydalanuvchilarUmumiy.requiredFields")); return }
+    if (!editing && !form.password) { setFormErr(t("foydalanuvchilarModeratorlar.passwordRequired")); return }
     setSaving(true); setFormErr("")
     try {
       const body: Partial<User> & { password?: string } = {
@@ -66,12 +68,12 @@ export default function ModeratorsPage() {
       editing ? await usersApi.updateModerator(editing.id, body) : await usersApi.createModerator(body)
       closeModal(); refetch()
     } catch (err: unknown) {
-      setFormErr(err instanceof Error ? err.message : "Xatolik")
+      setFormErr(err instanceof Error ? err.message : t("foydalanuvchilarUmumiy.genericError"))
     } finally { setSaving(false) }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return
+    if (!confirm(t("foydalanuvchilarUmumiy.confirmDelete"))) return
     try { await usersApi.deleteModerator(id); refetch() } catch {}
   }
 
@@ -81,19 +83,19 @@ export default function ModeratorsPage() {
   return (
     <section className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
       <header className="flex flex-col items-start gap-[15px] pt-[25px] pb-5 px-5 bg-white" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Moderatorlar</h1>
+        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarModeratorlar.title")}</h1>
         <div className="flex items-start justify-between self-stretch w-full">
           <div className="inline-flex items-center gap-[15px]">
             {(["table", "card"] as TabKey[]).map((key) => (
               <button key={key} onClick={() => setActiveTab(key)} className="px-5 h-[45px] inline-flex items-center justify-center rounded-[10px] border transition-colors"
                 style={{ backgroundColor: activeTab === key ? "#0e58a8" : "#fff", borderColor: activeTab === key ? "rgba(1,41,112,0.3)" : "rgba(1,41,112,0.1)", fontFamily: "var(--font-poppins)" }}>
-                <span className="font-semibold text-base" style={{ color: activeTab === key ? "#fff" : "#7293b9" }}>{key === "table" ? "Jadval" : "Card"}</span>
+                <span className="font-semibold text-base" style={{ color: activeTab === key ? "#fff" : "#7293b9" }}>{key === "table" ? t("foydalanuvchilarModeratorlar.tabTable") : t("foydalanuvchilarModeratorlar.tabCard")}</span>
               </button>
             ))}
           </div>
           <label className="w-[500px] px-2.5 py-2 rounded-[5px] border flex items-center bg-white" style={{ borderColor: "rgba(1,41,112,0.3)" }}>
             <Search className="w-5 h-5 shrink-0" style={{ color: "#7293b9" }} />
-            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Qidirish..." className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
+            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("foydalanuvchilarUmumiy.searchPlaceholder")} className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
           </label>
         </div>
       </header>
@@ -102,14 +104,14 @@ export default function ModeratorsPage() {
         <div className="bg-white rounded-[5px] max-w-[1086px]" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
           <div className="flex items-center justify-between p-5">
             <div className="flex items-center gap-2">
-              <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Barcha moderatorlar</h2>
+              <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarModeratorlar.allModerators")}</h2>
               <div className="flex w-[33px] h-[33px] items-center justify-center rounded-full" style={{ backgroundColor: "rgba(114,147,185,0.2)" }}>
                 <span className="font-semibold text-lg" style={{ color: "#7293b9" }}>{moderators.length}</span>
               </div>
             </div>
             <button onClick={openAdd} className="inline-flex h-[42px] items-center gap-2.5 px-[15px] rounded-[5px]" style={{ backgroundColor: "#0e58a8" }}>
               <Plus className="w-6 h-6 text-white" />
-              <span className="text-base text-white" style={{ fontFamily: "var(--font-poppins)" }}>Moderator qo&apos;shish</span>
+              <span className="text-base text-white" style={{ fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarModeratorlar.addBtn")}</span>
             </button>
           </div>
 
@@ -118,8 +120,8 @@ export default function ModeratorsPage() {
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-                    <th className="px-4 py-[18px] text-left text-sm font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>#</th>
-                    {[["fullName", "FIO"], ["username", "Username"], ["phone", "Telefon"]].map(([key, label]) => (
+                    <th className="px-4 py-[18px] text-left text-sm font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarUmumiy.colIndex")}</th>
+                    {[["fullName", t("foydalanuvchilarModeratorlar.colFio")], ["username", t("foydalanuvchilarUmumiy.colUsername")], ["phone", t("foydalanuvchilarUmumiy.colPhone")]].map(([key, label]) => (
                       <th key={key} className="px-4 py-[18px] text-left" style={{ color: "#7293b9" }}>
                         <button className="flex items-center gap-1" onClick={() => handleSort(key as SortKey)}>
                           <span className="text-sm font-medium whitespace-nowrap" style={{ fontFamily: "var(--font-poppins)" }}>{label}</span>
@@ -127,9 +129,9 @@ export default function ModeratorsPage() {
                         </button>
                       </th>
                     ))}
-                    <th className="px-4 py-[18px] text-left text-sm font-medium whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Status</th>
-                    <th className="px-4 py-[18px] text-left text-sm font-medium whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Account Permission</th>
-                    <th className="px-4 py-[18px] text-left text-sm font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Amal</th>
+                    <th className="px-4 py-[18px] text-left text-sm font-medium whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarUmumiy.colStatus")}</th>
+                    <th className="px-4 py-[18px] text-left text-sm font-medium whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarModeratorlar.colAccountPermission")}</th>
+                    <th className="px-4 py-[18px] text-left text-sm font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarUmumiy.colAction")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -142,12 +144,12 @@ export default function ModeratorsPage() {
                       <td className="px-4 h-14 text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{m.phone}</td>
                       <td className="px-4 h-14">
                         <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: m.status === "active" ? "#f0fbfd" : "#f6f9ff", color: m.status === "active" ? "#1cc2dc" : "#7293b9", border: `1px solid ${m.status === "active" ? "#1cc2dc" : "#7293b9"}` }}>
-                          {m.status === "active" ? "Aktiv" : "Nofaol"}
+                          {m.status === "active" ? t("foydalanuvchilarUmumiy.statusActive") : t("foydalanuvchilarUmumiy.statusInactive")}
                         </span>
                       </td>
                       <td className="px-4 h-14">
                         <div className="inline-flex h-[30px] items-center justify-center px-5 rounded-[10px] border" style={{ backgroundColor: "#f6f9ff", borderColor: "#1cc2dc" }}>
-                          <span className="font-semibold text-sm" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>Moderator</span>
+                          <span className="font-semibold text-sm" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarModeratorlar.badgeModerator")}</span>
                         </div>
                       </td>
                       <td className="px-4 h-14 relative">
@@ -158,8 +160,8 @@ export default function ModeratorsPage() {
                           {openId === m.id && (
                             <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }} transition={{ duration: 0.15 }}
                               className="absolute right-4 top-[calc(100%-4px)] z-10 bg-white rounded-[5px] overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(1,41,112,0.15)", border: "1px solid rgba(1,41,112,0.1)", minWidth: 140 }}>
-                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); openEdit(m) }}><Pencil className="w-4 h-4" /> Tahrirlash</button>
-                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); handleDelete(m.id) }}><Trash2 className="w-4 h-4" /> O&apos;chirish</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); openEdit(m) }}><Pencil className="w-4 h-4" /> {t("foydalanuvchilarUmumiy.edit")}</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); handleDelete(m.id) }}><Trash2 className="w-4 h-4" /> {t("foydalanuvchilarUmumiy.delete")}</button>
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -194,10 +196,10 @@ export default function ModeratorsPage() {
                     <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{m.phone}</p>
                     <div className="flex items-center gap-2">
                       <div className="inline-flex h-[26px] items-center justify-center px-3 rounded-[10px] w-fit border" style={{ backgroundColor: "#f6f9ff", borderColor: "#1cc2dc" }}>
-                        <span className="font-semibold text-xs" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>Moderator</span>
+                        <span className="font-semibold text-xs" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarModeratorlar.badgeModerator")}</span>
                       </div>
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: m.status === "active" ? "#f0fbfd" : "#f6f9ff", color: m.status === "active" ? "#1cc2dc" : "#7293b9", border: `1px solid ${m.status === "active" ? "#1cc2dc" : "#7293b9"}` }}>
-                        {m.status === "active" ? "Aktiv" : "Nofaol"}
+                        {m.status === "active" ? t("foydalanuvchilarUmumiy.statusActive") : t("foydalanuvchilarUmumiy.statusInactive")}
                       </span>
                     </div>
                   </div>
@@ -208,15 +210,15 @@ export default function ModeratorsPage() {
         </div>
       </div>
 
-      <Modal open={modal} title={editing ? "Moderator tahrirlash" : "Moderator qo'shish"} onClose={closeModal}>
+      <Modal open={modal} title={editing ? t("foydalanuvchilarModeratorlar.modalTitleEdit") : t("foydalanuvchilarModeratorlar.addBtn")} onClose={closeModal}>
         <form onSubmit={handleSave} className="flex flex-col gap-4">
-          <FInput label="F.I.O *" value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} placeholder="To'liq ism familiya" />
-          <FInput label="Username *" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="foydalanuvchi_nomi" />
-          <FInput label="Telefon *" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+998901234567" />
-          <FInput label={editing ? "Parol (o'zgartirish uchun)" : "Parol *"} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" />
-          <FSelect label="Status" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-            <option value="active">Aktiv</option>
-            <option value="inactive">Nofaol</option>
+          <FInput label={t("foydalanuvchilarUmumiy.labelFio")} value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} placeholder={t("foydalanuvchilarUmumiy.placeholderFio")} />
+          <FInput label={t("foydalanuvchilarUmumiy.labelUsername")} value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder={t("foydalanuvchilarUmumiy.placeholderUsername")} />
+          <FInput label={t("foydalanuvchilarUmumiy.labelPhone")} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder={t("foydalanuvchilarUmumiy.placeholderPhone")} />
+          <FInput label={editing ? t("foydalanuvchilarUmumiy.labelPasswordEdit") : t("foydalanuvchilarUmumiy.labelPasswordNew")} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" />
+          <FSelect label={t("foydalanuvchilarUmumiy.colStatus")} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+            <option value="active">{t("foydalanuvchilarUmumiy.statusActive")}</option>
+            <option value="inactive">{t("foydalanuvchilarUmumiy.statusInactive")}</option>
           </FSelect>
           {formErr && <p className="text-xs text-red-500" style={{ fontFamily: "var(--font-poppins)" }}>{formErr}</p>}
           <ModalFooter onClose={closeModal} saving={saving} />
