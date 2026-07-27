@@ -1,16 +1,18 @@
 "use client"
 
 import { ShieldCheck } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function PlagiatMalumotlari() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Plagiat Ma&apos;lumotlari
+          {t("plagiat.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Plagiat tekshiruvi natijalari
+          {t("plagiat.subtitle")}
         </p>
       </div>
 
@@ -21,10 +23,10 @@ export default function PlagiatMalumotlari() {
           <ShieldCheck className="w-8 h-8" style={{ color: "#0e58a8" }} />
         </div>
         <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Plagiat tekshiruvi natijalari topilmadi
+          {t("plagiat.notFound")}
         </p>
         <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Sizning ishlaringiz plagiat tekshiruvidan o&apos;tkazilmagan yoki natijalar hali mavjud emas
+          {t("plagiat.notFoundDesc")}
         </p>
       </div>
     </div>

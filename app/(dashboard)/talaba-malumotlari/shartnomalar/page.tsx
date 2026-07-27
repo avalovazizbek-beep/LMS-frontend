@@ -4,6 +4,7 @@ import { FileText, ExternalLink, Wallet, CheckCircle2, TrendingDown } from "luci
 import { hemisApi, HemisContractItem } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function formatSum(val?: string | number): string {
   if (val == null) return "—"
@@ -13,6 +14,7 @@ function formatSum(val?: string | number): string {
 }
 
 export default function Shartnomalar() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => hemisApi.contractList())
   const contracts: HemisContractItem[] = (data?.data as any)?.items ?? []
 
@@ -22,15 +24,15 @@ export default function Shartnomalar() {
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Shartnomalar</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Kontrakt ro&apos;yxati</p>
+        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("shartnomalar.title")}</h1>
+        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("shartnomalar.subtitle")}</p>
       </div>
 
       <div className="flex flex-col gap-5">
         {contracts.length === 0 ? (
           <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
-            <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Shartnomalar topilmadi</p>
+            <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("shartnomalar.notFound")}</p>
           </div>
         ) : contracts.map(c => {
           const d = c._data
@@ -50,7 +52,7 @@ export default function Shartnomalar() {
                   </div>
                   <div>
                     <p className="font-semibold text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                      Kontrakt № {d.contractNumber ?? "—"}
+                      {t("shartnomalar.contractNo", { n: d.contractNumber ?? "—" })}
                     </p>
                     <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                       {d.course} · {d.speciality}
@@ -66,9 +68,9 @@ export default function Shartnomalar() {
               {/* Stats row */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 {[
-                  { icon: Wallet,       label: "Jami",     value: formatSum(totalAmount), color: "#012970" },
-                  { icon: CheckCircle2, label: "To'langan", value: formatSum(paidAmount),  color: "#22c55e" },
-                  { icon: TrendingDown, label: "Qarz",      value: formatSum(debtAmount),  color: debtAmount > 0 ? "#ef4444" : "#22c55e" },
+                  { icon: Wallet,       label: t("shartnomalar.total"), value: formatSum(totalAmount), color: "#012970" },
+                  { icon: CheckCircle2, label: t("shartnomalar.paid"),  value: formatSum(paidAmount),  color: "#22c55e" },
+                  { icon: TrendingDown, label: t("shartnomalar.debt"),  value: formatSum(debtAmount),  color: debtAmount > 0 ? "#ef4444" : "#22c55e" },
                 ].map(s => {
                   const Icon = s.icon
                   return (
@@ -86,8 +88,8 @@ export default function Shartnomalar() {
                 <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: "#1cc2dc" }} />
               </div>
               <div className="flex justify-between text-xs mb-4" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                <span>{pct}% to&apos;langan</span>
-                <span>Muddat: {d.lastPaymentDate ?? "—"}</span>
+                <span>{t("shartnomalar.paidPercent", { pct })}</span>
+                <span>{t("shartnomalar.deadline", { date: d.lastPaymentDate ?? "—" })}</span>
               </div>
 
               {/* Actions */}
@@ -96,14 +98,14 @@ export default function Shartnomalar() {
                   <a href={d.pdfLink} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-2 px-4 py-2 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90"
                     style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-                    <ExternalLink className="w-4 h-4" /> PDF ko&apos;rish
+                    <ExternalLink className="w-4 h-4" /> {t("shartnomalar.viewPdf")}
                   </a>
                 )}
                 {d.contractUrl && (
                   <a href={d.contractUrl} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-2 px-4 py-2 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90"
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                    <ExternalLink className="w-4 h-4" /> Kontrakt sayti
+                    <ExternalLink className="w-4 h-4" /> {t("shartnomalar.contractSite")}
                   </a>
                 )}
               </div>

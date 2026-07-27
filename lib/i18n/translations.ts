@@ -382,6 +382,96 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "talabaMalumotlari.uploadPrompt": { uz: "Yuklash uchun quyidagi tugmani bosing", ru: "Нажмите кнопку ниже, чтобы загрузить", en: "Click the button below to upload", kaa: "Júklew ushın tómendegi túymeni basıń" },
   "talabaMalumotlari.upload":      { uz: "Yuklash",             ru: "Загрузить",                         en: "Upload",                         kaa: "Júklew" },
 
+  // ── Shartnomalar sahifasi ──────────────────────────────────────────────
+  "shartnomalar.title":     { uz: "Shartnomalar",               ru: "Договоры",                          en: "Contracts",                      kaa: "Shártnamalar" },
+  "shartnomalar.subtitle":  { uz: "Kontrakt ro'yxati",          ru: "Список контрактов",                 en: "List of contracts",              kaa: "Kontraktlar dizimi" },
+  "shartnomalar.notFound":  { uz: "Shartnomalar topilmadi",     ru: "Договоры не найдены",               en: "No contracts found",             kaa: "Shártnamalar tabılmadı" },
+  "shartnomalar.contractNo": { uz: "Kontrakt № {n}",            ru: "Контракт № {n}",                    en: "Contract № {n}",                 kaa: "Kontrakt № {n}" },
+  "shartnomalar.total":     { uz: "Jami",                       ru: "Всего",                              en: "Total",                          kaa: "Jámi" },
+  "shartnomalar.paid":      { uz: "To'langan",                  ru: "Оплачено",                           en: "Paid",                            kaa: "Tólengen" },
+  "shartnomalar.debt":      { uz: "Qarz",                       ru: "Долг",                               en: "Debt",                            kaa: "Qarız" },
+  "shartnomalar.paidPercent": { uz: "{pct}% to'langan",         ru: "{pct}% оплачено",                    en: "{pct}% paid",                     kaa: "{pct}% tólendi" },
+  "shartnomalar.deadline":  { uz: "Muddat: {date}",             ru: "Срок: {date}",                       en: "Deadline: {date}",                kaa: "Мuddet: {date}" },
+  "shartnomalar.viewPdf":   { uz: "PDF ko'rish",                ru: "Просмотр PDF",                       en: "View PDF",                        kaa: "PDF kóriw" },
+  "shartnomalar.contractSite": { uz: "Kontrakt sayti",          ru: "Сайт контракта",                     en: "Contract site",                   kaa: "Kontrakt saytı" },
+
+  // ── Talaba GPA sahifasi ────────────────────────────────────────────────
+  "talabaGpa.title":        { uz: "Talaba GPA bali",            ru: "GPA балл студента",                  en: "Student GPA",                     kaa: "Student GPA balı" },
+  "talabaGpa.subtitle":     { uz: "Har yilgi o'rtacha ball ko'rsatkichi", ru: "Показатель среднего балла по годам", en: "Average score indicator per year", kaa: "Hár jılǵı ortasha ball kórsetkishi" },
+  "talabaGpa.overallAvg":   { uz: "Umumiy o'rtacha GPA",        ru: "Общий средний GPA",                  en: "Overall average GPA",            kaa: "Jalpı ortasha GPA" },
+  "talabaGpa.eduYears":     { uz: "Ta'lim yillari",             ru: "Годы обучения",                     en: "Education years",                kaa: "Bilim alıw jılları" },
+  "talabaGpa.highestGpa":   { uz: "Eng yuqori GPA",             ru: "Наивысший GPA",                     en: "Highest GPA",                     kaa: "Eń joqarı GPA" },
+  "talabaGpa.byYear":       { uz: "O'quv yillari bo'yicha GPA", ru: "GPA по учебным годам",              en: "GPA by academic year",           kaa: "Oqıw jılları boyınsha GPA" },
+  "talabaGpa.notFound":     { uz: "GPA ma'lumotlari topilmadi", ru: "Данные GPA не найдены",              en: "No GPA data found",              kaa: "GPA maǵlıwmatı tabılmadı" },
+
+  // ── Shaxsiy ma'lumotlar sahifasi ───────────────────────────────────────
+  "shaxsiy.title":          { uz: "Shaxsiy ma'lumotlar",        ru: "Личные данные",                     en: "Personal Info",                  kaa: "Jeke maǵlıwmatlar" },
+  "shaxsiy.subtitle":       { uz: "Shaxsiy kabinet ma'lumotlari", ru: "Данные личного кабинета",         en: "Personal cabinet information",   kaa: "Jeke kabinet maǵlıwmatları" },
+  "shaxsiy.mainInfo":       { uz: "Asosiy ma'lumotlar",         ru: "Основные данные",                   en: "Main information",               kaa: "Tiykarǵı maǵlıwmatlar" },
+  "shaxsiy.nationality":    { uz: "Millati/Davlat",             ru: "Национальность/Страна",             en: "Nationality/Country",             kaa: "Milleti/Mámleket" },
+  "shaxsiy.residence":      { uz: "Turar joy",                  ru: "Место жительства",                  en: "Residence",                       kaa: "Turaqjay" },
+  "shaxsiy.contactAndId":   { uz: "Aloqa va identifikatsiya",   ru: "Контакты и идентификация",          en: "Contact & identification",       kaa: "Baylanıs hám identifikatsiya" },
+  "shaxsiy.passportPin":    { uz: "Passport PIN",               ru: "Паспорт PIN",                       en: "Passport PIN",                    kaa: "Pasport PIN" },
+  "shaxsiy.direction":      { uz: "Yo'nalish",                  ru: "Направление",                       en: "Direction",                       kaa: "Baǵdar" },
+
+  // ── Plagiat ma'lumotlari sahifasi ───────────────────────────────────────
+  "plagiat.title":     { uz: "Plagiat ma'lumotlari",           ru: "Данные о плагиате",                  en: "Plagiarism Info",                kaa: "Plagiat maǵlıwmatı" },
+  "plagiat.subtitle":  { uz: "Plagiat tekshiruvi natijalari",  ru: "Результаты проверки на плагиат",     en: "Plagiarism check results",       kaa: "Plagiat tekseriwi nátiyjeleri" },
+  "plagiat.notFound":  { uz: "Plagiat tekshiruvi natijalari topilmadi", ru: "Результаты проверки на плагиат не найдены", en: "No plagiarism check results found", kaa: "Plagiat tekseriwi nátiyjeleri tabılmadı" },
+  "plagiat.notFoundDesc": { uz: "Sizning ishlaringiz plagiat tekshiruvidan o'tkazilmagan yoki natijalar hali mavjud emas", ru: "Ваши работы не проходили проверку на плагиат, либо результаты пока недоступны", en: "Your work hasn't gone through a plagiarism check, or results aren't available yet", kaa: "Sizdiń jumıslarıńız plagiat tekseriwinen ótkerilmegen yamasa nátiyjeler áli joq" },
+
+  // ── Bitiruv ishi sahifasi (talaba-malumotlari/bitiruv-ishi) ─────────────
+  "bitiruvIshi.title":     { uz: "Bitiruv ishi",                ru: "Дипломная работа",                   en: "Thesis",                         kaa: "Pitiriw jumısı" },
+  "bitiruvIshi.subtitle":  { uz: "Bitiruv malakaviy ishi",      ru: "Выпускная квалификационная работа",  en: "Graduation qualification work",  kaa: "Pitiriw malakalıq jumısı" },
+  "bitiruvIshi.notSubmitted": { uz: "Bitiruv ishi hali topshirilmagan", ru: "Дипломная работа ещё не сдана", en: "Thesis not submitted yet",   kaa: "Pitiriw jumısı áli tapsırılmaǵan" },
+  "bitiruvIshi.notSubmittedDesc": { uz: "Bitiruv malakaviy ishingizni yuklash uchun quyidagi tugmani bosing", ru: "Нажмите кнопку ниже, чтобы загрузить свою выпускную работу", en: "Click the button below to upload your graduation work", kaa: "Pitiriw malakalıq jumısıńızdı júklew ushın tómendegi túymeni basıń" },
+  "bitiruvIshi.uploadWork": { uz: "Ishni yuklash",              ru: "Загрузить работу",                   en: "Upload work",                    kaa: "Jumıstı júklew" },
+
+  // ── Ijtimoiy faollik arizasi sahifasi ────────────────────────────────────
+  "ijtimoiyFaollik.title":    { uz: "Ijtimoiy faollik arizasi", ru: "Заявка на соц. активность",         en: "Social Activity Application",   kaa: "Jámiyetlik belsendilik arizası" },
+  "ijtimoiyFaollik.subtitle": { uz: "Ijtimoiy faollik va ko'ngillilik ishlari", ru: "Общественная активность и волонтёрская деятельность", en: "Social activity and volunteer work", kaa: "Jámiyetlik belsendilik hám eriklilik jumısları" },
+  "ijtimoiyFaollik.notFound": { uz: "Ijtimoiy faollik arizalari topilmadi", ru: "Заявки на соц. активность не найдены", en: "No social activity applications found", kaa: "Jámiyetlik belsendilik arizaları tabılmadı" },
+  "ijtimoiyFaollik.notFoundDesc": { uz: "Ijtimoiy faollik arizasini yuborish uchun quyidagi tugmani bosing", ru: "Нажмите кнопку ниже, чтобы отправить заявку", en: "Click the button below to submit an application", kaa: "Ariza jiberiw ushın tómendegi túymeni basıń" },
+  "ijtimoiyFaollik.submitApp": { uz: "Ariza yuborish",          ru: "Отправить заявку",                   en: "Submit application",             kaa: "Arizanı jiberiw" },
+
+  // ── Student Grant Application sahifasi ───────────────────────────────────
+  "studentGrant.title":    { uz: "Student Grant Application",  ru: "Заявка на грант",                    en: "Student Grant Application",     kaa: "Student Grant arizası" },
+  "studentGrant.subtitle": { uz: "Grant va stipendiya arizalari", ru: "Заявки на грант и стипендию",     en: "Grant and scholarship applications", kaa: "Grant hám stipendiya arizaları" },
+  "studentGrant.notFound": { uz: "Grant arizalari topilmadi",  ru: "Заявки на грант не найдены",         en: "No grant applications found",   kaa: "Grant arizaları tabılmadı" },
+  "studentGrant.notFoundDesc": { uz: "Grant yoki stipendiya uchun ariza yuborish uchun quyidagi tugmani bosing", ru: "Нажмите кнопку ниже, чтобы подать заявку на грант или стипендию", en: "Click the button below to submit a grant or scholarship application", kaa: "Grant yamasa stipendiya ushın ariza jiberiw ushın tómendegi túymeni basıń" },
+
+  // ── Buyruqlar sahifasi ────────────────────────────────────────────────
+  "buyruqlar.title":    { uz: "Buyruqlar",                     ru: "Приказы",                             en: "Orders",                          kaa: "Buyrıqlar" },
+  "buyruqlar.subtitle": { uz: "Universitet buyruqlari ro'yxati", ru: "Список приказов университета",     en: "List of university orders",      kaa: "Universitet buyrıqları dizimi" },
+  "buyruqlar.notFound": { uz: "Buyruqlar topilmadi",           ru: "Приказы не найдены",                 en: "No orders found",                kaa: "Buyrıqlar tabılmadı" },
+  "buyruqlar.order":    { uz: "Buyruq",                        ru: "Приказ",                              en: "Order",                           kaa: "Buyrıq" },
+  "buyruqlar.view":     { uz: "Ko'rish",                       ru: "Просмотр",                           en: "View",                            kaa: "Kóriw" },
+
+  // ── Talaba hujjatlari sahifasi ────────────────────────────────────────
+  "talabaHujjat.title":    { uz: "Talaba hujjatlari",          ru: "Документы студента",                 en: "Student Documents",              kaa: "Student hújjetleri" },
+  "talabaHujjat.subtitle": { uz: "Rasmiy hujjatlar va varaqa", ru: "Официальные документы и справки",   en: "Official documents and sheets",  kaa: "Rasmiy hújjetler hám qaǵazlar" },
+  "talabaHujjat.notFound": { uz: "Hujjatlar topilmadi",        ru: "Документы не найдены",                en: "No documents found",             kaa: "Hújjetler tabılmadı" },
+  "talabaHujjat.docType.academicSheet": { uz: "O'quv varaqa",  ru: "Учебный лист",                       en: "Academic sheet",                 kaa: "Oqıw qaǵazı" },
+  "talabaHujjat.docType.academicData":  { uz: "Reyting daftarcha", ru: "Рейтинговая книжка",             en: "Rating book",                     kaa: "Reyting depteri" },
+  "talabaHujjat.docType.callSheet":     { uz: "Chaqiruv qog'ozi", ru: "Вызывной лист",                   en: "Call sheet",                      kaa: "Shaqırıw qaǵazı" },
+
+  // ── Ma'lumotnomalar sahifasi ──────────────────────────────────────────
+  "malumotnomalar.title":    { uz: "Ma'lumotnomalar",          ru: "Справки",                             en: "References",                       kaa: "Anıqtamalar" },
+  "malumotnomalar.subtitle": { uz: "Sertifikat va ma'lumotnomalar", ru: "Сертификаты и справки",         en: "Certificates and references",    kaa: "Sertifikatlar hám anıqtamalar" },
+  "malumotnomalar.notFound": { uz: "Ma'lumotnomalar topilmadi", ru: "Справки не найдены",                 en: "No references found",             kaa: "Anıqtamalar tabılmadı" },
+  "malumotnomalar.reference": { uz: "Ma'lumotnoma",            ru: "Справка",                             en: "Reference",                       kaa: "Anıqtama" },
+
+  // ── Bitiruv varaqa sahifasi (talaba-malumotlari/bitiruv-varaqa) ─────────
+  "bitiruvVaraqa.title":    { uz: "Bitiruv varaqa",            ru: "Выпускной лист",                     en: "Graduation Sheet",               kaa: "Pitiriw qaǵazı" },
+  "bitiruvVaraqa.subtitle": { uz: "Akademik varaqa va bitiruv hujjatlari", ru: "Академический лист и выпускные документы", en: "Academic sheet and graduation documents", kaa: "Akademiyalıq qaǵaz hám pitiriw hújjetleri" },
+  "bitiruvVaraqa.notFound": { uz: "Bitiruv varaqasi topilmadi", ru: "Выпускной лист не найден",           en: "Graduation sheet not found",     kaa: "Pitiriw qaǵazı tabılmadı" },
+  "bitiruvVaraqa.notReadyYet": { uz: "Bitiruv varaqasi hali tayyorlanmagan", ru: "Выпускной лист ещё не готов", en: "Graduation sheet not ready yet", kaa: "Pitiriw qaǵazı áli tayarlanbaǵan" },
+  "bitiruvVaraqa.sheet":    { uz: "Bitiruv varaqa",            ru: "Выпускной лист",                     en: "Graduation sheet",               kaa: "Pitiriw qaǵazı" },
+
+  // ── Fan sertifikatlari sahifasi (talaba-malumotlari/sertifikatlar) ──────
+  "fanSertifikatlari.title":    { uz: "Fan sertifikatlari",    ru: "Сертификаты по предметам",           en: "Subject Certificates",          kaa: "Pán sertifikatları" },
+  "fanSertifikatlari.subtitle": { uz: "Akademik sertifikatlar ro'yxati", ru: "Список академических сертификатов", en: "List of academic certificates", kaa: "Akademiyalıq sertifikatlar dizimi" },
+
   // ── Imtihon topshirish sahifasi ──────────────────────────────────────
   "examTake.notFound":       { uz: "Imtihon topilmadi",         ru: "Экзамен не найден",                 en: "Exam not found",              kaa: "Emtihan tabılmadı" },
   "examTake.finished":       { uz: "Imtihon yakunlandi!",       ru: "Экзамен завершён!",                 en: "Exam finished!",              kaa: "Emtihan juwmaqlandı!" },

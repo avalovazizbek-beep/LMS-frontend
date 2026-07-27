@@ -4,6 +4,7 @@ import { Award, Download } from "lucide-react"
 import { hemisApi, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 interface HemisCertificate {
   id: number | string
@@ -21,6 +22,7 @@ function formatDate(ts?: number): string {
 }
 
 export default function FanSertifikatlari() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => hemisApi.reference())
   const certs: HemisCertificate[] = (data?.data as any) ?? []
 
@@ -31,10 +33,10 @@ export default function FanSertifikatlari() {
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Fan Sertifikatlari
+          {t("fanSertifikatlari.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Akademik sertifikatlar ro&apos;yxati
+          {t("fanSertifikatlari.subtitle")}
         </p>
       </div>
 
@@ -44,10 +46,10 @@ export default function FanSertifikatlari() {
             style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <Award className="w-12 h-12 mx-auto mb-3" style={{ color: "#7293b9" }} />
             <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Sertifikatlar topilmadi
+              {t("talabaMalumotlari.certsNotFound")}
             </p>
             <p className="text-xs mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Sizda hali sertifikatlar mavjud emas
+              {t("talabaMalumotlari.noCertsYet")}
             </p>
           </div>
         ) : certs.map(c => (
@@ -59,7 +61,7 @@ export default function FanSertifikatlari() {
             </div>
             <div>
               <p className="font-medium text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                {c.name ?? "Sertifikat"}
+                {c.name ?? t("talabaMalumotlari.certificate")}
               </p>
               {c.date && (
                 <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
@@ -72,7 +74,7 @@ export default function FanSertifikatlari() {
                 className="flex items-center justify-center gap-2 w-full py-2 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90 mt-auto"
                 style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                 <Download className="w-4 h-4" />
-                Yuklab olish
+                {t("talabaMalumotlari.download")}
               </a>
             )}
           </div>

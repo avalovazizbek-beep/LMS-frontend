@@ -4,6 +4,7 @@ import { User, Phone, Mail, Calendar, Globe, Hash, MapPin } from "lucide-react"
 import { hemisApi, HemisStudent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function formatDate(ts?: number): string {
   if (!ts) return "—"
@@ -11,6 +12,7 @@ function formatDate(ts?: number): string {
 }
 
 export default function ShaxsiyMalumotlar() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => hemisApi.me())
   const s: HemisStudent | null = data?.data ?? null
 
@@ -21,10 +23,10 @@ export default function ShaxsiyMalumotlar() {
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Shaxsiy Ma&apos;lumotlar
+          {t("shaxsiy.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Shaxsiy kabinet ma&apos;lumotlari
+          {t("shaxsiy.subtitle")}
         </p>
       </div>
 
@@ -50,16 +52,16 @@ export default function ShaxsiyMalumotlar() {
         <div className="bg-white rounded-[10px] p-5"
           style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
           <h3 className="text-base font-semibold mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Asosiy ma&apos;lumotlar
+            {t("shaxsiy.mainInfo")}
           </h3>
           {[
-            { icon: User,     label: "Familiya",        value: s?.second_name },
-            { icon: User,     label: "Ism",             value: s?.first_name },
-            { icon: User,     label: "Otasining ismi",  value: s?.third_name },
-            { icon: Calendar, label: "Tug'ilgan sana",  value: formatDate(s?.birth_date) },
-            { icon: Globe,    label: "Jinsi",           value: s?.gender?.name },
-            { icon: Globe,    label: "Millati/Davlat",  value: s?.country?.name },
-            { icon: MapPin,   label: "Turar joy",       value: s?.accommodation?.name },
+            { icon: User,     label: t("talabaMalumotlari.lastName"),  value: s?.second_name },
+            { icon: User,     label: t("talabaMalumotlari.firstName"), value: s?.first_name },
+            { icon: User,     label: t("talabaMalumotlari.middleName"), value: s?.third_name },
+            { icon: Calendar, label: t("talabaMalumotlari.birthDate"), value: formatDate(s?.birth_date) },
+            { icon: Globe,    label: t("talabaMalumotlari.gender"),   value: s?.gender?.name },
+            { icon: Globe,    label: t("shaxsiy.nationality"),        value: s?.country?.name },
+            { icon: MapPin,   label: t("shaxsiy.residence"),          value: s?.accommodation?.name },
           ].map(item => {
             const Icon = item.icon
             return (
@@ -79,13 +81,13 @@ export default function ShaxsiyMalumotlar() {
         <div className="bg-white rounded-[10px] p-5"
           style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
           <h3 className="text-base font-semibold mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Aloqa va identifikatsiya
+            {t("shaxsiy.contactAndId")}
           </h3>
           {[
-            { icon: Phone,  label: "Telefon",       value: s?.phone },
-            { icon: Mail,   label: "Email",          value: s?.email },
-            { icon: Hash,   label: "HEMIS ID",       value: s?.student_id_number },
-            { icon: Hash,   label: "Passport PIN",   value: s?.passport_pin },
+            { icon: Phone,  label: t("talabaMalumotlari.phone"),   value: s?.phone },
+            { icon: Mail,   label: t("talabaMalumotlari.email"),   value: s?.email },
+            { icon: Hash,   label: t("talabaMalumotlari.hemisId"), value: s?.student_id_number },
+            { icon: Hash,   label: t("shaxsiy.passportPin"),       value: s?.passport_pin },
           ].map(item => {
             const Icon = item.icon
             return (
@@ -101,15 +103,15 @@ export default function ShaxsiyMalumotlar() {
           })}
           <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(1,41,112,0.06)" }}>
             <h4 className="text-sm font-semibold mb-3" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              O&apos;quv ma&apos;lumotlari
+              {t("talabaMalumotlari.academicInfo")}
             </h4>
             {[
-              { label: "Fakultet",      value: s?.faculty?.name },
-              { label: "Yo'nalish",     value: s?.specialty?.name },
-              { label: "Guruh",         value: s?.group?.name },
-              { label: "Kurs",          value: s?.level?.name },
-              { label: "Ta'lim shakli", value: s?.educationForm?.name },
-              { label: "Ta'lim tili",   value: s?.educationLang?.name },
+              { label: t("talabaMalumotlari.faculty"),  value: s?.faculty?.name },
+              { label: t("shaxsiy.direction"),          value: s?.specialty?.name },
+              { label: t("talabaMalumotlari.group"),    value: s?.group?.name },
+              { label: t("talabaMalumotlari.course"),   value: s?.level?.name },
+              { label: t("talabaMalumotlari.eduForm"),  value: s?.educationForm?.name },
+              { label: t("talabaMalumotlari.eduLang"),  value: s?.educationLang?.name },
             ].map(item => (
               <div key={item.label} className="flex items-center justify-between py-2"
                 style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>

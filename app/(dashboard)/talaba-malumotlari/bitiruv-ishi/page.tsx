@@ -1,16 +1,18 @@
 "use client"
 
 import { BookOpen, Upload } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function BitiruIshi() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Bitiruv Ishi
+          {t("bitiruvIshi.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Bitiruv malakaviy ishi
+          {t("bitiruvIshi.subtitle")}
         </p>
       </div>
 
@@ -21,16 +23,16 @@ export default function BitiruIshi() {
           <BookOpen className="w-8 h-8" style={{ color: "#0e58a8" }} />
         </div>
         <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Bitiruv ishi hali topshirilmagan
+          {t("bitiruvIshi.notSubmitted")}
         </p>
         <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Bitiruv malakaviy ishingizni yuklash uchun quyidagi tugmani bosing
+          {t("bitiruvIshi.notSubmittedDesc")}
         </p>
         <button
           className="mt-6 flex items-center gap-2 px-6 py-2.5 rounded-[5px] text-sm font-medium text-white mx-auto transition-opacity hover:opacity-90"
           style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <Upload className="w-4 h-4" />
-          Ishni yuklash
+          {t("bitiruvIshi.uploadWork")}
         </button>
       </div>
     </div>

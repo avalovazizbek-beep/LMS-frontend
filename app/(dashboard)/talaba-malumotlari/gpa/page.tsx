@@ -4,6 +4,7 @@ import { TrendingUp, Award, BookOpen } from "lucide-react"
 import { hemisApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 interface HemisGpaItem {
   id: number | string
@@ -22,6 +23,7 @@ function gpaColor(gpa: number): { bg: string; color: string } {
 }
 
 export default function TalabaGpa() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => hemisApi.gpa())
   const items: HemisGpaItem[] = (data?.data as any) ?? []
 
@@ -36,10 +38,10 @@ export default function TalabaGpa() {
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Talaba GPA Bali
+          {t("talabaGpa.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Har yilgi o&apos;rtacha ball ko&apos;rsatkichi
+          {t("talabaGpa.subtitle")}
         </p>
       </div>
 
@@ -47,9 +49,9 @@ export default function TalabaGpa() {
       {avg && (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
           {[
-            { label: "Umumiy o'rtacha GPA", value: avg,             icon: Award,     color: "#1cc2dc" },
-            { label: "Ta'lim yillari",       value: items.length,   icon: BookOpen,  color: "#0e58a8" },
-            { label: "Eng yuqori GPA",       value: Math.max(...items.map(i => Number(i.gpa ?? 0))).toFixed(2), icon: TrendingUp, color: "#22c55e" },
+            { label: t("talabaGpa.overallAvg"), value: avg,             icon: Award,     color: "#1cc2dc" },
+            { label: t("talabaGpa.eduYears"),   value: items.length,   icon: BookOpen,  color: "#0e58a8" },
+            { label: t("talabaGpa.highestGpa"), value: Math.max(...items.map(i => Number(i.gpa ?? 0))).toFixed(2), icon: TrendingUp, color: "#22c55e" },
           ].map(s => {
             const Icon = s.icon
             return (
@@ -76,13 +78,13 @@ export default function TalabaGpa() {
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
         <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
           <h2 className="text-lg font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            O&apos;quv yillari bo&apos;yicha GPA
+            {t("talabaGpa.byYear")}
           </h2>
         </div>
         {items.length === 0 ? (
           <div className="p-10 text-center">
             <Award className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
-            <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>GPA ma&apos;lumotlari topilmadi</p>
+            <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("talabaGpa.notFound")}</p>
           </div>
         ) : (
           <div className="p-5 flex flex-col gap-4">

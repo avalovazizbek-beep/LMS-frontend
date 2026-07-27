@@ -1,16 +1,18 @@
 "use client"
 
 import { Star, Plus } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function StudentGrant() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Student Grant Application
+          {t("studentGrant.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Grant va stipendiya arizalari
+          {t("studentGrant.subtitle")}
         </p>
       </div>
 
@@ -21,16 +23,16 @@ export default function StudentGrant() {
           <Star className="w-8 h-8" style={{ color: "#f59e0b" }} />
         </div>
         <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Grant arizalari topilmadi
+          {t("studentGrant.notFound")}
         </p>
         <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Grant yoki stipendiya uchun ariza yuborish uchun quyidagi tugmani bosing
+          {t("studentGrant.notFoundDesc")}
         </p>
         <button
           className="mt-6 flex items-center gap-2 px-6 py-2.5 rounded-[5px] text-sm font-medium text-white mx-auto transition-opacity hover:opacity-90"
           style={{ backgroundColor: "#f59e0b", fontFamily: "var(--font-poppins)" }}>
           <Plus className="w-4 h-4" />
-          Ariza yuborish
+          {t("ijtimoiyFaollik.submitApp")}
         </button>
       </div>
     </div>
