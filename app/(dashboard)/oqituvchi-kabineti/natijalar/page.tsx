@@ -9,6 +9,7 @@ import {
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -57,6 +58,8 @@ function EditCell({
   onSave: (v: number | null) => Promise<void>
   maxVal?: number
 }) {
+  const { t } = useLanguage()
+  const editHintCell = t("natijalarOq.editHintCell")
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState("")
   const [saving, setSaving] = useState(false)
@@ -98,7 +101,7 @@ function EditCell({
         <span className="inline-block min-w-[32px] rounded-[4px] text-xs font-semibold px-1 py-0.5 cursor-pointer hover:ring-1 hover:ring-[#0e58a8] transition-all"
           style={{ color: value !== null ? c : "#94a3b8", backgroundColor: value !== null ? bg : "transparent", fontFamily: "var(--font-poppins)" }}
           onClick={startEdit}
-          title="Bosib tahrirlang">
+          title={editHintCell}>
           {value !== null ? value : "—"}
         </span>
       )}
@@ -151,6 +154,7 @@ function NotifyModal({
   subjectName: string
   onClose: () => void
 }) {
+  const { t } = useLanguage()
   const [message, setMessage] = useState("")
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
@@ -172,9 +176,9 @@ function NotifyModal({
           attendance: student.attendancePct,
         },
       })
-      setResult({ ok: true, text: res.message || "Yuborildi" })
+      setResult({ ok: true, text: res.message || t("natijalarOq.sentDefault") })
     } catch (e) {
-      setResult({ ok: false, text: e instanceof Error ? e.message : "Xatolik" })
+      setResult({ ok: false, text: e instanceof Error ? e.message : t("natijalarOq.errorDefault") })
     } finally {
       setSending(false)
     }
@@ -187,7 +191,7 @@ function NotifyModal({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4" style={{ color: "#0e58a8" }} />
-            <span className="text-sm font-semibold" style={T}>Telegram xabar</span>
+            <span className="text-sm font-semibold" style={T}>{t("natijalarOq.telegramTitle")}</span>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 transition-colors">
             <X className="w-4 h-4" style={{ color: "#94a3b8" }} />
@@ -201,11 +205,11 @@ function NotifyModal({
             {student.on1 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON1: {student.on1}</span>}
             {student.on2 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON2: {student.on2}</span>}
             {student.yn  != null && <span style={{ color: "#0891b2", fontFamily: "var(--font-poppins)" }}>YN: {student.yn}</span>}
-            {student.attendancePct != null && <span style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>Davomat: {student.attendancePct}%</span>}
+            {student.attendancePct != null && <span style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{t("natijalarOq.attendanceLabel")}: {student.attendancePct}%</span>}
           </div>
         </div>
         <textarea rows={4} value={message} onChange={e => setMessage(e.target.value)}
-          placeholder="Xabar matni (o'zbek tilida)..."
+          placeholder={t("natijalarOq.messagePlaceholder")}
           className="w-full rounded-[8px] p-3 text-sm resize-none outline-none"
           style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
         {result && (
@@ -218,7 +222,7 @@ function NotifyModal({
           className="flex items-center justify-center gap-2 py-2.5 rounded-[8px] text-sm font-semibold text-white transition-colors disabled:opacity-50"
           style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           {sending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
-          {sending ? "Yuborilmoqda..." : "Telegram ga yuborish"}
+          {sending ? t("natijalarOq.sending") : t("natijalarOq.sendToTelegram")}
         </button>
       </div>
     </div>
@@ -236,6 +240,7 @@ function GradeJournal({
   onRefresh: () => void
   refreshing: boolean
 }) {
+  const { t } = useLanguage()
   const [overrides, setOverrides] = useState<Record<string, number | null>>({})
   const [notifyStudent, setNotifyStudent] = useState<JournalStudent | null>(null)
 
@@ -266,14 +271,14 @@ function GradeJournal({
 
   function exportCsv() {
     const header = [
-      "#", "Talaba",
-      ...topics.map(t => `${t.idx}-mavzu`),
-      "JN (%)", "ON1", "ON2", "YN", "Davomat %",
+      "#", t("natijalarOq.csvStudent"),
+      ...topics.map(tp => t("natijalarOq.csvTopicCol", { n: tp.idx })),
+      t("natijalarOq.csvJnPct"), "ON1", "ON2", "YN", t("natijalarOq.csvAttendancePct"),
     ]
     const rows = students.map((s, i) => [
       i + 1,
       s.fullName,
-      ...topics.map(t => s.topicScores[t.key] ?? ""),
+      ...topics.map(tp => s.topicScores[tp.key] ?? ""),
       s.jn !== null ? `${s.jn}%` : "",
       getVal(s.userId, "on1", s) ?? "",
       getVal(s.userId, "on2", s) ?? "",
@@ -293,10 +298,10 @@ function GradeJournal({
       {/* Stat kartalar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { icon: <Users className="w-5 h-5" style={{ color: "#0e58a8" }} />, val: students.length, label: "Jami talabalar", bg: "#eef4ff" },
-          { icon: <BarChart3 className="w-5 h-5" style={{ color: "#15803d" }} />, val: `${avgJn}%`, label: "O'rtacha JN", bg: "#f0fdf4" },
-          { icon: <BookOpen className="w-5 h-5" style={{ color: "#d97706" }} />, val: topics.length, label: "Mavzular soni", bg: "#fffbeb" },
-          { icon: <CheckCircle className="w-5 h-5" style={{ color: "#7c3aed" }} />, val: `${passed}/${students.length}`, label: "O'tgan", bg: "#f5f3ff" },
+          { icon: <Users className="w-5 h-5" style={{ color: "#0e58a8" }} />, val: students.length, label: t("natijalarOq.totalStudents"), bg: "#eef4ff" },
+          { icon: <BarChart3 className="w-5 h-5" style={{ color: "#15803d" }} />, val: `${avgJn}%`, label: t("natijalarOq.avgJn"), bg: "#f0fdf4" },
+          { icon: <BookOpen className="w-5 h-5" style={{ color: "#d97706" }} />, val: topics.length, label: t("natijalarOq.topicsCount"), bg: "#fffbeb" },
+          { icon: <CheckCircle className="w-5 h-5" style={{ color: "#7c3aed" }} />, val: `${passed}/${students.length}`, label: t("natijalarOq.passed"), bg: "#f5f3ff" },
         ].map(c => (
           <div key={c.label} className="rounded-[10px] bg-white p-4 flex items-center gap-3"
             style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
@@ -315,19 +320,19 @@ function GradeJournal({
         <div className="px-4 py-3 flex items-center justify-between flex-wrap gap-2"
           style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <div>
-            <span className="text-sm font-semibold" style={T}>Talabalar ballari jurnali</span>
-            <span className="ml-2 text-xs" style={L}>· JN = topshirilgan mavzular o&apos;rtachasi (%) · ON/YN katakchalarini bosib tahrirlang</span>
+            <span className="text-sm font-semibold" style={T}>{t("natijalarOq.journalTitle")}</span>
+            <span className="ml-2 text-xs" style={L}>{t("natijalarOq.journalHint")}</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={exportCsv}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#eef4ff]"
               style={{ border: "1px solid rgba(14,88,168,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              <Download className="w-3.5 h-3.5" /> Eksport
+              <Download className="w-3.5 h-3.5" /> {t("natijalarOq.export")}
             </button>
             <button onClick={onRefresh}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#f0fdf4]"
               style={{ border: "1px solid rgba(21,128,61,0.25)", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} /> Yangilash
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} /> {t("natijalarOq.refresh")}
             </button>
           </div>
         </div>
@@ -339,27 +344,27 @@ function GradeJournal({
               <tr style={{ backgroundColor: "#e8f0fe", borderBottom: "1px solid rgba(1,41,112,0.12)" }}>
                 <th rowSpan={2} className="sticky left-0 z-20 px-3 py-2 text-left text-xs font-semibold"
                   style={{ ...T, backgroundColor: "#e8f0fe", minWidth: 190, borderRight: "2px solid rgba(1,41,112,0.15)" }}>
-                  TALABA
+                  {t("natijalarOq.colStudent")}
                 </th>
                 <th colSpan={topics.length} className="px-2 py-1.5 text-center text-xs font-semibold"
                   style={{ ...T, borderRight: "2px solid rgba(1,41,112,0.15)", backgroundColor: "#dbeafe" }}>
-                  MAVZULAR BO&apos;YICHA BALL
+                  {t("natijalarOq.colTopicScores")}
                 </th>
                 <th colSpan={1} className="px-2 py-1.5 text-center text-xs font-semibold"
                   style={{ ...T, borderRight: "1px solid rgba(1,41,112,0.12)", backgroundColor: "#dcfce7" }}>
-                  JN
+                  {t("natijalarOq.colJn")}
                 </th>
                 <th colSpan={2} className="px-2 py-1.5 text-center text-xs font-semibold"
                   style={{ ...T, borderRight: "1px solid rgba(1,41,112,0.12)", backgroundColor: "#fef9c3" }}>
-                  ORALIQ (ON)
+                  {t("natijalarOq.colOn")}
                 </th>
                 <th colSpan={1} className="px-2 py-1.5 text-center text-xs font-semibold"
                   style={{ ...T, borderRight: "1px solid rgba(1,41,112,0.12)", backgroundColor: "#fce7f3" }}>
-                  YAKUNIY
+                  {t("natijalarOq.colYn")}
                 </th>
                 <th colSpan={1} className="px-2 py-1.5 text-center text-xs font-semibold"
                   style={{ ...T, backgroundColor: "#f0fdf4" }}>
-                  DAVOMAT
+                  {t("natijalarOq.colAttendance")}
                 </th>
               </tr>
               {/* 2-qator: har bir ustun */}
@@ -376,12 +381,12 @@ function GradeJournal({
                   </th>
                 ))}
                 {[
-                  { label: "JN %",    bg: "#f0fdf4", br: "rgba(1,41,112,0.12)" },
-                  { label: "ON1",     bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
-                  { label: "ON2",     bg: "#fefce8", br: "rgba(1,41,112,0.12)" },
-                  { label: "YN",      bg: "#fdf2f8", br: "rgba(1,41,112,0.12)" },
-                  { label: "Davomat", bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" },
-                  { label: "📣",      bg: "#fff7ed", br: "transparent" },
+                  { label: t("natijalarOq.colJnPct"),           bg: "#f0fdf4", br: "rgba(1,41,112,0.12)" },
+                  { label: "ON1",                                bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
+                  { label: "ON2",                                bg: "#fefce8", br: "rgba(1,41,112,0.12)" },
+                  { label: "YN",                                 bg: "#fdf2f8", br: "rgba(1,41,112,0.12)" },
+                  { label: t("natijalarOq.colAttendanceShort"),  bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" },
+                  { label: "📣",                                 bg: "#fff7ed", br: "transparent" },
                 ].map(col => (
                   <th key={col.label} className="px-2 py-2 text-center text-[10px] font-semibold"
                     style={{ ...T, minWidth: 50, backgroundColor: col.bg, borderRight: `1px solid ${col.br}` }}>
@@ -394,7 +399,7 @@ function GradeJournal({
             <tbody>
               {students.length === 0 ? (
                 <tr><td colSpan={topics.length + 7} className="px-4 py-14 text-center text-sm" style={L}>
-                  Hech qanday natija topilmadi
+                  {t("natijalarOq.noResults")}
                 </td></tr>
               ) : students.map((s, idx) => (
                 <tr key={s.userId} className="hover:bg-[#f8faff]"
@@ -435,7 +440,7 @@ function GradeJournal({
                     <button
                       onClick={() => setNotifyStudent(s)}
                       className="w-7 h-7 rounded-full flex items-center justify-center mx-auto hover:bg-orange-100 transition-colors"
-                      title="Xabar yuborish">
+                      title={t("natijalarOq.sendMessage")}>
                       <Bell className="w-3.5 h-3.5" style={{ color: "#ea580c" }} />
                     </button>
                   </td>
@@ -447,8 +452,8 @@ function GradeJournal({
 
         <div className="px-4 py-2.5 flex items-center justify-between text-xs"
           style={{ borderTop: "1px solid rgba(1,41,112,0.08)", ...L }}>
-          <span>Jami: {students.length} ta talaba</span>
-          <span style={{ color: "#0e58a8" }}>ON/YN: katakchani bosib, son kiriting → Enter yoki boshqa joyga bosing</span>
+          <span>{t("natijalarOq.totalCount", { n: students.length })}</span>
+          <span style={{ color: "#0e58a8" }}>{t("natijalarOq.editHint")}</span>
         </div>
       </div>
 
@@ -465,6 +470,7 @@ function GradeJournal({
 
 /* ─── Sahifa ─────────────────────────────────────────────────────────── */
 export default function NatijalarPage() {
+  const { t } = useLanguage()
   const { data: groupsRes, loading: lGroups, error: eGroups } = useApi(() => teachingApi.groups(), [])
 
   const groups = groupsRes?.data ?? []
@@ -504,25 +510,25 @@ export default function NatijalarPage() {
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
         <div className="flex items-center gap-2 mb-3">
           <BarChart3 className="w-4 h-4" style={{ color: "#0e58a8" }} />
-          <span className="text-sm font-semibold" style={T}>Mavzular bo&apos;yicha natijalar</span>
+          <span className="text-sm font-semibold" style={T}>{t("natijalarOq.pageTitle")}</span>
         </div>
         <div className="flex flex-wrap gap-4">
           <div className="flex flex-col gap-1 min-w-[200px] flex-1">
-            <label className="text-xs font-medium" style={L}>O&apos;quv guruhi</label>
+            <label className="text-xs font-medium" style={L}>{t("natijalarOq.group")}</label>
             <select value={groupId}
               onChange={e => { setGroupId(Number(e.target.value) || ""); setSubjectName("") }}
               className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              <option value="">— Guruhni tanlang —</option>
+              <option value="">{t("natijalarOq.selectGroup")}</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1 min-w-[220px] flex-1">
-            <label className="text-xs font-medium" style={L}>Fan</label>
+            <label className="text-xs font-medium" style={L}>{t("natijalarOq.subject")}</label>
             <select value={subjectName} onChange={e => setSubjectName(e.target.value)}
               disabled={groupId === ""}
               className={sel}
               style={{ color: "#012970", fontFamily: "var(--font-poppins)", opacity: groupId === "" ? 0.5 : 1 }}>
-              <option value="">— Fanni tanlang —</option>
+              <option value="">{t("natijalarOq.selectSubject")}</option>
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -534,14 +540,14 @@ export default function NatijalarPage() {
         <div className="rounded-[10px] bg-white p-14 text-center"
           style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <BarChart3 className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-medium" style={T}>Guruh va fanni tanlang</p>
-          <p className="text-xs mt-1" style={L}>Talabalarning mavzu bo&apos;yicha test ballari va davomat chiqadi</p>
+          <p className="text-sm font-medium" style={T}>{t("natijalarOq.selectGroupSubject")}</p>
+          <p className="text-xs mt-1" style={L}>{t("natijalarOq.selectHint")}</p>
         </div>
       ) : loading ? (
         <div className="rounded-[10px] bg-white p-14 text-center"
           style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <div className="w-7 h-7 border-2 border-[#0e58a8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm" style={L}>Jurnal yuklanmoqda...</p>
+          <p className="text-sm" style={L}>{t("natijalarOq.journalLoading")}</p>
         </div>
       ) : error ? (
         <ApiError message={error} onRetry={refetch} />
@@ -549,8 +555,8 @@ export default function NatijalarPage() {
         <div className="rounded-[10px] bg-white p-14 text-center"
           style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <BookOpen className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-medium" style={T}>Mavzular topilmadi</p>
-          <p className="text-xs mt-1" style={L}>Bu guruh va fan uchun hali mavzu yaratilmagan</p>
+          <p className="text-sm font-medium" style={T}>{t("natijalarOq.topicsNotFound")}</p>
+          <p className="text-xs mt-1" style={L}>{t("natijalarOq.noTopicsHint")}</p>
         </div>
       ) : (
         <GradeJournal

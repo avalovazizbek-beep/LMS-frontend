@@ -9,6 +9,7 @@ import {
 import { teachingApi, type TeacherScheduleItem } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
@@ -27,6 +28,7 @@ function SubjectsList({
   schedule: TeacherScheduleItem[]
   onSelect: (subject: string, groupId: number, groupName: string) => void
 }) {
+  const { t } = useLanguage()
   const [groupId, setGroupId] = useState<number | null>(groups[0]?.id ?? null)
   const activeGroupId = groupId ?? groups[0]?.id ?? null
   const activeGroup = groups.find(g => g.id === activeGroupId)
@@ -47,14 +49,14 @@ function SubjectsList({
   return (
     <div className="flex flex-col gap-5 p-[30px]">
       <div>
-        <h1 className="text-[28px] font-medium" style={titleStyle}>Fan mavzulari</h1>
-        <p className="text-sm mt-1" style={labelStyle}>Fanni tanlang va mavzularini boshqaring</p>
+        <h1 className="text-[28px] font-medium" style={titleStyle}>{t("mavzularOq.title")}</h1>
+        <p className="text-sm mt-1" style={labelStyle}>{t("mavzularOq.subtitle")}</p>
       </div>
 
       <div className="rounded-[10px] bg-white p-4 flex flex-wrap items-center gap-3"
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium" style={labelStyle}>Guruh</label>
+          <label className="text-xs font-medium" style={labelStyle}>{t("mavzularOq.group")}</label>
           <select
             value={activeGroupId ?? ""}
             onChange={e => setGroupId(Number(e.target.value))}
@@ -68,7 +70,7 @@ function SubjectsList({
         </div>
         {activeGroup?.direction && (
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium" style={labelStyle}>Yo&apos;nalish</span>
+            <span className="text-xs font-medium" style={labelStyle}>{t("mavzularOq.direction")}</span>
             <span className="px-3 py-2 rounded-[5px] text-sm"
               style={{ backgroundColor: "#f6f9ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
               {activeGroup.direction}
@@ -81,7 +83,7 @@ function SubjectsList({
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <h2 className="text-base font-semibold" style={titleStyle}>
-            Fanlar {subjects.length > 0 && <span className="text-sm font-normal" style={labelStyle}>({subjects.length} ta)</span>}
+            {t("mavzularOq.subjects")} {subjects.length > 0 && <span className="text-sm font-normal" style={labelStyle}>{t("mavzularOq.countUnit", { n: subjects.length })}</span>}
           </h2>
         </div>
 
@@ -89,9 +91,9 @@ function SubjectsList({
           <div className="px-5 py-14 text-center">
             <BookMarked className="w-10 h-10 mx-auto mb-3" style={{ color: "#c2cfe0" }} />
             <p className="text-sm" style={labelStyle}>
-              {activeGroupId ? "Bu guruh uchun fan topilmadi" : "Guruhni tanlang"}
+              {activeGroupId ? t("mavzularOq.noSubjectsForGroup") : t("mavzularOq.selectGroup")}
             </p>
-            <p className="text-xs mt-1" style={labelStyle}>HEMIS jadval sinxronizatsiyasi kerak bo&apos;lishi mumkin</p>
+            <p className="text-xs mt-1" style={labelStyle}>{t("mavzularOq.hemisSyncHint")}</p>
           </div>
         ) : (
           <div className="flex flex-col">
@@ -130,6 +132,7 @@ function TopicsView({
   groupName: string
   onBack: () => void
 }) {
+  const { t } = useLanguage()
   const { data: contentRes, loading: lContent, error: eContent, refetch: rContent } = useApi(
     () => teachingApi.content({ group: groupId, subject: subjectName }),
     [groupId, subjectName]
@@ -183,7 +186,7 @@ function TopicsView({
       setAdding(false)
       await rContent()
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : "Mavzu qo'shishda xatolik yuz berdi")
+      setAddError(err instanceof Error ? err.message : t("mavzularOq.addError"))
     } finally {
       setAddLoading(false)
     }
@@ -204,7 +207,7 @@ function TopicsView({
       setEditKey(null)
       await rContent()
     } catch (err) {
-      setOpError(err instanceof Error ? err.message : "Tahrirlashda xatolik yuz berdi")
+      setOpError(err instanceof Error ? err.message : t("mavzularOq.editError"))
     } finally {
       setEditLoading(false)
     }
@@ -219,7 +222,7 @@ function TopicsView({
       setDeleteKey(null)
       await rContent()
     } catch (err) {
-      setOpError(err instanceof Error ? err.message : "O'chirishda xatolik yuz berdi")
+      setOpError(err instanceof Error ? err.message : t("mavzularOq.deleteError"))
     } finally {
       setDeleteLoading(false)
     }
@@ -235,7 +238,7 @@ function TopicsView({
         </button>
         <div>
           <h1 className="text-[22px] font-medium leading-snug" style={titleStyle}>{subjectName}</h1>
-          <p className="text-sm mt-0.5" style={labelStyle}>{groupName} — Mavzular</p>
+          <p className="text-sm mt-0.5" style={labelStyle}>{t("mavzularOq.subjectTopics", { group: groupName })}</p>
         </div>
       </div>
 
@@ -244,16 +247,16 @@ function TopicsView({
         <div className="flex items-center justify-between px-5 py-4"
           style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <h2 className="text-base font-semibold" style={titleStyle}>
-            Mavzular
+            {t("mavzularOq.topics")}
             {topics.length > 0 && (
-              <span className="ml-2 text-sm font-normal" style={labelStyle}>({topics.length} ta)</span>
+              <span className="ml-2 text-sm font-normal" style={labelStyle}>{t("mavzularOq.countUnit", { n: topics.length })}</span>
             )}
           </h2>
           <button onClick={() => { setAdding(v => !v); setAddError(null) }}
             className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
             style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             <Plus className="w-4 h-4" />
-            Mavzu qo&apos;shish
+            {t("mavzularOq.addTopic")}
           </button>
         </div>
 
@@ -276,7 +279,7 @@ function TopicsView({
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleAddTopic()}
-                placeholder="Mavzu nomi"
+                placeholder={t("mavzularOq.topicName")}
                 className="flex-1 px-3 py-2.5 rounded-[5px] text-sm outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
                 autoFocus
@@ -285,12 +288,12 @@ function TopicsView({
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-[6px] text-sm font-medium text-white disabled:opacity-60"
                 style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 {addLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Qo&apos;shish
+                {t("mavzularOq.add")}
               </button>
               <button onClick={() => { setAdding(false); setNewTitle("") }}
                 className="px-3 py-2.5 rounded-[6px] text-sm font-medium"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Bekor
+                {t("mavzularOq.cancel")}
               </button>
             </div>
           </div>
@@ -303,8 +306,8 @@ function TopicsView({
         ) : topics.length === 0 ? (
           <div className="px-5 py-14 text-center">
             <BookOpen className="w-10 h-10 mx-auto mb-3" style={{ color: "#c2cfe0" }} />
-            <p className="text-sm font-medium" style={titleStyle}>Hali mavzu qo&apos;shilmagan</p>
-            <p className="text-xs mt-1" style={labelStyle}>Yuqoridagi tugma orqali birinchi mavzuni qo&apos;shing</p>
+            <p className="text-sm font-medium" style={titleStyle}>{t("mavzularOq.noTopicsYet")}</p>
+            <p className="text-xs mt-1" style={labelStyle}>{t("mavzularOq.addFirstTopic")}</p>
           </div>
         ) : (
           <div className="flex flex-col">
@@ -341,18 +344,18 @@ function TopicsView({
                 ) : deleteKey === topic.topicKey ? (
                   <div className="flex flex-1 items-center gap-3 min-w-0">
                     <span className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      <span className="font-medium" style={{ color: "#b91c1c" }}>&quot;{topic.title}&quot;</span> ni o&apos;chirasizmi?
+                      {t("mavzularOq.deleteConfirm", { title: topic.title })}
                     </span>
                     <button onClick={() => handleDelete(topic.topicKey)} disabled={deleteLoading}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-sm font-medium text-white disabled:opacity-60"
                       style={{ backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
                       {deleteLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                      Ha, o&apos;chir
+                      {t("mavzularOq.yesDelete")}
                     </button>
                     <button onClick={() => setDeleteKey(null)}
                       className="px-3 py-1.5 rounded-[6px] text-sm"
                       style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      Bekor
+                      {t("mavzularOq.cancel")}
                     </button>
                   </div>
                 ) : (
@@ -364,12 +367,12 @@ function TopicsView({
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => startEdit(topic)}
                         className="flex items-center justify-center w-8 h-8 rounded-[6px] transition-colors hover:bg-[#f0f5ff]"
-                        title="Tahrirlash">
+                        title={t("mavzularOq.edit")}>
                         <Pencil className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
                       </button>
                       <button onClick={() => { setDeleteKey(topic.topicKey); setOpError(null) }}
                         className="flex items-center justify-center w-8 h-8 rounded-[6px] transition-colors hover:bg-red-50"
-                        title="O'chirish">
+                        title={t("mavzularOq.delete")}>
                         <Trash2 className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
                       </button>
                     </div>

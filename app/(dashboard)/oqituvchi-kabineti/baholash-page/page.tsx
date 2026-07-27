@@ -9,6 +9,7 @@ import {
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -34,6 +35,7 @@ function SubmissionsList({
   content: TeacherContent
   onBack: () => void
 }) {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(
     () => teachingApi.submissions(content.id),
     [content.id]
@@ -72,7 +74,7 @@ function SubmissionsList({
       setSaved(prev => ({ ...prev, [sub.id]: true }))
       refetch()
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Xatolik")
+      setSaveError(e instanceof Error ? e.message : t("natijalarOq.errorDefault"))
     } finally {
       setSaving(prev => ({ ...prev, [sub.id]: false }))
     }
@@ -85,7 +87,7 @@ function SubmissionsList({
       await teachingApi.toggleContent(content.id)
       setFinalized(true)
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Xatolik")
+      setSaveError(e instanceof Error ? e.message : t("natijalarOq.errorDefault"))
     } finally {
       setFinalizing(false)
     }
@@ -100,7 +102,7 @@ function SubmissionsList({
     <div className="flex flex-col gap-5">
       {/* Back link */}
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm w-fit hover:underline transition-opacity" style={L}>
-        <ChevronLeft className="w-4 h-4" /> Orqaga
+        <ChevronLeft className="w-4 h-4" /> {t("baholashPageOq.back")}
       </button>
 
       {/* Header card */}
@@ -119,18 +121,18 @@ function SubmissionsList({
               <div className="flex flex-wrap gap-2 mt-2">
                 <span className="text-[11px] px-2.5 py-1 rounded-full font-medium"
                   style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  Maks. ball: {content.maxScore ?? "—"}
+                  {t("baholashPageOq.maxScore", { n: content.maxScore ?? "—" })}
                 </span>
                 {content.deadline && (
                   <span className="text-[11px] px-2.5 py-1 rounded-full font-medium"
                     style={{ backgroundColor: "#f5f3ff", color: "#6d28d9", fontFamily: "var(--font-poppins)" }}>
-                    Muddat: {new Date(content.deadline).toLocaleDateString("uz-UZ")}
+                    {t("baholashPageOq.deadline", { date: new Date(content.deadline).toLocaleDateString("uz-UZ") })}
                   </span>
                 )}
                 {(content.isActive === false || finalized) && (
                   <span className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-medium"
                     style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                    <Lock className="w-3 h-3" /> Yakunlangan (admin kerak)
+                    <Lock className="w-3 h-3" /> {t("baholashPageOq.finalizedTag")}
                   </span>
                 )}
               </div>
@@ -141,11 +143,11 @@ function SubmissionsList({
           <div className="flex items-center gap-3 shrink-0">
             <div className="text-center px-4 py-2 rounded-[10px]" style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.08)" }}>
               <div className="text-2xl font-bold" style={T}>{submissions.length}</div>
-              <div className="text-[10px] mt-0.5 font-medium" style={L}>Topshirildi</div>
+              <div className="text-[10px] mt-0.5 font-medium" style={L}>{t("baholashPageOq.submittedStat")}</div>
             </div>
             <div className="text-center px-4 py-2 rounded-[10px]" style={{ backgroundColor: gradedCount === submissions.length && submissions.length > 0 ? "#f0fdf4" : "#f6f9ff", border: `1px solid ${gradedCount === submissions.length && submissions.length > 0 ? "rgba(21,128,61,0.15)" : "rgba(1,41,112,0.08)"}` }}>
               <div className="text-2xl font-bold" style={{ color: gradedCount === submissions.length && submissions.length > 0 ? "#15803d" : "#012970", fontFamily: "var(--font-poppins)" }}>{gradedCount}</div>
-              <div className="text-[10px] mt-0.5 font-medium" style={L}>Baholandi</div>
+              <div className="text-[10px] mt-0.5 font-medium" style={L}>{t("baholashPageOq.gradedStat")}</div>
             </div>
           </div>
         </div>
@@ -162,12 +164,12 @@ function SubmissionsList({
       {submissions.length === 0 ? (
         <div className="rounded-[10px] bg-white p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-medium" style={T}>Hali hech kim topshirmagan</p>
+          <p className="text-sm font-medium" style={T}>{t("baholashPageOq.noSubmissions")}</p>
         </div>
       ) : (
         <>
           <div className="text-xs px-1 font-medium" style={L}>
-            Baholanmagan talabalar — {submissions.filter(s => s.grade === null).length} ta
+            {t("baholashPageOq.ungradedCount", { n: submissions.filter(s => s.grade === null).length })}
           </div>
 
           <div className="flex flex-col gap-3">
@@ -189,13 +191,13 @@ function SubmissionsList({
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
                       <div className="text-sm font-semibold" style={T}>{sub.studentFullName}</div>
-                      <div className="text-xs mt-0.5" style={L}>Topshirildi: {fmtDate(sub.submittedAt)}</div>
+                      <div className="text-xs mt-0.5" style={L}>{t("baholashPageOq.submittedAt", { date: fmtDate(sub.submittedAt) })}</div>
                       {sub.comment && <div className="text-xs mt-1 italic" style={L}>"{sub.comment}"</div>}
                     </div>
                     {(isGraded || isSavedNow) && (
                       <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
                         <CheckCircle className="w-3.5 h-3.5" />
-                        {sub.grade !== null ? `${sub.grade} ball` : `${gradeVal} ball`} baholandi
+                        {t("baholashPageOq.gradedBadge", { grade: sub.grade !== null ? sub.grade : gradeVal })}
                       </span>
                     )}
                   </div>
@@ -220,7 +222,7 @@ function SubmissionsList({
                     <div className="flex items-end gap-3 flex-wrap">
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-medium" style={L}>
-                          Baho {content.maxScore !== null ? `(0–${content.maxScore})` : ""}
+                          {t("baholashPageOq.gradeLabel", { range: content.maxScore !== null ? `(0–${content.maxScore})` : "" })}
                         </label>
                         <input
                           type="number"
@@ -228,18 +230,18 @@ function SubmissionsList({
                           max={content.maxScore ?? undefined}
                           value={gradeVal}
                           onChange={e => setGrades(prev => ({ ...prev, [sub.id]: e.target.value }))}
-                          placeholder="Ball"
+                          placeholder={t("baholashPageOq.gradePlaceholder")}
                           className="w-24 px-3 py-2 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none bg-white"
                           style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
                         />
                       </div>
                       <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
-                        <label className="text-xs font-medium" style={L}>Izoh (ixtiyoriy)</label>
+                        <label className="text-xs font-medium" style={L}>{t("baholashPageOq.feedbackLabel")}</label>
                         <input
                           type="text"
                           value={feedbackVal}
                           onChange={e => setFeedbacks(prev => ({ ...prev, [sub.id]: e.target.value }))}
-                          placeholder="O'qituvchi izohi..."
+                          placeholder={t("baholashPageOq.feedbackPlaceholder")}
                           className="w-full px-3 py-2 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none bg-white"
                           style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
                         />
@@ -250,7 +252,7 @@ function SubmissionsList({
                         className="px-4 py-2 rounded-[8px] text-sm font-semibold text-white disabled:opacity-50 transition-colors"
                         style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}
                       >
-                        {isSaving ? "Saqlanmoqda..." : "Saqlash"}
+                        {isSaving ? t("baholashPageOq.saving") : t("baholashPageOq.save")}
                       </button>
                     </div>
                   )}
@@ -258,7 +260,7 @@ function SubmissionsList({
                   {(isGraded || isSavedNow) && (
                     <div className="flex items-center gap-2 text-xs" style={L}>
                       <Lock className="w-3 h-3" />
-                      Baho qulflandi — o'zgartirish uchun admin ruxsati kerak
+                      {t("baholashPageOq.lockedGrade")}
                     </div>
                   )}
                 </div>
@@ -270,9 +272,9 @@ function SubmissionsList({
           {!(content.isActive === false || finalized) && allGraded && (
             <div className="rounded-[10px] p-4 flex items-center justify-between gap-4" style={{ backgroundColor: "#fffbeb", border: "1px solid rgba(217,119,6,0.25)" }}>
               <div>
-                <div className="text-sm font-semibold" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>Barcha talabalar baholandi</div>
+                <div className="text-sm font-semibold" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>{t("baholashPageOq.allGradedTitle")}</div>
                 <div className="text-xs mt-0.5" style={{ color: "#b45309", fontFamily: "var(--font-poppins)" }}>
-                  "Yakunlash" bosib topshiriqni yopasiz — keyinchalik admin ruxsati bilan ochiladi
+                  {t("baholashPageOq.allGradedHint")}
                 </div>
               </div>
               <button
@@ -282,7 +284,7 @@ function SubmissionsList({
                 style={{ backgroundColor: "#d97706", fontFamily: "var(--font-poppins)" }}
               >
                 <Lock className="w-4 h-4" />
-                {finalizing ? "Yopilmoqda..." : "Baholashni yakunlash"}
+                {finalizing ? t("baholashPageOq.closing") : t("baholashPageOq.finalizeBtn")}
               </button>
             </div>
           )}
@@ -294,6 +296,7 @@ function SubmissionsList({
 
 /* ── Main page ───────────────────────────────────────────────────────── */
 export default function BaholashPage() {
+  const { t } = useLanguage()
   const [groupId, setGroupId] = useState<number | "">("")
   const [subjectName, setSubjectName] = useState("")
   const [selectedContent, setSelectedContent] = useState<TeacherContent | null>(null)
@@ -326,8 +329,8 @@ export default function BaholashPage() {
     return (
       <div className="flex flex-col gap-5 p-[30px]">
         <div>
-          <h1 className="text-[28px] font-medium" style={T}>Baholash</h1>
-          <p className="text-sm mt-1" style={L}>Talabalar topshirgan ishlarni ko'rib baholang</p>
+          <h1 className="text-[28px] font-medium" style={T}>{t("baholashPageOq.pageTitle")}</h1>
+          <p className="text-sm mt-1" style={L}>{t("baholashPageOq.subtitleSubmissions")}</p>
         </div>
         <SubmissionsList content={selectedContent} onBack={() => setSelectedContent(null)} />
       </div>
@@ -337,29 +340,29 @@ export default function BaholashPage() {
   return (
     <div className="flex flex-col gap-5 p-[30px]">
       <div>
-        <h1 className="text-[28px] font-medium" style={T}>Baholash</h1>
-        <p className="text-sm mt-1" style={L}>Talabalar topshirgan amaliy ishlarni baholash</p>
+        <h1 className="text-[28px] font-medium" style={T}>{t("baholashPageOq.pageTitle")}</h1>
+        <p className="text-sm mt-1" style={L}>{t("baholashPageOq.subtitleMain")}</p>
       </div>
 
       {/* Filters */}
       <div className="rounded-[10px] bg-white p-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="flex flex-wrap gap-4">
           <div className="flex flex-col gap-1 min-w-[200px] flex-1">
-            <label className="text-xs font-medium" style={L}>O'quv guruhi</label>
+            <label className="text-xs font-medium" style={L}>{t("baholashPageOq.group")}</label>
             <select value={groupId}
               onChange={e => { setGroupId(Number(e.target.value) || ""); setSubjectName("") }}
               className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              <option value="">— Guruhni tanlang —</option>
+              <option value="">{t("baholashPageOq.selectGroup")}</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1 min-w-[220px] flex-1">
-            <label className="text-xs font-medium" style={L}>Fan</label>
+            <label className="text-xs font-medium" style={L}>{t("baholashPageOq.subject")}</label>
             <select value={subjectName} onChange={e => setSubjectName(e.target.value)}
               disabled={groupId === ""}
               className={sel}
               style={{ color: "#012970", fontFamily: "var(--font-poppins)", opacity: groupId === "" ? 0.5 : 1 }}>
-              <option value="">— Fanni tanlang —</option>
+              <option value="">{t("baholashPageOq.selectSubject")}</option>
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -370,20 +373,20 @@ export default function BaholashPage() {
       {!ready ? (
         <div className="rounded-[10px] bg-white p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-medium" style={T}>Guruh va fanni tanlang</p>
+          <p className="text-sm font-medium" style={T}>{t("baholashPageOq.selectGroupSubject")}</p>
         </div>
       ) : lContent ? (
         <div className="rounded-[10px] bg-white p-8 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <div className="w-7 h-7 border-2 border-[#0e58a8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm" style={L}>Yuklanmoqda...</p>
+          <p className="text-sm" style={L}>{t("baholashPageOq.loading")}</p>
         </div>
       ) : eContent ? (
         <ApiError message={eContent} onRetry={() => {}} />
       ) : assignments.length === 0 ? (
         <div className="rounded-[10px] bg-white p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-medium" style={T}>Amaliy topshiriqlar topilmadi</p>
-          <p className="text-xs mt-1" style={L}>Bu guruh va fan uchun hali topshiriq yuklanmagan</p>
+          <p className="text-sm font-medium" style={T}>{t("baholashPageOq.notFound")}</p>
+          <p className="text-xs mt-1" style={L}>{t("baholashPageOq.notFoundHint")}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -398,18 +401,18 @@ export default function BaholashPage() {
                 <div className="text-sm font-semibold" style={T}>{content.title}</div>
                 <div className="text-xs mt-0.5" style={L}>
                   {content.topicKey && <span>{content.topicKey} · </span>}
-                  Maks. ball: {content.maxScore ?? "—"}
-                  {content.deadline && <span> · Muddat: {new Date(content.deadline).toLocaleDateString("uz-UZ")}</span>}
+                  {t("baholashPageOq.maxScore", { n: content.maxScore ?? "—" })}
+                  {content.deadline && <span> · {t("baholashPageOq.deadline", { date: new Date(content.deadline).toLocaleDateString("uz-UZ") })}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {content.isActive === false ? (
                   <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                    Yakunlangan
+                    {t("baholashPageOq.finalizedBadge")}
                   </span>
                 ) : (
                   <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                    Faol
+                    {t("baholashPageOq.activeBadge")}
                   </span>
                 )}
                 <span className="text-xs" style={{ color: "#0e58a8" }}>→</span>
