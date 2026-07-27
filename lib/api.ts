@@ -27,7 +27,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     sessionStorage.removeItem("lms_role")
     localStorage.removeItem("lms_token")
     localStorage.removeItem("lms_role")
-    window.location.href = "/login"
+    window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/login`
     throw new Error("Sessiya tugadi")
   }
   if (!res.ok) {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { Clock, ChevronLeft, ChevronRight, CheckCircle2, Flag } from "lucide-react"
 import FaceProctor from "@/components/ui/FaceProctor"
 
@@ -70,7 +71,7 @@ export default function TestPage() {
           <h2 className="text-2xl font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Test yakunlandi!</h2>
           <p className="text-base mt-3 font-semibold" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{correct} / {questions.length} to'g'ri javob</p>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Ball: {Math.round((correct / questions.length) * 100)}</p>
-          <a href="/dashboard" className="inline-block mt-6 px-6 py-2.5 rounded-[5px] text-white font-medium" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>Dashboardga qaytish</a>
+          <Link href="/dashboard" className="inline-block mt-6 px-6 py-2.5 rounded-[5px] text-white font-medium" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>Dashboardga qaytish</Link>
         </div>
       </div>
     )
