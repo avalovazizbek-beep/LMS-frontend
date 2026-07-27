@@ -6,6 +6,7 @@ import { Plus, Trash2, Pin, Calendar, Tag } from "lucide-react"
 import { boardApi, BoardPost } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const tags = ["Muhim", "E'lon", "Moliya", "Sport", "Texnik", "Boshqa"]
 const tagStyles: Record<string, { color: string; bg: string }> = {
@@ -16,8 +17,13 @@ const tagStyles: Record<string, { color: string; bg: string }> = {
   "Texnik": { color: "#1cc2dc", bg: "#f0fbfd" },
   "Boshqa": { color: "#7293b9", bg: "#f6f9ff" },
 }
+const tagKeys: Record<string, string> = {
+  "Muhim": "board.tag.important", "E'lon": "board.tag.announcement", "Moliya": "board.tag.finance",
+  "Sport": "board.tag.sport", "Texnik": "board.tag.technical", "Boshqa": "board.tag.other",
+}
 
 export default function BoardPage() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => boardApi.getAll())
   const posts: BoardPost[] = data?.data ?? []
   const [showForm, setShowForm] = useState(false)
@@ -40,9 +46,9 @@ export default function BoardPage() {
   return (
     <section className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
       <header className="flex items-center justify-between pt-[25px] pb-5 px-5 bg-white" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Xabarlar taxtasi</h1>
+        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("board.title")}</h1>
         <button onClick={() => setShowForm((v) => !v)} className="flex items-center gap-2 h-[42px] px-[15px] rounded-[5px] text-white text-sm" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-          <Plus className="w-5 h-5" /> E&apos;lon qo&apos;shish
+          <Plus className="w-5 h-5" /> {t("board.addPost")}
         </button>
       </header>
 
@@ -51,20 +57,20 @@ export default function BoardPage() {
           {showForm && (
             <motion.div initial={{ opacity: 0, y: -10, height: 0 }} animate={{ opacity: 1, y: 0, height: "auto" }} exit={{ opacity: 0, y: -10, height: 0 }}
               className="bg-white rounded-[10px] p-5 overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.2)" }}>
-              <h3 className="font-semibold text-base mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Yangi e&apos;lon</h3>
+              <h3 className="font-semibold text-base mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("board.newPost")}</h3>
               <div className="flex flex-col gap-3">
-                <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Sarlavha..."
+                <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder={t("board.titlePlaceholder")}
                   className="w-full px-3 py-2.5 rounded-[5px] text-sm outline-none" style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-                <textarea value={newBody} onChange={(e) => setNewBody(e.target.value)} placeholder="Matn..." rows={3}
+                <textarea value={newBody} onChange={(e) => setNewBody(e.target.value)} placeholder={t("board.textPlaceholder")} rows={3}
                   className="w-full px-3 py-2.5 rounded-[5px] text-sm outline-none resize-none" style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
                 <div className="flex items-center gap-3">
                   <Tag className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
                   <select value={newTag} onChange={(e) => setNewTag(e.target.value)} className="px-3 py-2 rounded-[5px] text-sm outline-none" style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                    {tags.map((t) => <option key={t}>{t}</option>)}
+                    {tags.map((tg) => <option key={tg} value={tg}>{t(tagKeys[tg])}</option>)}
                   </select>
                   <div className="flex gap-2 ml-auto">
-                    <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-[5px] text-sm" style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Bekor</button>
-                    <button onClick={addPost} className="px-4 py-2 rounded-[5px] text-sm text-white" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>Saqlash</button>
+                    <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-[5px] text-sm" style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("board.cancel")}</button>
+                    <button onClick={addPost} className="px-4 py-2 rounded-[5px] text-sm text-white" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{t("board.save")}</button>
                   </div>
                 </div>
               </div>
@@ -74,9 +80,9 @@ export default function BoardPage() {
 
         <div className="grid grid-cols-3 gap-5">
           {[
-            { label: "Jami e'lonlar", value: posts.length,                              color: "#012970" },
-            { label: "Muhim (pin)",   value: posts.filter((p) => p.pinned).length,       color: "#f59e0b" },
-            { label: "Bu oy",         value: posts.filter((p) => p.date.startsWith("2024-04")).length, color: "#1cc2dc" },
+            { label: t("board.totalPosts"), value: posts.length,                              color: "#012970" },
+            { label: t("board.pinned"),     value: posts.filter((p) => p.pinned).length,       color: "#f59e0b" },
+            { label: t("board.thisMonth"),  value: posts.filter((p) => p.date.startsWith("2024-04")).length, color: "#1cc2dc" },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
               <div className="text-3xl font-semibold" style={{ color: s.color, fontFamily: "var(--font-poppins)" }}>{s.value}</div>
@@ -97,7 +103,7 @@ export default function BoardPage() {
                     {p.pinned && <Pin className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: ts.bg, color: ts.color }}>{p.tag}</span>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: ts.bg, color: ts.color }}>{tagKeys[p.tag] ? t(tagKeys[p.tag]) : p.tag}</span>
                         <h3 className="font-semibold text-base" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{p.title}</h3>
                       </div>
                       <p className="text-sm leading-relaxed" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{p.body}</p>

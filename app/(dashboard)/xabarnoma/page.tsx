@@ -6,6 +6,7 @@ import { Bell, BellOff, Trash2, CheckCheck, AlertCircle, Calendar, BookOpen, Inf
 import { notificationsApi, Notif } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const typeConfig: Record<string, { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>, bg: string, color: string }> = {
   system:   { icon: Info,        bg: "#f0f5ff", color: "#0e58a8" },
@@ -14,15 +15,15 @@ const typeConfig: Record<string, { icon: React.ComponentType<{ className?: strin
   reminder: { icon: AlertCircle, bg: "#fff0f0", color: "#ef4444" },
 }
 
-const filterTabs = [
-  { key: "all",      label: "Barchasi"    },
-  { key: "unread",   label: "O'qilmagan" },
-  { key: "system",   label: "Tizim"       },
-  { key: "teacher",  label: "O'qituvchi"  },
-  { key: "schedule", label: "Jadval"      },
-]
-
 export default function XabarnomPage() {
+  const { t } = useLanguage()
+  const filterTabs = [
+    { key: "all",      label: t("xabarnoma.filter.all") },
+    { key: "unread",   label: t("xabarnoma.filter.unread") },
+    { key: "system",   label: t("xabarnoma.filter.system") },
+    { key: "teacher",  label: t("xabarnoma.filter.teacher") },
+    { key: "schedule", label: t("xabarnoma.filter.schedule") },
+  ]
   const { data, loading, error, refetch } = useApi(() => notificationsApi.getAll())
   const [filter, setFilter] = useState("all")
   const notifs: Notif[] = data?.data ?? []
@@ -46,24 +47,24 @@ export default function XabarnomPage() {
     <div className="flex flex-col gap-6 p-[30px]">
       <motion.div className="flex items-start justify-between gap-4" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Xabarnomalar</h1>
+          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xabarnoma.title")}</h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {unreadCount > 0 ? <><strong>{unreadCount}</strong> ta o&apos;qilmagan xabar</> : "Barcha xabarlar o'qildi"}
+            {unreadCount > 0 ? t("xabarnoma.unreadCount", { n: unreadCount }) : t("xabarnoma.allRead")}
           </p>
         </div>
         {unreadCount > 0 && (
           <button onClick={markAllRead} className="flex items-center gap-2 px-4 py-2.5 rounded-[5px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]" style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            <CheckCheck className="w-4 h-4" /> Barchasini o&apos;qildi
+            <CheckCheck className="w-4 h-4" /> {t("xabarnoma.markAllRead")}
           </button>
         )}
       </motion.div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {filterTabs.map((t) => (
-          <button key={t.key} onClick={() => setFilter(t.key)}
+        {filterTabs.map((tab) => (
+          <button key={tab.key} onClick={() => setFilter(tab.key)}
             className="px-4 py-2 rounded-[10px] whitespace-nowrap border transition-colors text-sm font-medium"
-            style={{ backgroundColor: filter === t.key ? "#0e58a8" : "#fff", color: filter === t.key ? "#fff" : "#7293b9", borderColor: filter === t.key ? "rgba(1,41,112,0.3)" : "rgba(1,41,112,0.1)", fontFamily: "var(--font-poppins)" }}>
-            {t.label}
+            style={{ backgroundColor: filter === tab.key ? "#0e58a8" : "#fff", color: filter === tab.key ? "#fff" : "#7293b9", borderColor: filter === tab.key ? "rgba(1,41,112,0.3)" : "rgba(1,41,112,0.1)", fontFamily: "var(--font-poppins)" }}>
+            {tab.label}
           </button>
         ))}
       </div>
@@ -72,7 +73,7 @@ export default function XabarnomPage() {
         {filtered.length === 0 ? (
           <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <BellOff className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
-            <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Xabarnoma topilmadi</p>
+            <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("xabarnoma.notFound")}</p>
           </div>
         ) : (
           <AnimatePresence>

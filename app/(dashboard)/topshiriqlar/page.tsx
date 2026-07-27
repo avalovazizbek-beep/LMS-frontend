@@ -6,16 +6,12 @@ import Link from "next/link"
 import { teachingApi, type TeacherContent, type ContentStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const STATUS_COLORS: Record<ContentStatus, { bg: string; color: string }> = {
   locked: { bg: "#fef2f2", color: "#b91c1c" },
   open:   { bg: "#f0fdf4", color: "#15803d" },
   closed: { bg: "#fffbeb", color: "#92400e" },
-}
-const STATUS_LABELS: Record<ContentStatus, string> = {
-  locked: "Qulflangan",
-  open: "Ochiq",
-  closed: "Muddat tugagan",
 }
 
 interface SubjectStat {
@@ -25,19 +21,25 @@ interface SubjectStat {
 }
 
 export default function Topshiriqlar() {
+  const { t } = useLanguage()
+  const STATUS_LABELS: Record<ContentStatus, string> = {
+    locked: t("topshiriqlar.locked"),
+    open: t("topshiriqlar.open"),
+    closed: t("topshiriqlar.expired"),
+  }
   const { data, loading, error, refetch } = useApi(() => teachingApi.content({ type: "assignment" }), [])
   const items: TeacherContent[] = data?.data ?? []
 
   const subjectStats = useMemo((): SubjectStat[] => {
     const map: Record<string, SubjectStat> = {}
     items.forEach(item => {
-      const name = item.subjectName || "Boshqa"
+      const name = item.subjectName || t("fanResurslari.other")
       if (!map[name]) map[name] = { name, total: 0, byStatus: { locked: 0, open: 0, closed: 0 } }
       map[name].total++
       map[name].byStatus[item.status]++
     })
     return Object.values(map).sort((a, b) => b.total - a.total)
-  }, [items])
+  }, [items, t])
 
   if (loading) return <Loading />
   if (error)   return <ApiError message={error} onRetry={refetch} />
@@ -46,20 +48,20 @@ export default function Topshiriqlar() {
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Topshiriqlar
+          {t("topshiriqlar.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          O&apos;qituvchi bergan topshiriqlar — fanlarni tanlang
+          {t("topshiriqlar.subtitle")}
         </p>
       </div>
 
       {items.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Jami",           value: items.length,                                       color: "#012970", Icon: ClipboardList },
-            { label: "Qulflangan",     value: items.filter(i => i.status === "locked").length,    color: "#b91c1c", Icon: Lock          },
-            { label: "Ochiq",          value: items.filter(i => i.status === "open").length,      color: "#15803d", Icon: Clock         },
-            { label: "Muddat tugagan", value: items.filter(i => i.status === "closed").length,    color: "#92400e", Icon: CheckCircle2  },
+            { label: t("topshiriqlar.total"),   value: items.length,                                       color: "#012970", Icon: ClipboardList },
+            { label: t("topshiriqlar.locked"),  value: items.filter(i => i.status === "locked").length,    color: "#b91c1c", Icon: Lock          },
+            { label: t("topshiriqlar.open"),    value: items.filter(i => i.status === "open").length,      color: "#15803d", Icon: Clock         },
+            { label: t("topshiriqlar.expired"), value: items.filter(i => i.status === "closed").length,    color: "#92400e", Icon: CheckCircle2  },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-[10px] p-4 flex items-center gap-3" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
               <div className="w-10 h-10 rounded-[8px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f6f9ff" }}>
@@ -78,7 +80,7 @@ export default function Topshiriqlar() {
         <div className="bg-white rounded-[10px] p-12 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <ClipboardList className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Hozircha topshiriqlar yo&apos;q
+            {t("topshiriqlar.none")}
           </p>
         </div>
       ) : (
@@ -117,7 +119,7 @@ export default function Topshiriqlar() {
                 </div>
 
                 <div className="flex items-center justify-between mt-auto pt-2" style={{ borderTop: "1px solid rgba(1,41,112,0.07)" }}>
-                  <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Jami topshiriq</span>
+                  <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("topshiriqlar.totalAssignments")}</span>
                   <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{s.total}</span>
                 </div>
               </Link>

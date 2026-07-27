@@ -2,47 +2,50 @@
 
 import { useState } from "react"
 import { Shield, Check, Minus } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 type Role = "super_admin" | "admin" | "moderator" | "seller" | "master"
 type Permission = { key: string; label: string; group: string }
 
-const roles: { key: Role; label: string; color: string; bg: string }[] = [
-  { key: "super_admin", label: "Super Admin", color: "#f59e0b", bg: "#fff8e6" },
-  { key: "admin",       label: "Admin",       color: "#0e58a8", bg: "#f0f5ff" },
-  { key: "moderator",   label: "Moderator",   color: "#1cc2dc", bg: "#f0fbfd" },
-  { key: "seller",      label: "Sotuvchi",    color: "#22c55e", bg: "#f0fff4" },
-  { key: "master",      label: "Usta",        color: "#7293b9", bg: "#f6f9ff" },
+const roleMeta: { key: Role; labelKey: string; color: string; bg: string }[] = [
+  { key: "super_admin", labelKey: "permission.role.superAdmin", color: "#f59e0b", bg: "#fff8e6" },
+  { key: "admin",       labelKey: "permission.role.admin",      color: "#0e58a8", bg: "#f0f5ff" },
+  { key: "moderator",   labelKey: "permission.role.moderator",  color: "#1cc2dc", bg: "#f0fbfd" },
+  { key: "seller",      labelKey: "permission.role.seller",     color: "#22c55e", bg: "#f0fff4" },
+  { key: "master",      labelKey: "permission.role.master",     color: "#7293b9", bg: "#f6f9ff" },
 ]
 
-const permissions: Permission[] = [
-  { key: "view_dashboard",    label: "Dashboard ko'rish",         group: "Asosiy" },
-  { key: "manage_users",      label: "Foydalanuvchilarni boshqarish", group: "Foydalanuvchilar" },
-  { key: "view_users",        label: "Foydalanuvchilarni ko'rish", group: "Foydalanuvchilar" },
-  { key: "manage_groups",     label: "Guruhlarni boshqarish",     group: "Ta'lim" },
-  { key: "view_groups",       label: "Guruhlarni ko'rish",        group: "Ta'lim" },
-  { key: "manage_exams",      label: "Imtihonlarni boshqarish",   group: "Ta'lim" },
-  { key: "view_exams",        label: "Imtihonlarni ko'rish",      group: "Ta'lim" },
-  { key: "manage_finance",    label: "Moliyani boshqarish",       group: "Moliya" },
-  { key: "view_finance",      label: "Moliyani ko'rish",          group: "Moliya" },
-  { key: "manage_docs",       label: "Hujjatlarni boshqarish",    group: "Hujjatlar" },
-  { key: "view_docs",         label: "Hujjatlarni ko'rish",       group: "Hujjatlar" },
-  { key: "manage_settings",   label: "Sozlamalarni boshqarish",   group: "Tizim" },
-  { key: "view_reports",      label: "Hisobotlarni ko'rish",      group: "Tizim" },
-  { key: "manage_board",      label: "Xabarni boshqarish",        group: "Kontent" },
-  { key: "manage_meetings",   label: "Yig'ilishlarni boshqarish", group: "Kontent" },
+const permissionMeta: { key: string; labelKey: string; groupKey: string }[] = [
+  { key: "view_dashboard",    labelKey: "permission.perm.viewDashboard",   groupKey: "permission.group.main" },
+  { key: "manage_users",      labelKey: "permission.perm.manageUsers",     groupKey: "permission.group.users" },
+  { key: "view_users",        labelKey: "permission.perm.viewUsers",       groupKey: "permission.group.users" },
+  { key: "manage_groups",     labelKey: "permission.perm.manageGroups",    groupKey: "permission.group.education" },
+  { key: "view_groups",       labelKey: "permission.perm.viewGroups",      groupKey: "permission.group.education" },
+  { key: "manage_exams",      labelKey: "permission.perm.manageExams",     groupKey: "permission.group.education" },
+  { key: "view_exams",        labelKey: "permission.perm.viewExams",       groupKey: "permission.group.education" },
+  { key: "manage_finance",    labelKey: "permission.perm.manageFinance",   groupKey: "permission.group.finance" },
+  { key: "view_finance",      labelKey: "permission.perm.viewFinance",     groupKey: "permission.group.finance" },
+  { key: "manage_docs",       labelKey: "permission.perm.manageDocs",      groupKey: "permission.group.documents" },
+  { key: "view_docs",         labelKey: "permission.perm.viewDocs",        groupKey: "permission.group.documents" },
+  { key: "manage_settings",   labelKey: "permission.perm.manageSettings",  groupKey: "permission.group.system" },
+  { key: "view_reports",      labelKey: "permission.perm.viewReports",     groupKey: "permission.group.system" },
+  { key: "manage_board",      labelKey: "permission.perm.manageBoard",     groupKey: "permission.group.content" },
+  { key: "manage_meetings",   labelKey: "permission.perm.manageMeetings",  groupKey: "permission.group.content" },
 ]
 
 const defaultPerms: Record<Role, Set<string>> = {
-  super_admin: new Set(permissions.map((p) => p.key)),
+  super_admin: new Set(permissionMeta.map((p) => p.key)),
   admin:       new Set(["view_dashboard","manage_users","view_users","manage_groups","view_groups","manage_exams","view_exams","manage_finance","view_finance","manage_docs","view_docs","view_reports","manage_board","manage_meetings"]),
   moderator:   new Set(["view_dashboard","view_users","view_groups","view_exams","view_finance","view_docs","view_reports","manage_board"]),
   seller:      new Set(["view_dashboard","view_groups","view_docs","manage_meetings"]),
   master:      new Set(["view_dashboard","view_groups","view_exams","view_docs"]),
 }
 
-const groups = Array.from(new Set(permissions.map((p) => p.group)))
-
 export default function PermissionPage() {
+  const { t } = useLanguage()
+  const roles = roleMeta.map(r => ({ ...r, label: t(r.labelKey) }))
+  const permissions: Permission[] = permissionMeta.map(p => ({ key: p.key, label: t(p.labelKey), group: t(p.groupKey) }))
+  const groups = Array.from(new Set(permissions.map((p) => p.group)))
   const [perms, setPerms] = useState<Record<Role, Set<string>>>(() => {
     const copy: Record<string, Set<string>> = {}
     for (const k of Object.keys(defaultPerms)) copy[k] = new Set(defaultPerms[k as Role])
@@ -77,7 +80,7 @@ export default function PermissionPage() {
   return (
     <section className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
       <header className="flex flex-col gap-[15px] pt-[25px] pb-5 px-5 bg-white" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Ruxsatlar</h1>
+        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("permission.title")}</h1>
       </header>
 
       <div className="flex flex-1 gap-5 p-[30px]">
@@ -98,7 +101,7 @@ export default function PermissionPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{r.label}</p>
-                <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{perms[r.key].size} ruxsat</p>
+                <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("permission.permCount", { n: perms[r.key].size })}</p>
               </div>
             </button>
           ))}
@@ -116,14 +119,14 @@ export default function PermissionPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-base" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{role.label}</p>
-                    <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{perms[activeRole].size} / {permissions.length} ruxsat berilgan</p>
+                    <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("permission.grantedOf", { n: perms[activeRole].size, total: permissions.length })}</p>
                   </div>
                 </div>
               )
             })()}
             {activeRole === "super_admin" && (
               <span className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: "#fff8e6", color: "#f59e0b", border: "1px solid #f59e0b", fontFamily: "var(--font-poppins)" }}>
-                Barcha ruxsatlar mavjud
+                {t("permission.allPermsAvailable")}
               </span>
             )}
           </div>
@@ -165,7 +168,7 @@ export default function PermissionPage() {
           {activeRole !== "super_admin" && (
             <div className="p-5 flex justify-end" style={{ borderTop: "1px solid rgba(1,41,112,0.1)" }}>
               <button className="px-6 py-2.5 rounded-[5px] text-white text-sm font-medium" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                Saqlash
+                {t("permission.save")}
               </button>
             </div>
           )}

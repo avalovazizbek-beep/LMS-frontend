@@ -7,15 +7,16 @@ import { teachingApi, type TeacherContent, type ContentStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { StudentContentCard } from "@/components/teaching/StudentContentCard"
-
-const FILTERS: Array<{ key: "all" | ContentStatus; label: string }> = [
-  { key: "all",    label: "Barchasi" },
-  { key: "locked", label: "Qulflangan" },
-  { key: "open",   label: "Ochiq" },
-  { key: "closed", label: "Muddat tugagan" },
-]
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function TopshiriqlarDetail() {
+  const { t } = useLanguage()
+  const FILTERS: Array<{ key: "all" | ContentStatus; label: string }> = [
+    { key: "all",    label: t("topshiriqlarDetail.filter.all") },
+    { key: "locked", label: t("topshiriqlar.locked") },
+    { key: "open",   label: t("topshiriqlar.open") },
+    { key: "closed", label: t("topshiriqlar.expired") },
+  ]
   const params = useParams()
   const router = useRouter()
   const subjectName = decodeURIComponent(String(params.subject ?? ""))
@@ -56,7 +57,7 @@ export default function TopshiriqlarDetail() {
             {subjectName}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {subjectItems.length} ta topshiriq
+            {t("topshiriqlarDetail.assignmentCount", { n: subjectItems.length })}
           </p>
         </div>
       </div>
@@ -88,7 +89,7 @@ export default function TopshiriqlarDetail() {
         <div className="bg-white rounded-[10px] p-12 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <ClipboardList className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Topshiriqlar topilmadi
+            {t("topshiriqlarDetail.notFound")}
           </p>
         </div>
       ) : (

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Clock, ChevronLeft, ChevronRight, CheckCircle2, Flag } from "lucide-react"
 import FaceProctor from "@/components/ui/FaceProctor"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const questions = [
   {
@@ -39,6 +40,7 @@ const questions = [
 ]
 
 export default function TestPage() {
+  const { t } = useLanguage()
   const [answers,   setAnswers]   = useState<Record<number, number>>({})
   const [current,   setCurrent]   = useState(0)
   const [timeLeft,  setTimeLeft]  = useState(30 * 60)
@@ -68,10 +70,10 @@ export default function TestPage() {
       <div className="min-h-full flex items-center justify-center p-[30px]">
         <div className="bg-white rounded-[10px] p-10 text-center max-w-md w-full" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 20px rgba(1,41,112,0.1)" }}>
           <CheckCircle2 className="w-16 h-16 mx-auto mb-4" style={{ color: "#22c55e" }} />
-          <h2 className="text-2xl font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Test yakunlandi!</h2>
-          <p className="text-base mt-3 font-semibold" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{correct} / {questions.length} to'g'ri javob</p>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Ball: {Math.round((correct / questions.length) * 100)}</p>
-          <Link href="/dashboard" className="inline-block mt-6 px-6 py-2.5 rounded-[5px] text-white font-medium" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>Dashboardga qaytish</Link>
+          <h2 className="text-2xl font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("testTake.finished")}</h2>
+          <p className="text-base mt-3 font-semibold" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("testTake.correctAnswers", { n: correct, total: questions.length })}</p>
+          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("testTake.scoreLabel", { n: Math.round((correct / questions.length) * 100) })}</p>
+          <Link href="/dashboard" className="inline-block mt-6 px-6 py-2.5 rounded-[5px] text-white font-medium" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{t("testTake.backToDashboard")}</Link>
         </div>
       </div>
     )
@@ -86,7 +88,7 @@ export default function TestPage() {
       <div className="bg-white px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
         <div>
           <h1 className="font-semibold text-base" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Matematika — Yakuniy test</h1>
-          <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{questions.length} ta savol · {Object.keys(answers).length} ta javoblandi</p>
+          <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("testTake.questionsAnswered", { total: questions.length, answered: Object.keys(answers).length })}</p>
         </div>
         <div className="flex items-center gap-4">
           {/* Timer */}
@@ -102,7 +104,7 @@ export default function TestPage() {
         {/* Question nav */}
         <div className="w-48 shrink-0">
           <div className="bg-white rounded-[10px] p-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-            <p className="text-xs font-medium mb-3" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Savollar</p>
+            <p className="text-xs font-medium mb-3" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("examTake.questionsHeading")}</p>
             <div className="grid grid-cols-4 gap-1.5">
               {questions.map((_, i) => (
                 <button
@@ -122,10 +124,10 @@ export default function TestPage() {
             </div>
             <div className="mt-4 flex flex-col gap-1.5">
               {[
-                { color: "#0e58a8", bg: "#f0f5ff", label: "Joriy" },
-                { color: "#1cc2dc", bg: "#f0fbfd", label: "Javoblandi" },
-                { color: "#7293b9", bg: "#f6f9ff", label: "Javoblanmadi" },
-                { color: "#f59e0b", bg: "#fff8e6", label: "Belgilangan" },
+                { color: "#0e58a8", bg: "#f0f5ff", label: t("examTake.legend.current") },
+                { color: "#1cc2dc", bg: "#f0fbfd", label: t("examTake.legend.answered") },
+                { color: "#7293b9", bg: "#f6f9ff", label: t("examTake.legend.unanswered") },
+                { color: "#f59e0b", bg: "#fff8e6", label: t("examTake.legend.flagged") },
               ].map((l) => (
                 <div key={l.label} className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-[2px]" style={{ backgroundColor: l.bg, border: `1px solid ${l.color}` }} />
@@ -183,7 +185,7 @@ export default function TestPage() {
               className="flex items-center gap-2 px-4 py-2.5 rounded-[5px] text-sm font-medium transition-colors disabled:opacity-40"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }}
             >
-              <ChevronLeft className="w-4 h-4" /> Oldingi
+              <ChevronLeft className="w-4 h-4" /> {t("examTake.prevQuestion")}
             </button>
             {current === questions.length - 1 ? (
               <button
@@ -191,7 +193,7 @@ export default function TestPage() {
                 className="flex items-center gap-2 px-6 py-2.5 rounded-[5px] text-sm font-medium text-white transition-opacity hover:opacity-90"
                 style={{ backgroundColor: "#22c55e", fontFamily: "var(--font-poppins)" }}
               >
-                <CheckCircle2 className="w-4 h-4" /> Testni yakunlash
+                <CheckCircle2 className="w-4 h-4" /> {t("testTake.finishTest")}
               </button>
             ) : (
               <button
@@ -199,7 +201,7 @@ export default function TestPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-[5px] text-sm font-medium text-white transition-opacity hover:opacity-90"
                 style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}
               >
-                Keyingi <ChevronRight className="w-4 h-4" />
+                {t("examTake.nextQuestion")} <ChevronRight className="w-4 h-4" />
               </button>
             )}
           </div>
