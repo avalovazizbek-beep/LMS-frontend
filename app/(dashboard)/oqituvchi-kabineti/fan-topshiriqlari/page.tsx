@@ -7,6 +7,7 @@ import { Download, X, Users, FileText, Loader2 } from "lucide-react"
 import { hemisApi, type HemisTaskSubmission } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -33,6 +34,7 @@ function SubmissionsModal({
   taskName: string
   onClose: () => void
 }) {
+  const { t } = useLanguage()
   const { data, loading, error } = useApi(
     () => hemisApi.taskSubmissions({ taskId }),
     [taskId]
@@ -63,7 +65,7 @@ function SubmissionsModal({
           <div>
             <h2 className="text-base font-semibold" style={titleStyle}>{taskName}</h2>
             <p className="text-xs mt-0.5" style={labelStyle}>
-              Talabalar topshirishlari · jami {submissions.length} ta
+              {t("fanTopshDetail.submissionsCount", { n: submissions.length })}
             </p>
           </div>
           <button onClick={onClose}
@@ -77,25 +79,25 @@ function SubmissionsModal({
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-2" style={labelStyle}>
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Yuklanmoqda...</span>
+              <span className="text-sm">{t("fanTopshDetail.loading")}</span>
             </div>
           ) : error ? (
             <div className="p-6 text-sm text-center" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{error}</div>
           ) : submissions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 gap-3">
               <FileText className="w-10 h-10" style={{ color: "#d8e6f7" }} />
-              <p className="text-sm" style={labelStyle}>Hali hech kim topshirmagan</p>
+              <p className="text-sm" style={labelStyle}>{t("fanTopshDetail.noSubmissions")}</p>
             </div>
           ) : (
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f8fafc" }}>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>#</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>Talaba</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>Fayl</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>Izoh</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>Topshirilgan</th>
-                  <th className="px-4 py-2.5 text-center text-xs font-semibold" style={titleStyle}>Yuklab olish</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>{t("fanTopshDetail.col.hash")}</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>{t("fanTopshDetail.col.student")}</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>{t("fanTopshDetail.col.file")}</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>{t("fanTopshDetail.col.comment")}</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>{t("fanTopshDetail.col.submittedAt")}</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold" style={titleStyle}>{t("fanTopshDetail.col.download")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -134,7 +136,7 @@ function SubmissionsModal({
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center justify-center w-8 h-8 rounded-[6px] hover:bg-[#eef4ff] transition-colors"
-                          title="Yuklab olish"
+                          title={t("fanTopshDetail.col.download")}
                         >
                           <Download className="w-4 h-4" style={{ color: "#0e58a8" }} />
                         </a>
@@ -152,12 +154,12 @@ function SubmissionsModal({
         <div className="px-6 py-3 flex items-center justify-between shrink-0"
           style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
           <span className="text-xs" style={labelStyle}>
-            Jami: {submissions.length} ta topshirilgan
+            {t("fanTopshDetail.totalSubmitted", { n: submissions.length })}
           </span>
           <button onClick={onClose}
             className="px-4 py-2 rounded-[8px] text-sm font-medium"
             style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
-            Yopish
+            {t("fanTopshDetail.close")}
           </button>
         </div>
       </div>
@@ -167,6 +169,7 @@ function SubmissionsModal({
 
 /* ── Bosh sahifa ─────────────────────────────────────────────────── */
 export default function FanTopshiriqlariDetailPage() {
+  const { t } = useLanguage()
   const searchParams = useSearchParams()
   const subject    = searchParams.get("subject")    ?? ""
   const group      = searchParams.get("group")      ?? ""
@@ -205,9 +208,9 @@ export default function FanTopshiriqlariDetailPage() {
   return (
     <div className="flex flex-col gap-5 p-[30px]">
       <div className="flex items-center gap-2 text-sm" style={labelStyle}>
-        <Link href="/dashboard" className="hover:underline">Asosiy</Link>
+        <Link href="/dashboard" className="hover:underline">{t("fanTopshDetail.main")}</Link>
         <span>/</span>
-        <Link href="/xodim/fan-topshiriqlari" className="hover:underline">Fan topshiriqlari</Link>
+        <Link href="/xodim/fan-topshiriqlari" className="hover:underline">{t("fanTopshDetail.subjectAssignments")}</Link>
         {name && (
           <>
             <span>/</span>
@@ -220,10 +223,10 @@ export default function FanTopshiriqlariDetailPage() {
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <div className="p-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <h1 className="text-base font-semibold" style={titleStyle}>
-            Topshiriqlar ro&apos;yxati (Maks. ball: {headerMaxBall})
+            {t("fanTopshDetail.listTitle", { n: headerMaxBall })}
           </h1>
           <p className="text-xs mt-0.5" style={labelStyle}>
-            Talabalar topshiriqlarini ko&apos;rish uchun &quot;Natijalar&quot; tugmasini bosing
+            {t("fanTopshDetail.clickResults")}
           </p>
         </div>
 
@@ -231,7 +234,7 @@ export default function FanTopshiriqlariDetailPage() {
           <table className="w-full min-w-[900px]">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                {["#", "Nomi", "Savol/Fayl", "Muddat", "Talabalar", "Faol", "Natijalar"].map(h => (
+                {[t("fanTopshDetail.col.hash"), t("fanTopshDetail.col.name"), t("fanTopshDetail.col.questionFile"), t("fanTopshDetail.col.deadline"), t("fanTopshDetail.col.students"), t("fanTopshDetail.col.active"), t("fanTopshDetail.col.results")].map(h => (
                   <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap"
                     style={titleStyle}>{h}</th>
                 ))}
@@ -244,7 +247,7 @@ export default function FanTopshiriqlariDetailPage() {
                     .filter(Boolean).join(" / ")
                   const isTest = item.taskType?.code === "12"
                   const taskId = item.id != null ? String(item.id) : null
-                  const taskName = item.name || item.comment || `Topshiriq ${index + 1}`
+                  const taskName = item.name || item.comment || t("fanTopshDetail.assignmentFallback", { n: index + 1 })
                   return (
                     <tr key={item.id ?? index}
                       className="hover:bg-[#f6f9ff]"
@@ -260,7 +263,7 @@ export default function FanTopshiriqlariDetailPage() {
                       </td>
                       <td className="px-4 py-2.5 text-sm">
                         <span style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                          {isTest ? "0 savol" : `${item.file_count ?? 0} fayl`}
+                          {isTest ? t("fanTopshDetail.questionsCount", { n: 0 }) : t("fanTopshDetail.fileCount", { n: item.file_count ?? 0 })}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-sm" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>
@@ -279,7 +282,7 @@ export default function FanTopshiriqlariDetailPage() {
                             color: item.active ? "#15803d" : "#b91c1c",
                             backgroundColor: item.active ? "#f0fdf4" : "#fef2f2",
                           }}>
-                          {item.active ? "Faol" : "Nofaol"}
+                          {item.active ? t("fanTopshDetail.active") : t("fanTopshDetail.inactive")}
                         </span>
                       </td>
                       <td className="px-4 py-2.5">
@@ -294,7 +297,7 @@ export default function FanTopshiriqlariDetailPage() {
                             }}
                           >
                             <Users className="w-3.5 h-3.5" />
-                            Natijalar
+                            {t("fanTopshDetail.results")}
                           </button>
                         ) : (
                           <span className="text-xs" style={labelStyle}>—</span>
@@ -306,7 +309,7 @@ export default function FanTopshiriqlariDetailPage() {
               ) : (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-sm" style={labelStyle}>
-                    Hech narsa topilmadi
+                    {t("fanTopshDetail.notFound")}
                   </td>
                 </tr>
               )}
@@ -315,7 +318,7 @@ export default function FanTopshiriqlariDetailPage() {
         </div>
 
         <div className="flex items-center justify-between p-3 text-xs" style={labelStyle}>
-          <span>1-{items.length} / jami {items.length} ta</span>
+          <span>{t("fanTopshDetail.pagination", { n: items.length })}</span>
         </div>
       </div>
 
