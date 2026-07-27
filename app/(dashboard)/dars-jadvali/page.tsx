@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { meetingsApi, hemisApi, teachingApi, type HemisSchedule, type Meeting, type TeacherContent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const DAYS = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
 const DAY_SHORT = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"]
@@ -45,6 +46,7 @@ type DayItem =
   | { kind: "nazorat"; data: TeacherContent; time: Date }
 
 export default function DarsJadvali() {
+  const { t } = useLanguage()
   const today = new Date()
   const [weekOffset, setWeekOffset] = useState(0)
   const [showWeekPicker, setShowWeekPicker] = useState(false)
@@ -156,10 +158,10 @@ export default function DarsJadvali() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Dars Jadvali
+            {t("darsJadvali.title")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            HEMIS jadvaliga ko&apos;ra darslar va onlayn uchrashuvlar
+            {t("darsJadvali.subtitle")}
           </p>
         </div>
 
@@ -170,7 +172,7 @@ export default function DarsJadvali() {
             className="px-3 py-2 rounded-[8px] text-sm font-medium border transition-colors hover:bg-[#f0f5ff]"
             style={{ borderColor: "rgba(1,41,112,0.15)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}
           >
-            ‹ Oldingi
+            {t("darsJadvali.prev")}
           </button>
 
           <div className="relative">
@@ -197,7 +199,7 @@ export default function DarsJadvali() {
                     style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 4px 16px rgba(1,41,112,0.12)", minWidth: 220 }}
                   >
                     <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide" style={{ color: "#7293b9", borderBottom: "1px solid rgba(1,41,112,0.06)", fontFamily: "var(--font-poppins)" }}>
-                      Haftani tanlang
+                      {t("darsJadvali.selectWeek")}
                     </div>
                     <div className="max-h-[260px] overflow-y-auto">
                       {weekOptions.map(opt => {
@@ -231,7 +233,7 @@ export default function DarsJadvali() {
             className="px-3 py-2 rounded-[8px] text-sm font-medium border transition-colors hover:bg-[#f0f5ff]"
             style={{ borderColor: "rgba(1,41,112,0.15)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}
           >
-            Keyingi ›
+            {t("darsJadvali.next")}
           </button>
           {weekOffset !== 0 && (
             <button
@@ -239,7 +241,7 @@ export default function DarsJadvali() {
               className="px-3 py-2 rounded-[8px] text-xs font-medium"
               style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}
             >
-              Bugun
+              {t("darsJadvali.today")}
             </button>
           )}
         </div>
@@ -300,7 +302,7 @@ export default function DarsJadvali() {
             <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
               <BookOpen className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
               <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Bu kuni rejalashtirilgan dars yo&apos;q
+                {t("darsJadvali.noLessons")}
               </p>
             </div>
           ) : (
@@ -346,7 +348,7 @@ export default function DarsJadvali() {
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full"
                             style={{ backgroundColor: "#ecfeff", color: "#0891b2", fontFamily: "var(--font-poppins)" }}>
-                            <CalendarDays className="w-3 h-3" /> Online dars
+                            <CalendarDays className="w-3 h-3" /> {t("darsJadvali.onlineLesson")}
                           </span>
                           <span className="text-xs font-medium px-2.5 py-1 rounded-full"
                             style={{
@@ -354,7 +356,7 @@ export default function DarsJadvali() {
                               color: isUpcoming ? "#15803d" : "#64748b",
                               fontFamily: "var(--font-poppins)",
                             }}>
-                            {isUpcoming ? "Kutilmoqda" : "Tugagan"}
+                            {isUpcoming ? t("darsJadvali.upcoming") : t("darsJadvali.finished")}
                           </span>
                         </div>
                       </div>
@@ -366,7 +368,7 @@ export default function DarsJadvali() {
                           className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] w-fit"
                           style={{ backgroundColor: "#ecfeff", color: "#0891b2", fontFamily: "var(--font-poppins)" }}>
                           <LinkIcon className="w-3.5 h-3.5" />
-                          Darsga kirish
+                          {t("darsJadvali.joinLesson")}
                         </a>
                       )}
                     </div>
@@ -379,7 +381,11 @@ export default function DarsJadvali() {
                 const exam = entry.data
                 const isYakuniy = exam.controlType === "yakuniy"
                 const timeStr = entry.time.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })
-                const STATUS: Record<string, string> = { open: "Ochiq", locked: "Qulflangan", closed: "Yakunlangan" }
+                const STATUS: Record<string, string> = {
+                  open: t("darsJadvali.status.open"),
+                  locked: t("darsJadvali.status.locked"),
+                  closed: t("darsJadvali.status.closed"),
+                }
                 return (
                   <motion.div
                     key={`nazorat-${exam.id}`}
@@ -415,7 +421,7 @@ export default function DarsJadvali() {
                               color: isYakuniy ? "#b91c1c" : "#0e58a8",
                               fontFamily: "var(--font-poppins)",
                             }}>
-                            {isYakuniy ? "Yakuniy imtihon" : "Oraliq nazorat"}
+                            {isYakuniy ? t("darsJadvali.finalExam") : t("darsJadvali.midtermControl")}
                           </span>
                           <span className="text-xs font-medium px-2.5 py-1 rounded-full"
                             style={{

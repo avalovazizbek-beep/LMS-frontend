@@ -10,10 +10,12 @@ import { teachingApi, type ExamQuestionPublic } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import FaceProctor from "@/components/ui/FaceProctor"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 type Phase = "intro" | "face_scan" | "exam" | "submitted_now"
 
 export default function ImtihonTopshirish() {
+  const { t } = useLanguage()
   const params  = useParams<{ id: string }>()
   const router  = useRouter()
   const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : ""
@@ -176,7 +178,7 @@ export default function ImtihonTopshirish() {
       setPhase("submitted_now")
       refetchSub()
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Yuborishda xatolik yuz berdi")
+      setSubmitError(err instanceof Error ? err.message : t("examTake.submitError"))
       setPhase("submitted_now")
     } finally {
       submittingRef.current = false
@@ -204,7 +206,7 @@ export default function ImtihonTopshirish() {
 
   if (lContent || lSub) return <Loading />
   if (eContent)         return <ApiError message={eContent} />
-  if (!content)         return <ApiError message="Imtihon topilmadi" />
+  if (!content)         return <ApiError message={t("examTake.notFound")} />
 
   /* ── Topshirildi ──────────────────────────────────────────────────── */
   if (phase === "submitted_now") {
@@ -218,19 +220,19 @@ export default function ImtihonTopshirish() {
             <>
               <CheckCircle2 className="w-16 h-16 mx-auto mb-4" style={{ color: "#22c55e" }} />
               <h2 className="text-2xl font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Imtihon yakunlandi!
+                {t("examTake.finished")}
               </h2>
               <p className="text-base mt-3 font-semibold" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
-                Natija: {result.grade ?? "—"}{result.maxScore != null ? ` / ${result.maxScore}` : ""}
+                {t("examTake.result")} {result.grade ?? "—"}{result.maxScore != null ? ` / ${result.maxScore}` : ""}
               </p>
               {maxAttempts !== null && (
                 <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  {usedNow}/{maxAttempts} urinish ishlatildi
+                  {t("examTake.attemptsUsedOf", { used: usedNow, max: maxAttempts })}
                 </p>
               )}
             </>
           ) : (
-            <ApiError message={submitError ?? "Yuborishda xatolik yuz berdi"} />
+            <ApiError message={submitError ?? t("examTake.submitError")} />
           )}
           <div className="flex flex-col gap-3 mt-6">
             {canRetryNow && result && (
@@ -238,13 +240,13 @@ export default function ImtihonTopshirish() {
                 className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-[5px] text-white font-medium"
                 style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 <RefreshCw className="w-4 h-4" />
-                Qayta topshirish ({maxAttempts! - usedNow} urinish qoldi)
+                {t("examTake.retryWithLeft", { n: maxAttempts! - usedNow })}
               </button>
             )}
             <button onClick={() => router.push("/imtihonlar")}
               className="px-6 py-2.5 rounded-[5px] font-medium"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              Imtihonlarga qaytish
+              {t("examTake.backToExams")}
             </button>
           </div>
         </div>
@@ -264,20 +266,20 @@ export default function ImtihonTopshirish() {
               {content.title}
             </h2>
             <p className="text-base mt-3 font-semibold" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
-              Natija: {mySubmission.grade ?? "—"}{content.maxScore != null ? ` / ${content.maxScore}` : ""}
+              {t("examTake.result")} {mySubmission.grade ?? "—"}{content.maxScore != null ? ` / ${content.maxScore}` : ""}
             </p>
             {mySubmission.feedback && (
               <p className="text-sm mt-2" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{mySubmission.feedback}</p>
             )}
             {maxAttempts !== null && (
               <p className="text-sm mt-1" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                Barcha {maxAttempts} ta urinish ishlatildi
+                {t("examTake.allAttemptsUsed", { n: maxAttempts })}
               </p>
             )}
             <button onClick={() => router.push("/imtihonlar")}
               className="inline-block mt-6 px-6 py-2.5 rounded-[5px] text-white font-medium"
               style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              Imtihonlarga qaytish
+              {t("examTake.backToExams")}
             </button>
           </div>
         </div>
@@ -293,25 +295,25 @@ export default function ImtihonTopshirish() {
           <div className="mt-4 px-4 py-3 rounded-[8px] text-sm"
             style={{ backgroundColor: "#f0fdf4", border: "1px solid rgba(34,197,94,0.2)" }}>
             <span style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-              Oldingi natija: <strong>{mySubmission.grade ?? "—"}{content.maxScore ? ` / ${content.maxScore}` : ""}</strong>
-              {maxAttempts !== null && ` · ${attemptsUsed}/${maxAttempts} urinish`}
+              {t("examTake.previousResult")} <strong>{mySubmission.grade ?? "—"}{content.maxScore ? ` / ${content.maxScore}` : ""}</strong>
+              {maxAttempts !== null && ` · ${attemptsUsed}/${maxAttempts} ${t("examTake.attemptsShort")}`}
             </span>
           </div>
           <div className="flex flex-col gap-1 mt-4 text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {content.durationMinutes != null && <span>Davomiyligi: <strong>{content.durationMinutes} daqiqa</strong></span>}
-            {content.maxScore != null && <span>Maksimal ball: <strong>{content.maxScore}</strong></span>}
-            {maxAttempts !== null && <span>Qolgan urinishlar: <strong>{maxAttempts - attemptsUsed}</strong></span>}
+            {content.durationMinutes != null && <span>{t("examTake.duration")} <strong>{t("examTake.minutes", { n: content.durationMinutes })}</strong></span>}
+            {content.maxScore != null && <span>{t("examTake.maxScore")} <strong>{content.maxScore}</strong></span>}
+            {maxAttempts !== null && <span>{t("examTake.attemptsLeft")} <strong>{maxAttempts - attemptsUsed}</strong></span>}
           </div>
           <div className="flex flex-col gap-3 mt-6">
             <button onClick={startExam}
               className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-[5px] text-white font-medium"
               style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              <RefreshCw className="w-4 h-4" /> Qayta topshirish
+              <RefreshCw className="w-4 h-4" /> {t("examTake.retry")}
             </button>
             <button onClick={() => router.push("/imtihonlar")}
               className="px-6 py-2 rounded-[5px] text-sm font-medium"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              Imtihonlarga qaytish
+              {t("examTake.backToExams")}
             </button>
           </div>
         </div>
@@ -327,12 +329,12 @@ export default function ImtihonTopshirish() {
           style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <GraduationCap className="w-12 h-12 mx-auto mb-3" style={{ color: "#7293b9" }} />
           <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {content.status === "locked" ? "Bu imtihon hali ochilmagan" : "Bu imtihonning muddati tugagan"}
+            {content.status === "locked" ? t("examTake.notOpenedYet") : t("examTake.deadlinePassed")}
           </p>
           <button onClick={() => router.push("/imtihonlar")}
             className="inline-block mt-6 px-6 py-2.5 rounded-[5px] text-white font-medium"
             style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            Imtihonlarga qaytish
+            {t("examTake.backToExams")}
           </button>
         </div>
       </div>
@@ -350,26 +352,26 @@ export default function ImtihonTopshirish() {
           <p className="text-sm mt-2" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{content.subjectName}</p>
           <div className="flex flex-col gap-1 mt-4 text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
             {content.questionCount > 0 && (
-              <span>Savollar soni: <strong>
+              <span>{t("examTake.questionCount")} <strong>
                 {(content.questionDisplayCount && content.questionDisplayCount > 0)
                   ? content.questionDisplayCount
                   : content.questionCount}
               </strong></span>
             )}
-            {content.durationMinutes != null && <span>Davomiyligi: <strong>{content.durationMinutes} daqiqa</strong></span>}
-            {content.maxScore != null && <span>Maksimal ball: <strong>{content.maxScore}</strong></span>}
-            {maxAttempts !== null && <span>Urinishlar: <strong>{maxAttempts} marta</strong></span>}
+            {content.durationMinutes != null && <span>{t("examTake.duration")} <strong>{t("examTake.minutes", { n: content.durationMinutes })}</strong></span>}
+            {content.maxScore != null && <span>{t("examTake.maxScore")} <strong>{content.maxScore}</strong></span>}
+            {maxAttempts !== null && <span>{t("examTake.attemptsTimes")} <strong>{t("examTake.timesUnit", { n: maxAttempts })}</strong></span>}
           </div>
           <div className="mt-4 px-4 py-3 rounded-[8px] text-sm"
             style={{ backgroundColor: "#f0f5ff", border: "1px solid rgba(14,88,168,0.15)" }}>
             <p style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)", margin: 0 }}>
-              Imtihon to&apos;liq ekran rejimida boshlanadi. Yuz tekshiruvidan o&apos;tganingizdan so&apos;ng savollar ochiladi.
+              {t("examTake.fullscreenNotice")}
             </p>
           </div>
           <button onClick={startExam}
             className="inline-flex items-center gap-2 mt-6 px-6 py-2.5 rounded-[5px] text-white font-medium"
             style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            Imtihonni boshlash
+            {t("examTake.start")}
           </button>
         </div>
       </div>
@@ -398,10 +400,10 @@ export default function ImtihonTopshirish() {
       }}>
         <ShieldAlert className="w-20 h-20" style={{ color: "#fde68a" }} />
         <p style={{ color: "#fff", fontSize: 24, fontWeight: 800, margin: 0, fontFamily: "var(--font-poppins)" }}>
-          Skrinshot taqiqlangan!
+          {t("examTake.screenshotBlocked")}
         </p>
         <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, margin: 0, fontFamily: "var(--font-poppins)" }}>
-          Imtihon davomida ekran suratga olish taqiqlangan. Bu harakat qayd etildi.
+          {t("examTake.screenshotBlockedDesc")}
         </p>
       </div>
 
@@ -416,10 +418,10 @@ export default function ImtihonTopshirish() {
         }}>
           <Maximize className="w-14 h-14 mb-4" style={{ color: "#fff" }} />
           <h2 style={{ color: "#fff", fontFamily: "var(--font-poppins)", fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
-            To&apos;liq ekran rejimi to&apos;xtatildi
+            {t("examTake.fullscreenStopped")}
           </h2>
           <p style={{ color: "rgba(255,255,255,0.7)", fontFamily: "var(--font-poppins)", marginBottom: 24 }}>
-            Imtihon davomida ekrandan chiqish taqiqlangan
+            {t("examTake.fullscreenForbidden")}
           </p>
           <button onClick={requestFS} style={{
             display: "flex", alignItems: "center", gap: 8,
@@ -427,7 +429,7 @@ export default function ImtihonTopshirish() {
             color: "#fff", fontFamily: "var(--font-poppins)", fontWeight: 600, fontSize: 15,
             border: "none", cursor: "pointer",
           }}>
-            <Maximize className="w-5 h-5" /> To&apos;liq ekranga qaytish
+            <Maximize className="w-5 h-5" /> {t("examTake.returnFullscreen")}
           </button>
         </div>
       )}
@@ -440,10 +442,10 @@ export default function ImtihonTopshirish() {
       }}>
         <AlertTriangle className="w-16 h-16 mb-4" style={{ color: "#fbbf24" }} />
         <h2 style={{ color: "#fff", fontFamily: "var(--font-poppins)", fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
-          Ekrandan chiqdingiz!
+          {t("examTake.leftWindow")}
         </h2>
         <p style={{ color: "rgba(255,255,255,0.8)", fontFamily: "var(--font-poppins)", marginBottom: 24, textAlign: "center" }}>
-          Imtihon davomida boshqa oyna yoki dasturga o&apos;tish taqiqlangan
+          {t("examTake.leftWindowDesc")}
         </p>
         <button onClick={() => {
           const el = contentHideRef.current
@@ -455,7 +457,7 @@ export default function ImtihonTopshirish() {
           color: "#dc2626", fontFamily: "var(--font-poppins)", fontWeight: 700, fontSize: 15,
           border: "none", cursor: "pointer",
         }}>
-          Imtihonga qaytish
+          {t("examTake.returnToExam")}
         </button>
       </div>
 
@@ -482,10 +484,10 @@ export default function ImtihonTopshirish() {
             </div>
             <div>
               <h2 style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
-                Yuz tekshiruvi
+                {t("examTake.faceScan")}
               </h2>
               <p style={{ color: "#7293b9", fontFamily: "var(--font-poppins)", fontSize: 14, maxWidth: 380 }}>
-                Kameraga qarang — yuzingiz tasdiqlanganidan so&apos;ng imtihon boshlanadi
+                {t("examTake.faceScanDesc")}
               </p>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -498,7 +500,7 @@ export default function ImtihonTopshirish() {
             </div>
             {lQuestions && (
               <p style={{ color: "#b0c4de", fontFamily: "var(--font-poppins)", fontSize: 12 }}>
-                Savollar yuklanmoqda...
+                {t("examTake.questionsLoading")}
               </p>
             )}
           </div>
@@ -522,7 +524,7 @@ export default function ImtihonTopshirish() {
                   {content.title}
                 </h1>
                 <p style={{ color: "#7293b9", fontFamily: "var(--font-poppins)", fontSize: 11, margin: 0 }}>
-                  {questions.length} ta savol · {answeredCount} ta javoblandi
+                  {t("examTake.questionsAnswered", { total: questions.length, answered: answeredCount })}
                 </p>
               </div>
               {timeLeft != null && (
@@ -551,7 +553,7 @@ export default function ImtihonTopshirish() {
                 backgroundColor: "white",
               }}>
                 <p style={{ fontSize: 11, fontWeight: 600, color: "#7293b9", margin: "0 0 8px", fontFamily: "var(--font-poppins)" }}>
-                  Savollar
+                  {t("examTake.questionsHeading")}
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }}>
                   {questions.map((_, i) => (
@@ -578,10 +580,10 @@ export default function ImtihonTopshirish() {
                 {/* Izoh */}
                 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
                   {[
-                    { color: "#0e58a8", bg: "#f0f5ff", label: "Joriy" },
-                    { color: "#1cc2dc", bg: "#f0fbfd", label: "Javoblandi" },
-                    { color: "#7293b9", bg: "#f6f9ff", label: "Javoblanmadi" },
-                    { color: "#f59e0b", bg: "#fff8e6", label: "Belgilangan" },
+                    { color: "#0e58a8", bg: "#f0f5ff", label: t("examTake.legend.current") },
+                    { color: "#1cc2dc", bg: "#f0fbfd", label: t("examTake.legend.answered") },
+                    { color: "#7293b9", bg: "#f6f9ff", label: t("examTake.legend.unanswered") },
+                    { color: "#f59e0b", bg: "#fff8e6", label: t("examTake.legend.flagged") },
                   ].map(l => (
                     <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: l.bg, border: `1px solid ${l.color}` }} />
@@ -593,7 +595,7 @@ export default function ImtihonTopshirish() {
                 {maxAttempts !== null && (
                   <div style={{ marginTop: 12, padding: "6px 8px", borderRadius: 6, backgroundColor: "#f0f5ff", textAlign: "center" }}>
                     <span style={{ fontSize: 11, color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                      {attemptsUsed + 1}-urinish / {maxAttempts} ta
+                      {t("examTake.attemptOf", { used: attemptsUsed + 1, max: maxAttempts })}
                     </span>
                   </div>
                 )}
@@ -692,7 +694,7 @@ export default function ImtihonTopshirish() {
                           cursor: current === 0 ? "not-allowed" : "pointer",
                           opacity: current === 0 ? 0.4 : 1, fontFamily: "var(--font-poppins)",
                         }}>
-                        <ChevronLeft className="w-4 h-4" /> Oldingi
+                        <ChevronLeft className="w-4 h-4" /> {t("examTake.prevQuestion")}
                       </button>
 
                       <button onClick={handleSubmit} disabled={submitting} style={{
@@ -705,7 +707,7 @@ export default function ImtihonTopshirish() {
                         opacity: submitting ? 0.7 : 1,
                       }}>
                         <CheckCircle2 className="w-4 h-4" />
-                        {submitting ? "Yuborilmoqda..." : `Yakunlash (${answeredCount}/${questions.length})`}
+                        {submitting ? t("examTake.submitting") : t("examTake.finish", { done: answeredCount, total: questions.length })}
                       </button>
 
                       {current < questions.length - 1 ? (
@@ -715,7 +717,7 @@ export default function ImtihonTopshirish() {
                           backgroundColor: "#0e58a8", color: "#fff", border: "none",
                           cursor: "pointer", fontFamily: "var(--font-poppins)",
                         }}>
-                          Keyingi <ChevronRight className="w-4 h-4" />
+                          {t("examTake.nextQuestion")} <ChevronRight className="w-4 h-4" />
                         </button>
                       ) : (
                         <div style={{ width: 100 }} />

@@ -42,6 +42,9 @@ import { meetingsApi, hemisApi, teachingApi, type Meeting, type MeetingRecording
 import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
 import MeetingFaceAttendanceTracker from "@/components/meeting/MeetingFaceAttendanceTracker"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+import type { Lang } from "@/lib/i18n/translations"
+import { translate } from "@/lib/i18n/translations"
 
 /* ── JWT payload decode (faqat o'qish uchun, imzo tekshirilmaydi) ── */
 function readJwtPayload(): Record<string, unknown> {
@@ -161,8 +164,8 @@ function getInitials(name: string) {
     .toUpperCase()
 }
 
-function participantText(count: number) {
-  return `${count} ishtirokchi`
+function participantText(count: number, lang: Lang) {
+  return translate(lang, "meetingPage.participants", { n: count })
 }
 
 function formatCallDuration(totalSeconds: number) {
@@ -434,6 +437,7 @@ function MeetingCard({
   joining?: boolean
   deleting?: boolean
 }) {
+  const { t, lang } = useLanguage()
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -463,7 +467,7 @@ function MeetingCard({
               <InfoPill icon={Users2} label={meeting.host || "Host"} />
               <InfoPill icon={CalendarDays} label={meeting.date} />
               <InfoPill icon={Clock3} label={`${meeting.time} - ${meeting.duration}`} />
-              <InfoPill icon={Users2} label={participantText(meeting.participants)} />
+              <InfoPill icon={Users2} label={participantText(meeting.participants, lang)} />
               {meeting.groupNames && meeting.groupNames.length > 0 && (
                 <InfoPill icon={BookOpen} label={meeting.groupNames.join(", ")} />
               )}
@@ -480,7 +484,7 @@ function MeetingCard({
               className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-white px-4 py-2.5 text-sm font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
-              Havola
+              {t("meetingPage.link")}
               <ArrowUpRight className="h-4 w-4" />
             </a>
           )}
@@ -491,14 +495,14 @@ function MeetingCard({
               disabled={deleting}
               className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-red-200 bg-white px-3 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
               style={{ fontFamily: "var(--font-poppins)" }}
-              title="Meetingni o'chirish"
+              title={t("meetingPage.deleteMeeting")}
             >
               {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             </button>
           )}
           <PrimaryButton onClick={() => onJoin(meeting.id)} loading={joining}>
             {!joining ? <Play className="h-4 w-4 fill-current" /> : null}
-            Qo&apos;shilish
+            {t("meetingPage.join")}
           </PrimaryButton>
         </div>
       </div>
@@ -507,6 +511,7 @@ function MeetingCard({
 }
 
 function EmptyMeetings({ loading }: { loading: boolean }) {
+  const { t } = useLanguage()
   return (
     <div className="rounded-[8px] border border-dashed border-[#b7cce8] bg-white px-5 py-10 text-center">
       <Video className="mx-auto h-9 w-9 text-[#7293b9]" />
@@ -514,13 +519,14 @@ function EmptyMeetings({ loading }: { loading: boolean }) {
         className="mt-3 text-sm font-medium text-[#012970]"
         style={{ fontFamily: "var(--font-poppins)" }}
       >
-        {loading ? "Meetinglar yuklanmoqda" : "Hozircha meeting yo'q"}
+        {loading ? t("meetingPage.loading") : t("meetingPage.none")}
       </p>
     </div>
   )
 }
 
 function PastMeetingCard({ meeting }: { meeting: Meeting }) {
+  const { lang } = useLanguage()
   return (
     <div className="rounded-[8px] border border-[#d8e6f7] bg-white px-4 py-4">
       <div className="flex items-start gap-3">
@@ -544,7 +550,7 @@ function PastMeetingCard({ meeting }: { meeting: Meeting }) {
             className="mt-2 text-xs text-[#7293b9]"
             style={{ fontFamily: "var(--font-poppins)" }}
           >
-            {participantText(meeting.participants)}
+            {participantText(meeting.participants, lang)}
           </p>
         </div>
       </div>
@@ -1075,14 +1081,15 @@ function CreateMeetingModal({
 }
 
 function RecordingCard({ recording }: { recording: MeetingRecording }) {
+  const { t } = useLanguage()
   return (
     <div className="rounded-[8px] border border-[#d8e6f7] bg-white p-4">
       <div className="flex flex-wrap gap-2">
-        <InfoPill icon={BookOpen} label={recording.subjectName || "Fan ko'rsatilmagan"} />
+        <InfoPill icon={BookOpen} label={recording.subjectName || t("meetingPage.subjectNotSpecified")} />
         <InfoPill icon={CalendarDays} label={recording.date} />
         <InfoPill
           icon={Users2}
-          label={recording.groupIds.length ? `Guruh ${recording.groupIds.join(", ")}` : "Guruh ko'rsatilmagan"}
+          label={recording.groupIds.length ? `${t("meetingPage.groupLabel")} ${recording.groupIds.join(", ")}` : t("meetingPage.groupNotSpecified")}
         />
       </div>
       <p className="mt-2.5 text-sm font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
@@ -1099,6 +1106,7 @@ function RecordingCard({ recording }: { recording: MeetingRecording }) {
 }
 
 function RecordingsSection() {
+  const { t } = useLanguage()
   const { data, loading, error } = useApi(() => meetingsApi.myRecordings(), [])
   const seen = new Set<string>()
   const recordings = (data?.data ?? []).filter(r => {
@@ -1110,7 +1118,7 @@ function RecordingsSection() {
   return (
     <div className="rounded-[8px] border border-[#d8e6f7] bg-white p-5 shadow-[0_2px_12px_rgba(1,41,112,0.06)]">
       <h3 className="text-lg font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-        Darslar yozuvlari
+        {t("meetingPage.lessonRecords")}
       </h3>
       {error && (
         <p className="mt-2 text-sm text-red-600" style={{ fontFamily: "var(--font-poppins)" }}>
@@ -1159,6 +1167,7 @@ function LobbyStage({
   apiError: string | null
   isTeacher: boolean
 }) {
+  const { t, lang } = useLanguage()
   const nextMeeting = upcoming[0]
   const totalParticipants = upcoming.reduce(
     (sum, meeting) => sum + meeting.participants,
@@ -1181,13 +1190,13 @@ function LobbyStage({
               className="text-2xl font-semibold text-[#012970]"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
-              Meeting
+              {t("meetingPage.title")}
             </h1>
             <p
               className="mt-1 text-sm text-[#7293b9]"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
-              Masofaviy darslar va uchrashuvlar
+              {t("meetingPage.subtitle")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1200,14 +1209,14 @@ function LobbyStage({
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
                 <Plus className="h-3.5 w-3.5" />
-                Yangi meeting
+                {t("meetingPage.newMeeting")}
               </button>
             )}
             <button
               type="button"
               onClick={onRefresh}
               className="grid h-9 w-9 place-items-center rounded-[5px] border border-[#d8e6f7] bg-white text-[#104475] transition-colors hover:bg-[#f6f9ff]"
-              aria-label="Yangilash"
+              aria-label={t("meetingPage.refresh")}
             >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </button>
@@ -1217,19 +1226,19 @@ function LobbyStage({
         <div className="grid gap-4 lg:grid-cols-3">
           <StatCard
             icon={CalendarDays}
-            label="Kelgusi meetinglar"
+            label={t("meetingPage.upcomingCount")}
             value={upcoming.length}
             accent="#0e58a8"
           />
           <StatCard
             icon={Users2}
-            label="Jami ishtirokchilar"
+            label={t("meetingPage.totalParticipants")}
             value={totalParticipants}
             accent="#1cc2dc"
           />
           <StatCard
             icon={CheckCircle2}
-            label="Yakunlangan meetinglar"
+            label={t("meetingPage.finishedCount")}
             value={past.length}
             accent="#16a34a"
           />
@@ -1263,7 +1272,7 @@ function LobbyStage({
                       className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1cc2dc]"
                       style={{ fontFamily: "var(--font-poppins)" }}
                     >
-                      Keyingi meeting
+                      {t("meetingPage.nextMeeting")}
                     </p>
                     <h2
                       className="mt-2 text-xl font-semibold text-[#012970]"
@@ -1274,7 +1283,7 @@ function LobbyStage({
                     <div className="mt-3 flex flex-wrap gap-2">
                       <InfoPill icon={CalendarDays} label={nextMeeting.date} />
                       <InfoPill icon={Clock3} label={nextMeeting.time} />
-                      <InfoPill icon={Users2} label={participantText(nextMeeting.participants)} />
+                      <InfoPill icon={Users2} label={participantText(nextMeeting.participants, lang)} />
                     </div>
                   </div>
                   <PrimaryButton
@@ -1284,7 +1293,7 @@ function LobbyStage({
                     {joiningId !== nextMeeting.id ? (
                       <Play className="h-4 w-4 fill-current" />
                     ) : null}
-                    Qo&apos;shilish
+                    {t("meetingPage.join")}
                   </PrimaryButton>
                 </div>
               </div>
@@ -1296,13 +1305,13 @@ function LobbyStage({
                   className="text-lg font-semibold text-[#012970]"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 >
-                  Meetinglar ro&apos;yxati
+                  {t("meetingPage.listTitle")}
                 </h2>
                 <p
                   className="mt-1 text-sm text-[#7293b9]"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 >
-                  {upcoming.length} ta kelgusi meeting
+                  {t("meetingPage.upcomingCountSuffix", { n: upcoming.length })}
                 </p>
               </div>
             </div>
@@ -1332,13 +1341,13 @@ function LobbyStage({
                   className="text-lg font-semibold text-[#012970]"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 >
-                  O&apos;tgan meetinglar
+                  {t("meetingPage.pastMeetings")}
                 </h3>
                 <span
                   className="text-xs text-[#7293b9]"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 >
-                  {past.length} ta
+                  {t("meetingPage.countUnit", { n: past.length })}
                 </span>
               </div>
 
@@ -1433,6 +1442,7 @@ function PrejoinStage({
   onToggleMic: () => void
   onToggleCamera: () => void
 }) {
+  const { t, lang } = useLanguage()
   return (
     <motion.div
       key="meeting-prejoin"
@@ -1452,7 +1462,7 @@ function PrejoinStage({
               style={{ fontFamily: "var(--font-poppins)" }}
             >
               <ArrowLeft className="h-4 w-4" />
-              Orqaga
+              {t("common.back")}
             </button>
             <SourceBadge label="Pre-join" tone="success" />
           </div>
@@ -1479,7 +1489,7 @@ function PrejoinStage({
           <div className="mt-5 flex flex-wrap gap-2">
             <InfoPill icon={CalendarDays} label={meeting.date} />
             <InfoPill icon={Clock3} label={meeting.time} />
-            <InfoPill icon={Users2} label={participantText(meeting.participants)} />
+            <InfoPill icon={Users2} label={participantText(meeting.participants, lang)} />
           </div>
 
           <div className="mt-5 rounded-[8px] border border-[#d8e6f7] bg-[#f6f9ff] p-4">
@@ -1788,6 +1798,7 @@ function CallStage({
   onFullscreen: () => void
   onLeave: () => void
 }) {
+  const { t, lang } = useLanguage()
   const videoSectionRef = useRef<HTMLElement | null>(null)
   const handleFullscreen = () => {
     const el = videoSectionRef.current
@@ -1800,7 +1811,7 @@ function CallStage({
     : (remoteStreams.find(r => r.socketId === activeVideoId) ?? null)
   const localPreviewStream = screenStream || localStream
   const activeStream      = activeRemote?.stream ?? localPreviewStream
-  const activeLabel       = activeRemote ? activeRemote.name : (localUserName || "Siz")
+  const activeLabel       = activeRemote ? activeRemote.name : (localUserName || t("meetingPage.you"))
   const activeSubLabel    = activeRemote
     ? roleLabel(activeRemote.role, activeRemote.groupId, groupIdToName.get(activeRemote.groupId ?? 0))
     : roleLabel(localUserRole, localGroupId, groupIdToName.get(localGroupId ?? 0))
@@ -1839,7 +1850,7 @@ function CallStage({
         {/* Header */}
         <div className="mb-4 flex shrink-0 flex-col gap-3 rounded-[8px] border border-[#d8e6f7] bg-white px-4 py-3 shadow-[0_2px_12px_rgba(1,41,112,0.06)] xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={onLeave} className="grid h-10 w-10 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475] hover:bg-[#f6f9ff]" aria-label="Orqaga">
+            <button type="button" onClick={onLeave} className="grid h-10 w-10 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475] hover:bg-[#f6f9ff]" aria-label={t("common.back")}>
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="grid h-11 w-11 place-items-center rounded-[8px] bg-[#0e58a8] text-sm font-semibold text-white">
@@ -1869,13 +1880,13 @@ function CallStage({
               <div className="flex flex-wrap gap-2">
                 <InfoPill icon={CalendarDays} label={meeting.subject || "Meeting"} />
                 <InfoPill icon={Clock3} label={meeting.duration} />
-                <InfoPill icon={Users2} label={participantText(meeting.participants)} />
+                <InfoPill icon={Users2} label={participantText(meeting.participants, lang)} />
               </div>
               {meeting.link !== "#" && (
                 <a href={meeting.link} target="_blank" rel="noreferrer"
                   className="inline-flex items-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-xs font-medium text-[#104475] hover:bg-[#f6f9ff]"
                   style={{ fontFamily: "var(--font-poppins)" }}>
-                  Havola <ArrowUpRight className="h-3.5 w-3.5" />
+                  {t("meetingPage.link")} <ArrowUpRight className="h-3.5 w-3.5" />
                 </a>
               )}
             </div>

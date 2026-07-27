@@ -5,15 +5,10 @@ import { GraduationCap, Clock, BookOpen, Search } from "lucide-react"
 import { teachingApi, type TeacherContent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"]
 const UZ_DAYS = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"]
-
-const STATUS_COLORS = {
-  open:   { bg: "#f0fdf4", color: "#15803d", label: "Ochiq" },
-  locked: { bg: "#fef2f2", color: "#b91c1c", label: "Qulflangan" },
-  closed: { bg: "#fffbeb", color: "#92400e", label: "Yakunlangan" },
-}
 
 function dateKey(ts: number): string {
   const d = new Date(ts * 1000)
@@ -26,6 +21,12 @@ function dateHeading(ts: number): string {
 }
 
 export default function NazoratJadvali() {
+  const { t } = useLanguage()
+  const STATUS_COLORS = {
+    open:   { bg: "#f0fdf4", color: "#15803d", label: t("nazoratJadvali.status.open") },
+    locked: { bg: "#fef2f2", color: "#b91c1c", label: t("nazoratJadvali.status.locked") },
+    closed: { bg: "#fffbeb", color: "#92400e", label: t("nazoratJadvali.status.closed") },
+  }
   const [search, setSearch] = useState("")
 
   const { data: lmsData, loading, error, refetch } = useApi(() => teachingApi.content({ type: "exam" }), [])
@@ -68,10 +69,10 @@ export default function NazoratJadvali() {
     <div className="flex flex-col gap-5 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Nazorat Jadvali
+          {t("nazoratJadvali.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Imtihon va nazorat turlarining jadvali
+          {t("nazoratJadvali.subtitle")}
         </p>
       </div>
 
@@ -79,7 +80,7 @@ export default function NazoratJadvali() {
         style={{ border: "1px solid rgba(1,41,112,0.2)" }}>
         <Search className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Fan yoki imtihon nomi bo'yicha qidirish"
+          placeholder={t("nazoratJadvali.searchPlaceholder")}
           className="flex-1 bg-transparent outline-none text-sm"
           style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
       </label>
@@ -89,7 +90,7 @@ export default function NazoratJadvali() {
           style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <GraduationCap className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Nazorat jadvali topilmadi
+            {t("nazoratJadvali.notFound")}
           </p>
         </div>
       ) : (
@@ -127,12 +128,12 @@ export default function NazoratJadvali() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-1 text-sm" style={{ fontFamily: "var(--font-poppins)" }}>
-                        <span><span style={{ color: "#7293b9" }}>Fan:</span> <span style={{ color: "#012970", fontWeight: 500 }}>{lms.subjectName}</span></span>
+                        <span><span style={{ color: "#7293b9" }}>{t("nazoratJadvali.subject")}</span> <span style={{ color: "#012970", fontWeight: 500 }}>{lms.subjectName}</span></span>
                         {lms.controlType && (
-                          <span><span style={{ color: "#7293b9" }}>Turi:</span> <span style={{ color: "#012970", fontWeight: 500 }}>{lms.controlType}</span></span>
+                          <span><span style={{ color: "#7293b9" }}>{t("nazoratJadvali.type")}</span> <span style={{ color: "#012970", fontWeight: 500 }}>{lms.controlType}</span></span>
                         )}
                         {lms.maxScore != null && (
-                          <span><span style={{ color: "#7293b9" }}>Maksimal ball:</span> <span style={{ color: "#012970", fontWeight: 500 }}>{lms.maxScore}</span></span>
+                          <span><span style={{ color: "#7293b9" }}>{t("nazoratJadvali.maxScore")}</span> <span style={{ color: "#012970", fontWeight: 500 }}>{lms.maxScore}</span></span>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
@@ -142,12 +143,12 @@ export default function NazoratJadvali() {
                             color: lms.controlType === "yakuniy" ? "#b91c1c" : "#0e58a8",
                             fontFamily: "var(--font-poppins)",
                           }}>
-                          {lms.controlType === "yakuniy" ? "Yakuniy imtihon" : "Oraliq nazorat"}
+                          {lms.controlType === "yakuniy" ? t("darsJadvali.finalExam") : t("darsJadvali.midtermControl")}
                         </span>
                         {lms.attemptsCount != null && (
                           <span className="text-xs px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: "#f5f3ff", color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
-                            {lms.attemptsCount} ta urinish
+                            {t("nazoratJadvali.attemptsCount", { n: lms.attemptsCount })}
                           </span>
                         )}
                       </div>
