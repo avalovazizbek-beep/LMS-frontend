@@ -3,35 +3,42 @@
 import { useEffect, useState, useMemo } from "react"
 import { Search, ChevronDown, UserCheck, Shield, BookOpen, Ban, Clock, RefreshCw } from "lucide-react"
 import { adminApi, type AdminUser } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
-const ROLE_CONFIG: Record<string, { label: string; bg: string; color: string; icon: React.ElementType }> = {
-  admin:   { label: "Admin",     bg: "#fef2f2", color: "#b91c1c", icon: Shield },
-  teacher: { label: "O'qituvchi", bg: "#f0fdf4", color: "#15803d", icon: BookOpen },
-  student: { label: "Talaba",    bg: "#eef4ff", color: "#0e58a8", icon: UserCheck },
-  blocked: { label: "Bloklangan", bg: "#f1f5f9", color: "#64748b", icon: Ban },
-  pending: { label: "Kutilmoqda", bg: "#fffbeb", color: "#92400e", icon: Clock },
+const ROLE_CONFIG: Record<string, { labelKey: string; bg: string; color: string; icon: React.ElementType }> = {
+  admin:   { labelKey: "adminFoydalanuvchilar.roleAdmin",   bg: "#fef2f2", color: "#b91c1c", icon: Shield },
+  teacher: { labelKey: "adminFoydalanuvchilar.roleTeacher", bg: "#f0fdf4", color: "#15803d", icon: BookOpen },
+  student: { labelKey: "adminFoydalanuvchilar.roleStudent", bg: "#eef4ff", color: "#0e58a8", icon: UserCheck },
+  blocked: { labelKey: "adminFoydalanuvchilar.roleBlocked", bg: "#f1f5f9", color: "#64748b", icon: Ban },
+  pending: { labelKey: "adminFoydalanuvchilar.rolePending", bg: "#fffbeb", color: "#92400e", icon: Clock },
 }
 
 const LMS_ROLES = ["admin", "teacher", "student", "blocked", "pending"]
-const HEMIS_ROLE_LABEL: Record<string, string> = {
-  employee: "Xodim", student: "Talaba", super_admin: "Super Admin", api: "API User",
+const HEMIS_ROLE_LABEL_KEY: Record<string, string> = {
+  employee: "adminFoydalanuvchilar.hemisEmployee",
+  student: "adminFoydalanuvchilar.hemisStudent",
+  super_admin: "adminFoydalanuvchilar.hemisSuperAdmin",
+  api: "adminFoydalanuvchilar.hemisApi",
 }
 
 function RoleBadge({ role, auto }: { role: string | null; auto?: boolean }) {
+  const { t } = useLanguage()
   if (!role) return <span className="text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>—</span>
-  const cfg = ROLE_CONFIG[role] ?? { label: role, bg: "#f1f5f9", color: "#64748b", icon: Clock }
-  const Icon = cfg.icon
+  const cfg = ROLE_CONFIG[role]
+  const Icon = cfg?.icon ?? Clock
+  const label = cfg ? t(cfg.labelKey) : role
   return (
     <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-      style={{ backgroundColor: cfg.bg, color: cfg.color, fontFamily: "var(--font-poppins)" }}>
+      style={{ backgroundColor: cfg?.bg ?? "#f1f5f9", color: cfg?.color ?? "#64748b", fontFamily: "var(--font-poppins)" }}>
       <Icon className="w-3 h-3" />
-      {cfg.label}
-      {auto && <span className="opacity-60 ml-0.5">(auto)</span>}
+      {label}
+      {auto && <span className="opacity-60 ml-0.5">({t("adminFoydalanuvchilar.autoSuffix")})</span>}
     </span>
   )
 }
 
 function RoleDropdown({ current, onSet }: { current: string | null; onSet: (role: string) => void }) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   return (
     <div className="relative">
@@ -39,7 +46,7 @@ function RoleDropdown({ current, onSet }: { current: string | null; onSet: (role
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-[6px] border transition-colors hover:bg-[#f0f5ff]"
         style={{ borderColor: "rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-        Rol berish <ChevronDown className="w-3 h-3" />
+        {t("adminFoydalanuvchilar.assignRole")} <ChevronDown className="w-3 h-3" />
       </button>
       {open && (
         <>
@@ -60,7 +67,7 @@ function RoleDropdown({ current, onSet }: { current: string | null; onSet: (role
                     fontFamily: "var(--font-poppins)",
                   }}>
                   <Icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
-                  {cfg.label}
+                  {t(cfg.labelKey)}
                 </button>
               )
             })}
@@ -72,6 +79,7 @@ function RoleDropdown({ current, onSet }: { current: string | null; onSet: (role
 }
 
 export default function AdminFoydalanuvchilar() {
+  const { t } = useLanguage()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -121,15 +129,15 @@ export default function AdminFoydalanuvchilar() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Foydalanuvchilar
+            {t("adminFoydalanuvchilar.pageTitle")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Jami: {total} ta foydalanuvchi
+            {t("adminFoydalanuvchilar.totalUsers", { total })}
           </p>
         </div>
         <button onClick={() => load()} className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-          <RefreshCw className="w-3.5 h-3.5" /> Yangilash
+          <RefreshCw className="w-3.5 h-3.5" /> {t("adminFoydalanuvchilar.refresh")}
         </button>
       </div>
 
@@ -141,7 +149,7 @@ export default function AdminFoydalanuvchilar() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Ism, login, ID bo'yicha qidirish"
+            placeholder={t("adminFoydalanuvchilar.searchPlaceholder")}
             className="outline-none bg-transparent text-sm w-56"
             style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
           />
@@ -158,7 +166,7 @@ export default function AdminFoydalanuvchilar() {
                 color: roleFilter === r ? "#fff" : "#0e58a8",
                 fontFamily: "var(--font-poppins)",
               }}>
-              {r ? (ROLE_CONFIG[r]?.label ?? r) : "Barchasi"}
+              {r ? (ROLE_CONFIG[r] ? t(ROLE_CONFIG[r].labelKey) : r) : t("adminFoydalanuvchilar.filterAll")}
             </button>
           ))}
         </div>
@@ -176,7 +184,15 @@ export default function AdminFoydalanuvchilar() {
             <table className="w-full min-w-[700px]">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f6f9ff" }}>
-                  {["#", "To'liq ism", "HEMIS roli", "LMS roli", "Kontent", "So'nggi kirish", "Amal"].map(h => (
+                  {[
+                    t("adminFoydalanuvchilar.colIndex"),
+                    t("adminFoydalanuvchilar.colFullName"),
+                    t("adminFoydalanuvchilar.colHemisRole"),
+                    t("adminFoydalanuvchilar.colLmsRole"),
+                    t("adminFoydalanuvchilar.colContent"),
+                    t("adminFoydalanuvchilar.colLastSeen"),
+                    t("adminFoydalanuvchilar.colAction"),
+                  ].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
                       style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)", whiteSpace: "nowrap" }}>
                       {h}
@@ -188,7 +204,7 @@ export default function AdminFoydalanuvchilar() {
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      Foydalanuvchilar topilmadi
+                      {t("adminFoydalanuvchilar.noUsersFound")}
                     </td>
                   </tr>
                 ) : filtered.map((u, i) => (
@@ -209,7 +225,7 @@ export default function AdminFoydalanuvchilar() {
                     <td className="px-4 py-3">
                       <span className="text-xs font-medium px-2 py-0.5 rounded-full"
                         style={{ backgroundColor: "#f1f5f9", color: "#64748b", fontFamily: "var(--font-poppins)" }}>
-                        {HEMIS_ROLE_LABEL[u.hemisRole] ?? u.hemisRole}
+                        {HEMIS_ROLE_LABEL_KEY[u.hemisRole] ? t(HEMIS_ROLE_LABEL_KEY[u.hemisRole]) : u.hemisRole}
                       </span>
                       {u.hemisRoleCodes.filter(c => c !== u.hemisRole).map(c => (
                         <span key={c} className="ml-1 text-xs px-2 py-0.5 rounded-full"
@@ -230,7 +246,7 @@ export default function AdminFoydalanuvchilar() {
                     <td className="px-4 py-3">
                       {u.isAutoAdmin ? (
                         <span className="text-xs italic" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
-                          Avtomatik admin
+                          {t("adminFoydalanuvchilar.autoAdminLabel")}
                         </span>
                       ) : saving === u.hemisId ? (
                         <RefreshCw className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} />

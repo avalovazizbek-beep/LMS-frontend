@@ -5,6 +5,7 @@ import { Lock, LockOpen, FileText, CheckCircle, AlertCircle, RefreshCw } from "l
 import { adminApi, type TeacherContent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -16,6 +17,7 @@ function fmtDate(iso: string) {
 }
 
 export default function AdminBaholash() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => adminApi.lockedAssignments(), [])
   const items: TeacherContent[] = data?.data ?? []
 
@@ -31,7 +33,7 @@ export default function AdminBaholash() {
       setUnlocked(prev => new Set(prev).add(id))
       setTimeout(() => refetch(), 600)
     } catch (e) {
-      setUnlockError(e instanceof Error ? e.message : "Xatolik yuz berdi")
+      setUnlockError(e instanceof Error ? e.message : t("adminBaholash.errorDefault"))
     } finally {
       setUnlocking(prev => ({ ...prev, [id]: false }))
     }
@@ -45,9 +47,9 @@ export default function AdminBaholash() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] font-medium" style={T}>Yakunlangan baholashlar</h1>
+          <h1 className="text-[28px] font-medium" style={T}>{t("adminBaholash.pageTitle")}</h1>
           <p className="text-sm mt-1" style={L}>
-            O'qituvchilar yakunlagan amaliy topshiriqlar — qulfni ochish uchun "Ochish" tugmasini bosing
+            {t("adminBaholash.pageSubtitle")}
           </p>
         </div>
         <button
@@ -56,7 +58,7 @@ export default function AdminBaholash() {
           style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          Yangilash
+          {t("adminBaholash.refresh")}
         </button>
       </div>
 
@@ -71,13 +73,13 @@ export default function AdminBaholash() {
       {items.length === 0 ? (
         <div className="rounded-[10px] bg-white p-16 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <CheckCircle className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-semibold" style={T}>Yakunlangan baholashlar yo'q</p>
-          <p className="text-xs mt-1" style={L}>Hozircha hech bir topshiriq yakunlanmagan</p>
+          <p className="text-sm font-semibold" style={T}>{t("adminBaholash.emptyTitle")}</p>
+          <p className="text-xs mt-1" style={L}>{t("adminBaholash.emptyDesc")}</p>
         </div>
       ) : (
         <>
           <div className="text-xs px-1" style={L}>
-            Jami {items.length} ta yakunlangan amaliy topshiriq
+            {t("adminBaholash.totalCount", { n: items.length })}
           </div>
 
           <div className="flex flex-col gap-3">
@@ -102,18 +104,18 @@ export default function AdminBaholash() {
                       <div className="text-sm font-semibold truncate" style={T}>{item.title}</div>
                       <div className="text-xs mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5" style={L}>
                         <span>{item.subjectName}</span>
-                        {item.maxScore !== null && <span>Maks: {item.maxScore} ball</span>}
-                        {item.deadline && <span>Muddat: {fmtDate(item.deadline)}</span>}
+                        {item.maxScore !== null && <span>{t("adminBaholash.maxScoreLabel", { n: item.maxScore })}</span>}
+                        {item.deadline && <span>{t("adminBaholash.deadlineLabel", { date: fmtDate(item.deadline) })}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 mt-1.5">
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                           style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                           <Lock className="w-2.5 h-2.5 inline mr-1" />
-                          Yakunlangan
+                          {t("adminBaholash.statusFinished")}
                         </span>
                         <span className="text-[10px] px-2 py-0.5 rounded-full"
                           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                          Amaliy topshiriq
+                          {t("adminBaholash.practicalAssignment")}
                         </span>
                       </div>
                     </div>
@@ -124,7 +126,7 @@ export default function AdminBaholash() {
                       <span className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full"
                         style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
                         <CheckCircle className="w-3.5 h-3.5" />
-                        Ochildi
+                        {t("adminBaholash.unlockedLabel")}
                       </span>
                     ) : (
                       <button
@@ -134,7 +136,7 @@ export default function AdminBaholash() {
                         style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}
                       >
                         <LockOpen className="w-4 h-4" />
-                        {isUnlocking ? "Ochilmoqda..." : "Ochish"}
+                        {isUnlocking ? t("adminBaholash.unlockingLabel") : t("adminBaholash.unlockBtn")}
                       </button>
                     )}
                   </div>

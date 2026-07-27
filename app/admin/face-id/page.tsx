@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react"
 import { ShieldAlert, CheckCircle2, XCircle, Clock, RefreshCw, User } from "lucide-react"
 import { adminApi, type AdminFaceRequest } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const STATUS_CONFIG = {
-  pending:  { label: "Kutilmoqda", bg: "#fffbeb", color: "#92400e", icon: Clock },
-  approved: { label: "Tasdiqlandi", bg: "#f0fdf4", color: "#15803d", icon: CheckCircle2 },
-  rejected: { label: "Rad etildi", bg: "#fef2f2", color: "#b91c1c", icon: XCircle },
+  pending:  { labelKey: "adminFaceId.statusPending",  bg: "#fffbeb", color: "#92400e", icon: Clock },
+  approved: { labelKey: "adminFaceId.statusApproved", bg: "#f0fdf4", color: "#15803d", icon: CheckCircle2 },
+  rejected: { labelKey: "adminFaceId.statusRejected", bg: "#fef2f2", color: "#b91c1c", icon: XCircle },
 }
 
 export default function AdminFaceId() {
+  const { t } = useLanguage()
   const [requests, setRequests] = useState<AdminFaceRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [statusTab, setStatusTab] = useState<"pending" | "approved" | "rejected">("pending")
@@ -49,10 +51,10 @@ export default function AdminFaceId() {
     <div className="flex flex-col gap-5 p-8">
       <div>
         <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Face ID So'rovlari
+          {t("adminFaceId.pageTitle")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Yuz ro'yxatdan o'tish so'rovlarini ko'rib chiqish
+          {t("adminFaceId.pageSubtitle")}
         </p>
       </div>
 
@@ -72,13 +74,13 @@ export default function AdminFaceId() {
                 fontFamily: "var(--font-poppins)",
               }}>
               <Icon className="w-3.5 h-3.5" />
-              {cfg.label}
+              {t(cfg.labelKey)}
             </button>
           )
         })}
         <button onClick={() => load()} className="ml-auto text-xs flex items-center gap-1.5 px-3 py-2 rounded-[8px]"
           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-          <RefreshCw className="w-3 h-3" /> Yangilash
+          <RefreshCw className="w-3 h-3" /> {t("adminFaceId.refresh")}
         </button>
       </div>
 
@@ -90,7 +92,7 @@ export default function AdminFaceId() {
         <div className="bg-white rounded-[12px] p-12 text-center" style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
           <ShieldAlert className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {STATUS_CONFIG[statusTab].label} so'rovlar yo'q
+            {t("adminFaceId.noRequestsOfStatus", { status: t(STATUS_CONFIG[statusTab].labelKey) })}
           </p>
         </div>
       ) : (
@@ -114,16 +116,16 @@ export default function AdminFaceId() {
                       <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
                         style={{ backgroundColor: cfg.bg, color: cfg.color, fontFamily: "var(--font-poppins)" }}>
                         <Icon className="w-3 h-3" />
-                        {cfg.label}
+                        {t(cfg.labelKey)}
                       </span>
                     </div>
                     {r.reason && (
                       <p className="text-xs mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                        Sabab: {r.reason}
+                        {t("adminFaceId.reasonLabel", { reason: r.reason })}
                       </p>
                     )}
                     <p className="text-xs mt-1" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
-                      So'rov sanasi: {fmtTs(r.created_at)}
+                      {t("adminFaceId.requestDateLabel", { date: fmtTs(r.created_at) })}
                     </p>
                   </div>
                 </div>
@@ -133,7 +135,7 @@ export default function AdminFaceId() {
                     <input
                       value={note}
                       onChange={e => setNote(e.target.value)}
-                      placeholder="Izoh (ixtiyoriy)…"
+                      placeholder={t("adminFaceId.notePlaceholder")}
                       className="w-full px-3 py-2 text-sm rounded-[6px] outline-none"
                       style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}
                     />
@@ -144,7 +146,7 @@ export default function AdminFaceId() {
                         className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-[8px] disabled:opacity-60"
                         style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                         {isActing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                        Tasdiqlash
+                        {t("adminFaceId.approveBtn")}
                       </button>
                       <button
                         onClick={() => handleAction(r.id, "reject")}
@@ -152,7 +154,7 @@ export default function AdminFaceId() {
                         className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-[8px] disabled:opacity-60"
                         style={{ backgroundColor: "#fef2f2", color: "#b91c1c", border: "1px solid rgba(185,28,28,0.3)", fontFamily: "var(--font-poppins)" }}>
                         {isActing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-                        Rad etish
+                        {t("adminFaceId.rejectBtn")}
                       </button>
                     </div>
                   </div>
@@ -160,7 +162,7 @@ export default function AdminFaceId() {
 
                 {r.admin_note && r.status !== "pending" && (
                   <div className="text-xs px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#f6f9ff", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Admin izohi: {r.admin_note}
+                    {t("adminFaceId.adminNoteLabel", { note: r.admin_note })}
                   </div>
                 )}
               </div>

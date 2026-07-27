@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { Settings, RefreshCw, Save, ShieldAlert, FileText, CheckCircle2 } from "lucide-react"
 import { adminApi } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function AdminSozlamalar() {
+  const { t } = useLanguage()
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -50,17 +52,17 @@ export default function AdminSozlamalar() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Tizim sozlamalari
+            {t("adminSozlamalar.pageTitle")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Imtihon va xavfsizlik parametrlarini sozlash
+            {t("adminSozlamalar.pageSubtitle")}
           </p>
         </div>
         <button onClick={load} disabled={loading}
           className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Yangilash
+          {t("adminSozlamalar.refresh")}
         </button>
       </div>
 
@@ -79,18 +81,18 @@ export default function AdminSozlamalar() {
               </div>
               <div>
                 <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  Face ID xato chegarasi
+                  {t("adminSozlamalar.faceThresholdTitle")}
                 </div>
                 <div className="text-xs mt-0.5 leading-5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  Imtihon davomida yuz tekshiruvi shu marta xato bo'lsa, talaba imtihondan bloklanadi.
-                  Hozirgi qiymat: <strong>{settings.face_block_threshold ?? "3"}</strong>
+                  {t("adminSozlamalar.faceThresholdDesc")}
+                  {" "}{t("adminSozlamalar.currentValueLabel")} <strong>{settings.face_block_threshold ?? "3"}</strong>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
               <label className="text-sm font-medium shrink-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Xatolar soni:
+                {t("adminSozlamalar.errorCountLabel")}
               </label>
               <input
                 type="number"
@@ -106,7 +108,7 @@ export default function AdminSozlamalar() {
                 }}
               />
               <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                (1–20 oralig'ida)
+                {t("adminSozlamalar.rangeHint1to20")}
               </span>
             </div>
           </div>
@@ -119,17 +121,17 @@ export default function AdminSozlamalar() {
               </div>
               <div>
                 <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  Test urinish soni
+                  {t("adminSozlamalar.testAttemptsTitle")}
                 </div>
                 <div className="text-xs mt-0.5 leading-5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  Talaba testni necha marta topshira oladi. Hozirgi qiymat: <strong>{settings.test_max_attempts ?? "1"}</strong>
+                  {t("adminSozlamalar.testAttemptsDesc")} {t("adminSozlamalar.currentValueLabel")} <strong>{settings.test_max_attempts ?? "1"}</strong>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
               <label className="text-sm font-medium shrink-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Urinishlar:
+                {t("adminSozlamalar.attemptsLabel")}
               </label>
               <input
                 type="number"
@@ -145,7 +147,7 @@ export default function AdminSozlamalar() {
                 }}
               />
               <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                (1–10 oralig'ida)
+                {t("adminSozlamalar.rangeHint1to10")}
               </span>
             </div>
           </div>
@@ -162,7 +164,7 @@ export default function AdminSozlamalar() {
                 : saved
                   ? <CheckCircle2 className="w-4 h-4" />
                   : <Save className="w-4 h-4" />}
-              {saving ? "Saqlanmoqda…" : saved ? "Saqlandi!" : "Sozlamalarni saqlash"}
+              {saving ? t("adminSozlamalar.savingLabel") : saved ? t("adminSozlamalar.savedLabel") : t("adminSozlamalar.saveSettingsBtn")}
             </button>
           </div>
 
