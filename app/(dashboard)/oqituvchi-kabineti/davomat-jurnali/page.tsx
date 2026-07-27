@@ -7,6 +7,7 @@ import { ChevronLeft, Lock } from "lucide-react"
 import { teachingApi, attendanceApi, authApi, hemisApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function todayStr() {
   const d = new Date()
@@ -48,6 +49,7 @@ function timeRangeLabel(col: DateColumn) {
 }
 
 export default function DavomatJurnaliPage() {
+  const { t } = useLanguage()
   const searchParams = useSearchParams()
   const groupId = searchParams.get("group")
   const subjectName = searchParams.get("subject") ?? ""
@@ -123,13 +125,13 @@ export default function DavomatJurnaliPage() {
       <div className="flex items-center gap-2 text-sm flex-wrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
         <Link href="/xodim/davomat-jurnali" className="flex items-center gap-1 hover:underline">
           <ChevronLeft className="w-4 h-4" />
-          Davomat jurnali
+          {t("davomatJurnaliOq.breadcrumb")}
         </Link>
       </div>
 
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Davomat jurnali
+          {t("davomatJurnaliOq.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
           {resolvedGroupName} — {subjectName || "-"}
@@ -138,7 +140,7 @@ export default function DavomatJurnaliPage() {
 
       <div className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-xs" style={{ backgroundColor: "#f0f7ff", color: "#0e58a8", border: "1px solid rgba(14,88,168,0.15)", fontFamily: "var(--font-poppins)" }}>
         <Lock className="w-3.5 h-3.5 shrink-0" />
-        Davomat avtomatik tarzda HEMIS tizimidan olinadi. O'qituvchi qo'lda o'zgartira olmaydi.
+        {t("davomatJurnaliOq.autoNotice")}
       </div>
 
       <div className="flex flex-col lg:flex-row gap-5">
@@ -149,7 +151,7 @@ export default function DavomatJurnaliPage() {
                 <thead>
                   <tr style={{ backgroundColor: "#eef4ff" }}>
                     <th className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[50px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>#</th>
-                    <th className={`${borderCls} px-4 py-2 text-left text-xs font-semibold whitespace-nowrap w-full`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Talabaning F.I.Sh.</th>
+                    <th className={`${borderCls} px-4 py-2 text-left text-xs font-semibold whitespace-nowrap w-full`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.studentFullName")}</th>
                     <th className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[50px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>S</th>
                     <th className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[50px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>SZ</th>
                     {dateColumns.map((col) => {
@@ -209,15 +211,15 @@ export default function DavomatJurnaliPage() {
                   ) : (
                     <tr>
                       <td colSpan={4 + dateColumns.length} className={`${borderCls} px-4 py-12 text-center text-sm`} style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                        Bu guruhda talaba topilmadi
+                        {t("davomatJurnaliOq.noStudents")}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
               <p className="text-xs mt-2.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                <span style={{ color: "#dc2626" }}>S (son)</span> — sababsiz,{" "}
-                <span style={{ color: "#15803d" }}>SZ</span> — sababli ketgan soatlar. Ma&apos;lumotlar HEMIS tizimidan avtomatik yuklanadi.
+                <span style={{ color: "#dc2626" }}>{t("davomatJurnaliOq.legendUnexcused")}</span>{" "}
+                <span style={{ color: "#15803d" }}>SZ</span> — {t("davomatJurnaliOq.legendExcused")}
               </p>
             </div>
           )}
@@ -225,23 +227,23 @@ export default function DavomatJurnaliPage() {
 
         <div className="w-full lg:w-[300px] shrink-0 rounded-[10px] bg-white p-4 self-start" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
           <h2 className="text-sm font-semibold mb-3" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Ma&apos;lumot
+            {t("davomatJurnaliOq.info")}
           </h2>
           <div className="flex flex-col gap-2.5 text-sm">
             <div className="flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", paddingBottom: 8 }}>
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Guruh</span>
+              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.group")}</span>
               <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{resolvedGroupName}</span>
             </div>
             <div className="flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", paddingBottom: 8 }}>
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Fanlar</span>
+              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.subjects")}</span>
               <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{subjectName || "-"}</span>
             </div>
             <div className="flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", paddingBottom: 8 }}>
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Mashg&apos;ulot</span>
+              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.lesson")}</span>
               <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{trainingType || "-"}</span>
             </div>
             <div className="flex items-start justify-between gap-3">
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Xodim</span>
+              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.staff")}</span>
               <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{meRes?.user?.fullName ?? "-"}</span>
             </div>
           </div>

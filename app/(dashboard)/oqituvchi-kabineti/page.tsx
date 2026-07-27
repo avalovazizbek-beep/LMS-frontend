@@ -8,14 +8,15 @@ import {
 import { teachingApi, type TeacherGroup, type TeacherScheduleItem } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
-
-const sections = [
-  { type: "darslar",      label: "Darslarim",      description: "Video darslik / o'quv materiallari yuklash", Icon: BookOpen,      color: "#0e58a8" },
-  { type: "topshiriqlar", label: "Topshiriqlarim", description: "Topshiriq berish va talabalarni baholash",   Icon: ClipboardList, color: "#f59e0b" },
-  { type: "imtihonlar",   label: "Imtihonlarim",   description: "Imtihon vazifalari va natijalarni baholash", Icon: GraduationCap, color: "#7c3aed" },
-] as const
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function OqituvchiKabineti() {
+  const { t } = useLanguage()
+  const sections = [
+    { type: "darslar",      label: t("oqKabineti.myLessons"),     description: t("oqKabineti.myLessonsDesc"),     Icon: BookOpen,      color: "#0e58a8" },
+    { type: "topshiriqlar", label: t("oqKabineti.myAssignments"), description: t("oqKabineti.myAssignmentsDesc"), Icon: ClipboardList, color: "#f59e0b" },
+    { type: "imtihonlar",   label: t("oqKabineti.myExams"),       description: t("oqKabineti.myExamsDesc"),       Icon: GraduationCap, color: "#7c3aed" },
+  ] as const
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
 
@@ -32,10 +33,10 @@ export default function OqituvchiKabineti() {
     setSyncMsg(null)
     try {
       await teachingApi.sync()
-      setSyncMsg("HEMIS bilan muvaffaqiyatli sinxronlandi")
+      setSyncMsg(t("oqKabineti.syncSuccess"))
       await Promise.all([refetchGroups(), refetchSchedule()])
     } catch (err) {
-      setSyncMsg(err instanceof Error ? err.message : "Sinxronlashda xatolik")
+      setSyncMsg(err instanceof Error ? err.message : t("oqKabineti.syncError"))
     } finally {
       setSyncing(false)
     }
@@ -47,10 +48,10 @@ export default function OqituvchiKabineti() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            O&apos;qituvchi kabineti
+            {t("oqKabineti.title")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            HEMIS&apos;dan faqat guruh va dars jadvalingiz olinadi — qolgan barcha kontent shu yerda, LMS&apos;ning o&apos;z bazasida saqlanadi
+            {t("oqKabineti.subtitle")}
           </p>
         </div>
         <button
@@ -60,7 +61,7 @@ export default function OqituvchiKabineti() {
           style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}
         >
           {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          HEMIS&apos;dan yangilash
+          {t("oqKabineti.syncFromHemis")}
         </button>
       </div>
 
@@ -101,7 +102,7 @@ export default function OqituvchiKabineti() {
         <div className="flex items-center gap-2 mb-4">
           <Users className="w-5 h-5" style={{ color: "#0e58a8" }} />
           <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Biriktirilgan guruhlarim
+            {t("oqKabineti.myGroups")}
           </h2>
           <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             {groups.length}
@@ -110,7 +111,7 @@ export default function OqituvchiKabineti() {
 
         {groupsLoading ? <Loading /> : groupsError ? <ApiError message={groupsError} onRetry={refetchGroups} /> : groups.length === 0 ? (
           <p className="text-sm text-center py-8" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Guruhlar topilmadi. &quot;HEMIS&apos;dan yangilash&quot; tugmasini bosing.
+            {t("oqKabineti.groupsNotFound")}
           </p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -118,7 +119,7 @@ export default function OqituvchiKabineti() {
               <div key={g.id} className="flex flex-col gap-1 p-3 rounded-[8px]" style={{ backgroundColor: "#f6f9ff" }}>
                 <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{g.name}</span>
                 <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  {[g.direction, g.course ? `${g.course}-kurs` : null].filter(Boolean).join(" • ") || `ID: ${g.id}`}
+                  {[g.direction, g.course ? t("oqKabineti.courseSuffix", { n: g.course }) : null].filter(Boolean).join(" • ") || `ID: ${g.id}`}
                 </span>
               </div>
             ))}
@@ -131,7 +132,7 @@ export default function OqituvchiKabineti() {
         <div className="flex items-center gap-2 mb-4">
           <CalendarDays className="w-5 h-5" style={{ color: "#0e58a8" }} />
           <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Dars jadvalim
+            {t("oqKabineti.mySchedule")}
           </h2>
           <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             {schedule.length}
@@ -140,14 +141,14 @@ export default function OqituvchiKabineti() {
 
         {scheduleLoading ? <Loading /> : scheduleError ? <ApiError message={scheduleError} onRetry={refetchSchedule} /> : schedule.length === 0 ? (
           <p className="text-sm text-center py-8" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Dars jadvali topilmadi. &quot;HEMIS&apos;dan yangilash&quot; tugmasini bosing.
+            {t("oqKabineti.scheduleNotFound")}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm" style={{ fontFamily: "var(--font-poppins)" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                  {["Sana", "Kun", "Vaqt", "Fan", "Guruh", "Xona"].map(h => (
+                  {[t("oqKabineti.col.date"), t("oqKabineti.col.day"), t("oqKabineti.col.time"), t("oqKabineti.col.subject"), t("oqKabineti.col.group"), t("oqKabineti.col.room")].map(h => (
                     <th key={h} className="text-left py-2 px-3 text-xs font-semibold" style={{ color: "#7293b9" }}>{h}</th>
                   ))}
                 </tr>

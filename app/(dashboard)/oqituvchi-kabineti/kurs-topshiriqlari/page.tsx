@@ -7,6 +7,7 @@ import { Plus, Trash2, Pencil, Download, Power } from "lucide-react"
 import { teachingApi, type TeacherContent, type TeachingSubmission } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return "-"
@@ -16,6 +17,7 @@ function formatDateTime(iso: string | null): string {
 }
 
 export default function KursTopshiriqlariDetailPage() {
+  const { t } = useLanguage()
   const searchParams = useSearchParams()
   const groupId = searchParams.get("group") ?? ""
   const groupNames = searchParams.get("groupNames") ?? ""
@@ -26,8 +28,8 @@ export default function KursTopshiriqlariDetailPage() {
 
   const semesterLabel = useMemo(() => {
     const code = Number(semester)
-    return Number.isFinite(code) && code >= 11 && code <= 20 ? `${code - 10}-semestr` : ""
-  }, [semester])
+    return Number.isFinite(code) && code >= 11 && code <= 20 ? t("kursTopshDetail.semesterSuffix", { n: code - 10 }) : ""
+  }, [semester, t])
 
   const breadcrumbDetails = [trainingName, semesterLabel, groupNames].filter(Boolean).join(" | ")
 
@@ -67,12 +69,12 @@ export default function KursTopshiriqlariDetailPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Ushbu topshiriqni o'chirishni tasdiqlaysizmi?")) return
+    if (!confirm(t("kursTopshDetail.confirmDelete"))) return
     try {
       await teachingApi.removeContent(id)
       await refetch()
     } catch (err) {
-      alert(err instanceof Error ? err.message : "O'chirishda xatolik")
+      alert(err instanceof Error ? err.message : t("kursTopshDetail.deleteError"))
     }
   }
 
@@ -81,7 +83,7 @@ export default function KursTopshiriqlariDetailPage() {
       await teachingApi.toggleContent(id)
       await refetch()
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Holatni almashtirishda xatolik")
+      alert(err instanceof Error ? err.message : t("kursTopshDetail.toggleError"))
     }
   }
 
@@ -95,9 +97,9 @@ export default function KursTopshiriqlariDetailPage() {
   return (
     <div className="flex flex-col gap-5 p-[30px]">
       <div className="flex items-center gap-2 text-sm flex-wrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-        <Link href="/dashboard" className="hover:underline">Asosiy</Link>
+        <Link href="/dashboard" className="hover:underline">{t("kursTopshDetail.main")}</Link>
         <span>/</span>
-        <Link href="/oqituvchi-kabineti/kurs-topshiriqlar" className="hover:underline">Kurs topshiriqlari</Link>
+        <Link href="/oqituvchi-kabineti/kurs-topshiriqlar" className="hover:underline">{t("kursTopshDetail.courseAssignments")}</Link>
         {name && (
           <>
             <span>/</span>
@@ -111,7 +113,7 @@ export default function KursTopshiriqlariDetailPage() {
       <div className="rounded-[10px] bg-white" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <div className="flex items-center justify-between gap-3 p-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <h1 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Topshiriqlar ro&apos;yxati(Maks. ball: {headerMaxBall})
+            {t("kursTopshDetail.listTitle", { n: headerMaxBall })}
           </h1>
           <Link
             href={createHref}
@@ -119,7 +121,7 @@ export default function KursTopshiriqlariDetailPage() {
             style={{ backgroundColor: "#16a34a", color: "#fff", fontFamily: "var(--font-poppins)" }}
           >
             <Plus className="w-4 h-4" />
-            Yaratish
+            {t("kursTopshDetail.create")}
           </Link>
         </div>
 
@@ -127,13 +129,13 @@ export default function KursTopshiriqlariDetailPage() {
           <table className="w-full min-w-[900px]">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>#</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Nomi</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Savol/Fayl</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Muddat</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Yangi talaba</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Talabalar</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Faol</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshDetail.col.hash")}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshDetail.col.name")}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshDetail.col.questionFile")}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshDetail.col.deadline")}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshDetail.col.newStudent")}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshDetail.col.students")}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshDetail.col.active")}</th>
               </tr>
             </thead>
             <tbody>
@@ -147,7 +149,7 @@ export default function KursTopshiriqlariDetailPage() {
                       <td className="px-4 py-2.5 text-sm">
                         <div style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{item.title}</div>
                         {item.maxScore != null && (
-                          <div className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{item.maxScore} ball</div>
+                          <div className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("kursTopshDetail.scorePoints", { n: item.maxScore })}</div>
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-sm">
@@ -160,10 +162,10 @@ export default function KursTopshiriqlariDetailPage() {
                             style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}
                           >
                             <Download className="w-3.5 h-3.5" />
-                            {fileCount} fayl
+                            {t("kursTopshDetail.fileCount", { n: fileCount })}
                           </a>
                         ) : (
-                          <span style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{fileCount} fayl</span>
+                          <span style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{t("kursTopshDetail.fileCount", { n: fileCount })}</span>
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-sm" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>
@@ -185,15 +187,15 @@ export default function KursTopshiriqlariDetailPage() {
                               color: item.isActive ? "#15803d" : "#b91c1c",
                               backgroundColor: item.isActive ? "#f0fdf4" : "#fef2f2",
                             }}
-                            title={item.isActive ? "Nofaol qilish" : "Faollashtirish"}
+                            title={item.isActive ? t("kursTopshDetail.deactivate") : t("kursTopshDetail.activate")}
                           >
                             <Power className="w-3 h-3 inline -mt-0.5 mr-1" />
-                            {item.isActive ? "Faol" : "Nofaol"}
+                            {item.isActive ? t("kursTopshDetail.active") : t("kursTopshDetail.inactive")}
                           </button>
-                          <Link href={editHref(item.id)} className="p-1 rounded-[4px] hover:bg-[#f0f5ff]" title="Tahrirlash">
+                          <Link href={editHref(item.id)} className="p-1 rounded-[4px] hover:bg-[#f0f5ff]" title={t("kursTopshDetail.edit")}>
                             <Pencil className="w-3.5 h-3.5" style={{ color: "#445b7a" }} />
                           </Link>
-                          <button onClick={() => handleDelete(item.id)} className="p-1 rounded-[4px] hover:bg-[#fef2f2]" title="O'chirish">
+                          <button onClick={() => handleDelete(item.id)} className="p-1 rounded-[4px] hover:bg-[#fef2f2]" title={t("kursTopshDetail.delete")}>
                             <Trash2 className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
                           </button>
                         </div>
@@ -204,7 +206,7 @@ export default function KursTopshiriqlariDetailPage() {
               ) : (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Hech narsa topilmadi
+                    {t("kursTopshDetail.notFound")}
                   </td>
                 </tr>
               )}
@@ -213,7 +215,7 @@ export default function KursTopshiriqlariDetailPage() {
         </div>
 
         <div className="flex items-center justify-between p-3 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          <span>1-{items.length} / jami {items.length} ta</span>
+          <span>{t("kursTopshDetail.pagination", { n: items.length })}</span>
         </div>
       </div>
     </div>
