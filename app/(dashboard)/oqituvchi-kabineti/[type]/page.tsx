@@ -22,6 +22,9 @@ import {
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+
+type TFunc = (key: string, params?: Record<string, string | number>) => string
 
 interface TypeConfig {
   type: TeachingContentType
@@ -38,28 +41,43 @@ interface TypeConfig {
   filterControlType?: string | null   // null = controlType yo'q itemlar, string = shu controlType
 }
 
-const TYPE_MAP: Record<string, TypeConfig> = {
+interface TypeConfigDef {
+  type: TeachingContentType
+  titleKey: string
+  subtitleKey: string
+  itemLabelKey: string
+  hasFile: boolean
+  gradable: boolean
+  showMaterials: boolean
+  hasDuration: boolean
+  hasTrainingLoad: boolean
+  hasActiveToggle: boolean
+  readOnly?: boolean
+  filterControlType?: string | null   // null = controlType yo'q itemlar, string = shu controlType
+}
+
+const TYPE_MAP: Record<string, TypeConfigDef> = {
   darslar: {
     type: "lesson",
-    title: "Fan resurslari",
-    subtitle: "Dars materiallari — hujjat, video darslik yoki online meeting",
-    itemLabel: "dars",
+    titleKey: "typeContentOq.types.darslar.title",
+    subtitleKey: "typeContentOq.types.darslar.subtitle",
+    itemLabelKey: "typeContentOq.types.darslar.itemLabel",
     hasFile: true, gradable: false, showMaterials: true, hasDuration: false,
     hasTrainingLoad: true, hasActiveToggle: true,
   },
   topshiriqlar: {
     type: "assignment",
-    title: "Fan topshiriqlari",
-    subtitle: "Talabalar uchun topshiriqlar — ball va muddat belgilang",
-    itemLabel: "topshiriq",
+    titleKey: "typeContentOq.types.topshiriqlar.title",
+    subtitleKey: "typeContentOq.types.topshiriqlar.subtitle",
+    itemLabelKey: "typeContentOq.types.topshiriqlar.itemLabel",
     hasFile: true, gradable: true, showMaterials: false, hasDuration: false,
     hasTrainingLoad: false, hasActiveToggle: true,
   },
   imtihonlar: {
     type: "exam",
-    title: "Fan imtihonlari",
-    subtitle: "Fan imtihon natijalari — faqat ko'rish mumkin",
-    itemLabel: "imtihon",
+    titleKey: "typeContentOq.types.imtihonlar.title",
+    subtitleKey: "typeContentOq.types.imtihonlar.subtitle",
+    itemLabelKey: "typeContentOq.types.imtihonlar.itemLabel",
     hasFile: true, gradable: true, showMaterials: false, hasDuration: true,
     hasTrainingLoad: false, hasActiveToggle: false,
     readOnly: true,
@@ -67,59 +85,78 @@ const TYPE_MAP: Record<string, TypeConfig> = {
   },
   "oraliq-nazorat": {
     type: "exam",
-    title: "Imtihonlar ro'yxati",
-    subtitle: "Oraliq nazorat (MCQ test) — yaratish va boshqarish",
-    itemLabel: "nazorat",
+    titleKey: "typeContentOq.types.oraliqNazorat.title",
+    subtitleKey: "typeContentOq.types.oraliqNazorat.subtitle",
+    itemLabelKey: "typeContentOq.types.oraliqNazorat.itemLabel",
     hasFile: false, gradable: true, showMaterials: false, hasDuration: true,
     hasTrainingLoad: false, hasActiveToggle: true,
     filterControlType: "oraliq",   // faqat controlType="oraliq" itemlar
   },
   mavzular: {
     type: "mavzu",
-    title: "Fan mavzulari",
-    subtitle: "Dars mavzulari va qo'shimcha materiallar",
-    itemLabel: "mavzu",
+    titleKey: "typeContentOq.types.mavzular.title",
+    subtitleKey: "typeContentOq.types.mavzular.subtitle",
+    itemLabelKey: "typeContentOq.types.mavzular.itemLabel",
     hasFile: true, gradable: false, showMaterials: false, hasDuration: false,
     hasTrainingLoad: true, hasActiveToggle: true,
   },
   "kurs-topshiriqlar": {
     type: "kurs-topshiriq",
-    title: "Kurs topshiriqlari",
-    subtitle: "Kurs ishi va katta hajmdagi loyiha topshiriqlari",
-    itemLabel: "kurs topshirig'i",
+    titleKey: "typeContentOq.types.kursTopshiriqlar.title",
+    subtitleKey: "typeContentOq.types.kursTopshiriqlar.subtitle",
+    itemLabelKey: "typeContentOq.types.kursTopshiriqlar.itemLabel",
     hasFile: true, gradable: true, showMaterials: false, hasDuration: false,
     hasTrainingLoad: false, hasActiveToggle: true,
   },
   kalendar: {
     type: "kalendar",
-    title: "Kalendar reja",
-    subtitle: "Semestr bo'yicha dars va topshiriqlar jadvali",
-    itemLabel: "kalendar reja",
+    titleKey: "typeContentOq.types.kalendar.title",
+    subtitleKey: "typeContentOq.types.kalendar.subtitle",
+    itemLabelKey: "typeContentOq.types.kalendar.itemLabel",
     hasFile: true, gradable: false, showMaterials: false, hasDuration: false,
     hasTrainingLoad: false, hasActiveToggle: true,
   },
   malumotlar: {
     type: "malumot",
-    title: "Fan ma'lumotlari",
-    subtitle: "Fan haqida umumiy ma'lumotlar va qo'llanmalar",
-    itemLabel: "ma'lumot",
+    titleKey: "typeContentOq.types.malumotlar.title",
+    subtitleKey: "typeContentOq.types.malumotlar.subtitle",
+    itemLabelKey: "typeContentOq.types.malumotlar.itemLabel",
     hasFile: true, gradable: false, showMaterials: false, hasDuration: false,
     hasTrainingLoad: false, hasActiveToggle: false,
   },
 }
 
+function getTypeConfig(t: TFunc, slug: string): TypeConfig | null {
+  const def = TYPE_MAP[slug]
+  if (!def) return null
+  return {
+    type: def.type,
+    title: t(def.titleKey),
+    subtitle: t(def.subtitleKey),
+    itemLabel: t(def.itemLabelKey),
+    hasFile: def.hasFile,
+    gradable: def.gradable,
+    showMaterials: def.showMaterials,
+    hasDuration: def.hasDuration,
+    hasTrainingLoad: def.hasTrainingLoad,
+    hasActiveToggle: def.hasActiveToggle,
+    readOnly: def.readOnly,
+    filterControlType: def.filterControlType,
+  }
+}
+
 const KIND_OPTIONS = [
-  { value: "lecture", label: "Ma'ruza" },
-  { value: "presentation", label: "Taqdimot" },
-  { value: "laboratory", label: "Laboratoriya" },
-  { value: "video_lesson", label: "Video dars" },
-  { value: "other", label: "Boshqa" },
+  { value: "lecture", labelKey: "typeContentOq.kind.lecture" },
+  { value: "presentation", labelKey: "typeContentOq.kind.presentation" },
+  { value: "laboratory", labelKey: "typeContentOq.kind.laboratory" },
+  { value: "video_lesson", labelKey: "typeContentOq.kind.videoLesson" },
+  { value: "other", labelKey: "typeContentOq.kind.other" },
 ]
 
-const STATUS_LABEL: Record<ContentStatus, { label: string; color: string; bg: string; Icon: typeof Lock }> = {
-  locked: { label: "Qulflangan", color: "#b91c1c", bg: "#fef2f2", Icon: Lock },
-  open:   { label: "Ochiq",      color: "#15803d", bg: "#f0fdf4", Icon: CheckCircle2 },
-  closed: { label: "Yopilgan",   color: "#92400e", bg: "#fffbeb", Icon: Clock },
+const STATUS_LABEL: Record<ContentStatus, { labelKey: string; color: string; bg: string; Icon: typeof Lock }> = {
+  locked: { labelKey: "typeContentOq.status.locked", color: "#b91c1c", bg: "#fef2f2", Icon: Lock },
+  open:   { labelKey: "typeContentOq.status.open",   color: "#15803d", bg: "#f0fdf4", Icon: CheckCircle2 },
+  closed: { labelKey: "typeContentOq.status.closed", color: "#92400e", bg: "#fffbeb", Icon: Clock },
 }
 
 const inputCls =
@@ -164,12 +201,12 @@ function textValue(value: unknown): string | null {
   return typeof value === "string" || typeof value === "number" ? String(value) : null
 }
 
-async function downloadFileWithAuth(url: string, filename: string) {
+async function downloadFileWithAuth(url: string, filename: string, t: TFunc) {
   try {
     const res = await fetch(url)
     if (!res.ok) {
       const data = await res.json().catch(() => null)
-      alert(data?.message || "Faylni yuklab bo'lmadi")
+      alert(data?.message || t("typeContentOq.hemis.downloadError"))
       return
     }
     const blob = await res.blob()
@@ -182,7 +219,7 @@ async function downloadFileWithAuth(url: string, filename: string) {
     a.remove()
     URL.revokeObjectURL(blobUrl)
   } catch (err) {
-    alert(err instanceof Error ? err.message : "Faylni yuklab bo'lmadi")
+    alert(err instanceof Error ? err.message : t("typeContentOq.hemis.downloadError"))
   }
 }
 
@@ -212,6 +249,7 @@ function normalizeHemisItems(data: unknown): unknown[] {
 }
 
 function HemisSubjectTasksTable() {
+  const { t } = useLanguage()
   const yearStart = academicYearStart()
   const [eduYear, setEduYear] = useState(String(yearStart))
   const [semester, setSemester] = useState("")
@@ -261,7 +299,7 @@ function HemisSubjectTasksTable() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Fan yoki guruh bo'yicha qidirish"
+            placeholder={t("typeContentOq.hemis.searchSubjectGroup")}
             className="w-0 min-w-[160px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none placeholder:text-[#7293b9]"
             style={{ fontFamily: "var(--font-poppins)" }}
           />
@@ -278,7 +316,7 @@ function HemisSubjectTasksTable() {
               border: "1px solid #d8e6f7",
             }}
           >
-            Barcha semestrlar
+            {t("typeContentOq.hemis.allSemesters")}
           </button>
           {Array.from({ length: 8 }, (_, index) => {
             const value = index + 1
@@ -297,7 +335,7 @@ function HemisSubjectTasksTable() {
                   border: "1px solid #d8e6f7",
                 }}
               >
-                {value}-semestr
+                {t("typeContentOq.hemis.semesterN", { n: value })}
               </button>
             )
           })}
@@ -309,7 +347,7 @@ function HemisSubjectTasksTable() {
         <table className="w-full min-w-[900px]">
           <thead>
             <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              {["#", "Fanlar", "O'quv reja", "Guruh", "Mashg'ulot", "Topshiriqlar", "Semestr", "Ta'lim tili"].map((label) => (
+              {["#", t("typeContentOq.hemis.colSubjects"), t("typeContentOq.hemis.colCurriculum"), t("typeContentOq.hemis.colGroup"), t("typeContentOq.hemis.colTraining"), t("typeContentOq.hemis.colTasks"), t("typeContentOq.hemis.colSemester"), t("typeContentOq.hemis.colLanguage")].map((label) => (
                 <th key={label} className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                   {label}
                 </th>
@@ -390,7 +428,7 @@ function HemisSubjectTasksTable() {
             ) : (
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  Hech narsa topilmadi
+                  {t("typeContentOq.hemis.notFound")}
                 </td>
               </tr>
             )}
@@ -403,6 +441,7 @@ function HemisSubjectTasksTable() {
 }
 
 function HemisCourseTasksTable() {
+  const { t } = useLanguage()
   const yearStart = academicYearStart()
   const [eduYear, setEduYear] = useState(String(yearStart))
   const [semester, setSemester] = useState("")
@@ -452,7 +491,7 @@ function HemisCourseTasksTable() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Fan yoki guruh bo'yicha qidirish"
+            placeholder={t("typeContentOq.hemis.searchSubjectGroup")}
             className="w-0 min-w-[160px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none placeholder:text-[#7293b9]"
             style={{ fontFamily: "var(--font-poppins)" }}
           />
@@ -469,7 +508,7 @@ function HemisCourseTasksTable() {
               border: "1px solid #d8e6f7",
             }}
           >
-            Barcha semestrlar
+            {t("typeContentOq.hemis.allSemesters")}
           </button>
           {Array.from({ length: 8 }, (_, index) => {
             const value = index + 1
@@ -488,7 +527,7 @@ function HemisCourseTasksTable() {
                   border: "1px solid #d8e6f7",
                 }}
               >
-                {value}-semestr
+                {t("typeContentOq.hemis.semesterN", { n: value })}
               </button>
             )
           })}
@@ -500,7 +539,7 @@ function HemisCourseTasksTable() {
         <table className="w-full min-w-[900px]">
           <thead>
             <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              {["#", "Fanlar", "O'quv reja", "Guruh", "Nazorat turi", "Topshiriqlar", "Semestr", "Ta'lim tili"].map((label) => (
+              {["#", t("typeContentOq.hemis.colSubjects"), t("typeContentOq.hemis.colCurriculum"), t("typeContentOq.hemis.colGroup"), t("typeContentOq.hemis.colControlType"), t("typeContentOq.hemis.colTasks"), t("typeContentOq.hemis.colSemester"), t("typeContentOq.hemis.colLanguage")].map((label) => (
                 <th key={label} className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                   {label}
                 </th>
@@ -585,7 +624,7 @@ function HemisCourseTasksTable() {
             ) : (
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  Hech narsa topilmadi
+                  {t("typeContentOq.hemis.notFound")}
                 </td>
               </tr>
             )}
@@ -598,6 +637,7 @@ function HemisCourseTasksTable() {
 }
 
 function HemisCalendarPlanTable() {
+  const { t } = useLanguage()
   const yearStart = academicYearStart()
   const [eduYear, setEduYear] = useState(String(yearStart))
   const [semester, setSemester] = useState("")
@@ -647,7 +687,7 @@ function HemisCalendarPlanTable() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Fan yoki guruh bo'yicha qidirish"
+            placeholder={t("typeContentOq.hemis.searchSubjectGroup")}
             className="w-0 min-w-[160px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none placeholder:text-[#7293b9]"
             style={{ fontFamily: "var(--font-poppins)" }}
           />
@@ -664,7 +704,7 @@ function HemisCalendarPlanTable() {
               border: "1px solid #d8e6f7",
             }}
           >
-            Barcha semestrlar
+            {t("typeContentOq.hemis.allSemesters")}
           </button>
           {Array.from({ length: 8 }, (_, index) => {
             const value = index + 1
@@ -683,7 +723,7 @@ function HemisCalendarPlanTable() {
                   border: "1px solid #d8e6f7",
                 }}
               >
-                {value}-semestr
+                {t("typeContentOq.hemis.semesterN", { n: value })}
               </button>
             )
           })}
@@ -695,7 +735,7 @@ function HemisCalendarPlanTable() {
         <table className="w-full min-w-[900px]">
           <thead>
             <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              {["#", "Fanlar", "O'quv reja", "Guruh", "Mashg'ulot", "Semestr", "Fayl nomi"].map((label) => (
+              {["#", t("typeContentOq.hemis.colSubjects"), t("typeContentOq.hemis.colCurriculum"), t("typeContentOq.hemis.colGroup"), t("typeContentOq.hemis.colTraining"), t("typeContentOq.hemis.colSemester"), t("typeContentOq.hemis.colFileName")].map((label) => (
                 <th key={label} className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                   {label}
                 </th>
@@ -757,7 +797,7 @@ function HemisCalendarPlanTable() {
                       {calendarPlanUrl !== "#" ? (
                         <button
                           type="button"
-                          onClick={() => downloadFileWithAuth(calendarPlanUrl, `Calendar_plan-${recordLabel(subject)}.pdf`)}
+                          onClick={() => downloadFileWithAuth(calendarPlanUrl, `Calendar_plan-${recordLabel(subject)}.pdf`, t)}
                           className="inline-flex items-center justify-center w-8 h-8 rounded-[6px] border transition-colors hover:bg-[#f0f5ff]"
                           style={{ borderColor: "#d8e6f7", backgroundColor: "#f6f9ff" }}
                           title={`Calendar_plan-${recordLabel(subject)}.pdf`}
@@ -768,7 +808,7 @@ function HemisCalendarPlanTable() {
                         <span
                           className="inline-flex items-center justify-center w-8 h-8 rounded-[6px] border cursor-not-allowed"
                           style={{ borderColor: "#e6edf6", backgroundColor: "#f8fafc" }}
-                          title="Fayl mavjud emas"
+                          title={t("typeContentOq.hemis.fileNotAvailable")}
                         >
                           <Download className="w-4 h-4" style={{ color: "#cbd5e1" }} />
                         </span>
@@ -780,7 +820,7 @@ function HemisCalendarPlanTable() {
             ) : (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  Hech narsa topilmadi
+                  {t("typeContentOq.hemis.notFound")}
                 </td>
               </tr>
             )}
@@ -793,6 +833,7 @@ function HemisCalendarPlanTable() {
 }
 
 function HemisSubjectInfoTable() {
+  const { t } = useLanguage()
   const yearStart = academicYearStart()
   const [eduYear, setEduYear] = useState(String(yearStart))
   const [semester, setSemester] = useState("")
@@ -841,7 +882,7 @@ function HemisSubjectInfoTable() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Fan yoki o'quv reja bo'yicha qidirish"
+            placeholder={t("typeContentOq.hemis.searchSubjectCurriculum")}
             className="w-0 min-w-[160px] flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-2 py-1.5 text-xs text-[#104475] outline-none placeholder:text-[#7293b9]"
             style={{ fontFamily: "var(--font-poppins)" }}
           />
@@ -858,7 +899,7 @@ function HemisSubjectInfoTable() {
               border: "1px solid #d8e6f7",
             }}
           >
-            Barcha semestrlar
+            {t("typeContentOq.hemis.allSemesters")}
           </button>
           {Array.from({ length: 8 }, (_, index) => {
             const value = index + 1
@@ -877,7 +918,7 @@ function HemisSubjectInfoTable() {
                   border: "1px solid #d8e6f7",
                 }}
               >
-                {value}-semestr
+                {t("typeContentOq.hemis.semesterN", { n: value })}
               </button>
             )
           })}
@@ -889,7 +930,7 @@ function HemisSubjectInfoTable() {
         <table className="w-full min-w-[800px]">
           <thead>
             <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              {["#", "Fanlar", "O'quv reja", "Ta'lim turi", "Semestr"].map((label) => (
+              {["#", t("typeContentOq.hemis.colSubjects"), t("typeContentOq.hemis.colCurriculum"), t("typeContentOq.hemis.colEducationType"), t("typeContentOq.hemis.colSemester")].map((label) => (
                 <th key={label} className="px-4 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                   {label}
                 </th>
@@ -925,7 +966,7 @@ function HemisSubjectInfoTable() {
                       {department.name ? (
                         <div className="text-xs" style={{ color: "#7293b9" }}>{String(department.name)}</div>
                       ) : null}
-                      <div className="text-xs" style={{ color: "#7293b9" }}>Kredit baholash tizimi</div>
+                      <div className="text-xs" style={{ color: "#7293b9" }}>{t("typeContentOq.hemis.creditSystem")}</div>
                     </td>
                     <td className="px-4 py-2.5 text-sm" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>
                       <div>{recordLabel(semesterRecord)}</div>
@@ -939,7 +980,7 @@ function HemisSubjectInfoTable() {
             ) : (
               <tr>
                 <td colSpan={5} className="px-4 py-12 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  Hech narsa topilmadi
+                  {t("typeContentOq.hemis.notFound")}
                 </td>
               </tr>
             )}
@@ -992,9 +1033,10 @@ const EMPTY_FORM: FormState = {
 }
 
 export default function TeacherContentTypePage() {
+  const { t } = useLanguage()
   const params = useParams<{ type: string }>()
   const slug = typeof params?.type === "string" ? params.type : Array.isArray(params?.type) ? params.type[0] : ""
-  const config = TYPE_MAP[slug]
+  const config = getTypeConfig(t, slug)
 
   const { data: groupsRes } = useApi(() => teachingApi.groups(), [])
   const groups: TeacherGroup[] = groupsRes?.data ?? []
@@ -1027,7 +1069,7 @@ export default function TeacherContentTypePage() {
   if (!config) {
     return (
       <div className="p-[30px]">
-        <ApiError message="Sahifa topilmadi" />
+        <ApiError message={t("typeContentOq.pageNotFound")} />
       </div>
     )
   }
@@ -1066,7 +1108,7 @@ export default function TeacherContentTypePage() {
             style={{ backgroundColor: "#16a34a", color: "#fff", fontFamily: "var(--font-poppins)" }}
           >
             <Plus className="w-4 h-4" />
-            Qo&apos;shish
+            {t("typeContentOq.add")}
           </Link>
         </div>
         <HemisCourseTasksTable />
@@ -1153,11 +1195,11 @@ export default function TeacherContentTypePage() {
     const availableFrom = combineToIso(form.availableFromDate, form.availableFromTime)
     const deadline = combineToIso(form.deadlineDate, form.deadlineTime)
 
-    if (!form.groupId) { setFormError("Guruhni tanlang"); return }
-    if (!form.subjectName.trim()) { setFormError("Fan nomini kiriting"); return }
-    if (!form.title.trim()) { setFormError("Sarlavhani kiriting"); return }
-    const requiresDate = config.type === "lesson" || config.gradable
-    if (!editingId && requiresDate && !availableFrom) { setFormError("Ochilish sanasi va vaqtini kiriting"); return }
+    if (!form.groupId) { setFormError(t("typeContentOq.err.selectGroup")); return }
+    if (!form.subjectName.trim()) { setFormError(t("typeContentOq.err.enterSubjectName")); return }
+    if (!form.title.trim()) { setFormError(t("typeContentOq.err.enterTitle")); return }
+    const requiresDate = config!.type === "lesson" || config!.gradable
+    if (!editingId && requiresDate && !availableFrom) { setFormError(t("typeContentOq.err.enterAvailableFrom")); return }
 
     setSaving(true)
     try {
@@ -1171,26 +1213,26 @@ export default function TeacherContentTypePage() {
           maxScore: form.maxScore ? Number(form.maxScore) : null,
           durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
-          lessonDate: config.type === "kalendar" ? (form.lessonDate || null) : undefined,
-          delivered: config.type === "kalendar" ? form.delivered : undefined,
+          lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
+          delivered: config!.type === "kalendar" ? form.delivered : undefined,
           meetingLink: form.meetingLink.trim() || null,
         })
       } else {
         const created = await teachingApi.createContent({
-          type: config.type,
+          type: config!.type,
           groupId: form.groupId,
           subjectName: form.subjectName.trim(),
           title: form.title.trim(),
           description: form.description.trim() || undefined,
-          kind: config.type === "lesson" ? form.kind : undefined,
-          controlType: config.filterControlType ?? undefined,
+          kind: config!.type === "lesson" ? form.kind : undefined,
+          controlType: config!.filterControlType ?? undefined,
           availableFrom: availableFrom ?? new Date().toISOString(),
           deadline: deadline,
           maxScore: form.maxScore ? Number(form.maxScore) : null,
           durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
-          lessonDate: config.type === "kalendar" ? (form.lessonDate || null) : undefined,
-          delivered: config.type === "kalendar" ? form.delivered : undefined,
+          lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
+          delivered: config!.type === "kalendar" ? form.delivered : undefined,
           docFile: form.docFile,
           meetingLink: form.meetingLink.trim() || undefined,
         })
@@ -1201,19 +1243,19 @@ export default function TeacherContentTypePage() {
       closeForm()
       await refetch()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Saqlashda xatolik yuz berdi")
+      setFormError(err instanceof Error ? err.message : t("typeContentOq.err.saveError"))
     } finally {
       setSaving(false)
     }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Ushbu kontentni o'chirishni tasdiqlaysizmi?")) return
+    if (!confirm(t("typeContentOq.confirmDelete"))) return
     try {
       await teachingApi.removeContent(id)
       await refetch()
     } catch (err) {
-      alert(err instanceof Error ? err.message : "O'chirishda xatolik")
+      alert(err instanceof Error ? err.message : t("typeContentOq.err.deleteError"))
     }
   }
 
@@ -1222,7 +1264,7 @@ export default function TeacherContentTypePage() {
       await teachingApi.toggleContent(id)
       await refetch()
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Holatni almashtirishda xatolik")
+      alert(err instanceof Error ? err.message : t("typeContentOq.err.toggleError"))
     }
   }
 
@@ -1244,7 +1286,7 @@ export default function TeacherContentTypePage() {
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}
           >
             <Plus className="w-4 h-4" />
-            Yangi qo&apos;shish
+            {t("typeContentOq.addNew")}
           </Link>
         ) : (
           <button
@@ -1253,7 +1295,7 @@ export default function TeacherContentTypePage() {
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}
           >
             <Plus className="w-4 h-4" />
-            Yangi qo&apos;shish
+            {t("typeContentOq.addNew")}
           </button>
         ))}
       </div>
@@ -1261,14 +1303,14 @@ export default function TeacherContentTypePage() {
       {loading ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : items.length === 0 ? (
         <div className="bg-white rounded-[12px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Hozircha hech narsa yo&apos;q. &quot;Yangi qo&apos;shish&quot; orqali {config.itemLabel} yarating.
+            {t("typeContentOq.emptyState", { item: config.itemLabel })}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {items.map(item => {
             const st = STATUS_LABEL[item.status]
-            const groupName = groups.find(g => g.id === item.groupId)?.name ?? `Guruh #${item.groupId}`
+            const groupName = groups.find(g => g.id === item.groupId)?.name ?? t("typeContentOq.groupFallback", { id: item.groupId })
             return (
               <div key={item.id} className="bg-white rounded-[12px] p-5 flex flex-col gap-3"
                 style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -1290,7 +1332,7 @@ export default function TeacherContentTypePage() {
                     <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
                       style={{ color: st.color, backgroundColor: st.bg, fontFamily: "var(--font-poppins)" }}>
                       <st.Icon className="w-3.5 h-3.5" />
-                      {st.label}
+                      {t(st.labelKey)}
                     </span>
                     {config.hasActiveToggle && (
                       <button
@@ -1301,10 +1343,10 @@ export default function TeacherContentTypePage() {
                           backgroundColor: item.isActive ? "#f0fdf4" : "#f1f5f9",
                           fontFamily: "var(--font-poppins)",
                         }}
-                        title={item.isActive ? "Nofaol qilish" : "Faollashtirish"}
+                        title={item.isActive ? t("typeContentOq.deactivate") : t("typeContentOq.activate")}
                       >
                         <Power className="w-3.5 h-3.5" />
-                        {item.isActive ? "Faol" : "Nofaol"}
+                        {item.isActive ? t("typeContentOq.active") : t("typeContentOq.inactive")}
                       </button>
                     )}
                   </div>
@@ -1317,24 +1359,24 @@ export default function TeacherContentTypePage() {
                 <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                   {config.type === "kalendar" ? (
                     <>
-                      <span>Dars sanasi: <strong style={{ color: "#012970" }}>{item.lessonDate ?? "—"}</strong></span>
+                      <span>{t("typeContentOq.lessonDate")} <strong style={{ color: "#012970" }}>{item.lessonDate ?? "—"}</strong></span>
                       <span className="flex items-center gap-1">
-                        O&apos;tildi:
+                        {t("typeContentOq.delivered")}
                         <strong style={{ color: item.delivered ? "#15803d" : "#b91c1c" }}>
                           <CalendarCheck className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" />
-                          {item.delivered ? "Ha" : "Yo'q"}
+                          {item.delivered ? t("typeContentOq.yes") : t("typeContentOq.no")}
                         </strong>
                       </span>
                     </>
                   ) : (
                     <>
-                      <span>Ochiladi: <strong style={{ color: "#012970" }}>{formatDateTime(item.availableFrom)}</strong></span>
-                      <span>Muddat: <strong style={{ color: "#012970" }}>{formatDateTime(item.deadline)}</strong></span>
+                      <span>{t("typeContentOq.opensAt")} <strong style={{ color: "#012970" }}>{formatDateTime(item.availableFrom)}</strong></span>
+                      <span>{t("typeContentOq.deadline")} <strong style={{ color: "#012970" }}>{formatDateTime(item.deadline)}</strong></span>
                     </>
                   )}
-                  {item.maxScore != null && <span>Maks. ball: <strong style={{ color: "#012970" }}>{item.maxScore}</strong></span>}
-                  {item.durationMinutes != null && <span>Davomiyligi: <strong style={{ color: "#012970" }}>{item.durationMinutes} daqiqa</strong></span>}
-                  {item.trainingLoad != null && <span>Yuklama: <strong style={{ color: "#012970" }}>{item.trainingLoad} soat</strong></span>}
+                  {item.maxScore != null && <span>{t("typeContentOq.maxScore")} <strong style={{ color: "#012970" }}>{item.maxScore}</strong></span>}
+                  {item.durationMinutes != null && <span>{t("typeContentOq.duration")} <strong style={{ color: "#012970" }}>{t("typeContentOq.minutesUnit", { n: item.durationMinutes })}</strong></span>}
+                  {item.trainingLoad != null && <span>{t("typeContentOq.load")} <strong style={{ color: "#012970" }}>{t("typeContentOq.hoursUnit", { n: item.trainingLoad })}</strong></span>}
                 </div>
 
                 {item.docFile && (
@@ -1365,7 +1407,7 @@ export default function TeacherContentTypePage() {
                     style={{ color: "#0891b2", backgroundColor: "#ecfeff", fontFamily: "var(--font-poppins)" }}
                   >
                     <LinkIcon className="w-3.5 h-3.5" />
-                    Meeting: {item.meetingLink.length > 40 ? item.meetingLink.slice(0, 40) + "…" : item.meetingLink}
+                    {t("typeContentOq.meetingPrefix")} {item.meetingLink.length > 40 ? item.meetingLink.slice(0, 40) + "…" : item.meetingLink}
                   </a>
                 )}
 
@@ -1377,7 +1419,7 @@ export default function TeacherContentTypePage() {
                       style={{ color: "#7c3aed", border: "1px solid #e9d5ff", fontFamily: "var(--font-poppins)" }}
                     >
                       <HelpCircle className="w-3.5 h-3.5" />
-                      Savollar{item.questionCount > 0 ? ` (${item.questionCount})` : ""}
+                      {t("typeContentOq.questions")}{item.questionCount > 0 ? ` (${item.questionCount})` : ""}
                     </button>
                   )}
                   {config.gradable && (
@@ -1387,7 +1429,7 @@ export default function TeacherContentTypePage() {
                       style={{ color: "#0e58a8", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}
                     >
                       <Users className="w-3.5 h-3.5" />
-                      Topshirilganlarni ko&apos;rish / baholash
+                      {t("typeContentOq.viewGrade")}
                     </button>
                   )}
                   {!config.readOnly && (
@@ -1398,7 +1440,7 @@ export default function TeacherContentTypePage() {
                         style={{ color: "#445b7a", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}
                       >
                         <Pencil className="w-3.5 h-3.5" />
-                        Tahrirlash
+                        {t("typeContentOq.edit")}
                       </button>
                       <button
                         onClick={() => handleDelete(item.id)}
@@ -1406,7 +1448,7 @@ export default function TeacherContentTypePage() {
                         style={{ color: "#dc2626", border: "1px solid #fecaca", fontFamily: "var(--font-poppins)" }}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                        O&apos;chirish
+                        {t("typeContentOq.delete")}
                       </button>
                     </>
                   )}
@@ -1461,6 +1503,7 @@ function ContentFormModal({
   onClose: () => void
   onSubmit: () => void
 }) {
+  const { t } = useLanguage()
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm(prev => ({ ...prev, [key]: value }))
   }
@@ -1477,8 +1520,8 @@ function ContentFormModal({
   const isMalumot = config.type === "malumot"
   const isMavzu   = config.type === "mavzu"
 
-  const availFromLabel = isKalendar ? "Boshlanish sanasi" : isMavzu ? "Dars sanasi (ixtiyoriy)" : "Ochilish sanasi va vaqti"
-  const deadlineLabel  = isKalendar ? "Tugash sanasi" : config.gradable ? "Topshirish muddati" : "Tugash sanasi (ixtiyoriy)"
+  const availFromLabel = isKalendar ? t("typeContentOq.form.availFromKalendar") : isMavzu ? t("typeContentOq.form.availFromMavzu") : t("typeContentOq.form.availFromDefault")
+  const deadlineLabel  = isKalendar ? t("typeContentOq.form.deadlineKalendar") : config.gradable ? t("typeContentOq.form.deadlineGradable") : t("typeContentOq.form.deadlineDefault")
 
   const showAvailableFrom = !isMalumot
   const showDeadline      = config.gradable || isKalendar || isLesson
@@ -1489,20 +1532,20 @@ function ContentFormModal({
   const showMeetingLink   = isLesson
 
   const titlePlaceholder =
-    isLesson              ? "Masalan: 3-mavzu: Massivlar" :
-    isMavzu               ? "Masalan: 5-mavzu: Qidirish algoritmlari" :
-    isKalendar            ? "Masalan: 1-hafta: Kirish darslari" :
-    isMalumot             ? "Masalan: Fan dasturi va baholash mezoni" :
-    config.type === "kurs-topshiriq" ? "Masalan: Kurs ishi — ma'lumotlar bazasi" :
-    config.type === "exam" ? "Masalan: 1-oraliq nazorat" :
-    "Topshiriq sarlavhasi"
+    isLesson              ? t("typeContentOq.form.titlePlaceholderLesson") :
+    isMavzu               ? t("typeContentOq.form.titlePlaceholderMavzu") :
+    isKalendar            ? t("typeContentOq.form.titlePlaceholderKalendar") :
+    isMalumot             ? t("typeContentOq.form.titlePlaceholderMalumot") :
+    config.type === "kurs-topshiriq" ? t("typeContentOq.form.titlePlaceholderKurs") :
+    config.type === "exam" ? t("typeContentOq.form.titlePlaceholderExam") :
+    t("typeContentOq.form.titlePlaceholderDefault")
 
   const descPlaceholder =
-    isKalendar ? "Haftalik reja, mavzular ro'yxati, o'tiladigan darslar..." :
-    isMalumot  ? "Fan haqida umumiy ma'lumot, sillabik, baholash mezonlari..." :
-    isLesson   ? "Dars haqida qisqacha, talabalar uchun ko'rsatmalar..." :
-    isMavzu    ? "Mavzu bo'yicha tushuntirish, o'quv manbalari..." :
-    "Qo'shimcha ma'lumot va ko'rsatmalar..."
+    isKalendar ? t("typeContentOq.form.descPlaceholderKalendar") :
+    isMalumot  ? t("typeContentOq.form.descPlaceholderMalumot") :
+    isLesson   ? t("typeContentOq.form.descPlaceholderLesson") :
+    isMavzu    ? t("typeContentOq.form.descPlaceholderMavzu") :
+    t("typeContentOq.form.descPlaceholderDefault")
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.35)" }}>
@@ -1510,7 +1553,7 @@ function ContentFormModal({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              {editing ? "Tahrirlash" : `Yangi ${config.itemLabel}`}
+              {editing ? t("typeContentOq.form.editTitle") : t("typeContentOq.form.newTitle", { item: config.itemLabel })}
             </h2>
             {!editing && (
               <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
@@ -1533,40 +1576,40 @@ function ContentFormModal({
 
           {/* Guruh */}
           <div className="col-span-2 sm:col-span-1">
-            <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Guruh</label>
+            <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.group")}</label>
             <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
               value={form.groupId} disabled={editing}
               onChange={e => update("groupId", e.target.value)}>
-              <option value="">Tanlang…</option>
+              <option value="">{t("typeContentOq.form.selectPlaceholder")}</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           </div>
 
           {/* Fan nomi */}
           <div className="col-span-2 sm:col-span-1">
-            <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Fan nomi</label>
+            <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.subjectName")}</label>
             {subjects.length > 0 ? (
               <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                 value={form.subjectName} onChange={e => update("subjectName", e.target.value)}>
-                <option value="">Tanlang…</option>
+                <option value="">{t("typeContentOq.form.selectPlaceholder")}</option>
                 {subjects.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             ) : (
               <input className={inputCls} style={{ fontFamily: "var(--font-poppins)" }} value={form.subjectName}
-                onChange={e => update("subjectName", e.target.value)} placeholder="Masalan: Dasturlash asoslari" />
+                onChange={e => update("subjectName", e.target.value)} placeholder={t("typeContentOq.form.subjectNamePlaceholder")} />
             )}
           </div>
 
           {/* Sarlavha */}
           <div className="col-span-2">
-            <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Sarlavha</label>
+            <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.title")}</label>
             <input className={inputCls} style={{ fontFamily: "var(--font-poppins)" }} value={form.title}
               onChange={e => update("title", e.target.value)} placeholder={titlePlaceholder} />
           </div>
 
           {/* Tavsif */}
           <div className="col-span-2">
-            <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Tavsif (ixtiyoriy)</label>
+            <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.description")}</label>
             <textarea className={inputCls} style={{ fontFamily: "var(--font-poppins)", minHeight: 80 }} value={form.description}
               onChange={e => update("description", e.target.value)} placeholder={descPlaceholder} />
           </div>
@@ -1574,10 +1617,10 @@ function ContentFormModal({
           {/* Dars turi — faqat lesson, yaratishda */}
           {showKind && (
             <div className="col-span-2 sm:col-span-1">
-              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Dars turi</label>
+              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.kind")}</label>
               <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }} value={form.kind}
                 onChange={e => update("kind", e.target.value)}>
-                {KIND_OPTIONS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+                {KIND_OPTIONS.map(k => <option key={k.value} value={k.value}>{t(k.labelKey)}</option>)}
               </select>
             </div>
           )}
@@ -1585,7 +1628,7 @@ function ContentFormModal({
           {/* Maksimal ball — topshiriq, imtihon, kurs */}
           {showMaxScore && (
             <div className="col-span-2 sm:col-span-1">
-              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Maksimal ball</label>
+              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.maxScore")}</label>
               <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                 value={form.maxScore} onChange={e => update("maxScore", e.target.value)} placeholder="100" />
             </div>
@@ -1594,7 +1637,7 @@ function ContentFormModal({
           {/* Davomiyligi — faqat imtihon */}
           {config.hasDuration && (
             <div className="col-span-2 sm:col-span-1">
-              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Davomiyligi (daqiqa)</label>
+              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.duration")}</label>
               <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                 value={form.durationMinutes} onChange={e => update("durationMinutes", e.target.value)} placeholder="90" />
             </div>
@@ -1603,7 +1646,7 @@ function ContentFormModal({
           {/* Yuklama (soat) — mashg'ulot turi bo'yicha o'quv yuki */}
           {config.hasTrainingLoad && (
             <div className="col-span-2 sm:col-span-1">
-              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Yuklama (soat)</label>
+              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.load")}</label>
               <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                 value={form.trainingLoad} onChange={e => update("trainingLoad", e.target.value)} placeholder="2" />
             </div>
@@ -1613,7 +1656,7 @@ function ContentFormModal({
           {isKalendar && (
             <>
               <div className="col-span-2 sm:col-span-1">
-                <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Dars sanasi</label>
+                <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.lessonDate")}</label>
                 <input type="date" className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                   value={form.lessonDate} onChange={e => update("lessonDate", e.target.value)} />
               </div>
@@ -1621,7 +1664,7 @@ function ContentFormModal({
                 <label className="flex items-center gap-2 text-sm" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
                   <input type="checkbox" checked={form.delivered}
                     onChange={e => update("delivered", e.target.checked)} />
-                  O&apos;tildi
+                  {t("typeContentOq.form.delivered")}
                 </label>
               </div>
             </>
@@ -1656,7 +1699,7 @@ function ContentFormModal({
           {!editing && (showDocFile || showVideoFile) && (
             <div className="col-span-2 flex flex-col gap-3">
               <div className="text-xs font-semibold pt-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Materiallar (ixtiyoriy{showVideoFile ? " — bir nechta tanlanishi mumkin" : ""})
+                {showVideoFile ? t("typeContentOq.form.materialsMulti") : t("typeContentOq.form.materials")}
               </div>
 
               {showDocFile && (
@@ -1664,10 +1707,10 @@ function ContentFormModal({
                   <div className="flex items-center gap-2">
                     <FileIcon className="w-4 h-4" style={{ color: "#0e58a8" }} />
                     <span className="text-xs font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                      {isLesson ? "Hujjat (PDF, Word, PPT...)" :
-                       isKalendar ? "Jadval fayli (PDF, Excel...)" :
-                       isMalumot  ? "Qo'shimcha fayl (PDF, Word...)" :
-                       "Fayl biriktirish (PDF, Word, PPT...)"}
+                      {isLesson ? t("typeContentOq.form.docLesson") :
+                       isKalendar ? t("typeContentOq.form.docKalendar") :
+                       isMalumot  ? t("typeContentOq.form.docMalumot") :
+                       t("typeContentOq.form.docDefault")}
                     </span>
                   </div>
                   {form.docFile ? (
@@ -1675,7 +1718,7 @@ function ContentFormModal({
                       <span className="text-xs truncate flex-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{form.docFile.name}</span>
                       <button type="button" onClick={() => update("docFile", null)}
                         className="text-xs px-2 py-0.5 rounded" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                        Olib tashlash
+                        {t("typeContentOq.form.remove")}
                       </button>
                     </div>
                   ) : (
@@ -1691,7 +1734,7 @@ function ContentFormModal({
                   <div className="flex items-center gap-2">
                     <Video className="w-4 h-4" style={{ color: "#7c3aed" }} />
                     <span className="text-xs font-medium" style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
-                      Video darslik (MP4, AVI, MOV...)
+                      {t("typeContentOq.form.video")}
                     </span>
                   </div>
                   {form.videoFile ? (
@@ -1699,7 +1742,7 @@ function ContentFormModal({
                       <span className="text-xs truncate flex-1" style={{ color: "#6d28d9", fontFamily: "var(--font-poppins)" }}>{form.videoFile.name}</span>
                       <button type="button" onClick={() => update("videoFile", null)}
                         className="text-xs px-2 py-0.5 rounded" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                        Olib tashlash
+                        {t("typeContentOq.form.remove")}
                       </button>
                     </div>
                   ) : (
@@ -1715,7 +1758,7 @@ function ContentFormModal({
                   <div className="flex items-center gap-2">
                     <LinkIcon className="w-4 h-4" style={{ color: "#0891b2" }} />
                     <span className="text-xs font-medium" style={{ color: "#0891b2", fontFamily: "var(--font-poppins)" }}>
-                      Online meeting havolasi (Zoom, Meet, Teams...)
+                      {t("typeContentOq.form.meetingLink")}
                     </span>
                   </div>
                   <input type="url" className={inputCls} style={{ fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
@@ -1732,7 +1775,7 @@ function ContentFormModal({
               <div className="flex items-center gap-2 mb-2">
                 <LinkIcon className="w-4 h-4" style={{ color: "#0891b2" }} />
                 <span className="text-xs font-medium" style={{ color: "#0891b2", fontFamily: "var(--font-poppins)" }}>
-                  Meeting havolasini yangilash (ixtiyoriy)
+                  {t("typeContentOq.form.meetingLinkUpdate")}
                 </span>
               </div>
               <input type="url" className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
@@ -1745,13 +1788,13 @@ function ContentFormModal({
         <div className="flex items-center justify-end gap-3 pt-2">
           <button onClick={onClose} className="px-4 py-2.5 rounded-[8px] text-sm font-medium"
             style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
-            Bekor qilish
+            {t("common.cancel")}
           </button>
           <button onClick={onSubmit} disabled={saving}
             className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium disabled:opacity-60"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            Saqlash
+            {t("common.save")}
           </button>
         </div>
       </div>
@@ -1760,6 +1803,7 @@ function ContentFormModal({
 }
 
 function GradingModal({ content, onClose, readOnly = false }: { content: TeacherContent; onClose: () => void; readOnly?: boolean }) {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => teachingApi.submissions(content.id), [content.id])
   const submissions: TeachingSubmission[] = data?.data ?? []
   const [viewSub, setViewSub] = useState<TeachingSubmission | null>(null)
@@ -1788,10 +1832,10 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Test natijalari
+              {t("typeContentOq.grading.title")}
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              {content.title} · {submissions.length} ta topshirdi{avg != null ? ` · O'rtacha: ${avg}` : ""}
+              {t("typeContentOq.grading.subtitle", { title: content.title, count: submissions.length })}{avg != null ? t("typeContentOq.grading.avgSuffix", { avg }) : ""}
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">
@@ -1801,14 +1845,14 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
 
         {loading ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : submissions.length === 0 ? (
           <p className="text-sm text-center py-8" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Hozircha hech kim topshirmagan
+            {t("typeContentOq.grading.noSubmissions")}
           </p>
         ) : (
           <div className="overflow-x-auto rounded-[10px]" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ backgroundColor: "#f6f9ff", borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-                  {["#", "Talaba", "Ball", "Foiz", "Topshirilgan", "Ko'rish"].map(h => (
+                  {["#", t("typeContentOq.grading.colStudent"), t("typeContentOq.grading.colScore"), t("typeContentOq.grading.colPercent"), t("typeContentOq.grading.colSubmitted"), t("typeContentOq.grading.colView")].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold"
                       style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{h}</th>
                   ))}
@@ -1835,7 +1879,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                           className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors hover:bg-[#f0f5ff]"
                           style={{ color: "#0e58a8", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
                           <BarChart2 className="w-3.5 h-3.5" />
-                          Ko&apos;rish
+                          {t("typeContentOq.grading.view")}
                         </button>
                       </td>
                     </tr>
@@ -1848,12 +1892,12 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
 
         <div className="flex items-center justify-between pt-1">
           <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Jami: {submissions.length} ta topshirdi
+            {t("typeContentOq.grading.total", { count: submissions.length })}
           </span>
           <button onClick={onClose}
             className="px-4 py-1.5 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f0f5ff]"
             style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
-            Yopish
+            {t("common.close")}
           </button>
         </div>
       </div>
@@ -1869,6 +1913,7 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
   onClose: () => void
   onGraded: () => Promise<void>
 }) {
+  const { t } = useLanguage()
   const isExam = content.type === "exam" && Array.isArray(sub.questionIds) && Array.isArray(sub.answers)
 
   const { data: questionsData, loading: qLoading } = useApi(
@@ -1905,14 +1950,14 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
 
   async function saveGrade() {
     const num = Number(grade)
-    if (!grade.trim() || Number.isNaN(num)) { setGradeError("Bahoni kiriting"); return }
+    if (!grade.trim() || Number.isNaN(num)) { setGradeError(t("typeContentOq.submission.enterGrade")); return }
     setSaving(true)
     try {
       await teachingApi.grade(sub.id, { grade: num, feedback: feedback.trim() || undefined })
       await onGraded()
       onBack()
     } catch (err) {
-      setGradeError(err instanceof Error ? err.message : "Baholashda xatolik")
+      setGradeError(err instanceof Error ? err.message : t("typeContentOq.submission.gradeError"))
     } finally {
       setSaving(false)
     }
@@ -1931,14 +1976,14 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
               className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors hover:bg-[#f0f5ff]"
               style={{ color: "#445b7a", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
               <ArrowLeft className="w-3.5 h-3.5" />
-              Orqaga
+              {t("typeContentOq.submission.back")}
             </button>
             <div>
               <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                 {sub.studentFullName}
               </h2>
               <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                {content.title} · Topshirildi: {formatDateTime(sub.submittedAt)}
+                {content.title} · {t("typeContentOq.submission.submittedAt", { date: formatDateTime(sub.submittedAt) })}
               </p>
             </div>
           </div>
@@ -1952,7 +1997,7 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
           <div className="flex items-center gap-4 px-4 py-3 rounded-[10px]" style={{ backgroundColor: "#f6f9ff" }}>
             {sub.grade != null && (
               <div className="flex flex-col">
-                <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Ball</span>
+                <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.submission.score")}</span>
                 <span className="text-xl font-bold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                   {sub.grade}{content.maxScore ? `/${content.maxScore}` : ""}
                 </span>
@@ -1960,7 +2005,7 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
             )}
             {total > 0 && !qLoading && (
               <div className="flex flex-col">
-                <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>To'g'ri javoblar</span>
+                <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.submission.correctAnswers")}</span>
                 <span className="text-xl font-bold" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
                   {correct}/{total}
                 </span>
@@ -1968,7 +2013,7 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
             )}
             {sub.feedback && (
               <div className="flex flex-col">
-                <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Izoh</span>
+                <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.submission.comment")}</span>
                 <span className="text-sm italic" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{sub.feedback}</span>
               </div>
             )}
@@ -1983,7 +2028,7 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
                 <div key={i} className="rounded-[10px] p-4 flex flex-col gap-2"
                   style={{ border: `1px solid ${isCorrect ? "#bbf7d0" : "#fecaca"}`, backgroundColor: isCorrect ? "#f0fdf4" : "#fff5f5" }}>
                   <div className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                    {i + 1}. {q?.questionText ?? `Savol #${qId}`}
+                    {i + 1}. {q?.questionText ?? t("typeContentOq.submission.questionFallback", { id: qId })}
                   </div>
                   {q?.options && (
                     <div className="flex flex-col gap-1 mt-1">
@@ -1996,9 +2041,9 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
                           <div key={oi} className="text-sm px-3 py-1.5 rounded-[6px]"
                             style={{ backgroundColor: bg, color, fontFamily: "var(--font-poppins)", fontWeight: isStudentChoice || isCorrectOpt ? 600 : 400 }}>
                             {String.fromCharCode(65 + oi)}. {opt}
-                            {isStudentChoice && !isCorrectOpt && " ← talabaning javobi"}
+                            {isStudentChoice && !isCorrectOpt && ` ${t("typeContentOq.submission.studentAnswer")}`}
                             {isCorrectOpt && " ✓"}
-                            {isStudentChoice && isCorrectOpt && " ← talabaning javobi ✓"}
+                            {isStudentChoice && isCorrectOpt && ` ${t("typeContentOq.submission.studentAnswer")} ✓`}
                           </div>
                         )
                       })}
@@ -2028,26 +2073,26 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
         {/* Grading form */}
         {!readOnly && (
           <div className="flex flex-col gap-2 pt-2" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
-            <h3 className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Baholash</h3>
+            <h3 className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.submission.grading")}</h3>
             {gradeError && (
               <div className="text-xs px-3 py-1.5 rounded-[6px]" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                 {gradeError}
               </div>
             )}
             <div className="flex gap-2">
-              <input type="number" min={0} placeholder="Baho" value={grade} onChange={e => setGrade(e.target.value)}
+              <input type="number" min={0} placeholder={t("typeContentOq.submission.gradePlaceholder")} value={grade} onChange={e => setGrade(e.target.value)}
                 className={inputCls} style={{ fontFamily: "var(--font-poppins)", maxWidth: 120 }} />
-              <input placeholder="Izoh (ixtiyoriy)" value={feedback} onChange={e => setFeedback(e.target.value)}
+              <input placeholder={t("typeContentOq.submission.commentPlaceholder")} value={feedback} onChange={e => setFeedback(e.target.value)}
                 className={inputCls} style={{ fontFamily: "var(--font-poppins)" }} />
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={onBack} className="px-3 py-1.5 rounded-[6px] text-xs font-medium"
-                style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>Bekor qilish</button>
+                style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("common.cancel")}</button>
               <button onClick={saveGrade} disabled={saving}
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-[6px] text-xs font-medium disabled:opacity-60"
                 style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                 {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Saqlash
+                {t("common.save")}
               </button>
             </div>
           </div>
