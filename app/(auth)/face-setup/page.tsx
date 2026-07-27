@@ -21,7 +21,8 @@ declare global {
 
 type Step = "intro" | "loading" | "camera" | "liveness" | "confirm" | "submitting" | "done" | "error"
 
-const MODEL_URL     = "/models"
+const BASE_PATH     = process.env.NEXT_PUBLIC_BASE_PATH || ""
+const MODEL_URL     = `${BASE_PATH}/models`
 const TOTAL_SAMPLES = 3
 const HOLD_FRAMES   = 5
 const MIN_CONF      = 0.4
@@ -242,7 +243,7 @@ export default function FaceSetupPage() {
 
   return (
     <>
-      <Script src="/face-api.min.js" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
+      <Script src={`${BASE_PATH}/face-api.min.js`} strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
 
       <div className="flex min-h-screen items-center justify-center p-6" style={{ backgroundColor: "#f6f9ff" }}>
         <div className="w-full max-w-md">

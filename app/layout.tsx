@@ -12,12 +12,14 @@ const poppins = Poppins({
   variable: "--font-poppins",
 })
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ""
+
 export const metadata = {
   title: "Masofaviy Ta'lim Tizimi",
   description: "LMS - Distance Learning Management System",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: `${BASE_PATH}/logo.png`,
+    apple: `${BASE_PATH}/logo.png`,
   },
 }
 
