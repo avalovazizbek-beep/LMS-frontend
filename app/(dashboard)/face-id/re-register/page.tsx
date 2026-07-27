@@ -4,24 +4,25 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Send, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
 import { faceApi } from "@/lib/api"
-
-const REASONS = [
-  "Yuz ma'lumotlarim muddati tugagan",
-  "Boshqa shaxs mening yuzimni ro'yxatdan o'tkazib yuborgan bo'lishi mumkin",
-  "Kamera yoki yoritish muammosi tufayli tekshiruv ishlamayapti",
-  "Tashqi ko'rinishim sezilarli o'zgardi (ko'zoynak, soqol va boshqalar)",
-  "Boshqa sabab",
-]
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function ReRegisterPage() {
+  const { t } = useLanguage()
   const router = useRouter()
+  const REASONS = [
+    t("reRegister.reason.expired"),
+    t("reRegister.reason.otherPerson"),
+    t("reRegister.reason.cameraIssue"),
+    t("reRegister.reason.appearanceChanged"),
+    t("reRegister.reason.other"),
+  ]
   const [selectedReason, setSelectedReason] = useState("")
   const [customReason,   setCustomReason]   = useState("")
   const [loading,        setLoading]        = useState(false)
   const [success,        setSuccess]        = useState(false)
   const [error,          setError]          = useState<string | null>(null)
 
-  const finalReason = selectedReason === "Boshqa sabab" ? customReason : selectedReason
+  const finalReason = selectedReason === t("reRegister.reason.other") ? customReason : selectedReason
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -32,7 +33,7 @@ export default function ReRegisterPage() {
       await faceApi.requestReRegister(finalReason.trim())
       setSuccess(true)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Xatolik yuz berdi")
+      setError(err instanceof Error ? err.message : t("reRegister.genericError"))
     } finally {
       setLoading(false)
     }
@@ -49,10 +50,10 @@ export default function ReRegisterPage() {
         </button>
         <div>
           <h1 className="text-[24px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Qayta ro&apos;yxatdan o&apos;tish arizasi
+            {t("reRegister.title")}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Admin tasdiqlashi bilan qayta ro&apos;yxatdan o&apos;tishingiz mumkin
+            {t("reRegister.subtitle")}
           </p>
         </div>
       </div>
@@ -65,16 +66,15 @@ export default function ReRegisterPage() {
             <CheckCircle2 className="w-8 h-8" style={{ color: "#22c55e" }} />
           </div>
           <p className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Ariza yuborildi!
+            {t("reRegister.submitted")}
           </p>
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Admin arizangizni ko&apos;rib chiqib, tasdiqlaydi yoki rad etadi.
-            Natijani Face ID sahifasida ko&apos;rishingiz mumkin.
+            {t("reRegister.submittedDesc")}
           </p>
           <button onClick={() => router.push("/face-id")}
             className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium hover:opacity-90 transition-opacity"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-            Face ID sahifasiga qaytish
+            {t("reRegister.backToFaceId")}
           </button>
         </div>
       ) : (
@@ -87,15 +87,14 @@ export default function ReRegisterPage() {
             style={{ backgroundColor: "#f0f5ff", border: "1px solid rgba(14,88,168,0.2)" }}>
             <RefreshCw className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#0e58a8" }} />
             <p className="text-xs" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Ariza yuborilgandan so&apos;ng admin ko&apos;rib chiqadi.
-              Tasdiqlangandan keyin yangi yuz ro&apos;yxatdan o&apos;tkazishingiz mumkin.
+              {t("reRegister.infoNotice")}
             </p>
           </div>
 
           {/* Reason selection */}
           <div>
             <p className="text-sm font-medium mb-3" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Sabab tanlang <span style={{ color: "#ef4444" }}>*</span>
+              {t("reRegister.selectReason")} <span style={{ color: "#ef4444" }}>*</span>
             </p>
             <div className="flex flex-col gap-2">
               {REASONS.map(r => (
@@ -118,14 +117,14 @@ export default function ReRegisterPage() {
           </div>
 
           {/* Custom reason */}
-          {selectedReason === "Boshqa sabab" && (
+          {selectedReason === t("reRegister.reason.other") && (
             <div>
               <p className="text-sm font-medium mb-1.5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Sababni yozing <span style={{ color: "#ef4444" }}>*</span>
+                {t("reRegister.writeReason")} <span style={{ color: "#ef4444" }}>*</span>
               </p>
               <textarea rows={3} value={customReason}
                 onChange={e => setCustomReason(e.target.value)}
-                placeholder="Sababingizni batafsil yozing..."
+                placeholder={t("reRegister.reasonPlaceholder")}
                 className="w-full px-3 py-2.5 rounded-[8px] text-sm resize-none outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
             </div>
@@ -144,7 +143,7 @@ export default function ReRegisterPage() {
             className="flex items-center justify-center gap-2 w-full py-3 rounded-[8px] text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
             <Send className="w-4 h-4" />
-            {loading ? "Yuborilmoqda..." : "Ariza yuborish"}
+            {loading ? t("reRegister.submitting") : t("reRegister.submit")}
           </button>
         </form>
       )}

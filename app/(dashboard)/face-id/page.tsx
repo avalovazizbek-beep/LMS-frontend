@@ -5,6 +5,7 @@ import { CheckCircle2, AlertCircle, Clock, ScanFace, RefreshCw, ClipboardList, S
 import { faceApi, FaceStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function formatDate(ts?: number): string {
   if (!ts) return "—"
@@ -12,6 +13,7 @@ function formatDate(ts?: number): string {
 }
 
 export default function FaceIdPage() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => faceApi.status())
   const st: FaceStatus = data ?? { registered: false }
 
@@ -24,10 +26,10 @@ export default function FaceIdPage() {
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Face ID
+          {t("faceId.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Yuz identifikatsiyasi tizimi
+          {t("faceId.subtitle")}
         </p>
       </div>
 
@@ -43,12 +45,12 @@ export default function FaceIdPage() {
           </div>
           <div>
             <p className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              {st.registered ? "Yuz tasdiqlangan" : "Yuz ro'yxatdan o'tkazilmagan"}
+              {st.registered ? t("faceId.verified") : t("faceId.notRegistered")}
             </p>
             <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
               {st.registered
-                ? `Ro'yxatga olingan: ${formatDate(st.registeredAt)}`
-                : "Imtihon oldidan yuzingizni ro'yxatdan o'tkazing"}
+                ? t("faceId.registeredAt", { date: formatDate(st.registeredAt) })
+                : t("faceId.registerPrompt")}
             </p>
           </div>
         </div>
@@ -57,8 +59,8 @@ export default function FaceIdPage() {
         {st.registered && (
           <div className="flex flex-col gap-2 mb-5">
             {[
-              { label: "Ro'yxatga olingan", value: formatDate(st.registeredAt) },
-              { label: "Holati",            value: "Tasdiqlangan" },
+              { label: t("faceId.registeredLabel"), value: formatDate(st.registeredAt) },
+              { label: t("faceId.status"),          value: t("faceId.confirmed") },
             ].map(row => (
               <div key={row.label} className="flex items-center justify-between py-2"
                 style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
@@ -75,7 +77,7 @@ export default function FaceIdPage() {
             style={{ backgroundColor: "#fff8e6", border: "1px solid rgba(245,158,11,0.3)" }}>
             <Clock className="w-5 h-5 shrink-0" style={{ color: "#f59e0b" }} />
             <p className="text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-              Ariza ko'rib chiqilmoqda. Admin tasdiqlashini kuting.
+              {t("faceId.pendingReview")}
             </p>
           </div>
         )}
@@ -86,7 +88,7 @@ export default function FaceIdPage() {
             style={{ backgroundColor: "#f0fff4", border: "1px solid rgba(34,197,94,0.3)" }}>
             <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: "#22c55e" }} />
             <p className="text-sm" style={{ color: "#166534", fontFamily: "var(--font-poppins)" }}>
-              Qayta ro'yxatdan o'tishingiz tasdiqlandi! Endi ro'yxatdan o'tishingiz mumkin.
+              {t("faceId.approvedNotice")}
             </p>
           </div>
         )}
@@ -98,7 +100,7 @@ export default function FaceIdPage() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold transition-opacity hover:opacity-90"
               style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
               <ScanFace className="w-4 h-4" />
-              {st.registered ? "Qayta ro'yxatdan o'tish" : "Yuzni ro'yxatdan o'tkazish"}
+              {st.registered ? t("faceId.reregister") : t("faceId.registerFace")}
             </Link>
           )}
           {st.registered && !st.hasPendingRequest && !st.hasApprovedRequest && (
@@ -106,7 +108,7 @@ export default function FaceIdPage() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium transition-opacity hover:opacity-90"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
               <RefreshCw className="w-4 h-4" />
-              Qayta ro'yxatdan o'tish uchun ariza
+              {t("faceId.reregisterApp")}
             </Link>
           )}
         </div>
@@ -117,20 +119,20 @@ export default function FaceIdPage() {
         {[
           {
             icon: ScanFace,
-            title: "Ro'yxatdan o'tish",
-            desc: "Kamera orqali yuzingizni ro'yxatdan o'tkazing. 3 ta surat olinadi.",
+            title: t("faceId.card.register.title"),
+            desc: t("faceId.card.register.desc"),
             color: "#0e58a8", bg: "#f0f5ff",
           },
           {
             icon: ShieldCheck,
-            title: "Imtihon oldidan tekshirish",
-            desc: "Har bir imtihon oldidan yuz tasdiqlanadigan bo'ladi.",
+            title: t("faceId.card.check.title"),
+            desc: t("faceId.card.check.desc"),
             color: "#1cc2dc", bg: "#f0fbfd",
           },
           {
             icon: ClipboardList,
-            title: "Arizalar",
-            desc: "Qayta ro'yxatdan o'tish arizalarini boshqaring.",
+            title: t("faceId.card.requests.title"),
+            desc: t("faceId.card.requests.desc"),
             color: "#22c55e", bg: "#f0fff4",
             href: "/face-id/requests",
           },

@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { faceApi } from "@/lib/api"
 import { ensureFaceModels, areFaceModelsLoaded } from "@/lib/faceModelCache"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 declare global {
   interface Window { faceapi: any }
@@ -23,6 +24,7 @@ const CVS_W         = 640
 const CVS_H         = 480
 
 export default function FaceRegisterPage() {
+  const { t }         = useLanguage()
   const router       = useRouter()
   const videoRef     = useRef<HTMLVideoElement>(null)
   const canvasRef    = useRef<HTMLCanvasElement>(null)
@@ -32,7 +34,7 @@ export default function FaceRegisterPage() {
 
   const [phase,        setPhase]        = useState<Phase>("loading")
   const [scriptReady,  setScriptReady]  = useState(false)
-  const [loadStatus,   setLoadStatus]   = useState("AI modellari tayyorlanmoqda...")
+  const [loadStatus,   setLoadStatus]   = useState(t("faceRegister.aiModelsLoading"))
   const [loadedCount,  setLoadedCount]  = useState(0)
   const [cameraReady,  setCameraReady]  = useState(false)
   const [samples,      setSamples]      = useState<number[][]>([])
@@ -75,12 +77,12 @@ export default function FaceRegisterPage() {
     if (areFaceModelsLoaded()) { setLoadedCount(3); setPhase("camera"); return }
     ;(async () => {
       try {
-        setLoadStatus("Yuz aniqlash modeli yuklanmoqda... (1/3)")
+        setLoadStatus(t("faceRegister.faceModelLoading"))
         await ensureFaceModels()
         setLoadedCount(3)
         setPhase("camera")
       } catch {
-        setLoadStatus("Xatolik. Sahifani qayta yuklang.")
+        setLoadStatus(t("faceRegister.loadError"))
       }
     })()
   }, [scriptReady])
@@ -101,7 +103,7 @@ export default function FaceRegisterPage() {
       })
       .catch(() => {
         setPhase("error")
-        setSubmitError("Kameraga ruxsat berilmadi. Brauzer sozlamalarini tekshiring.")
+        setSubmitError(t("faceRegister.cameraDenied"))
       })
   }, [phase])
 
@@ -282,7 +284,7 @@ export default function FaceRegisterPage() {
       await faceApi.register(samples)
       setPhase("done")
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : "Xatolik yuz berdi")
+      setSubmitError(err instanceof Error ? err.message : t("faceRegister.errorOccurred"))
       setPhase("error")
     }
   }
@@ -330,10 +332,10 @@ export default function FaceRegisterPage() {
           </button>
           <div>
             <h1 className="text-[24px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Yuzni ro&apos;yxatdan o&apos;tkazish
+              {t("faceRegister.title")}
             </h1>
             <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Kamera orqali {TOTAL_SAMPLES} ta surat avtomatik olinadi
+              {t("faceRegister.subtitle", { n: TOTAL_SAMPLES })}
             </p>
           </div>
         </div>
@@ -358,7 +360,7 @@ export default function FaceRegisterPage() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {["Skript", "Detektor", "Nuqtalar", "Tanish"].map((label, i) => {
+              {[t("faceRegister.step.script"), t("faceRegister.step.detector"), t("faceRegister.step.landmarks"), t("faceRegister.step.recognition")].map((label, i) => {
                 const done   = i === 0 ? scriptReady : loadedCount >= i
                 const active = i === 0 ? !scriptReady : scriptReady && loadedCount === i - 1
                 return (
@@ -380,7 +382,7 @@ export default function FaceRegisterPage() {
               })}
             </div>
             <p className="text-xs text-center" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Yuz tanish modellari yuklanmoqda, iltimos kuting...
+              {t("faceRegister.modelsLoadingWait")}
             </p>
           </div>
         )}
@@ -396,11 +398,10 @@ export default function FaceRegisterPage() {
             <div className="text-center">
               <p className="text-base font-semibold mb-1"
                 style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Kamerani yoqing
+                {t("faceRegister.turnOnCamera")}
               </p>
               <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Kameraga qarang — yuz avtomatik aniqlanadi va {TOTAL_SAMPLES} ta surat olinadi.
-                Yaxshi yoritilgan joyda turing.
+                {t("faceRegister.lookAtCamera", { n: TOTAL_SAMPLES })}
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -411,7 +412,7 @@ export default function FaceRegisterPage() {
                     {i + 1}
                   </div>
                   <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Surat {i + 1}
+                    {t("faceRegister.photoLabel", { n: i + 1 })}
                   </p>
                 </div>
               ))}
@@ -420,7 +421,7 @@ export default function FaceRegisterPage() {
               className="flex items-center gap-2 px-6 py-3 rounded-[8px] text-sm font-semibold transition-opacity hover:opacity-90"
               style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
               <Camera className="w-4 h-4" />
-              Kamerani yoqish
+              {t("faceRegister.turnOnCameraBtn")}
             </button>
           </div>
         )}
@@ -434,7 +435,7 @@ export default function FaceRegisterPage() {
             <div className="flex items-center gap-2 px-4 py-3 border-b"
               style={{ borderColor: "rgba(1,41,112,0.08)" }}>
               <p className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Olingan suratlar:
+                {t("faceRegister.photosTaken")}
               </p>
               <div className="flex items-center gap-2 ml-1">
                 {Array.from({ length: TOTAL_SAMPLES }).map((_, i) => (
@@ -462,7 +463,7 @@ export default function FaceRegisterPage() {
                   style={{ backgroundColor: "#111" }}>
                   <Loader2 className="w-9 h-9 animate-spin" style={{ color: "#0e58a8" }} />
                   <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Kamera yoqilmoqda...
+                    {t("faceRegister.cameraStarting")}
                   </p>
                 </div>
               )}
@@ -499,10 +500,10 @@ export default function FaceRegisterPage() {
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                   {captured
-                    ? "✓ Surat qabul qilindi!"
+                    ? t("faceRegister.photoAccepted")
                     : faceDetected
-                    ? "Yuz aniqlandi — barqaror turing"
-                    : "Yuzingizni kameraga to’g’rilang"}
+                    ? t("faceRegister.faceDetectedHold")
+                    : t("faceRegister.alignFace")}
                 </p>
                 <span
                   className="shrink-0 text-base font-bold px-3 py-1 rounded-full"
@@ -523,7 +524,7 @@ export default function FaceRegisterPage() {
               <div className="flex flex-col gap-1">
                 <div className="flex justify-between items-center">
                   <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Aniqlik darajasi
+                    {t("faceRegister.accuracyLevel")}
                   </span>
                   <span className="text-xs font-semibold" style={{ color: confColor }}>
                     {faceDetected ? `${confidence}%` : "—"}
@@ -540,7 +541,7 @@ export default function FaceRegisterPage() {
               <div className="flex flex-col gap-1">
                 <div className="flex justify-between items-center">
                   <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Barqarorlik — {holdPct >= 100 ? "qabul qilinyapti..." : "barqaror turing"}
+                    {t("faceRegister.stability")} — {holdPct >= 100 ? t("faceRegister.accepting") : t("faceRegister.holdStill")}
                   </span>
                   <span className="text-xs font-semibold" style={{ color: "#0e58a8" }}>
                     {holdPct}%
@@ -571,10 +572,10 @@ export default function FaceRegisterPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  Barcha {samples.length} ta surat olindi
+                  {t("faceRegister.allPhotosTaken", { n: samples.length })}
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  Yuz ma&apos;lumotlarini saqlashni tasdiqlang
+                  {t("faceRegister.confirmSave")}
                 </p>
               </div>
             </div>
@@ -582,7 +583,7 @@ export default function FaceRegisterPage() {
               style={{ backgroundColor: "#f0f5ff", border: "1px solid rgba(14,88,168,0.2)" }}>
               <ScanFace className="w-5 h-5 shrink-0" style={{ color: "#0e58a8" }} />
               <p className="text-xs" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Yuz ma&apos;lumotlari muddatsiz saqlanadi. Imtihon oldidan yuzingiz tekshiriladi.
+                {t("faceRegister.savedForever")}
               </p>
             </div>
             <div className="flex gap-3">
@@ -590,13 +591,13 @@ export default function FaceRegisterPage() {
                 className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold flex-1 justify-center transition-opacity hover:opacity-90"
                 style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                 <CheckCircle2 className="w-4 h-4" />
-                Saqlash
+                {t("faceRegister.save")}
               </button>
               <button onClick={restart}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity hover:opacity-80"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                 <RotateCcw className="w-4 h-4" />
-                Qaytadan
+                {t("faceRegister.again")}
               </button>
             </div>
           </div>
@@ -608,7 +609,7 @@ export default function FaceRegisterPage() {
             style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <Loader2 className="w-10 h-10 animate-spin" style={{ color: "#0e58a8" }} />
             <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Ma&apos;lumotlar saqlanmoqda...
+              {t("faceRegister.dataSaving")}
             </p>
           </div>
         )}
@@ -622,15 +623,15 @@ export default function FaceRegisterPage() {
               <CheckCircle2 className="w-8 h-8" style={{ color: "#22c55e" }} />
             </div>
             <p className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Yuz muvaffaqiyatli ro&apos;yxatdan o&apos;tdi!
+              {t("faceRegister.registeredSuccess")}
             </p>
             <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Yuz ma&apos;lumotlari muvaffaqiyatli saqlandi. Imtihon oldidan yuz tasdiqlovi o&apos;tkaziladi.
+              {t("faceRegister.registeredSuccessDesc")}
             </p>
             <button onClick={() => router.push("/face-id")}
               className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium hover:opacity-90 transition-opacity"
               style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-              Face ID sahifasiga qaytish
+              {t("faceRegister.backToFaceId")}
             </button>
           </div>
         )}
@@ -644,7 +645,7 @@ export default function FaceRegisterPage() {
               <AlertCircle className="w-8 h-8" style={{ color: "#ef4444" }} />
             </div>
             <p className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Xatolik yuz berdi
+              {t("faceRegister.errorOccurred")}
             </p>
             <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
               {submitError}
@@ -653,7 +654,7 @@ export default function FaceRegisterPage() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium hover:opacity-90 transition-opacity"
               style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
               <RotateCcw className="w-4 h-4" />
-              Qaytadan urinish
+              {t("faceRegister.retry")}
             </button>
           </div>
         )}

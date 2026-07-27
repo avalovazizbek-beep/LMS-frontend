@@ -1,16 +1,18 @@
 "use client"
 
 import { Globe } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function GlobalSorovnoma() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Global So&apos;rovnoma
+          {t("globalSorovnoma.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Umumiy so&apos;rovnoma
+          {t("globalSorovnoma.subtitle")}
         </p>
       </div>
 
@@ -21,10 +23,10 @@ export default function GlobalSorovnoma() {
           <Globe className="w-8 h-8" style={{ color: "#1cc2dc" }} />
         </div>
         <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          So&apos;rovnoma topilmadi
+          {t("globalSorovnoma.notFound")}
         </p>
         <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Hozirda faol global so&apos;rovnomalar mavjud emas
+          {t("globalSorovnoma.notFoundDesc")}
         </p>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { Key, Shield, User } from "lucide-react"
 import { hemisApi, type HemisEmployee, type HemisStudent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 type ProfileData = HemisStudent | HemisEmployee | null
 
@@ -13,11 +14,9 @@ function nestedName(value?: { name?: string } | string) {
   return typeof value === "string" ? value : value.name
 }
 
-function profileName(profile: ProfileData) {
-  return profile?.full_name || "Foydalanuvchi"
-}
-
 export default function TizimProfil() {
+  const { t } = useLanguage()
+  const profileName = (profile: ProfileData) => profile?.full_name || t("tizimProfil.user")
   const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
@@ -41,38 +40,38 @@ export default function TizimProfil() {
   const student = !isEmployee ? (profile as HemisStudent | null) : null
   const employee = isEmployee ? (profile as HemisEmployee | null) : null
   const badge = isEmployee
-    ? nestedName(employee?.staffPosition) || nestedName(employee?.employeeType) || "O'qituvchi"
-    : student?.semester?.name || "Talaba"
+    ? nestedName(employee?.staffPosition) || nestedName(employee?.employeeType) || t("tizimProfil.teacher")
+    : student?.semester?.name || t("tizimProfil.student")
 
   const rows = isEmployee
     ? [
-        { label: "To'liq ism", value: employee?.full_name },
-        { label: "HEMIS ID", value: employee?.employee_id_number },
-        { label: "Kafedra/bo'lim", value: nestedName(employee?.department) },
-        { label: "Lavozim", value: nestedName(employee?.staffPosition) },
-        { label: "Xodim turi", value: nestedName(employee?.employeeType) },
-        { label: "Ish shakli", value: nestedName(employee?.employmentForm) },
-        { label: "Ilmiy daraja", value: nestedName(employee?.academicDegree) },
-        { label: "Ilmiy unvon", value: nestedName(employee?.academicRank) },
-        { label: "Holati", value: nestedName(employee?.employeeStatus) },
+        { label: t("tizimProfil.fullName"), value: employee?.full_name },
+        { label: t("tizimProfil.hemisId"), value: employee?.employee_id_number },
+        { label: t("tizimProfil.department"), value: nestedName(employee?.department) },
+        { label: t("tizimProfil.position"), value: nestedName(employee?.staffPosition) },
+        { label: t("tizimProfil.employeeType"), value: nestedName(employee?.employeeType) },
+        { label: t("tizimProfil.employmentForm"), value: nestedName(employee?.employmentForm) },
+        { label: t("tizimProfil.academicDegree"), value: nestedName(employee?.academicDegree) },
+        { label: t("tizimProfil.academicRank"), value: nestedName(employee?.academicRank) },
+        { label: t("tizimProfil.status"), value: nestedName(employee?.employeeStatus) },
       ]
     : [
-        { label: "To'liq ism", value: student?.full_name },
-        { label: "HEMIS ID", value: student?.student_id_number },
-        { label: "Telefon", value: student?.phone },
-        { label: "Email", value: student?.email },
-        { label: "Fakultet", value: student?.faculty?.name },
-        { label: "Guruh", value: student?.group?.name },
+        { label: t("tizimProfil.fullName"), value: student?.full_name },
+        { label: t("tizimProfil.hemisId"), value: student?.student_id_number },
+        { label: t("tizimProfil.phone"), value: student?.phone },
+        { label: t("tizimProfil.email"), value: student?.email },
+        { label: t("tizimProfil.faculty"), value: student?.faculty?.name },
+        { label: t("tizimProfil.group"), value: student?.group?.name },
       ]
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Profil
+          {t("tizimProfil.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {isEmployee ? "O'qituvchi profili va HEMIS ma'lumotlari" : "Talaba profili va sozlamalari"}
+          {isEmployee ? t("tizimProfil.teacherSubtitle") : t("tizimProfil.studentSubtitle")}
         </p>
       </div>
 
@@ -88,7 +87,7 @@ export default function TizimProfil() {
               {profileName(profile)}
             </p>
             <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              {isEmployee ? nestedName(employee?.department) || "Xodim" : student?.group?.name || "Talaba"}
+              {isEmployee ? nestedName(employee?.department) || t("tizimProfil.staff") : student?.group?.name || t("tizimProfil.student")}
             </p>
           </div>
           <span className="px-3 py-1 rounded-full text-xs font-medium"
@@ -103,7 +102,7 @@ export default function TizimProfil() {
             <div className="flex items-center gap-2 mb-4">
               <User className="w-5 h-5" style={{ color: "#1cc2dc" }} />
               <h3 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Asosiy ma'lumotlar
+                {t("tizimProfil.mainInfo")}
               </h3>
             </div>
             {rows.map((item) => (
@@ -122,17 +121,17 @@ export default function TizimProfil() {
             <div className="flex items-center gap-2 mb-4">
               <Shield className="w-5 h-5" style={{ color: "#0e58a8" }} />
               <h3 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Xavfsizlik
+                {t("tizimProfil.security")}
               </h3>
             </div>
             <div className="flex items-center justify-between py-3">
               <div className="flex items-center gap-2">
                 <Key className="w-4 h-4" style={{ color: "#7293b9" }} />
-                <span className="text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>HEMIS token sessiyasi</span>
+                <span className="text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("tizimProfil.hemisSession")}</span>
               </div>
               <span className="text-xs font-medium px-3 py-1.5 rounded-[5px]"
                 style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                Faol
+                {t("tizimProfil.active")}
               </span>
             </div>
           </div>

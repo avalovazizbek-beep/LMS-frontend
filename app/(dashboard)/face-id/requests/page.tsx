@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle, Clock, User, MessageSquare, RefreshCw } from "lu
 import { faceApi, ReRegRequest } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function formatDate(ts?: number): string {
   if (!ts) return "—"
@@ -14,13 +15,13 @@ function formatDate(ts?: number): string {
   })
 }
 
-const statusConfig = {
-  pending:  { label: "Kutilmoqda", bg: "#fff8e6", color: "#f59e0b", icon: Clock },
-  approved: { label: "Tasdiqlandi", bg: "#f0fff4", color: "#22c55e", icon: CheckCircle2 },
-  rejected: { label: "Rad etildi",  bg: "#fff5f5", color: "#ef4444", icon: XCircle },
-}
-
 export default function FaceRequestsPage() {
+  const { t } = useLanguage()
+  const statusConfig = {
+    pending:  { label: t("faceRequests.status.pending"),  bg: "#fff8e6", color: "#f59e0b", icon: Clock },
+    approved: { label: t("faceRequests.status.approved"), bg: "#f0fff4", color: "#22c55e", icon: CheckCircle2 },
+    rejected: { label: t("faceRequests.status.rejected"), bg: "#fff5f5", color: "#ef4444", icon: XCircle },
+  }
   const { data, loading, error, refetch } = useApi(() => faceApi.getRequests())
   const requests: ReRegRequest[] = data?.data ?? []
 
@@ -54,26 +55,26 @@ export default function FaceRequestsPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Face ID Arizalar
+            {t("faceRequests.title")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Qayta ro&apos;yxatdan o&apos;tish arizalari
+            {t("faceRequests.subtitle")}
           </p>
         </div>
         <button onClick={refetch}
           className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm hover:opacity-80 transition-opacity"
           style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <RefreshCw className="w-4 h-4" />
-          Yangilash
+          {t("faceRequests.refresh")}
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Jami",       value: requests.length,                                          color: "#012970" },
-          { label: "Kutilmoqda", value: pending,                                                   color: "#f59e0b" },
-          { label: "Hal qilingan", value: requests.length - pending,                              color: "#22c55e" },
+          { label: t("faceRequests.total"),    value: requests.length,                                          color: "#012970" },
+          { label: t("faceRequests.pending"),  value: pending,                                                   color: "#f59e0b" },
+          { label: t("faceRequests.resolved"), value: requests.length - pending,                              color: "#22c55e" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-[10px] p-4 text-center"
             style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -94,7 +95,7 @@ export default function FaceRequestsPage() {
               border: filter === f ? "1px solid #0e58a8" : "1px solid rgba(1,41,112,0.15)",
               fontFamily: "var(--font-poppins)",
             }}>
-            {f === "all" ? "Barchasi" : f === "pending" ? "Kutilmoqda" : f === "approved" ? "Tasdiqlangan" : "Rad etilgan"}
+            {f === "all" ? t("faceRequests.filter.all") : f === "pending" ? t("faceRequests.filter.pending") : f === "approved" ? t("faceRequests.filter.approved") : t("faceRequests.filter.rejected")}
           </button>
         ))}
       </div>
@@ -102,7 +103,7 @@ export default function FaceRequestsPage() {
       {/* Request list */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Arizalar topilmadi</p>
+          <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("faceRequests.notFound")}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -138,7 +139,7 @@ export default function FaceRequestsPage() {
                           <div className="mt-2 px-3 py-1.5 rounded-[6px]"
                             style={{ backgroundColor: "#f6f9ff" }}>
                             <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                              Admin izohi: {req.adminNote}
+                              {t("faceRequests.adminNote", { note: req.adminNote })}
                             </p>
                           </div>
                         )}
@@ -166,7 +167,7 @@ export default function FaceRequestsPage() {
                       <button onClick={() => { setReviewingId(req.id); setAdminNote("") }}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-sm font-medium transition-opacity hover:opacity-80"
                         style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                        Ko&apos;rib chiqish
+                        {t("faceRequests.review")}
                       </button>
                     </div>
                   )}
@@ -178,11 +179,11 @@ export default function FaceRequestsPage() {
                     <div className="rounded-[10px] p-4 flex flex-col gap-3"
                       style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
                       <p className="text-xs font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                        Admin izohi (ixtiyoriy)
+                        {t("faceRequests.adminNoteOptional")}
                       </p>
                       <textarea rows={2} value={adminNote}
                         onChange={e => setAdminNote(e.target.value)}
-                        placeholder="Ariza haqida izoh yozing..."
+                        placeholder={t("faceRequests.notePlaceholder")}
                         className="w-full px-3 py-2 rounded-[8px] text-sm resize-none outline-none"
                         style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }} />
                       <div className="flex gap-2">
@@ -191,19 +192,19 @@ export default function FaceRequestsPage() {
                           className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-sm font-medium flex-1 justify-center transition-opacity hover:opacity-90 disabled:opacity-50"
                           style={{ backgroundColor: "#22c55e", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                           <CheckCircle2 className="w-4 h-4" />
-                          Tasdiqlash
+                          {t("faceRequests.approve")}
                         </button>
                         <button onClick={() => handleAction(req.id, "reject")}
                           disabled={actionLoading}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-sm font-medium flex-1 justify-center transition-opacity hover:opacity-90 disabled:opacity-50"
                           style={{ backgroundColor: "#ef4444", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                           <XCircle className="w-4 h-4" />
-                          Rad etish
+                          {t("faceRequests.reject")}
                         </button>
                         <button onClick={() => setReviewingId(null)}
                           className="px-3 py-2 rounded-[8px] text-sm transition-opacity hover:opacity-80"
                           style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                          Bekor
+                          {t("faceRequests.cancel")}
                         </button>
                       </div>
                     </div>

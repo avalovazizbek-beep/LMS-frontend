@@ -1,16 +1,18 @@
 "use client"
 
 import { ClipboardList } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function HemisSorovnoma() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          HEMIS So&apos;rovnoma
+          {t("hemisSorovnoma.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          HEMIS tizimi bo&apos;yicha so&apos;rovnoma
+          {t("hemisSorovnoma.subtitle")}
         </p>
       </div>
 
@@ -21,10 +23,10 @@ export default function HemisSorovnoma() {
           <ClipboardList className="w-8 h-8" style={{ color: "#0e58a8" }} />
         </div>
         <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          So&apos;rovnoma topilmadi
+          {t("hemisSorovnoma.notFound")}
         </p>
         <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Hozirda faol HEMIS so&apos;rovnomalari mavjud emas
+          {t("hemisSorovnoma.notFoundDesc")}
         </p>
       </div>
     </div>
