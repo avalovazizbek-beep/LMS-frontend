@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { X } from "lucide-react"
 import { teachingApi } from "@/lib/api"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const inputCls =
   "w-full px-3 py-2.5 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none transition-colors"
@@ -40,6 +41,7 @@ function fromLocalDateTime(value: string): string | null {
 }
 
 export default function YangiKursTopshirigiPage() {
+  const { t } = useLanguage()
   const router = useRouter()
   const searchParams = useSearchParams()
   const groupId = searchParams.get("group") ?? ""
@@ -51,8 +53,8 @@ export default function YangiKursTopshirigiPage() {
 
   const semesterLabel = useMemo(() => {
     const code = Number(semester)
-    return Number.isFinite(code) && code >= 11 && code <= 20 ? `${code - 10}-semestr` : ""
-  }, [semester])
+    return Number.isFinite(code) && code >= 11 && code <= 20 ? t("kursTopshDetail.semesterSuffix", { n: code - 10 }) : ""
+  }, [semester, t])
 
   const breadcrumbDetails = [trainingName, semesterLabel, groupNames].filter(Boolean).join(" | ")
 
@@ -92,7 +94,7 @@ export default function YangiKursTopshirigiPage() {
         setLanguage(item.language ?? "O'zbek")
       })
       .catch((err) => {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : "Yuklashda xatolik")
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : t("kursTopshForm.loadError"))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -102,10 +104,10 @@ export default function YangiKursTopshirigiPage() {
 
   async function handleSubmit() {
     setFormError(null)
-    if (!title.trim()) { setFormError("Nomini kiriting"); return }
+    if (!title.trim()) { setFormError(t("kursTopshForm.titleRequired")); return }
 
     const deadlineIso = fromLocalDateTime(deadline)
-    if (deadline.trim() && !deadlineIso) { setFormError("Muddat formati noto'g'ri (YYYY-MM-DD H:M)"); return }
+    if (deadline.trim() && !deadlineIso) { setFormError(t("kursTopshForm.deadlineFormatError")); return }
 
     setSaving(true)
     try {
@@ -148,7 +150,7 @@ export default function YangiKursTopshirigiPage() {
       }
       router.push(detailHref)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Saqlashda xatolik yuz berdi")
+      setFormError(err instanceof Error ? err.message : t("kursTopshForm.saveError"))
     } finally {
       setSaving(false)
     }
@@ -160,9 +162,9 @@ export default function YangiKursTopshirigiPage() {
   return (
     <div className="flex flex-col gap-5 p-[30px]">
       <div className="flex items-center gap-2 text-sm flex-wrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-        <Link href="/dashboard" className="hover:underline">Asosiy</Link>
+        <Link href="/dashboard" className="hover:underline">{t("kursTopshDetail.main")}</Link>
         <span>/</span>
-        <Link href="/oqituvchi-kabineti/kurs-topshiriqlar" className="hover:underline">Kurs topshiriqlari</Link>
+        <Link href="/oqituvchi-kabineti/kurs-topshiriqlar" className="hover:underline">{t("kursTopshDetail.courseAssignments")}</Link>
         {name && (
           <>
             <span>/</span>
@@ -172,13 +174,13 @@ export default function YangiKursTopshirigiPage() {
           </>
         )}
         <span>/</span>
-        <span style={{ color: "#012970" }}>{editId ? "Topshiriqni tahrirlash" : "Yangi topshiriq yaratish"}</span>
+        <span style={{ color: "#012970" }}>{editId ? t("kursTopshForm.editTitle") : t("kursTopshForm.newTitle")}</span>
       </div>
 
       <div className="rounded-[10px] bg-white" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <div className="p-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <h1 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Topshiriq ma&apos;lumoti
+            {t("kursTopshForm.info")}
           </h1>
         </div>
 
@@ -191,28 +193,28 @@ export default function YangiKursTopshirigiPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Topshiriq turi</label>
+              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshForm.taskType")}</label>
               <select
                 className={inputCls}
                 style={{ fontFamily: "var(--font-poppins)" }}
                 value={taskType}
                 onChange={(e) => setTaskType(e.target.value)}
               >
-                <option value="">Topshiriq turini tanlang</option>
+                <option value="">{t("kursTopshForm.selectTaskType")}</option>
                 {TASK_TYPE_OPTIONS.map((option) => (
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Nazorat turi</label>
+              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshForm.controlType")}</label>
               <select
                 className={inputCls}
                 style={{ fontFamily: "var(--font-poppins)" }}
                 value={controlType}
                 onChange={(e) => setControlType(e.target.value)}
               >
-                <option value="">Nazorat turini tanlang</option>
+                <option value="">{t("kursTopshForm.selectControlType")}</option>
                 {CONTROL_TYPE_OPTIONS.map((option) => (
                   <option key={option} value={option}>{option}</option>
                 ))}
@@ -222,7 +224,7 @@ export default function YangiKursTopshirigiPage() {
 
           <div>
             <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Nomi <sup style={{ color: "#dc2626" }}>°</sup>
+              {t("kursTopshForm.name")} <sup style={{ color: "#dc2626" }}>°</sup>
             </label>
             <input
               className={inputCls}
@@ -233,7 +235,7 @@ export default function YangiKursTopshirigiPage() {
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Izoh</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshForm.description")}</label>
             <textarea
               className={inputCls}
               style={{ fontFamily: "var(--font-poppins)", minHeight: 90 }}
@@ -243,7 +245,7 @@ export default function YangiKursTopshirigiPage() {
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Muddat</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshForm.deadline")}</label>
             <div className="flex items-stretch gap-0">
               <input
                 className={`${inputCls} rounded-r-none`}
@@ -267,7 +269,7 @@ export default function YangiKursTopshirigiPage() {
                 onClick={() => setDeadline("")}
                 className="px-3 border-y border-r border-[#d8e6f7] rounded-r-[8px] flex items-center justify-center"
                 style={{ backgroundColor: "#f3f6fb" }}
-                title="Tozalash"
+                title={t("kursTopshForm.clear")}
               >
                 <X className="w-4 h-4" style={{ color: "#7293b9" }} />
               </button>
@@ -276,7 +278,7 @@ export default function YangiKursTopshirigiPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Maks. ball</label>
+              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshForm.maxScore")}</label>
               <input
                 type="number"
                 className={inputCls}
@@ -286,7 +288,7 @@ export default function YangiKursTopshirigiPage() {
               />
             </div>
             <div>
-              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Urinishlar soni</label>
+              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshForm.attemptsCount")}</label>
               <input
                 type="number"
                 className={inputCls}
@@ -296,7 +298,7 @@ export default function YangiKursTopshirigiPage() {
               />
             </div>
             <div>
-              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Til</label>
+              <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshForm.language")}</label>
               <select
                 className={inputCls}
                 style={{ fontFamily: "var(--font-poppins)" }}
@@ -311,7 +313,7 @@ export default function YangiKursTopshirigiPage() {
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Fayl nomi</label>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshForm.fileName")}</label>
             <div className="flex flex-wrap gap-3">
               <label
                 className="flex flex-col items-center justify-center gap-2 w-[180px] h-[140px] rounded-[8px] border-2 border-dashed cursor-pointer transition-colors"
@@ -341,7 +343,7 @@ export default function YangiKursTopshirigiPage() {
                     type="button"
                     onClick={() => setDocFiles((prev) => prev.filter((_, i) => i !== index))}
                     className="absolute top-1.5 right-1.5 p-1 rounded-full hover:bg-[#fee2e2]"
-                    title="O'chirish"
+                    title={t("kursTopshForm.deleteFile")}
                   >
                     <X className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
                   </button>
@@ -360,7 +362,7 @@ export default function YangiKursTopshirigiPage() {
             className="px-4 py-2 rounded-[8px] text-sm font-medium"
             style={{ color: "#445b7a", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}
           >
-            Bekor qilish
+            {t("kursTopshForm.cancel")}
           </Link>
           <button
             onClick={handleSubmit}
@@ -368,7 +370,7 @@ export default function YangiKursTopshirigiPage() {
             className="px-4 py-2 rounded-[8px] text-sm font-medium"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)", opacity: saving ? 0.7 : 1 }}
           >
-            {saving ? "Saqlanmoqda..." : "Saqlash"}
+            {saving ? t("kursTopshForm.saving") : t("kursTopshForm.save")}
           </button>
         </div>
       </div>
