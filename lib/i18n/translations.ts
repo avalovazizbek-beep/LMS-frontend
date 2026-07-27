@@ -635,6 +635,40 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "moliyaFinance.enterAmount": { uz: "To'lov miqdorini kiriting", ru: "Введите сумму платежа",             en: "Enter payment amount",             kaa: "Tólem múldetin kiritiń" },
   "moliyaFinance.fillRequired": { uz: "Barcha majburiy maydonlarni to'ldiring", ru: "Заполните все обязательные поля", en: "Fill in all required fields", kaa: "Barlıq májbúriy maydanlardı tolтırıń" },
 
+  // ── Qayta o'qish (asosiy) sahifasi ────────────────────────────────────
+  "qaytaOqish.title":     { uz: "Qayta o'qish",                ru: "Пересдача",                          en: "Retake",                          kaa: "Qayta oqıw" },
+  "qaytaOqish.subtitle":  { uz: "Qayta o'qish arizalari",       ru: "Заявки на пересдачу",                en: "Retake applications",             kaa: "Qayta oqıw arizaları" },
+  "qaytaOqish.submitApp": { uz: "Ariza yuborish",               ru: "Отправить заявку",                   en: "Submit application",              kaa: "Arizanı jiberiw" },
+  "qaytaOqish.newApp":    { uz: "Yangi ariza",                  ru: "Новая заявка",                       en: "New application",                 kaa: "Jańa ariza" },
+  "qaytaOqish.subject":   { uz: "Fan",                          ru: "Предмет",                            en: "Subject",                         kaa: "Pán" },
+  "qaytaOqish.selectSubject": { uz: "Fan tanlang...",           ru: "Выберите предмет...",                en: "Select subject...",               kaa: "Pándi tańlań..." },
+  "qaytaOqish.reason":    { uz: "Sabab",                        ru: "Причина",                            en: "Reason",                          kaa: "Sebep" },
+  "qaytaOqish.reasonPlaceholder": { uz: "Qayta o'qish sababini kiriting...", ru: "Введите причину пересдачи...", en: "Enter the reason for retaking...", kaa: "Qayta oqıw sebebin kiritiń..." },
+  "qaytaOqish.send":      { uz: "Yuborish",                    ru: "Отправить",                          en: "Send",                            kaa: "Jiberiw" },
+  "qaytaOqish.cancel":    { uz: "Bekor qilish",                ru: "Отмена",                              en: "Cancel",                          kaa: "Biykar etiw" },
+  "qaytaOqish.needRetake": { uz: "Qayta topshirish kerak",     ru: "Нужно пересдать",                     en: "Needs to be retaken",             kaa: "Qayta tapsırıw kerek" },
+  "qaytaOqish.credits":   { uz: "kredit",                      ru: "кредит",                              en: "credits",                          kaa: "kredit" },
+  "qaytaOqish.scoreMin":  { uz: "Ball: {score} / min: {min}",  ru: "Балл: {score} / мин: {min}",         en: "Score: {score} / min: {min}",     kaa: "Ball: {score} / min: {min}" },
+  "qaytaOqish.application": { uz: "Ariza",                     ru: "Заявка",                              en: "Application",                      kaa: "Ariza" },
+  "qaytaOqish.myApplications": { uz: "Mening arizalarim",       ru: "Мои заявки",                          en: "My applications",                  kaa: "Meniń arizalarım" },
+  "qaytaOqish.submittedOn": { uz: "Yuborildi: {date} · Sabab: {reason}", ru: "Отправлено: {date} · Причина: {reason}", en: "Submitted: {date} · Reason: {reason}", kaa: "Jiberildi: {date} · Sebep: {reason}" },
+  "qaytaOqish.newScore":  { uz: "Yangi ball: {score} (+{diff})", ru: "Новый балл: {score} (+{diff})",     en: "New score: {score} (+{diff})",    kaa: "Jańa ball: {score} (+{diff})" },
+  "qaytaOqish.status.approved": { uz: "Tasdiqlandi",           ru: "Одобрено",                           en: "Approved",                         kaa: "Tastıyıqlandı" },
+  "qaytaOqish.status.pending":  { uz: "Ko'rib chiqilmoqda",     ru: "На рассмотрении",                    en: "Under review",                    kaa: "Kórip shıǵılmaqta" },
+  "qaytaOqish.status.rejected": { uz: "Rad etildi",             ru: "Отклонено",                          en: "Rejected",                        kaa: "Biykar etildi" },
+
+  // ── Qayta o'qish mashg'ulotlari sahifasi ──────────────────────────────
+  "qaytaOqishMashg.title":    { uz: "Q.O'qish mashg'ulotlari",  ru: "Занятия пересдачи",                  en: "Retake Lessons",                  kaa: "Qayta oqıw sabaqları" },
+  "qaytaOqishMashg.subtitle": { uz: "Qayta o'qish mashg'ulotlari jadvali", ru: "Расписание занятий пересдачи", en: "Retake lessons schedule",        kaa: "Qayta oqıw sabaqları kestesi" },
+  "qaytaOqishMashg.notFound": { uz: "Qayta o'qish mashg'ulotlari topilmadi", ru: "Занятия пересдачи не найдены", en: "No retake lessons found",       kaa: "Qayta oqıw sabaqları tabılmadı" },
+  "qaytaOqishMashg.notFoundDesc": { uz: "Siz hozirda qayta o'qish dasturida qatnashmayapsiz", ru: "Вы сейчас не участвуете в программе пересдачи", en: "You're not currently enrolled in a retake program", kaa: "Siz házirge qayta oqıw bağdarlamasına qatnaspaysız" },
+
+  // ── Qayta o'qish nazorat jadvali sahifasi ─────────────────────────────
+  "qaytaOqishNazorat.title":    { uz: "Q.O'qish nazorat jadvali", ru: "График контроля пересдачи",        en: "Retake Control Schedule",         kaa: "Qayta oqıw bahalaw kestesi" },
+  "qaytaOqishNazorat.subtitle": { uz: "Qayta o'qish nazorat va imtihon jadvali", ru: "График контроля и экзаменов пересдачи", en: "Retake control and exam schedule", kaa: "Qayta oqıw bahalaw hám emtihan kestesi" },
+  "qaytaOqishNazorat.notFound": { uz: "Nazorat jadvali topilmadi", ru: "График контроля не найден",       en: "Control schedule not found",      kaa: "Bahalaw kestesi tabılmadı" },
+  "qaytaOqishNazorat.notFoundDesc": { uz: "Qayta o'qish nazorat jadvali hali mavjud emas", ru: "График контроля пересдачи пока недоступен", en: "Retake control schedule isn't available yet", kaa: "Qayta oqıw bahalaw kestesi áli joq" },
+
   // ── Imtihon topshirish sahifasi ──────────────────────────────────────
   "examTake.notFound":       { uz: "Imtihon topilmadi",         ru: "Экзамен не найден",                 en: "Exam not found",              kaa: "Emtihan tabılmadı" },
   "examTake.finished":       { uz: "Imtihon yakunlandi!",       ru: "Экзамен завершён!",                 en: "Exam finished!",              kaa: "Emtihan juwmaqlandı!" },

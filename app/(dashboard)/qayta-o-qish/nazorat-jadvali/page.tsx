@@ -1,16 +1,18 @@
 "use client"
 
 import { Calendar } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function QaytaOqishNazorat() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Q.O&apos;qish Nazorat Jadvali
+          {t("qaytaOqishNazorat.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Qayta o&apos;qish nazorat va imtihon jadvali
+          {t("qaytaOqishNazorat.subtitle")}
         </p>
       </div>
 
@@ -21,10 +23,10 @@ export default function QaytaOqishNazorat() {
           <Calendar className="w-8 h-8" style={{ color: "#1cc2dc" }} />
         </div>
         <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Nazorat jadvali topilmadi
+          {t("qaytaOqishNazorat.notFound")}
         </p>
         <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Qayta o&apos;qish nazorat jadvali hali mavjud emas
+          {t("qaytaOqishNazorat.notFoundDesc")}
         </p>
       </div>
     </div>

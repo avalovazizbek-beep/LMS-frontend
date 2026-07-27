@@ -1,16 +1,18 @@
 "use client"
 
 import { RefreshCw } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function QaytaOqishMashgulotlar() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Q.O&apos;qish Mashg&apos;ulotlari
+          {t("qaytaOqishMashg.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Qayta o&apos;qish mashg&apos;ulotlari jadvali
+          {t("qaytaOqishMashg.subtitle")}
         </p>
       </div>
 
@@ -21,10 +23,10 @@ export default function QaytaOqishMashgulotlar() {
           <RefreshCw className="w-8 h-8" style={{ color: "#0e58a8" }} />
         </div>
         <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Qayta o&apos;qish mashg&apos;ulotlari topilmadi
+          {t("qaytaOqishMashg.notFound")}
         </p>
         <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Siz hozirda qayta o&apos;qish dasturida qatnashmayapsiz
+          {t("qaytaOqishMashg.notFoundDesc")}
         </p>
       </div>
     </div>
