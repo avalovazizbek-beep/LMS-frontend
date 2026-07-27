@@ -9,14 +9,7 @@ import { motion } from "framer-motion"
 import { hemisApi, HemisStudent, HemisStudentDoc, HemisCertificate, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
-
-const tabs = [
-  { key: "profile",      label: "Shaxsiy ma'lumotlar", icon: User },
-  { key: "academic",     label: "O'quv ma'lumotlari",  icon: BookOpen },
-  { key: "documents",    label: "Hujjatlar",            icon: FileText },
-  { key: "certificates", label: "Sertifikatlar",        icon: Award },
-  { key: "thesis",       label: "Bitiruv ishi",         icon: GraduationCap },
-]
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function formatDate(ts?: number): string {
   if (!ts) return "—"
@@ -29,6 +22,14 @@ function getInitial(s: HemisStudent | null): string {
 }
 
 export default function TalabaMalumotlari() {
+  const { t } = useLanguage()
+  const tabs = [
+    { key: "profile",      label: t("talabaMalumotlari.tab.profile"),      icon: User },
+    { key: "academic",     label: t("talabaMalumotlari.tab.academic"),     icon: BookOpen },
+    { key: "documents",    label: t("talabaMalumotlari.tab.documents"),    icon: FileText },
+    { key: "certificates", label: t("talabaMalumotlari.tab.certificates"), icon: Award },
+    { key: "thesis",       label: t("talabaMalumotlari.tab.thesis"),       icon: GraduationCap },
+  ]
   const [activeTab, setActiveTab] = useState("profile")
   const { data, loading, error, refetch } = useApi(() => hemisApi.me())
   const student: HemisStudent | null = data?.data ?? null
@@ -44,9 +45,9 @@ export default function TalabaMalumotlari() {
     <div className="flex flex-col gap-6 p-[30px]">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Talaba Ma&apos;lumotlari
+          {t("talabaMalumotlari.title")}
         </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Shaxsiy kabinet</p>
+        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("talabaMalumotlari.subtitle")}</p>
       </motion.div>
 
       {/* Profile card */}
@@ -82,19 +83,19 @@ export default function TalabaMalumotlari() {
 
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {tabs.map((t) => {
-          const Icon = t.icon
+        {tabs.map((tab) => {
+          const Icon = tab.icon
           return (
-            <button key={t.key} onClick={() => setActiveTab(t.key)}
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] whitespace-nowrap border transition-colors text-sm font-medium"
               style={{
-                backgroundColor: activeTab === t.key ? "#0e58a8" : "#fff",
-                color: activeTab === t.key ? "#fff" : "#7293b9",
-                borderColor: activeTab === t.key ? "rgba(1,41,112,0.3)" : "rgba(1,41,112,0.1)",
+                backgroundColor: activeTab === tab.key ? "#0e58a8" : "#fff",
+                color: activeTab === tab.key ? "#fff" : "#7293b9",
+                borderColor: activeTab === tab.key ? "rgba(1,41,112,0.3)" : "rgba(1,41,112,0.1)",
                 fontFamily: "var(--font-poppins)",
               }}>
               <Icon className="w-4 h-4" />
-              {t.label}
+              {tab.label}
             </button>
           )
         })}
@@ -104,19 +105,19 @@ export default function TalabaMalumotlari() {
       {activeTab === "profile" && (
         <div className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <h3 className="text-base font-medium mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Asosiy ma&apos;lumotlar
+            {t("talabaMalumotlari.mainInfo")}
           </h3>
           {[
-            { icon: User,       label: "To'liq ism",     value: student?.full_name || "—" },
-            { icon: User,       label: "Familiya",        value: student?.second_name || "—" },
-            { icon: User,       label: "Ism",             value: student?.first_name || "—" },
-            { icon: User,       label: "Otasining ismi",  value: student?.third_name || "—" },
-            { icon: Calendar,   label: "Tug'ilgan sana",  value: formatBirthDate(student?.birth_date) },
-            { icon: Globe,      label: "Jinsi",           value: student?.gender?.name || "—" },
-            { icon: Phone,      label: "Telefon",         value: student?.phone || "—" },
-            { icon: Mail,       label: "Email",           value: student?.email || "—" },
-            { icon: Hash,       label: "HEMIS ID",        value: student?.student_id_number || "—" },
-            { icon: Globe,      label: "Davlat",          value: student?.country?.name || "—" },
+            { icon: User,       label: t("talabaMalumotlari.fullName"),   value: student?.full_name || "—" },
+            { icon: User,       label: t("talabaMalumotlari.lastName"),   value: student?.second_name || "—" },
+            { icon: User,       label: t("talabaMalumotlari.firstName"),  value: student?.first_name || "—" },
+            { icon: User,       label: t("talabaMalumotlari.middleName"), value: student?.third_name || "—" },
+            { icon: Calendar,   label: t("talabaMalumotlari.birthDate"),  value: formatBirthDate(student?.birth_date) },
+            { icon: Globe,      label: t("talabaMalumotlari.gender"),     value: student?.gender?.name || "—" },
+            { icon: Phone,      label: t("talabaMalumotlari.phone"),      value: student?.phone || "—" },
+            { icon: Mail,       label: t("talabaMalumotlari.email"),      value: student?.email || "—" },
+            { icon: Hash,       label: t("talabaMalumotlari.hemisId"),    value: student?.student_id_number || "—" },
+            { icon: Globe,      label: t("talabaMalumotlari.country"),    value: student?.country?.name || "—" },
           ].map((item) => {
             const Icon = item.icon
             return (
@@ -138,17 +139,17 @@ export default function TalabaMalumotlari() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <h3 className="text-base font-medium mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              O&apos;quv ma&apos;lumotlari
+              {t("talabaMalumotlari.academicInfo")}
             </h3>
             {[
-              { label: "Fakultet",       value: student?.faculty?.name || "—" },
-              { label: "Guruh",          value: student?.group?.name || "—" },
-              { label: "Kurs",           value: student?.level?.name || "—" },
-              { label: "Semestr",        value: student?.semester?.name || "—" },
-              { label: "Ta'lim shakli",  value: student?.educationForm?.name || "—" },
-              { label: "Ta'lim turi",    value: student?.educationType?.name || "—" },
-              { label: "Ta'lim tili",    value: student?.educationLang?.name || "—" },
-              { label: "To'lov shakli",  value: student?.paymentForm?.name || "—" },
+              { label: t("talabaMalumotlari.faculty"),    value: student?.faculty?.name || "—" },
+              { label: t("talabaMalumotlari.group"),      value: student?.group?.name || "—" },
+              { label: t("talabaMalumotlari.course"),     value: student?.level?.name || "—" },
+              { label: t("talabaMalumotlari.semester"),   value: student?.semester?.name || "—" },
+              { label: t("talabaMalumotlari.eduForm"),    value: student?.educationForm?.name || "—" },
+              { label: t("talabaMalumotlari.eduType"),    value: student?.educationType?.name || "—" },
+              { label: t("talabaMalumotlari.eduLang"),    value: student?.educationLang?.name || "—" },
+              { label: t("talabaMalumotlari.paymentForm"), value: student?.paymentForm?.name || "—" },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between py-2.5"
                 style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
@@ -160,12 +161,12 @@ export default function TalabaMalumotlari() {
 
           <div className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <h3 className="text-base font-medium mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Akademik ko&apos;rsatkichlar
+              {t("talabaMalumotlari.academicIndicators")}
             </h3>
             {[
               { label: "GPA",              value: gpa != null ? Number(gpa).toFixed(2) : "—" },
-              { label: "Yo'nalish",        value: student?.specialty?.name || "—" },
-              { label: "Turar joy",        value: student?.accommodation?.name || "—" },
+              { label: t("talabaMalumotlari.direction"), value: student?.specialty?.name || "—" },
+              { label: t("talabaMalumotlari.residence"), value: student?.accommodation?.name || "—" },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between py-2.5"
                 style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
@@ -177,11 +178,11 @@ export default function TalabaMalumotlari() {
               <div className="flex items-center gap-2 mb-1">
                 <Star className="w-5 h-5" style={{ color: "#f59e0b" }} />
                 <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  O'rtacha GPA: {gpa != null ? Number(gpa).toFixed(2) : "—"}
+                  {t("talabaMalumotlari.avgGpa", { gpa: gpa != null ? Number(gpa).toFixed(2) : "—" })}
                 </span>
               </div>
               <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Barcha semestrlar bo'yicha o'rtacha baho
+                {t("talabaMalumotlari.avgGpaDesc")}
               </p>
             </div>
           </div>
@@ -196,7 +197,7 @@ export default function TalabaMalumotlari() {
             {docs.length === 0 ? (
               <div className="col-span-2 bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
                 <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
-                <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Hujjatlar topilmadi</p>
+                <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("talabaMalumotlari.docsNotFound")}</p>
               </div>
             ) : docs.map((d, i) => (
               <div key={`${d.id}-${i}`} className="bg-white rounded-[10px] p-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -205,7 +206,7 @@ export default function TalabaMalumotlari() {
                     <FileText className="w-5 h-5" style={{ color: "#0e58a8" }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{d.name ?? "Hujjat"}</p>
+                    <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{d.name ?? t("talabaMalumotlari.document")}</p>
                     {(d.attributes ?? []).map(a => (
                       <p key={a.label} className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                         {a.label}: {a.value}
@@ -218,7 +219,7 @@ export default function TalabaMalumotlari() {
                     className="flex items-center justify-center gap-2 w-full py-2 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90"
                     style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                     <Download className="w-4 h-4" />
-                    Yuklab olish
+                    {t("talabaMalumotlari.download")}
                   </a>
                 )}
               </div>
@@ -237,10 +238,10 @@ export default function TalabaMalumotlari() {
                 style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
                 <Award className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
                 <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  Sertifikatlar topilmadi
+                  {t("talabaMalumotlari.certsNotFound")}
                 </p>
                 <p className="text-xs mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  Sizda hali sertifikatlar mavjud emas
+                  {t("talabaMalumotlari.noCertsYet")}
                 </p>
               </div>
             ) : certs.map((c, i) => (
@@ -252,7 +253,7 @@ export default function TalabaMalumotlari() {
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                    {c.name ?? "Sertifikat"}
+                    {c.name ?? t("talabaMalumotlari.certificate")}
                   </p>
                   {c.certificateType?.name && (
                     <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
@@ -281,7 +282,7 @@ export default function TalabaMalumotlari() {
                     className="flex items-center justify-center gap-2 w-full py-2 rounded-[5px] text-sm font-medium transition-opacity hover:opacity-90"
                     style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                     <Download className="w-4 h-4" />
-                    Yuklab olish
+                    {t("talabaMalumotlari.download")}
                   </a>
                 )}
               </div>
@@ -297,13 +298,13 @@ export default function TalabaMalumotlari() {
             <GraduationCap className="w-6 h-6" style={{ color: "#7293b9" }} />
           </div>
           <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Bitiruv ishi hali topshirilmagan
+            {t("talabaMalumotlari.thesisNotSubmitted")}
           </p>
-          <p className="text-xs mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Yuklash uchun quyidagi tugmani bosing</p>
+          <p className="text-xs mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("talabaMalumotlari.uploadPrompt")}</p>
           <button className="mt-4 px-4 py-2 rounded-[5px] text-sm font-medium text-white"
             style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             <Briefcase className="w-4 h-4 inline mr-1.5" />
-            Yuklash
+            {t("talabaMalumotlari.upload")}
           </button>
         </div>
       )}
