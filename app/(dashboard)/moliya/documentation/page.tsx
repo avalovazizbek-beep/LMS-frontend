@@ -6,20 +6,29 @@ import { motion, AnimatePresence } from "framer-motion"
 import { documentsApi, Doc } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 type DocType = Doc["type"]
 
-const typeConfig: Record<DocType, { Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>, bg: string, color: string, label: string }> = {
-  pdf:   { Icon: FileText,  bg: "#fff0f0", color: "#ef4444", label: "PDF" },
-  word:  { Icon: File,      bg: "#f0f5ff", color: "#0e58a8", label: "Word" },
-  excel: { Icon: FileCode,  bg: "#f0fff4", color: "#22c55e", label: "Excel" },
-  image: { Icon: FileImage, bg: "#fff8e6", color: "#f59e0b", label: "Rasm" },
-  other: { Icon: FileText,  bg: "#f6f9ff", color: "#7293b9", label: "Boshqa" },
-}
-
-const categories = ["Barchasi", "O'quv reja", "Nizom", "Shartnoma", "Jadval", "Hisobot", "Media", "Texnik"]
-
 export default function DocumentationPage() {
+  const { t } = useLanguage()
+  const typeConfig: Record<DocType, { Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>, bg: string, color: string, label: string }> = {
+    pdf:   { Icon: FileText,  bg: "#fff0f0", color: "#ef4444", label: t("moliyaDoc.type.pdf") },
+    word:  { Icon: File,      bg: "#f0f5ff", color: "#0e58a8", label: t("moliyaDoc.type.word") },
+    excel: { Icon: FileCode,  bg: "#f0fff4", color: "#22c55e", label: t("moliyaDoc.type.excel") },
+    image: { Icon: FileImage, bg: "#fff8e6", color: "#f59e0b", label: t("moliyaDoc.type.image") },
+    other: { Icon: FileText,  bg: "#f6f9ff", color: "#7293b9", label: t("moliyaDoc.type.other") },
+  }
+  const categories = [
+    { key: "Barchasi",   label: t("moliyaDoc.cat.all") },
+    { key: "O'quv reja", label: t("moliyaDoc.cat.studyPlan") },
+    { key: "Nizom",      label: t("moliyaDoc.cat.charter") },
+    { key: "Shartnoma",  label: t("moliyaDoc.cat.contract") },
+    { key: "Jadval",     label: t("moliyaDoc.cat.schedule") },
+    { key: "Hisobot",    label: t("moliyaDoc.cat.report") },
+    { key: "Media",      label: t("moliyaDoc.cat.media") },
+    { key: "Texnik",     label: t("moliyaDoc.cat.technical") },
+  ]
   const { data, loading, error, refetch } = useApi(() => documentsApi.getAll())
   const docs: Doc[] = data?.data ?? []
   const [search, setSearch] = useState("")
@@ -40,7 +49,7 @@ export default function DocumentationPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return
+    if (!confirm(t("moliyaDoc.confirmDelete"))) return
     try { await documentsApi.remove(id); refetch() } catch {}
   }
 
@@ -52,15 +61,15 @@ export default function DocumentationPage() {
   return (
     <section className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
       <header className="flex flex-col gap-[15px] pt-[25px] pb-5 px-5 bg-white" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Hujjatlar</h1>
+        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaDoc.title")}</h1>
       </header>
 
       <div className="grid grid-cols-4 gap-5 px-[30px] pt-[30px]">
         {[
-          { label: "Jami hujjatlar",   value: docs.length,         color: "#012970" },
-          { label: "Jami yuklamalar",  value: totalDownloads,      color: "#0e58a8" },
-          { label: "Kategoriyalar",    value: categories.length-1, color: "#1cc2dc" },
-          { label: "Bu oy qo'shildi",  value: docs.filter((d) => d.date.startsWith("2024-04")).length, color: "#22c55e" },
+          { label: t("moliyaDoc.totalDocs"),      value: docs.length,         color: "#012970" },
+          { label: t("moliyaDoc.totalDownloads"), value: totalDownloads,      color: "#0e58a8" },
+          { label: t("moliyaDoc.categories"),     value: categories.length-1, color: "#1cc2dc" },
+          { label: t("moliyaDoc.addedThisMonth"), value: docs.filter((d) => d.date.startsWith("2024-04")).length, color: "#22c55e" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <div className="text-3xl font-semibold" style={{ color: s.color, fontFamily: "var(--font-poppins)" }}>{s.value}</div>
@@ -73,7 +82,7 @@ export default function DocumentationPage() {
         <div className="bg-white rounded-[5px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
           <div className="flex items-center justify-between p-5 flex-wrap gap-3">
             <div className="flex items-center gap-2">
-              <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Barcha hujjatlar</h2>
+              <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaDoc.allDocs")}</h2>
               <div className="flex w-[33px] h-[33px] items-center justify-center rounded-full" style={{ backgroundColor: "rgba(114,147,185,0.2)" }}>
                 <span className="font-semibold text-lg" style={{ color: "#7293b9" }}>{docs.length}</span>
               </div>
@@ -81,19 +90,19 @@ export default function DocumentationPage() {
             <div className="flex items-center gap-2.5 flex-wrap">
               <label className="w-[300px] px-2.5 py-2 rounded-[5px] border flex items-center" style={{ borderColor: "rgba(1,41,112,0.3)" }}>
                 <Search className="w-5 h-5 shrink-0" style={{ color: "#7293b9" }} />
-                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Qidirish..." className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("moliyaDoc.search")} className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
               </label>
               <button className="flex items-center gap-2 h-[42px] px-[15px] rounded-[5px] text-white text-sm" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                <Plus className="w-5 h-5" /> Hujjat yuklash
+                <Plus className="w-5 h-5" /> {t("moliyaDoc.uploadDoc")}
               </button>
             </div>
           </div>
 
           <div className="flex gap-2 overflow-x-auto px-5 pb-4">
             {categories.map((c) => (
-              <button key={c} onClick={() => setCategory(c)} className="px-3 py-1.5 rounded-full whitespace-nowrap text-xs font-medium transition-colors"
-                style={{ backgroundColor: category === c ? "#0e58a8" : "#f6f9ff", color: category === c ? "#fff" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                {c}
+              <button key={c.key} onClick={() => setCategory(c.key)} className="px-3 py-1.5 rounded-full whitespace-nowrap text-xs font-medium transition-colors"
+                style={{ backgroundColor: category === c.key ? "#0e58a8" : "#f6f9ff", color: category === c.key ? "#fff" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                {c.label}
               </button>
             ))}
           </div>
@@ -102,7 +111,7 @@ export default function DocumentationPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-                  {["#", "Hujjat nomi", "Kategoriya", "Tur", "Hajm", "Muallif", "Sana", "Yuklamalar", "Amal"].map((h) => (
+                  {[t("moliyaDoc.col.hash"), t("moliyaDoc.col.docName"), t("moliyaDoc.col.category"), t("moliyaDoc.col.type"), t("moliyaDoc.col.size"), t("moliyaDoc.col.author"), t("moliyaDoc.col.date"), t("moliyaDoc.col.downloads"), t("moliyaDoc.col.action")].map((h) => (
                     <th key={h} className="px-4 py-[18px] text-left text-sm font-medium whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{h}</th>
                   ))}
                 </tr>
@@ -154,8 +163,8 @@ export default function DocumentationPage() {
                           {openId === d.id && (
                             <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }} transition={{ duration: 0.15 }}
                               className="absolute right-4 top-[calc(100%-4px)] z-10 bg-white rounded-[5px] overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(1,41,112,0.15)", border: "1px solid rgba(1,41,112,0.1)", minWidth: 140 }}>
-                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => setOpenId(null)}><Pencil className="w-4 h-4" /> Tahrirlash</button>
-                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); handleDelete(d.id) }}><Trash2 className="w-4 h-4" /> O&apos;chirish</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => setOpenId(null)}><Pencil className="w-4 h-4" /> {t("moliyaDoc.edit")}</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); handleDelete(d.id) }}><Trash2 className="w-4 h-4" /> {t("moliyaDoc.delete")}</button>
                             </motion.div>
                           )}
                         </AnimatePresence>

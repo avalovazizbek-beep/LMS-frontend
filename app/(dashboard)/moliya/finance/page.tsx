@@ -7,20 +7,22 @@ import { financeApi, Payment } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { Modal, FInput, FSelect, ModalFooter } from "@/components/ui/Modal"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 type PaymentStatus = Payment["status"]
-const statusConfig: Record<PaymentStatus, { label: string; bg: string; color: string; border: string }> = {
-  paid:    { label: "To'landi",       bg: "#f0fbfd", color: "#1cc2dc", border: "#1cc2dc" },
-  pending: { label: "Kutilmoqda",     bg: "#fff8e6", color: "#f59e0b", border: "#f59e0b" },
-  overdue: { label: "Muddati o'tdi",  bg: "#fff0f0", color: "#ef4444", border: "#ef4444" },
-  partial: { label: "Qisman",         bg: "#f0f5ff", color: "#0e58a8", border: "#0e58a8" },
-}
 const fmt = (n: number) => new Intl.NumberFormat("uz-UZ").format(n) + " so'm"
 
 const EMPTY_PAY  = { student: "", group: "", semester: "1", total: "", paid: "0", dueDate: "", status: "pending" }
 const EMPTY_CASH = { amount: "" }
 
 export default function FinancePage() {
+  const { t } = useLanguage()
+  const statusConfig: Record<PaymentStatus, { label: string; bg: string; color: string; border: string }> = {
+    paid:    { label: t("moliyaFinance.status.paid"),    bg: "#f0fbfd", color: "#1cc2dc", border: "#1cc2dc" },
+    pending: { label: t("moliyaFinance.status.pending"), bg: "#fff8e6", color: "#f59e0b", border: "#f59e0b" },
+    overdue: { label: t("moliyaFinance.status.overdue"), bg: "#fff0f0", color: "#ef4444", border: "#ef4444" },
+    partial: { label: t("moliyaFinance.status.partial"), bg: "#f0f5ff", color: "#0e58a8", border: "#0e58a8" },
+  }
   const { data, loading, error, refetch } = useApi(() => financeApi.getAll())
   const payments: Payment[] = data?.data ?? []
   const stats = data?.stats ?? { total: 0, paid: 0, debt: 0 }
@@ -54,7 +56,7 @@ export default function FinancePage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.student || !form.group || !form.total || !form.dueDate) { setFormErr("Barcha majburiy maydonlarni to'ldiring"); return }
+    if (!form.student || !form.group || !form.total || !form.dueDate) { setFormErr(t("moliyaFinance.fillRequired")); return }
     setSaving(true); setFormErr("")
     try {
       const body: Partial<Payment> = {
@@ -65,24 +67,24 @@ export default function FinancePage() {
       editing ? await financeApi.update(editing.id, body) : await financeApi.create(body)
       closeModal(); refetch()
     } catch (err: unknown) {
-      setFormErr(err instanceof Error ? err.message : "Xatolik")
+      setFormErr(err instanceof Error ? err.message : t("moliyaGroups.errorGeneric"))
     } finally { setSaving(false) }
   }
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!cashForm.amount || Number(cashForm.amount) <= 0) { setCashErr("To'lov miqdorini kiriting"); return }
+    if (!cashForm.amount || Number(cashForm.amount) <= 0) { setCashErr(t("moliyaFinance.enterAmount")); return }
     setSaving(true); setCashErr("")
     try {
       await financeApi.pay(payTarget!.id, Number(cashForm.amount))
       closePay(); refetch()
     } catch (err: unknown) {
-      setCashErr(err instanceof Error ? err.message : "Xatolik")
+      setCashErr(err instanceof Error ? err.message : t("moliyaGroups.errorGeneric"))
     } finally { setSaving(false) }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return
+    if (!confirm(t("moliyaDoc.confirmDelete"))) return
     try { await financeApi.remove(id); refetch() } catch {}
   }
 
@@ -94,15 +96,15 @@ export default function FinancePage() {
   return (
     <section className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
       <header className="flex flex-col gap-[15px] pt-[25px] pb-5 px-5 bg-white" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Moliya</h1>
+        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaFinance.title")}</h1>
       </header>
 
       <div className="grid grid-cols-4 gap-5 px-[30px] pt-[30px]">
         {[
-          { label: "Umumiy kontrakt", value: fmt(stats.total), color: "#012970",  Icon: DollarSign  },
-          { label: "To'langan",       value: fmt(stats.paid),  color: "#22c55e",  Icon: TrendingUp  },
-          { label: "Qoldiq qarz",     value: fmt(stats.debt),  color: "#ef4444",  Icon: TrendingDown },
-          { label: "To'liq to'lagan", value: payments.filter((p) => p.status === "paid").length, color: "#1cc2dc", Icon: CreditCard },
+          { label: t("moliyaFinance.totalContract"), value: fmt(stats.total), color: "#012970",  Icon: DollarSign  },
+          { label: t("moliyaFinance.paid"),          value: fmt(stats.paid),  color: "#22c55e",  Icon: TrendingUp  },
+          { label: t("moliyaFinance.remainingDebt"), value: fmt(stats.debt),  color: "#ef4444",  Icon: TrendingDown },
+          { label: t("moliyaFinance.fullyPaidCount"), value: payments.filter((p) => p.status === "paid").length, color: "#1cc2dc", Icon: CreditCard },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <div className="flex items-center justify-between mb-2">
@@ -119,7 +121,7 @@ export default function FinancePage() {
       <div className="px-[30px] pt-5">
         <div className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Umumiy to&apos;lov holati</p>
+            <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaFinance.overallStatus")}</p>
             <p className="text-sm font-semibold" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{paidPct}%</p>
           </div>
           <div className="w-full h-2 rounded-full" style={{ backgroundColor: "#f6f9ff" }}>
@@ -132,7 +134,7 @@ export default function FinancePage() {
         <div className="bg-white rounded-[5px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
           <div className="flex items-center justify-between p-5">
             <div className="flex items-center gap-2">
-              <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>To&apos;lov tarixi</h2>
+              <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaFinance.paymentHistory")}</h2>
               <div className="flex w-[33px] h-[33px] items-center justify-center rounded-full" style={{ backgroundColor: "rgba(114,147,185,0.2)" }}>
                 <span className="font-semibold text-lg" style={{ color: "#7293b9" }}>{payments.length}</span>
               </div>
@@ -140,10 +142,10 @@ export default function FinancePage() {
             <div className="flex items-center gap-2.5">
               <label className="w-[350px] px-2.5 py-2 rounded-[5px] border flex items-center" style={{ borderColor: "rgba(1,41,112,0.3)" }}>
                 <Search className="w-5 h-5 shrink-0" style={{ color: "#7293b9" }} />
-                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Qidirish..." className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("moliyaDoc.search")} className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
               </label>
               <button onClick={openAdd} className="flex items-center gap-2 h-[42px] px-[15px] rounded-[5px] text-white text-sm" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                <Plus className="w-5 h-5" /> To&apos;lov qo&apos;shish
+                <Plus className="w-5 h-5" /> {t("moliyaFinance.addPayment")}
               </button>
             </div>
           </div>
@@ -151,7 +153,7 @@ export default function FinancePage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-                  {["#","Talaba","Guruh","Semestr","Jami","To'langan","Qoldiq","Muddat","Status","Amal"].map((h) => (
+                  {[t("moliyaFinance.col.hash"), t("moliyaFinance.col.student"), t("moliyaFinance.col.group"), t("moliyaFinance.col.semester"), t("moliyaFinance.col.total"), t("moliyaFinance.col.paid"), t("moliyaFinance.col.remaining"), t("moliyaFinance.col.dueDate"), t("moliyaFinance.col.status"), t("moliyaFinance.col.action")].map((h) => (
                     <th key={h} className="px-4 py-[18px] text-left text-sm font-medium whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{h}</th>
                   ))}
                 </tr>
@@ -165,7 +167,7 @@ export default function FinancePage() {
                       <td className="px-4 h-14 text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{idx + 1}</td>
                       <td className="px-4 h-14 text-sm font-medium whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{p.student}</td>
                       <td className="px-4 h-14 text-sm font-semibold" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{p.group}</td>
-                      <td className="px-4 h-14 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{p.semester}-semestr</td>
+                      <td className="px-4 h-14 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("moliyaFinance.semesterSuffix", { n: p.semester })}</td>
                       <td className="px-4 h-14 text-sm font-medium whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{fmt(p.total)}</td>
                       <td className="px-4 h-14 text-sm font-medium whitespace-nowrap" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>{fmt(p.paid)}</td>
                       <td className="px-4 h-14 text-sm font-medium whitespace-nowrap" style={{ color: p.total - p.paid > 0 ? "#ef4444" : "#7293b9", fontFamily: "var(--font-poppins)" }}>{fmt(p.total - p.paid)}</td>
@@ -181,9 +183,9 @@ export default function FinancePage() {
                           {openId === p.id && (
                             <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }} transition={{ duration: 0.15 }}
                               className="absolute right-4 top-[calc(100%-4px)] z-10 bg-white rounded-[5px] overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(1,41,112,0.15)", border: "1px solid rgba(1,41,112,0.1)", minWidth: 150 }}>
-                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f0fbfd]" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); openPay(p) }}><CreditCard className="w-4 h-4" /> To&apos;lov qilish</button>
-                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); openEdit(p) }}><Pencil className="w-4 h-4" /> Tahrirlash</button>
-                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); handleDelete(p.id) }}><Trash2 className="w-4 h-4" /> O&apos;chirish</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f0fbfd]" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); openPay(p) }}><CreditCard className="w-4 h-4" /> {t("moliyaFinance.makePayment")}</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); openEdit(p) }}><Pencil className="w-4 h-4" /> {t("moliyaDoc.edit")}</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); handleDelete(p.id) }}><Trash2 className="w-4 h-4" /> {t("moliyaDoc.delete")}</button>
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -198,27 +200,27 @@ export default function FinancePage() {
       </div>
 
       {/* Add/Edit modal */}
-      <Modal open={modal} title={editing ? "To'lovni tahrirlash" : "To'lov qo'shish"} onClose={closeModal} maxWidth={520}>
+      <Modal open={modal} title={editing ? t("moliyaFinance.editPayment") : t("moliyaFinance.addPayment")} onClose={closeModal} maxWidth={520}>
         <form onSubmit={handleSave} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
-            <FInput label="Talaba *" value={form.student} onChange={e => setForm(f => ({ ...f, student: e.target.value }))} placeholder="Talaba F.I.O" />
-            <FInput label="Guruh *" value={form.group} onChange={e => setForm(f => ({ ...f, group: e.target.value }))} placeholder="Guruh nomi" />
+            <FInput label={`${t("moliyaFinance.col.student")} *`} value={form.student} onChange={e => setForm(f => ({ ...f, student: e.target.value }))} placeholder={t("moliyaFinance.studentPlaceholder")} />
+            <FInput label={`${t("moliyaFinance.col.group")} *`} value={form.group} onChange={e => setForm(f => ({ ...f, group: e.target.value }))} placeholder={t("moliyaFinance.groupPlaceholder")} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FSelect label="Semestr" value={form.semester} onChange={e => setForm(f => ({ ...f, semester: e.target.value }))}>
-              {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}-semestr</option>)}
+            <FSelect label={t("moliyaFinance.col.semester")} value={form.semester} onChange={e => setForm(f => ({ ...f, semester: e.target.value }))}>
+              {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{t("moliyaFinance.semesterSuffix", { n })}</option>)}
             </FSelect>
-            <FInput label="Muddat *" type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
+            <FInput label={`${t("moliyaFinance.col.dueDate")} *`} type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FInput label="Jami summa *" type="number" min="0" value={form.total} onChange={e => setForm(f => ({ ...f, total: e.target.value }))} placeholder="0" />
-            <FInput label="To'langan" type="number" min="0" value={form.paid} onChange={e => setForm(f => ({ ...f, paid: e.target.value }))} placeholder="0" />
+            <FInput label={`${t("moliyaFinance.col.total")} *`} type="number" min="0" value={form.total} onChange={e => setForm(f => ({ ...f, total: e.target.value }))} placeholder="0" />
+            <FInput label={t("moliyaFinance.col.paid")} type="number" min="0" value={form.paid} onChange={e => setForm(f => ({ ...f, paid: e.target.value }))} placeholder="0" />
           </div>
-          <FSelect label="Status" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-            <option value="pending">Kutilmoqda</option>
-            <option value="partial">Qisman</option>
-            <option value="paid">To&apos;landi</option>
-            <option value="overdue">Muddati o&apos;tdi</option>
+          <FSelect label={t("moliyaFinance.col.status")} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+            <option value="pending">{t("moliyaFinance.status.pending")}</option>
+            <option value="partial">{t("moliyaFinance.status.partial")}</option>
+            <option value="paid">{t("moliyaFinance.status.paid")}</option>
+            <option value="overdue">{t("moliyaFinance.status.overdue")}</option>
           </FSelect>
           {formErr && <p className="text-xs text-red-500" style={{ fontFamily: "var(--font-poppins)" }}>{formErr}</p>}
           <ModalFooter onClose={closeModal} saving={saving} />
@@ -226,17 +228,17 @@ export default function FinancePage() {
       </Modal>
 
       {/* Pay modal */}
-      <Modal open={payModal} title="To'lov qilish" onClose={closePay} maxWidth={400}>
+      <Modal open={payModal} title={t("moliyaFinance.makePayment")} onClose={closePay} maxWidth={400}>
         <form onSubmit={handlePay} className="flex flex-col gap-4">
           {payTarget && (
             <div className="p-3 rounded-[5px]" style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
               <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{payTarget.student}</p>
               <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Qoldiq: <span style={{ color: "#ef4444" }}>{fmt(payTarget.total - payTarget.paid)}</span>
+                {t("moliyaFinance.remaining", { sum: fmt(payTarget.total - payTarget.paid) })}
               </p>
             </div>
           )}
-          <FInput label="To'lov miqdori (so'm) *" type="number" min="1" value={cashForm.amount} onChange={e => setCashForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
+          <FInput label={t("moliyaFinance.paymentAmount")} type="number" min="1" value={cashForm.amount} onChange={e => setCashForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
           {cashErr && <p className="text-xs text-red-500" style={{ fontFamily: "var(--font-poppins)" }}>{cashErr}</p>}
           <ModalFooter onClose={closePay} saving={saving} />
         </form>

@@ -4,6 +4,7 @@ import { Wallet, TrendingUp, CheckCircle2 } from "lucide-react"
 import { hemisApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function formatSum(val?: number): string {
   if (val == null) return "—"
@@ -11,6 +12,7 @@ function formatSum(val?: number): string {
 }
 
 export default function StipendiyaHisobi() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => hemisApi.billing())
   const billing = data?.data
 
@@ -18,19 +20,19 @@ export default function StipendiyaHisobi() {
   if (error)   return <ApiError message={error} onRetry={refetch} />
 
   const rows = billing ? [
-    { label: "Subsidiya (ijara)",  data: billing.subsidy_rent,   color: "#1cc2dc" },
-    { label: "Kredit moduli",      data: billing.credit_module,  color: "#0e58a8" },
-    { label: "Turar joy",          data: billing.residence,       color: "#22c55e" },
+    { label: t("stipendiya.subsidyRent"),  data: billing.subsidy_rent,   color: "#1cc2dc" },
+    { label: t("stipendiya.creditModule"), data: billing.credit_module,  color: "#0e58a8" },
+    { label: t("stipendiya.residence"),    data: billing.residence,       color: "#22c55e" },
   ].filter(r => r.data) : []
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Stipendiya Hisobi
+          {t("stipendiya.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Moliyaviy hisoblar va to&apos;lovlar
+          {t("stipendiya.subtitle")}
         </p>
       </div>
 
@@ -39,7 +41,7 @@ export default function StipendiyaHisobi() {
           style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <Wallet className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Moliyaviy ma&apos;lumotlar topilmadi
+            {t("stipendiya.notFound")}
           </p>
         </div>
       ) : (
@@ -56,9 +58,9 @@ export default function StipendiyaHisobi() {
                 </h3>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {[
-                    { icon: Wallet,       label: "Jami",     value: formatSum(amount), color: "#012970" },
-                    { icon: CheckCircle2, label: "To'langan", value: formatSum(paid),   color: "#22c55e" },
-                    { icon: TrendingUp,   label: "Qarz",      value: formatSum(debt),   color: debt > 0 ? "#ef4444" : "#22c55e" },
+                    { icon: Wallet,       label: t("stipendiya.total"), value: formatSum(amount), color: "#012970" },
+                    { icon: CheckCircle2, label: t("stipendiya.paid"),  value: formatSum(paid),   color: "#22c55e" },
+                    { icon: TrendingUp,   label: t("stipendiya.debt"),  value: formatSum(debt),   color: debt > 0 ? "#ef4444" : "#22c55e" },
                   ].map(s => {
                     const Icon = s.icon
                     return (
@@ -76,7 +78,7 @@ export default function StipendiyaHisobi() {
                   <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: row.color }} />
                 </div>
                 <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  {pct}% to&apos;langan
+                  {t("stipendiya.paidPercent", { pct })}
                 </span>
               </div>
             )

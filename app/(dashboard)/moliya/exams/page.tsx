@@ -7,15 +7,9 @@ import { examsApi, Exam } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { Modal, FInput, FSelect, ModalFooter } from "@/components/ui/Modal"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 type ExamStatus = Exam["status"]
-
-const statusConfig: Record<ExamStatus, { label: string; bg: string; color: string; border: string }> = {
-  scheduled: { label: "Rejalashtirilgan", bg: "#f0f5ff", color: "#0e58a8", border: "#0e58a8" },
-  ongoing:   { label: "Davom etmoqda",    bg: "#fff8e6", color: "#f59e0b", border: "#f59e0b" },
-  completed: { label: "Yakunlandi",       bg: "#f0fbfd", color: "#1cc2dc", border: "#1cc2dc" },
-  cancelled: { label: "Bekor qilindi",    bg: "#fff0f0", color: "#ef4444", border: "#ef4444" },
-}
 
 const typeColors: Record<string, { bg: string; color: string }> = {
   "Yozma":   { bg: "#f0f5ff", color: "#0e58a8" },
@@ -26,6 +20,13 @@ const typeColors: Record<string, { bg: string; color: string }> = {
 const EMPTY = { subject: "", group: "", date: "", time: "", duration: "2 soat", room: "", teacher: "", type: "Yozma", status: "scheduled" }
 
 export default function ExamsPage() {
+  const { t } = useLanguage()
+  const statusConfig: Record<ExamStatus, { label: string; bg: string; color: string; border: string }> = {
+    scheduled: { label: t("moliyaExams.scheduled"), bg: "#f0f5ff", color: "#0e58a8", border: "#0e58a8" },
+    ongoing:   { label: t("moliyaExams.ongoing"),   bg: "#fff8e6", color: "#f59e0b", border: "#f59e0b" },
+    completed: { label: t("moliyaExams.completed"), bg: "#f0fbfd", color: "#1cc2dc", border: "#1cc2dc" },
+    cancelled: { label: t("moliyaExams.cancelled"), bg: "#fff0f0", color: "#ef4444", border: "#ef4444" },
+  }
   const { data, loading, error, refetch } = useApi(() => examsApi.getAll())
   const exams: Exam[] = data?.data ?? []
   const [search, setSearch]   = useState("")
@@ -50,19 +51,19 @@ export default function ExamsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.subject || !form.group || !form.date || !form.time || !form.room || !form.teacher) { setFormErr("Barcha majburiy maydonlarni to'ldiring"); return }
+    if (!form.subject || !form.group || !form.date || !form.time || !form.room || !form.teacher) { setFormErr(t("moliyaExams.fillRequired")); return }
     setSaving(true); setFormErr("")
     try {
       const body: Partial<Exam> = { ...form, type: form.type as Exam["type"], status: form.status as ExamStatus }
       editing ? await examsApi.update(editing.id, body) : await examsApi.create(body)
       closeModal(); refetch()
     } catch (err: unknown) {
-      setFormErr(err instanceof Error ? err.message : "Xatolik")
+      setFormErr(err instanceof Error ? err.message : t("moliyaGroups.errorGeneric"))
     } finally { setSaving(false) }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return
+    if (!confirm(t("moliyaDoc.confirmDelete"))) return
     try { await examsApi.remove(id); refetch() } catch {}
   }
 
@@ -72,15 +73,15 @@ export default function ExamsPage() {
   return (
     <section className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
       <header className="flex flex-col gap-[15px] pt-[25px] pb-5 px-5 bg-white" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Imtihonlar</h1>
+        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaExams.title")}</h1>
       </header>
 
       <div className="grid grid-cols-4 gap-5 px-[30px] pt-[30px]">
         {[
-          { label: "Jami imtihonlar",  value: exams.length,                                         color: "#012970" },
-          { label: "Rejalashtirilgan", value: exams.filter((e) => e.status === "scheduled").length, color: "#0e58a8" },
-          { label: "Yakunlandi",       value: exams.filter((e) => e.status === "completed").length, color: "#1cc2dc" },
-          { label: "Davom etmoqda",    value: exams.filter((e) => e.status === "ongoing").length,   color: "#f59e0b" },
+          { label: t("moliyaExams.totalExams"), value: exams.length,                                         color: "#012970" },
+          { label: t("moliyaExams.scheduled"),  value: exams.filter((e) => e.status === "scheduled").length, color: "#0e58a8" },
+          { label: t("moliyaExams.completed"),  value: exams.filter((e) => e.status === "completed").length, color: "#1cc2dc" },
+          { label: t("moliyaExams.ongoing"),    value: exams.filter((e) => e.status === "ongoing").length,   color: "#f59e0b" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <div className="text-3xl font-semibold" style={{ color: s.color, fontFamily: "var(--font-poppins)" }}>{s.value}</div>
@@ -93,7 +94,7 @@ export default function ExamsPage() {
         <div className="bg-white rounded-[5px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
           <div className="flex items-center justify-between p-5">
             <div className="flex items-center gap-2">
-              <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Barcha imtihonlar</h2>
+              <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaExams.allExams")}</h2>
               <div className="flex w-[33px] h-[33px] items-center justify-center rounded-full" style={{ backgroundColor: "rgba(114,147,185,0.2)" }}>
                 <span className="font-semibold text-lg" style={{ color: "#7293b9" }}>{exams.length}</span>
               </div>
@@ -101,10 +102,10 @@ export default function ExamsPage() {
             <div className="flex items-center gap-2.5">
               <label className="w-[350px] px-2.5 py-2 rounded-[5px] border flex items-center" style={{ borderColor: "rgba(1,41,112,0.3)" }}>
                 <Search className="w-5 h-5 shrink-0" style={{ color: "#7293b9" }} />
-                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Qidirish..." className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("moliyaDoc.search")} className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
               </label>
               <button onClick={openAdd} className="flex items-center gap-2 h-[42px] px-[15px] rounded-[5px] text-white text-sm" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                <Plus className="w-5 h-5" /> Imtihon qo&apos;shish
+                <Plus className="w-5 h-5" /> {t("moliyaExams.addExam")}
               </button>
             </div>
           </div>
@@ -113,7 +114,7 @@ export default function ExamsPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-                  {["#", "Fan", "Guruh", "Sana", "Vaqt", "Davomiylik", "Xona", "O'qituvchi", "Tur", "Status", "Amal"].map((h) => (
+                  {[t("moliyaExams.col.hash"), t("moliyaExams.col.subject"), t("moliyaExams.col.group"), t("moliyaExams.col.date"), t("moliyaExams.col.time"), t("moliyaExams.col.duration"), t("moliyaExams.col.room"), t("moliyaExams.col.teacher"), t("moliyaExams.col.type"), t("moliyaExams.col.status"), t("moliyaExams.col.action")].map((h) => (
                     <th key={h} className="px-4 py-[18px] text-left text-sm font-medium whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{h}</th>
                   ))}
                 </tr>
@@ -162,8 +163,8 @@ export default function ExamsPage() {
                           {openId === e.id && (
                             <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }} transition={{ duration: 0.15 }}
                               className="absolute right-4 top-[calc(100%-4px)] z-10 bg-white rounded-[5px] overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(1,41,112,0.15)", border: "1px solid rgba(1,41,112,0.1)", minWidth: 140 }}>
-                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); openEdit(e) }}><Pencil className="w-4 h-4" /> Tahrirlash</button>
-                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); handleDelete(e.id) }}><Trash2 className="w-4 h-4" /> O&apos;chirish</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-[#f6f9ff]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); openEdit(e) }}><Pencil className="w-4 h-4" /> {t("moliyaDoc.edit")}</button>
+                              <button className="flex items-center gap-2 w-full px-4 py-2.5 text-sm hover:bg-red-50" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }} onClick={() => { setOpenId(null); handleDelete(e.id) }}><Trash2 className="w-4 h-4" /> {t("moliyaDoc.delete")}</button>
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -177,32 +178,32 @@ export default function ExamsPage() {
         </div>
       </div>
 
-      <Modal open={modal} title={editing ? "Imtihon tahrirlash" : "Imtihon qo'shish"} onClose={closeModal} maxWidth={560}>
+      <Modal open={modal} title={editing ? t("moliyaExams.editExam") : t("moliyaExams.addExam")} onClose={closeModal} maxWidth={560}>
         <form onSubmit={handleSave} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
-            <FInput label="Fan *" value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="Fan nomi" />
-            <FInput label="Guruh *" value={form.group} onChange={e => setForm(f => ({ ...f, group: e.target.value }))} placeholder="Guruh nomi" />
+            <FInput label={`${t("moliyaExams.col.subject")} *`} value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder={t("moliyaExams.subjectPlaceholder")} />
+            <FInput label={`${t("moliyaExams.col.group")} *`} value={form.group} onChange={e => setForm(f => ({ ...f, group: e.target.value }))} placeholder={t("moliyaExams.groupPlaceholder")} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FInput label="Sana *" type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
-            <FInput label="Vaqt *" type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+            <FInput label={`${t("moliyaExams.col.date")} *`} type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+            <FInput label={`${t("moliyaExams.col.time")} *`} type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FInput label="Xona *" value={form.room} onChange={e => setForm(f => ({ ...f, room: e.target.value }))} placeholder="Masalan: 101-xona" />
-            <FInput label="Davomiylik" value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))} placeholder="Masalan: 2 soat" />
+            <FInput label={`${t("moliyaExams.col.room")} *`} value={form.room} onChange={e => setForm(f => ({ ...f, room: e.target.value }))} placeholder={t("moliyaExams.roomPlaceholder")} />
+            <FInput label={t("moliyaExams.col.duration")} value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))} placeholder={t("moliyaExams.durationPlaceholder")} />
           </div>
-          <FInput label="O'qituvchi *" value={form.teacher} onChange={e => setForm(f => ({ ...f, teacher: e.target.value }))} placeholder="O'qituvchi F.I.O" />
+          <FInput label={`${t("moliyaExams.col.teacher")} *`} value={form.teacher} onChange={e => setForm(f => ({ ...f, teacher: e.target.value }))} placeholder={t("moliyaExams.teacherPlaceholder")} />
           <div className="grid grid-cols-2 gap-4">
-            <FSelect label="Tur" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-              <option value="Yozma">Yozma</option>
-              <option value="Og'zaki">Og&apos;zaki</option>
-              <option value="Test">Test</option>
+            <FSelect label={t("moliyaExams.col.type")} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+              <option value="Yozma">{t("moliyaExams.typeWritten")}</option>
+              <option value="Og'zaki">{t("moliyaExams.typeOral")}</option>
+              <option value="Test">{t("moliyaExams.typeTest")}</option>
             </FSelect>
-            <FSelect label="Status" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-              <option value="scheduled">Rejalashtirilgan</option>
-              <option value="ongoing">Davom etmoqda</option>
-              <option value="completed">Yakunlandi</option>
-              <option value="cancelled">Bekor qilindi</option>
+            <FSelect label={t("moliyaExams.col.status")} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+              <option value="scheduled">{t("moliyaExams.scheduled")}</option>
+              <option value="ongoing">{t("moliyaExams.ongoing")}</option>
+              <option value="completed">{t("moliyaExams.completed")}</option>
+              <option value="cancelled">{t("moliyaExams.cancelled")}</option>
             </FSelect>
           </div>
           {formErr && <p className="text-xs text-red-500" style={{ fontFamily: "var(--font-poppins)" }}>{formErr}</p>}
