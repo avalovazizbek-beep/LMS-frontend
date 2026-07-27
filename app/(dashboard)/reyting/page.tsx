@@ -7,6 +7,8 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { translate, type Lang } from "@/lib/i18n/translations"
 
 function gradeColor(grade: number | null): string {
   if (grade == null) return "#7293b9"
@@ -15,9 +17,10 @@ function gradeColor(grade: number | null): string {
   return "#b91c1c"
 }
 
-function downloadPdf(semesterCode: number, groupName: string, rows: HemisGrade[]) {
+function downloadPdf(semesterCode: number, groupName: string, rows: HemisGrade[], lang: Lang) {
   const win = window.open("", "_blank")
   if (!win) return
+  const tt = (key: string) => translate(lang, key)
   const rowsHtml = rows.map((r, i) => `
     <tr>
       <td>${i + 1}</td>
@@ -29,7 +32,7 @@ function downloadPdf(semesterCode: number, groupName: string, rows: HemisGrade[]
       <td style="text-align:center;font-weight:700;color:${r.grade != null && r.grade >= 4 ? "#15803d" : r.grade != null && r.grade >= 3 ? "#0e58a8" : "#b91c1c"}">${r.grade ?? "—"}</td>
     </tr>`).join("")
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>Reyting Daftarcha ${semesterCode}-semestr</title>
+    <title>${tt("reyting.title")} ${semesterCode}-semestr</title>
     <style>
       body{font-family:Arial,sans-serif;margin:24px;color:#111}
       h2{color:#012970;margin-bottom:4px}p{margin:0 0 14px;color:#555;font-size:13px}
@@ -39,10 +42,10 @@ function downloadPdf(semesterCode: number, groupName: string, rows: HemisGrade[]
       tr:nth-child(even){background:#fafcff}
       @media print{@page{margin:12mm}button{display:none}}
     </style></head><body>
-    <h2>Reyting Daftarcha</h2>
-    <p>Guruh: <strong>${groupName}</strong> &nbsp;|&nbsp; ${semesterCode}-semestr</p>
+    <h2>${tt("reyting.title")}</h2>
+    <p>${tt("reyting.group")} <strong>${groupName}</strong> &nbsp;|&nbsp; ${semesterCode}-semestr</p>
     <table><thead><tr>
-      <th>#</th><th>Fanlar</th><th>Fan turi</th><th>Yuklama</th><th>Kredit</th><th>Ball</th><th>Baho</th>
+      <th>${tt("reyting.col.hash")}</th><th>${tt("reyting.col.subjects")}</th><th>${tt("reyting.col.subjectType")}</th><th>${tt("reyting.col.load")}</th><th>${tt("reyting.col.credit")}</th><th>${tt("reyting.col.ratingScore")}</th><th>${tt("reyting.col.grade")}</th>
     </tr></thead><tbody>${rowsHtml}</tbody></table>
     <script>window.onload=function(){window.print()}<\/script>
     </body></html>`)
@@ -50,6 +53,7 @@ function downloadPdf(semesterCode: number, groupName: string, rows: HemisGrade[]
 }
 
 export default function Reyting() {
+  const { t, lang } = useLanguage()
   const { data: meRes, loading: lMe, error: eMe, refetch: rMe } = useApi(() => hemisApi.me(), [])
   const { currentCode, getSemesterId } = useCurrentSemester()
   const [selectedCode, setSelectedCode] = useState<number | null>(null)
@@ -70,10 +74,10 @@ export default function Reyting() {
     <div className="flex flex-col gap-5 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Reyting daftarcha
+          {t("reyting.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Semestrlar bo&apos;yicha reyting ko&apos;rsatkichlari
+          {t("reyting.subtitle")}
         </p>
       </div>
 
@@ -99,12 +103,12 @@ export default function Reyting() {
             {activeCode}-semestr
           </span>
           <button
-            onClick={() => downloadPdf(activeCode, groupName, rows)}
+            onClick={() => downloadPdf(activeCode, groupName, rows, lang)}
             disabled={rows.length === 0}
             className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
             <Download className="w-4 h-4" />
-            Yuklab olish
+            {t("reyting.download")}
           </button>
         </div>
 
@@ -117,7 +121,7 @@ export default function Reyting() {
             <table className="w-full min-w-[700px]">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
-                  {["#", "Fanlar", "Fan turi", "Yuklama", "Kredit", "Reyting / Ball", "Baho"].map(h => (
+                  {[t("reyting.col.hash"), t("reyting.col.subjects"), t("reyting.col.subjectType"), t("reyting.col.load"), t("reyting.col.credit"), t("reyting.col.ratingScore"), t("reyting.col.grade")].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                       style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
                       {h}
@@ -131,7 +135,7 @@ export default function Reyting() {
                     <td colSpan={7} className="px-4 py-14 text-center" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                       <div className="flex flex-col items-center gap-2">
                         <ClipboardList className="w-8 h-8" style={{ color: "#d8e6f7" }} />
-                        <span className="text-sm">Ma&apos;lumot topilmadi</span>
+                        <span className="text-sm">{t("reyting.notFound")}</span>
                       </div>
                     </td>
                   </tr>

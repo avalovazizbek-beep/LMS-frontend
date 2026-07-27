@@ -5,8 +5,10 @@ import { hemisApi, HemisGrade } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function FanTanlovi() {
+  const { t } = useLanguage()
   const { currentCode, getSemesterId } = useCurrentSemester()
   const semId = currentCode > 0 ? getSemesterId(currentCode) : undefined
 
@@ -23,10 +25,10 @@ export default function FanTanlovi() {
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Fan Tanlovi
+          {t("fanTanlovi.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Tanlangan fanlar ro&apos;yxati
+          {t("fanTanlovi.subtitle")}
         </p>
       </div>
 
@@ -38,10 +40,10 @@ export default function FanTanlovi() {
             <CheckCircle2 className="w-8 h-8" style={{ color: "#22c55e" }} />
           </div>
           <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Barcha fanlar bajarilgan
+            {t("fanTanlovi.allDone")}
           </p>
           <p className="text-sm mt-2" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Joriy semestrdagi barcha fanlarni yakunladingiz
+            {t("fanTanlovi.allDoneDesc")}
           </p>
         </div>
       ) : (
@@ -58,7 +60,7 @@ export default function FanTanlovi() {
               </p>
               <div className="flex items-center justify-between mt-2">
                 <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  {g.credit} kredit · {g.total_acload}h
+                  {t("fanTanlovi.creditHours", { credit: g.credit, hours: g.total_acload })}
                 </span>
                 {g.subject_type && (
                   <span className="text-xs px-2 py-0.5 rounded-full"

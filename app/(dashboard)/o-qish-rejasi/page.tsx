@@ -7,8 +7,10 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function OqishRejasi() {
+  const { t } = useLanguage()
   const { currentCode, getSemesterId } = useCurrentSemester()
   const [selectedCode, setSelectedCode] = useState<number | null>(null)
 
@@ -33,10 +35,10 @@ export default function OqishRejasi() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            O&apos;quv Rejasi
+            {t("oqishRejasi.title")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Semestr bo&apos;yicha fanlar ro&apos;yxati
+            {t("oqishRejasi.subtitle")}
           </p>
         </div>
         <SemesterTabs currentCode={currentCode} value={activeCode || currentCode} onChange={code => setSelectedCode(code)} />
@@ -45,10 +47,10 @@ export default function OqishRejasi() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         {[
-          { label: "Jami fanlar",   value: subjects.length, icon: BookOpen,     color: "#0e58a8" },
-          { label: "Jami kreditlar", value: totalCredits,   icon: CheckCircle2, color: "#1cc2dc" },
-          { label: "Jami soatlar",  value: totalHours,      icon: Clock,        color: "#012970" },
-          { label: "Bajarilgan",    value: completed,       icon: Circle,       color: "#22c55e" },
+          { label: t("oqishRejasi.totalSubjects"), value: subjects.length, icon: BookOpen,     color: "#0e58a8" },
+          { label: t("oqishRejasi.totalCredits"), value: totalCredits,   icon: CheckCircle2, color: "#1cc2dc" },
+          { label: t("oqishRejasi.totalHours"),  value: totalHours,      icon: Clock,        color: "#012970" },
+          { label: t("oqishRejasi.completed"),    value: completed,       icon: Circle,       color: "#22c55e" },
         ].map(s => {
           const Icon = s.icon
           return (
@@ -64,13 +66,13 @@ export default function OqishRejasi() {
       {/* Table */}
       <div className="bg-white rounded-[10px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
         <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-          <h2 className="text-lg font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Fanlar ro&apos;yxati</h2>
+          <h2 className="text-lg font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqishRejasi.subjectsList")}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-                {["#", "Fan nomi", "Kredit", "Soatlar", "Turi", "Ball", "Holat"].map(h => (
+                {[t("oqishRejasi.col.hash"), t("oqishRejasi.col.subjectName"), t("oqishRejasi.col.credit"), t("oqishRejasi.col.hours"), t("oqishRejasi.col.type"), t("oqishRejasi.col.score"), t("oqishRejasi.col.status")].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap"
                     style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{h}</th>
                 ))}
@@ -81,7 +83,7 @@ export default function OqishRejasi() {
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-sm"
                     style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Bu semestrda fanlar topilmadi
+                    {t("oqishRejasi.noSubjects")}
                   </td>
                 </tr>
               ) : subjects.map((g, i) => (
@@ -107,9 +109,9 @@ export default function OqishRejasi() {
                   <td className="px-4 py-3">
                     {g.finish_credit_status
                       ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                          style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", border: "1px solid #0e58a8" }}>O&apos;tdi</span>
+                          style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", border: "1px solid #0e58a8" }}>{t("oqishRejasi.passed")}</span>
                       : <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                          style={{ backgroundColor: "#f0fbfd", color: "#1cc2dc", border: "1px solid #1cc2dc" }}>Jarayonda</span>
+                          style={{ backgroundColor: "#f0fbfd", color: "#1cc2dc", border: "1px solid #1cc2dc" }}>{t("oqishRejasi.inProgress")}</span>
                     }
                   </td>
                 </tr>

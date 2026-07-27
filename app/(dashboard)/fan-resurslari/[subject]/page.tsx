@@ -9,6 +9,7 @@ import { Loading, ApiError } from "@/components/ui/ApiState"
 import { StudentContentCard } from "@/components/teaching/StudentContentCard"
 import { LockedMediaPlayer } from "@/components/teaching/LockedMediaPlayer"
 import { TheoryViewer } from "@/components/teaching/TheoryViewer"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
@@ -23,6 +24,7 @@ function getToken() {
 }
 
 function MeetingRecordingsSection({ subjectName, topicTitle }: { subjectName: string; topicTitle?: string }) {
+  const { t } = useLanguage()
   const { data } = useApi(() => meetingsApi.recordingsBySubject(subjectName), [subjectName])
   const all: SubjectRecording[] = data?.data ?? []
   // Deduplicate by id (same recording may appear multiple times)
@@ -42,7 +44,7 @@ function MeetingRecordingsSection({ subjectName, topicTitle }: { subjectName: st
       <div className="flex items-center gap-2">
         <Video className="w-4 h-4" style={{ color: "#0e58a8" }} />
         <h2 className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Online dars yozuvlari
+          {t("fanResurslari.onlineRecordings")}
         </h2>
         <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           {items.length}
@@ -65,7 +67,7 @@ function MeetingRecordingsSection({ subjectName, topicTitle }: { subjectName: st
                   )}
                 </div>
                 <span className="text-[10px] px-2 py-1 rounded-full shrink-0" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                  Yozuv
+                  {t("fanResurslari.recording")}
                 </span>
               </div>
               <div className="p-3">
@@ -89,6 +91,7 @@ const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as co
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 
 export default function FanResurslariDetail() {
+  const { t } = useLanguage()
   const params = useParams()
   const router = useRouter()
   const subjectName = decodeURIComponent(String(params.subject ?? ""))
@@ -122,7 +125,7 @@ export default function FanResurslariDetail() {
             {subjectName}
           </h1>
           <p className="text-sm mt-0.5" style={labelStyle}>
-            {topics.length} ta mavzu
+            {t("fanResurslari.topicCount", { n: topics.length })}
           </p>
         </div>
       </div>
@@ -132,10 +135,10 @@ export default function FanResurslariDetail() {
           <div className="bg-white rounded-[10px] p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <BookOpen className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
             <p className="text-sm font-medium" style={titleStyle}>
-              Resurslar topilmadi
+              {t("fanResurslari.notFound")}
             </p>
             <p className="text-xs mt-1" style={labelStyle}>
-              Bu fan uchun hozircha mavzular yuklanmagan
+              {t("fanResurslari.noTopicsYet")}
             </p>
           </div>
           <MeetingRecordingsSection subjectName={subjectName} topicTitle={undefined} />
@@ -148,7 +151,7 @@ export default function FanResurslariDetail() {
             ) : (
               <div className="bg-white rounded-[10px] p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
                 <Lock className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
-                <p className="text-sm font-medium" style={titleStyle}>Mavzu qulflangan</p>
+                <p className="text-sm font-medium" style={titleStyle}>{t("fanResurslari.topicLocked")}</p>
               </div>
             )}
             <MeetingRecordingsSection subjectName={subjectName} topicTitle={selected?.title} />
@@ -157,7 +160,7 @@ export default function FanResurslariDetail() {
           <div className="lg:w-[300px] shrink-0 bg-white rounded-[10px]"
             style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
             <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              <h2 className="text-sm font-semibold" style={titleStyle}>Mavzular</h2>
+              <h2 className="text-sm font-semibold" style={titleStyle}>{t("fanResurslari.topicsHeading")}</h2>
             </div>
             <div className="flex flex-col">
               {topics.map((topic, idx) => {
@@ -202,6 +205,7 @@ function QollanmaSection({
   qollanma: StudentTopicSectionWithLock
   onProgress: () => void
 }) {
+  const { t } = useLanguage()
   const [marked, setMarked] = useState(!!qollanma.progress?.completed)
 
   useEffect(() => { setMarked(!!qollanma.progress?.completed) }, [qollanma.progress?.completed])
@@ -221,7 +225,7 @@ function QollanmaSection({
     <div className="rounded-[10px] p-4 flex flex-col gap-3" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
       <div className="flex items-center gap-2">
         <Library className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        <span className="text-sm font-semibold" style={titleStyle}>Qo&apos;llanma (Adabiyotlar)</span>
+        <span className="text-sm font-semibold" style={titleStyle}>{t("fanResurslari.guide")}</span>
         {marked && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
       </div>
 
@@ -240,11 +244,11 @@ function QollanmaSection({
 
       {marked ? (
         <p className="text-xs font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-          ✓ Yuklab olindi — keyingi bo&apos;lim ochildi
+          {t("fanResurslari.guideDownloaded")}
         </p>
       ) : (
         <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Faylni yuklab oling — keyingi bo&apos;lim avtomatik ochiladi
+          {t("fanResurslari.guideDownloadPrompt")}
         </p>
       )}
     </div>
@@ -309,6 +313,7 @@ function SectionAccordion({
 }
 
 function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: () => void }) {
+  const { t } = useLanguage()
   const { video, audio, theory, qollanma, test, assignment, youtube } = topic.sections
 
   // First unlocked + incomplete section is opened by default; falls back to first existing section
@@ -344,14 +349,14 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
       {!hasAny && (
         <div className="bg-white rounded-[10px] p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <Circle className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
-          <p className="text-sm" style={labelStyle}>Bu mavzu uchun resurslar hali yuklanmagan</p>
+          <p className="text-sm" style={labelStyle}>{t("fanResurslari.noResourcesYet")}</p>
         </div>
       )}
 
       {video && video.file && (
         <SectionAccordion
           id="video"
-          title="Video"
+          title={t("fanResurslari.video")}
           icon={<Video className="w-4 h-4" style={{ color: video.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={video.sectionLocked}
           completed={!!video.progress?.completed}
@@ -360,7 +365,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
             contentId={video.id}
             src={teachingApi.fileUrl(video.file.url)}
             kind="video"
-            title="Video"
+            title={t("fanResurslari.video")}
             initialProgress={video.progress}
             onCompleted={onProgress}
           />
@@ -370,7 +375,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
       {youtube && youtube.meetingLink && (
         <SectionAccordion
           id="youtube"
-          title="Qo'shimcha video (YouTube) · ixtiyoriy"
+          title={t("fanResurslari.youtubeExtra")}
           icon={<Clapperboard className="w-4 h-4" style={{ color: "#0e58a8" }} />}
           locked={false}
           completed={false}
@@ -386,7 +391,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
             ) : (
               <a href={youtube.meetingLink} target="_blank" rel="noreferrer"
                 className="flex items-center justify-center w-full h-full text-sm" style={{ color: "#fff" }}>
-                Videoni ochish
+                {t("fanResurslari.openVideo")}
               </a>
             )}
           </div>
@@ -396,7 +401,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
       {audio && audio.file && (
         <SectionAccordion
           id="audio"
-          title="Audio"
+          title={t("fanResurslari.audio")}
           icon={<Play className="w-4 h-4" style={{ color: audio.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={audio.sectionLocked}
           completed={!!audio.progress?.completed}
@@ -405,7 +410,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
             contentId={audio.id}
             src={teachingApi.fileUrl(audio.file.url)}
             kind="audio"
-            title="Audio"
+            title={t("fanResurslari.audio")}
             initialProgress={audio.progress}
             onCompleted={onProgress}
           />
@@ -415,7 +420,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
       {theory && theory.file && (
         <SectionAccordion
           id="theory"
-          title="Taqdimot (Prezentatsiya)"
+          title={t("fanResurslari.presentation")}
           icon={<BookOpen className="w-4 h-4" style={{ color: theory.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={theory.sectionLocked}
           completed={!!theory.progress?.completed}
@@ -423,7 +428,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
           <TheoryViewer
             contentId={theory.id}
             file={theory.file}
-            title="Taqdimot (Prezentatsiya)"
+            title={t("fanResurslari.presentation")}
             initialProgress={theory.progress}
             onCompleted={onProgress}
           />
@@ -433,7 +438,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
       {qollanma && qollanma.file && (
         <SectionAccordion
           id="qollanma"
-          title="Qo'llanma (Adabiyotlar)"
+          title={t("fanResurslari.guide")}
           icon={<Library className="w-4 h-4" style={{ color: qollanma.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={qollanma.sectionLocked}
           completed={!!qollanma.progress?.completed}
@@ -445,7 +450,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
       {test && (
         <SectionAccordion
           id="test"
-          title={`Test${test.submission?.grade != null && test.maxScore ? ` · ${test.submission.grade}/${test.maxScore} ball` : test.submission?.grade != null ? ` · ${test.submission.grade} ball` : ""}`}
+          title={`${t("fanResurslari.test")}${test.submission?.grade != null && test.maxScore ? ` · ${t("fanResurslari.scoreOf", { grade: test.submission.grade, max: test.maxScore })}` : test.submission?.grade != null ? ` · ${t("fanResurslari.score", { grade: test.submission.grade })}` : ""}`}
           icon={<HelpCircle className="w-4 h-4" style={{ color: test.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={test.sectionLocked}
           completed={test.submission?.grade != null}
@@ -457,7 +462,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
       {assignment && (
         <SectionAccordion
           id="assignment"
-          title="Topshiriq"
+          title={t("fanResurslari.assignment")}
           icon={<ClipboardList className="w-4 h-4" style={{ color: assignment.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={assignment.sectionLocked}
           completed={!!assignment.submission}
