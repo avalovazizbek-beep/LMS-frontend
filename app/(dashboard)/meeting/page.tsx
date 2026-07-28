@@ -1097,6 +1097,7 @@ function RecordingCard({ recording }: { recording: MeetingRecording }) {
       </p>
       <video
         controls
+        playsInline
         preload="metadata"
         className="mt-2.5 w-full rounded-[8px] bg-black"
         src={recording.fileUrl}

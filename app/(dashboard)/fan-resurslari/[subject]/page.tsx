@@ -73,6 +73,7 @@ function MeetingRecordingsSection({ subjectName, topicTitle }: { subjectName: st
               <div className="p-3">
                 <video
                   controls
+                  playsInline
                   preload="metadata"
                   className="w-full rounded-[6px]"
                   style={{ maxHeight: 320, backgroundColor: "#000" }}

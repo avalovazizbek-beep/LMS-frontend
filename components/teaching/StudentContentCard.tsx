@@ -153,7 +153,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                   <Video className="w-3.5 h-3.5" />
                   Video darslik
                 </div>
-                <video controls preload="metadata" className="aspect-video w-full rounded-[8px] bg-black"
+                <video controls playsInline preload="metadata" className="aspect-video w-full rounded-[8px] bg-black"
                   src={teachingApi.fileUrl(item.videoFile.url)} />
               </div>
             )}

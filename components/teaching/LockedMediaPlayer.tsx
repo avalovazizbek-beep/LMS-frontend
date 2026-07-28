@@ -93,6 +93,7 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
       {kind === "video" ? (
         <video
           controls
+          playsInline
           controlsList="nodownload"
           preload="metadata"
           className="aspect-video w-full rounded-[8px] bg-black"
