@@ -12,6 +12,7 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const [isMobile, setIsMobile] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [checkedAuth, setCheckedAuth] = useState(false)
   const pathname = usePathname()
@@ -31,6 +32,22 @@ export default function DashboardLayout({
     return () => window.clearTimeout(id)
   }, [router])
 
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)")
+    const apply = () => {
+      setIsMobile(mql.matches)
+      setSidebarOpen(!mql.matches)
+    }
+    apply()
+    mql.addEventListener("change", apply)
+    return () => mql.removeEventListener("change", apply)
+  }, [])
+
+  // Sahifa almashganda mobil ekranda menyu avtomatik yopiladi
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false)
+  }, [pathname, isMobile])
+
   if (!checkedAuth) return null
 
   return (
@@ -38,7 +55,21 @@ export default function DashboardLayout({
       className="flex h-screen overflow-hidden"
       style={{ backgroundColor: "var(--lms-bg)" }}
     >
-      {/* Sidebar вЂ” fixed height, slides in/out */}
+      {/* Mobilda menyu ochiq bo'lsa — orqa fon (backdrop), bosilsa yopiladi */}
+      <AnimatePresence>
+        {isMobile && sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar — desktopda kontentni suradi, mobilda ustidan qoplaydi (drawer) */}
       <AnimatePresence initial={false}>
         {sidebarOpen && (
           <motion.div
@@ -46,9 +77,9 @@ export default function DashboardLayout({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="h-screen shrink-0"
+            className={isMobile ? "fixed inset-y-0 left-0 z-50 h-screen" : "h-screen shrink-0"}
           >
-            <Sidebar />
+            <Sidebar onNavigate={() => isMobile && setSidebarOpen(false)} />
           </motion.div>
         )}
       </AnimatePresence>

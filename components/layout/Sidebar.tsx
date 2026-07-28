@@ -171,7 +171,7 @@ const employeeSections: Section[] = [
   },
 ]
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const pathname = usePathname()
   const { t } = useLanguage()
   const [role, setRole] = useState<string | null>(null)
@@ -208,7 +208,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col w-[300px] h-screen bg-[var(--lms-cell)] shrink-0"
+      className="flex flex-col w-[300px] max-w-[85vw] h-screen bg-[var(--lms-cell)] shrink-0"
       style={{ boxShadow: "var(--lms-shadow)" }}
     >
       {/* Logo + Search — qotgan, scroll bo'lmaydi */}
@@ -257,6 +257,7 @@ export function Sidebar() {
           {/* Dashboard */}
           <Link
             href="/dashboard"
+            onClick={onNavigate}
             className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors group"
             style={{ backgroundColor: isActive("/dashboard") ? "#f6f9ff" : "transparent" }}
           >
@@ -279,6 +280,7 @@ export function Sidebar() {
           {isAdmin && (
             <Link
               href="/admin"
+              onClick={onNavigate}
               className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors group mt-1"
               style={{ backgroundColor: pathname.startsWith("/admin") ? "#fef2f2" : "transparent" }}
             >
@@ -349,6 +351,7 @@ export function Sidebar() {
                             >
                               <Link
                                 href={item.href}
+                                onClick={onNavigate}
                                 className="flex items-center gap-2.5 px-[15px] py-[7px] rounded-[5px] transition-all hover:bg-[#f6f9ff] group"
                                 style={{ backgroundColor: active ? "#f6f9ff" : "transparent" }}
                               >
@@ -386,6 +389,7 @@ export function Sidebar() {
           {/* Meeting — standalone */}
           <Link
             href="/meeting"
+            onClick={onNavigate}
             className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors mt-1 group"
             style={{ backgroundColor: isActive("/meeting") ? "#f6f9ff" : "transparent" }}
           >
