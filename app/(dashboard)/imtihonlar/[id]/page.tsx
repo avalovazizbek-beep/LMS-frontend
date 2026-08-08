@@ -45,9 +45,18 @@ export default function ImtihonTopshirish() {
   const [result,        setResult]        = useState<{ grade: number | null; maxScore: number | null; attemptsUsed: number } | null>(null)
   const [fsExited,      setFsExited]      = useState(false)   // to'liq ekrandan chiqildi
   const [winHidden,     setWinHidden]     = useState(false)   // Alt+Tab: oyna yashirildi
+  const [isMobile,      setIsMobile]      = useState(false)
 
   const phaseRef = useRef<Phase>("intro")
   useEffect(() => { phaseRef.current = phase }, [phase])
+
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 640px)")
+    const apply = () => setIsMobile(mql.matches)
+    apply()
+    mql.addEventListener("change", apply)
+    return () => mql.removeEventListener("change", apply)
+  }, [])
 
   const screenshotOverlayRef = useRef<HTMLDivElement>(null)   // DOM ref — React re-render kutilmaydi
   const contentHideRef       = useRef<HTMLDivElement>(null)   // kontent berkilash (snipping tool uchun)
@@ -385,12 +394,14 @@ export default function ImtihonTopshirish() {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#f6f9ff", display: "flex", flexDirection: "column", overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
 
-      {/* === Watermark (skrinshot oldini olish) === */}
-      <div aria-hidden style={{
-        position: "fixed", inset: 0, zIndex: 10000, pointerEvents: "none",
-        backgroundImage: `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="260" height="130"><text transform="rotate(-30,130,65)" x="5" y="70" font-size="14" fill="rgba(1,41,112,0.13)" font-family="sans-serif" font-weight="bold">SamISI LMS imtihon nazorati</text></svg>')}")`,
-        backgroundRepeat: "repeat",
-      }} />
+      {/* === Watermark (skrinshot oldini olish) — faqat yuz tekshiruvi fazasida === */}
+      {phase === "face_scan" && (
+        <div aria-hidden style={{
+          position: "fixed", inset: 0, zIndex: 10000, pointerEvents: "none",
+          backgroundImage: `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="260" height="130"><text transform="rotate(-30,130,65)" x="5" y="70" font-size="14" fill="rgba(1,41,112,0.13)" font-family="sans-serif" font-weight="bold">SamISI LMS imtihon nazorati</text></svg>')}")`,
+          backgroundRepeat: "repeat",
+        }} />
+      )}
 
       {/* === PrintScreen bloklash overlay (ref orqali darhol ko'rsatiladi) === */}
       <div ref={screenshotOverlayRef} style={{
@@ -470,9 +481,9 @@ export default function ImtihonTopshirish() {
       >
         {/* ── Yuz tekshiruvi fazasi ───────────────────────────────── */}
         {phase === "face_scan" && (
-          <div style={{
+          <div className="exam-vh-fix" style={{
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            height: "100vh", gap: 20, textAlign: "center", padding: 32,
+            gap: 20, textAlign: "center", padding: isMobile ? 20 : 32,
             background: "#f6f9ff",
           }}>
             <div style={{
@@ -508,13 +519,13 @@ export default function ImtihonTopshirish() {
 
         {/* ── Imtihon fazasi — ESKI dizayn (chap panel) ──────────── */}
         {phase === "exam" && (
-          <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+          <div className="exam-vh-fix" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
             {/* Header */}
             <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "10px 24px",
-              paddingRight: 234,           /* kamera vidgeti uchun bo'sh joy */
+              display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", rowGap: 6,
+              padding: isMobile ? "8px 12px" : "10px 24px",
+              paddingRight: isMobile ? 128 : 234,           /* kamera vidgeti uchun bo'sh joy */
               backgroundColor: "white",
               borderBottom: "1px solid rgba(1,41,112,0.1)",
               flexShrink: 0,
@@ -542,24 +553,30 @@ export default function ImtihonTopshirish() {
               )}
             </div>
 
-            {/* Asosiy kontent: chap panel + savol maydoni */}
-            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            {/* Asosiy kontent: chap panel + savol maydoni — mobilda ustma-ust (panel yuqorida, gorizontal scroll) */}
+            <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: "hidden" }}>
 
               {/* Chap panel: savol raqamlari */}
               <div style={{
-                width: 230, flexShrink: 0,
-                borderRight: "1px solid rgba(1,41,112,0.1)",
-                padding: "14px 14px 14px 56px", overflowY: "auto",
+                width: isMobile ? "100%" : 230, flexShrink: 0,
+                borderRight: isMobile ? "none" : "1px solid rgba(1,41,112,0.1)",
+                borderBottom: isMobile ? "1px solid rgba(1,41,112,0.1)" : "none",
+                padding: isMobile ? "10px 12px" : "14px 14px 14px 56px",
+                overflowY: isMobile ? "hidden" : "auto",
                 backgroundColor: "white",
               }}>
                 <p style={{ fontSize: 11, fontWeight: 600, color: "#7293b9", margin: "0 0 8px", fontFamily: "var(--font-poppins)" }}>
                   {t("examTake.questionsHeading")}
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }}>
+                <div style={
+                  isMobile
+                    ? { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }
+                    : { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }
+                }>
                   {questions.map((_, i) => (
                     <button key={i} onClick={() => setCurrent(i)} style={{
                       width: 36, height: 36, borderRadius: 6, fontSize: 11, fontWeight: 700,
-                      cursor: "pointer", fontFamily: "var(--font-poppins)",
+                      cursor: "pointer", fontFamily: "var(--font-poppins)", flexShrink: 0,
                       backgroundColor:
                         i === current           ? "#0e58a8"
                         : answers[i] !== undefined ? "#f0fbfd"
@@ -577,20 +594,22 @@ export default function ImtihonTopshirish() {
                   ))}
                 </div>
 
-                {/* Izoh */}
-                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
-                  {[
-                    { color: "#0e58a8", bg: "#f0f5ff", label: t("examTake.legend.current") },
-                    { color: "#1cc2dc", bg: "#f0fbfd", label: t("examTake.legend.answered") },
-                    { color: "#7293b9", bg: "#f6f9ff", label: t("examTake.legend.unanswered") },
-                    { color: "#f59e0b", bg: "#fff8e6", label: t("examTake.legend.flagged") },
-                  ].map(l => (
-                    <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: l.bg, border: `1px solid ${l.color}` }} />
-                      <span style={{ fontSize: 11, color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{l.label}</span>
-                    </div>
-                  ))}
-                </div>
+                {/* Izoh — mobilda joy tejash uchun yashiriladi */}
+                {!isMobile && (
+                  <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {[
+                      { color: "#0e58a8", bg: "#f0f5ff", label: t("examTake.legend.current") },
+                      { color: "#1cc2dc", bg: "#f0fbfd", label: t("examTake.legend.answered") },
+                      { color: "#7293b9", bg: "#f6f9ff", label: t("examTake.legend.unanswered") },
+                      { color: "#f59e0b", bg: "#fff8e6", label: t("examTake.legend.flagged") },
+                    ].map(l => (
+                      <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: l.bg, border: `1px solid ${l.color}` }} />
+                        <span style={{ fontSize: 11, color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{l.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {maxAttempts !== null && (
                   <div style={{ marginTop: 12, padding: "6px 8px", borderRadius: 6, backgroundColor: "#f0f5ff", textAlign: "center" }}>
@@ -602,12 +621,16 @@ export default function ImtihonTopshirish() {
               </div>
 
               {/* O'ng: savol maydoni */}
-              <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 20px", paddingRight: 234 }}>
+              <div style={{
+                flex: 1, overflowY: "auto",
+                padding: isMobile ? "14px 12px" : "20px 20px 20px",
+                paddingRight: isMobile ? 12 : 234,
+              }}>
                 {lQuestions || questions.length === 0 ? (
                   <Loading />
                 ) : q ? (
                   <div style={{
-                    backgroundColor: "white", borderRadius: 10, padding: "24px",
+                    backgroundColor: "white", borderRadius: 10, padding: isMobile ? "16px" : "24px",
                     border: "1px solid rgba(1,41,112,0.1)",
                     boxShadow: "0px 0px 5px rgba(1,41,112,0.05)",
                   }}>
@@ -683,6 +706,7 @@ export default function ImtihonTopshirish() {
                     {/* Navigatsiya — javoblar PASTIDA */}
                     <div style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
+                      flexWrap: "wrap", gap: 10,
                       marginTop: 24, paddingTop: 16,
                       borderTop: "1px solid rgba(1,41,112,0.08)",
                     }}>
@@ -735,6 +759,13 @@ export default function ImtihonTopshirish() {
         @keyframes examDotPulse {
           0%, 100% { opacity: 0.3; transform: scale(0.8); }
           50% { opacity: 1; transform: scale(1.1); }
+        }
+        /* Mobil brauzerlarda 100vh manzil satri tufayli ko'rinadigan
+           maydondan kattaroq bo'lib, bo'sh joy qoldirishi mumkin —
+           100dvh qo'llab-quvvatlansa shu ustun keladi. */
+        .exam-vh-fix {
+          height: 100vh;
+          height: 100dvh;
         }
       `}</style>
     </div>

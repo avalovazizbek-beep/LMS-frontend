@@ -61,6 +61,15 @@ export default function FaceProctor({
   const statusRef              = useRef<ProcStatus>("loading")  // RAF da fresh qiymat
   useEffect(() => { onFirstVerifiedRef.current = onFirstVerified }, [onFirstVerified])
 
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 640px)")
+    const apply = () => setIsMobile(mql.matches)
+    apply()
+    mql.addEventListener("change", apply)
+    return () => mql.removeEventListener("change", apply)
+  }, [])
+
   const [scriptReady,  setScriptReady]  = useState(false)
   const [modelsLoaded, setModelsLoaded] = useState(false)
   const [cameraReady,  setCameraReady]  = useState(false)
@@ -504,15 +513,15 @@ export default function FaceProctor({
     return (
       <>
         <Script src={`${BASE_PATH}/face-api.min.js`} strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
-        {/* Katta kamera vidgeti — o'ng yuqori burchak */}
+        {/* Katta kamera vidgeti — o'ng yuqori burchak (mobil ekranda kichraytiriladi) */}
         <div style={{
-          position: "fixed", top: 10, right: 10, zIndex: 10001,
-          width: 215, borderRadius: 10, overflow: "hidden",
+          position: "fixed", top: isMobile ? 6 : 10, right: isMobile ? 6 : 10, zIndex: 10001,
+          width: isMobile ? 110 : 215, borderRadius: 10, overflow: "hidden",
           border: `2px solid ${c.border}`,
           boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
         }}>
           {/* Video qismi */}
-          <div style={{ position: "relative", height: 162, backgroundColor: "#111" }}>
+          <div style={{ position: "relative", height: isMobile ? 82 : 162, backgroundColor: "#111" }}>
             {!cameraReady && (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#7293b9" }} />
@@ -547,7 +556,7 @@ export default function FaceProctor({
           {/* Status paneli */}
           <div style={{
             padding: "5px 8px", backgroundColor: c.bg,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
+            display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 4,
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <StatusIcon className="w-3 h-3" style={{ color: c.icon }} />
@@ -566,7 +575,7 @@ export default function FaceProctor({
               backgroundColor: "#fff5f5",
               borderTop: "1px solid rgba(239,68,68,0.15)",
               padding: "6px 8px",
-              maxHeight: 130,
+              maxHeight: isMobile ? 70 : 130,
               overflowY: "auto",
             }}>
               <p style={{ fontSize: 9, fontWeight: 700, color: "#b91c1c", margin: "0 0 4px", fontFamily: "var(--font-poppins)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
