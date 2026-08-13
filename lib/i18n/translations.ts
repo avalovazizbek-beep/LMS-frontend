@@ -1939,6 +1939,11 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "adminBaholash.unlockedLabel":       { uz: "Ochildi",                                                                                   ru: "Открыто",                                                         en: "Unlocked",                                                 kaa: "Ashıldı" },
   "adminBaholash.unlockingLabel":      { uz: "Ochilmoqda...",                                                                             ru: "Открывается...",                                                  en: "Unlocking...",                                             kaa: "Ashılmaqta..." },
   "adminBaholash.unlockBtn":           { uz: "Ochish",                                                                                    ru: "Открыть",                                                         en: "Unlock",                                                   kaa: "Ashıw" },
+
+  // ── Meeting eslatmasi (dars boshlanishidan oldingi ogohlantirish) ────
+  "meetingReminder.title": { uz: "Darsga qatnashish vaqti keldi!", ru: "Пора присоединиться к занятию!",           en: "Time to join the class!",           kaa: "Sabaqqa qatnasıw waqtı keldi!" },
+  "meetingReminder.body":  { uz: "\"{title}\" darsi boshlanmoqda. Iltimos, darsga kiring — aks holda bu sizning davomatingizga ta'sir ko'rsatishi mumkin.", ru: "Занятие «{title}» начинается. Пожалуйста, присоединитесь — иначе это может повлиять на вашу посещаемость.", en: "The class \"{title}\" is starting. Please join — otherwise it may affect your attendance.", kaa: "\"{title}\" sabaǵı baslanbaqta. Sabaqqa kiriń — bolmasa bul sizdiń qatnasıwıńızǵa tásir etiwi múmkin." },
+  "meetingReminder.ok":    { uz: "OK, darsga kirish",             ru: "ОК, присоединиться",                        en: "OK, join the class",                kaa: "OK, sabaqqa kiriw" },
 }
 
 export function translate(lang: Lang, key: string, params?: Record<string, string | number>): string {

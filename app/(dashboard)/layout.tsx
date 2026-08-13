@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { usePathname, useRouter } from "next/navigation"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
+import { MeetingReminder } from "@/components/layout/MeetingReminder"
 
 export default function DashboardLayout({
   children,
@@ -55,6 +56,8 @@ export default function DashboardLayout({
       className="flex h-screen overflow-hidden"
       style={{ backgroundColor: "var(--lms-bg)" }}
     >
+      <MeetingReminder />
+
       {/* Mobilda menyu ochiq bo'lsa — orqa fon (backdrop), bosilsa yopiladi */}
       <AnimatePresence>
         {isMobile && sidebarOpen && (
