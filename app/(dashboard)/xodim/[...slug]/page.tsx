@@ -1085,7 +1085,7 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
       </div>
 
       <div className="rounded-[10px] bg-white" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
-        <div className="flex flex-nowrap items-center gap-1.5 p-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+        <div className="flex flex-nowrap items-center gap-1.5 p-3 overflow-x-auto" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <div className="flex flex-nowrap shrink-0 gap-1.5">
             {config.actionKey && config.actionHref && (
               <Link href={config.actionHref} className="inline-flex items-center gap-1.5 rounded-[5px] bg-[#0e58a8] px-2.5 py-1.5 text-xs font-medium text-white"

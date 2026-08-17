@@ -66,7 +66,7 @@ export default function SotuvchilarPage() {
       <header className="flex flex-col gap-[15px] pt-[25px] pb-5 px-5 bg-white" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
         <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarSotuvchilar.title")}</h1>
       </header>
-      <div className="grid grid-cols-3 gap-5 px-[30px] pt-[30px]">
+      <div className="grid grid-cols-1 gap-5 px-[30px] pt-[30px] sm:grid-cols-3">
         {[
           { label: t("foydalanuvchilarSotuvchilar.statTotal"), value: sellers.length,                                            color: "#012970" },
           { label: t("foydalanuvchilarUmumiy.statusActive"),   value: sellers.filter((s) => s.status === "active").length,   color: "#22c55e" },
@@ -80,19 +80,19 @@ export default function SotuvchilarPage() {
       </div>
       <div className="px-[30px] pt-5 pb-[30px]">
         <div className="bg-white rounded-[5px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
-          <div className="flex items-center justify-between p-5">
+          <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <h2 className="font-medium text-[22px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarSotuvchilar.allSellers")}</h2>
               <div className="flex w-[33px] h-[33px] items-center justify-center rounded-full" style={{ backgroundColor: "rgba(114,147,185,0.2)" }}>
                 <span className="font-semibold text-lg" style={{ color: "#7293b9" }}>{sellers.length}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2.5">
-              <label className="w-[350px] px-2.5 py-2 rounded-[5px] border flex items-center" style={{ borderColor: "rgba(1,41,112,0.3)" }}>
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+              <label className="w-full px-2.5 py-2 rounded-[5px] border flex items-center sm:w-[350px]" style={{ borderColor: "rgba(1,41,112,0.3)" }}>
                 <Search className="w-5 h-5 shrink-0" style={{ color: "#7293b9" }} />
                 <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("foydalanuvchilarUmumiy.searchPlaceholder")} className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
               </label>
-              <button onClick={openAdd} className="flex items-center gap-2 h-[42px] px-[15px] rounded-[5px] text-white text-sm" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <button onClick={openAdd} className="flex items-center justify-center gap-2 h-[42px] px-[15px] rounded-[5px] text-white text-sm" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 <Plus className="w-5 h-5" /> {t("foydalanuvchilarSotuvchilar.addBtn")}
               </button>
             </div>

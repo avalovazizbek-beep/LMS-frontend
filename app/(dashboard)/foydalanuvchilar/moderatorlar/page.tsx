@@ -84,7 +84,7 @@ export default function ModeratorsPage() {
     <section className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
       <header className="flex flex-col items-start gap-[15px] pt-[25px] pb-5 px-5 bg-white" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
         <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("foydalanuvchilarModeratorlar.title")}</h1>
-        <div className="flex items-start justify-between self-stretch w-full">
+        <div className="flex flex-col gap-3 self-stretch w-full sm:flex-row sm:items-start sm:justify-between">
           <div className="inline-flex items-center gap-[15px]">
             {(["table", "card"] as TabKey[]).map((key) => (
               <button key={key} onClick={() => setActiveTab(key)} className="px-5 h-[45px] inline-flex items-center justify-center rounded-[10px] border transition-colors"
@@ -93,7 +93,7 @@ export default function ModeratorsPage() {
               </button>
             ))}
           </div>
-          <label className="w-[500px] px-2.5 py-2 rounded-[5px] border flex items-center bg-white" style={{ borderColor: "rgba(1,41,112,0.3)" }}>
+          <label className="w-full px-2.5 py-2 rounded-[5px] border flex items-center bg-white sm:w-[500px]" style={{ borderColor: "rgba(1,41,112,0.3)" }}>
             <Search className="w-5 h-5 shrink-0" style={{ color: "#7293b9" }} />
             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("foydalanuvchilarUmumiy.searchPlaceholder")} className="flex-1 ml-2 bg-transparent outline-none text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
           </label>
