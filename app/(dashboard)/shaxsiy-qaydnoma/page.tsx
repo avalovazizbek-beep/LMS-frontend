@@ -7,12 +7,15 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+import type { Lang } from "@/lib/i18n/translations"
+import { translate } from "@/lib/i18n/translations"
 
-function gradeLabel(pt: number): string {
-  if (pt >= 86) return "A (Mukammal)"
-  if (pt >= 71) return "B (Yaxshi)"
-  if (pt >= 56) return "C (Qoniqarli)"
-  if (pt >= 1)  return "D (Qoniqarsiz)"
+function gradeLabel(pt: number, lang: Lang): string {
+  if (pt >= 86) return translate(lang, "shaxsiyQaydnoma.gradeA")
+  if (pt >= 71) return translate(lang, "shaxsiyQaydnoma.gradeB")
+  if (pt >= 56) return translate(lang, "shaxsiyQaydnoma.gradeC")
+  if (pt >= 1)  return translate(lang, "shaxsiyQaydnoma.gradeD")
   return "—"
 }
 
@@ -25,6 +28,7 @@ function gradeColor(pt: number) {
 }
 
 export default function ShaxsiyQaydnoma() {
+  const { t, lang } = useLanguage()
   const { currentCode, getSemesterId } = useCurrentSemester()
   const [selectedCode, setSelectedCode] = useState<number | null>(null)
 
@@ -54,10 +58,10 @@ export default function ShaxsiyQaydnoma() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Shaxsiy Qaydnoma
+            {t("shaxsiyQaydnoma.pageTitle")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Akademik qaydnoma — baholar ro&apos;yxati
+            {t("shaxsiyQaydnoma.subtitle")}
           </p>
         </div>
         <SemesterTabs currentCode={currentCode} value={activeCode || currentCode} onChange={code => setSelectedCode(code)} />
@@ -66,9 +70,9 @@ export default function ShaxsiyQaydnoma() {
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-5">
         {[
-          { label: "Jami fanlar",   value: grades.length   },
-          { label: "Jami kreditlar", value: totalCredits   },
-          { label: "GPA",            value: gpa ?? "—"     },
+          { label: t("shaxsiyQaydnoma.totalSubjects"), value: grades.length },
+          { label: t("shaxsiyQaydnoma.totalCredits"),  value: totalCredits  },
+          { label: t("shaxsiyQaydnoma.gpa"),           value: gpa ?? "—"    },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-[10px] p-5 text-center"
             style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -87,7 +91,10 @@ export default function ShaxsiyQaydnoma() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
-                {["#", "Fan", "Kredit", "Ball", "Baho", "Holat"].map(h => (
+                {[
+                  t("shaxsiyQaydnoma.colNum"), t("shaxsiyQaydnoma.colSubject"), t("shaxsiyQaydnoma.colCredit"),
+                  t("shaxsiyQaydnoma.colScore"), t("shaxsiyQaydnoma.colGrade"), t("shaxsiyQaydnoma.colStatus"),
+                ].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                     style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
                 ))}
@@ -99,7 +106,7 @@ export default function ShaxsiyQaydnoma() {
                   <td colSpan={6} className="px-4 py-12 text-center text-sm"
                     style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                     <BookOpen className="w-8 h-8 mx-auto mb-2" style={{ color: "#7293b9" }} />
-                    Bu semestrda fanlar topilmadi
+                    {t("shaxsiyQaydnoma.noSubjects")}
                   </td>
                 </tr>
               ) : grades.map((g, i) => {
@@ -121,7 +128,7 @@ export default function ShaxsiyQaydnoma() {
                     <td className="px-4 py-3">
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
                         style={{ backgroundColor: gc.bg, color: gc.color }}>
-                        {hasPoint ? gradeLabel(g.total_point) : "—"}
+                        {hasPoint ? gradeLabel(g.total_point, lang) : "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -130,7 +137,7 @@ export default function ShaxsiyQaydnoma() {
                           backgroundColor: g.finish_credit_status ? "#f0fff4" : "#f6f9ff",
                           color: g.finish_credit_status ? "#22c55e" : "#7293b9",
                         }}>
-                        {g.finish_credit_status ? "O'tdi" : "Jarayonda"}
+                        {g.finish_credit_status ? t("shaxsiyQaydnoma.statusPassed") : t("shaxsiyQaydnoma.statusPending")}
                       </span>
                     </td>
                   </tr>

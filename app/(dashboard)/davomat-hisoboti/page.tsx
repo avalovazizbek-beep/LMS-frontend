@@ -8,6 +8,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 function getAbsenceType(r: HemisAttendance): "excused" | "absent" {
   if (r.explicable === true) return "excused"
@@ -22,6 +23,7 @@ function formatDate(ts: number) {
 const now = Math.floor(Date.now() / 1000)
 
 export default function DavomatHisobotiPage() {
+  const { t } = useLanguage()
   const { currentCode, getSemesterId } = useCurrentSemester()
   const [selectedCode, setSelectedCode] = useState<number | null>(null)
 
@@ -90,8 +92,8 @@ export default function DavomatHisobotiPage() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Davomat hisoboti</h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Davomat hisoboti</p>
+          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("davomatHisoboti.pageTitle")}</h1>
+          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatHisoboti.pageTitle")}</p>
         </div>
         <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => { setSelectedCode(code) }} />
       </motion.div>
@@ -99,25 +101,25 @@ export default function DavomatHisobotiPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         {[
           {
-            label: "Umumiy davomat",
+            label: t("davomatHisoboti.overall"),
             value: totalClasses > 0 ? `${overallPct}%` : "—",
             color: totalClasses > 0 ? (overallPct >= 85 ? "#22c55e" : "#ef4444") : "#7293b9",
             Icon: TrendingUp,
           },
           {
-            label: "Qatnashilgan",
+            label: t("davomatHisoboti.attended"),
             value: totalClasses > 0 ? totalAttended : "—",
             color: "#1cc2dc",
             Icon: CheckCircle2,
           },
           {
-            label: "Qatnashilmagan",
+            label: t("davomatHisoboti.notAttended"),
             value: totalAbsent,
             color: "#ef4444",
             Icon: XCircle,
           },
           {
-            label: "Jami darslar",
+            label: t("davomatHisoboti.totalClasses"),
             value: totalClasses > 0 ? totalClasses : "—",
             color: "#012970",
             Icon: Calendar,
@@ -136,13 +138,17 @@ export default function DavomatHisobotiPage() {
 
       <div className="bg-white rounded-[10px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
         <div className="p-5" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-          <h2 className="font-medium text-lg" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Fanlarga ko&apos;ra davomat</h2>
+          <h2 className="font-medium text-lg" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("davomatHisoboti.bySubject")}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
-                {["#", "Fanlar", "Aud. soat", "Sababli", "Sababsiz", "Jami", "Foiz"].map(h => (
+                {[
+                  t("davomatHisoboti.colNum"), t("davomatHisoboti.colSubjects"), t("davomatHisoboti.colHours"),
+                  t("davomatHisoboti.colExcused"), t("davomatHisoboti.colUnexcused"), t("davomatHisoboti.colTotal"),
+                  t("davomatHisoboti.colPercent"),
+                ].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                     style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
                     {h}
@@ -154,7 +160,7 @@ export default function DavomatHisobotiPage() {
               {subjectStats.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    Ma&apos;lumot topilmadi
+                    {t("davomatHisoboti.noData")}
                   </td>
                 </tr>
               ) : subjectStats.map((s, i) => {
@@ -186,20 +192,20 @@ export default function DavomatHisobotiPage() {
 
       <div className="bg-white rounded-[10px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="p-5" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-          <h2 className="font-medium text-lg" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>So&apos;nggi qoldirishlar</h2>
+          <h2 className="font-medium text-lg" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("davomatHisoboti.recentAbsences")}</h2>
         </div>
         {recent.length === 0 ? (
           <div className="px-5 py-8 text-center">
             <CheckCircle2 className="w-8 h-8 mx-auto mb-2" style={{ color: "#22c55e" }} />
             <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Qoldirilgan darslar yo&apos;q!
+              {t("davomatHisoboti.noAbsences")}
             </p>
           </div>
         ) : recent.map((r, i) => {
           const type  = getAbsenceType(r)
           const Icon  = type === "excused" ? MinusCircle : XCircle
           const color = type === "excused" ? "#f59e0b" : "#ef4444"
-          const label = type === "excused" ? "Sababli" : "Sababsiz"
+          const label = type === "excused" ? t("davomatHisoboti.excused") : t("davomatHisoboti.unexcused")
           return (
             <motion.div key={`${r.subject?.id}_${r.lesson_date}_${i}`}
               initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
