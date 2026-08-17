@@ -205,9 +205,9 @@ export default function DavomatHisobotiPage() {
               initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
               className="flex items-center justify-between px-5 py-3.5"
               style={{ borderBottom: i < recent.length - 1 ? "1px solid rgba(1,41,112,0.06)" : undefined }}>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <Calendar className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                     {r.subject.name}
                   </p>

@@ -185,7 +185,7 @@ export default function FanResurslariDetail() {
                       }}>
                       {topic.locked ? <Lock className="w-3.5 h-3.5" /> : topic.completed ? <CheckCircle2 className="w-3.5 h-3.5" /> : idx + 1}
                     </span>
-                    <span className="text-sm font-medium truncate" style={{ color: isActive ? "#0e58a8" : "#104475", fontFamily: "var(--font-poppins)" }}>
+                    <span className="text-sm font-medium truncate flex-1 min-w-0" style={{ color: isActive ? "#0e58a8" : "#104475", fontFamily: "var(--font-poppins)" }}>
                       {topic.title}
                     </span>
                   </button>

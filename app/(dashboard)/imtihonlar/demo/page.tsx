@@ -430,7 +430,7 @@ export default function DemoExamPage() {
             </div>
             <div className="relative flex justify-center" style={{ backgroundColor: "#111" }}>
               <video ref={entryVideoRef} autoPlay playsInline muted
-                style={{ width: "100%", maxWidth: CVS_W, height: CVS_H, objectFit: "cover", transform: "scaleX(-1)" }} />
+                style={{ width: "100%", maxWidth: CVS_W, aspectRatio: `${CVS_W} / ${CVS_H}`, objectFit: "cover", transform: "scaleX(-1)" }} />
               <canvas ref={entryCanvasRef} width={CVS_W} height={CVS_H}
                 style={{ position:"absolute",top:0,left:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:5 }} />
             </div>
@@ -509,7 +509,7 @@ export default function DemoExamPage() {
                   transform: "translateX(-50%)",
                   backgroundColor: "#fff",
                   border: "2px solid #ef4444",
-                  maxWidth: 400,
+                  maxWidth: "min(400px, calc(100vw - 40px))",
                 }}>
                 <ShieldAlert className="w-5 h-5 shrink-0" style={{ color: "#ef4444" }} />
                 <p className="text-sm font-semibold" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }}>
@@ -704,7 +704,7 @@ export default function DemoExamPage() {
                   <span style={{ color:answers[i]===q.correct?"#22c55e":"#ef4444" }}>
                     {answers[i]===q.correct?"✓":"✗"}
                   </span>
-                  <span className="text-xs flex-1 truncate text-left"
+                  <span className="text-xs flex-1 min-w-0 truncate text-left"
                     style={{ color:"#012970", fontFamily:"var(--font-poppins)" }}>
                     {q.q}
                   </span>
