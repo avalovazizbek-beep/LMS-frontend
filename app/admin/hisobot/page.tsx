@@ -60,7 +60,7 @@ function NotifyModal({ name, userId, subject, jn, on1, on2, yn, att, onClose }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="w-full max-w-md rounded-[14px] bg-white p-6 flex flex-col gap-4 shadow-2xl"
         style={{ border: "1px solid rgba(1,41,112,0.12)" }}>
         <div className="flex items-center justify-between">
@@ -109,7 +109,7 @@ function JournalTable({ journal, subject }: { journal: JournalData; subject: str
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: t("adminHisobot.statTotalStudents"), value: totalStudents, icon: Users, color: "#0e58a8" },
           { label: t("adminHisobot.statAvgJn"), value: avgJn !== null ? `${avgJn}%` : "—", icon: BarChart3, color: "#7c3aed" },

@@ -121,6 +121,7 @@ function StudentAttendanceView({ groupId, subject }: { groupId: number; subject:
 
   return (
     <div className="px-4 pb-3 flex flex-col gap-2">
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
@@ -181,6 +182,7 @@ function StudentAttendanceView({ groupId, subject }: { groupId: number; subject:
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
@@ -648,7 +650,7 @@ function PlatformAttendance() {
           </div>
 
           {/* Summary row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { label: t("adminDavomatlar.summaryTotalLessons"), value: result.length, color: "#0e58a8" },
               { label: t("adminDavomatlar.summaryAvgAttendance"), value: `${Math.round(result.reduce((s, r) => s + r.presentPct, 0) / result.length)}%`, color: pctColor(Math.round(result.reduce((s, r) => s + r.presentPct, 0) / result.length)) },

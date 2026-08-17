@@ -59,7 +59,7 @@ export default function AdminFaceId() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {(["pending", "approved", "rejected"] as const).map(s => {
           const cfg = STATUS_CONFIG[s]
           const Icon = cfg.icon

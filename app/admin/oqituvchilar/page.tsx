@@ -351,7 +351,7 @@ export default function AdminOqituvchilar() {
   return (
     <div className="flex flex-col gap-5 p-8">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-semibold" style={T}>{t("adminOqituvchilar.exportPdfTitle")}</h1>
           <p className="text-sm mt-1" style={L}>{t("adminOqituvchilar.pageSubtitle")}</p>
@@ -392,7 +392,7 @@ export default function AdminOqituvchilar() {
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 1px 4px rgba(1,41,112,0.05)" }}>
         <Search className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
         <input value={search} onChange={e => { setSearch(e.target.value); setPage(0) }}
-          placeholder={t("adminOqituvchilar.searchPlaceholder")} className="flex-1 text-sm outline-none bg-transparent"
+          placeholder={t("adminOqituvchilar.searchPlaceholder")} className="flex-1 min-w-0 text-sm outline-none bg-transparent"
           style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
         {search && (
           <button onClick={() => { setSearch(""); setPage(0) }}
@@ -555,12 +555,12 @@ export default function AdminOqituvchilar() {
 
           {/* Pagination */}
           {pageCount > 1 && (
-            <div className="bg-white rounded-[10px] px-5 py-3 flex items-center justify-between"
+            <div className="bg-white rounded-[10px] px-5 py-3 flex items-center justify-between flex-wrap gap-3"
               style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
               <span className="text-xs" style={L}>
                 {t("adminOqituvchilar.paginationRange", { start: curPage * PAGE_SIZE + 1, end: Math.min((curPage + 1) * PAGE_SIZE, filtered.length), total: filtered.length })}
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 overflow-x-auto max-w-full">
                 <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={curPage === 0}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] text-xs font-medium disabled:opacity-30 hover:bg-blue-50 transition-colors"
                   style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
