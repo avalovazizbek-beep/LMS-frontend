@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { adminApi, type AdminTeacherStat, type AdminTeacherTopic, type AdminTeacherTopicContent, type AdminExamQuestion } from "@/lib/api"
 import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -57,11 +58,13 @@ function ContentBadge({ active, icon: Icon, label, color }: {
   )
 }
 
-const CONTENT_KIND_LABEL: Record<string, string> = {
-  video_lesson: "Video", audio: "Audio", theory: "Taqdimot", qollanma: "Qo'llanma", youtube: "YouTube",
+const CONTENT_KIND_LABEL_KEY: Record<string, string> = {
+  video_lesson: "adminOqituvchilar.contentKindVideo", audio: "adminOqituvchilar.contentKindAudio",
+  theory: "adminOqituvchilar.contentKindTheory", qollanma: "adminOqituvchilar.contentKindQollanma", youtube: "adminOqituvchilar.contentKindYoutube",
 }
 
 function ExamQuestionsPreview({ contentId }: { contentId: number }) {
+  const { t } = useLanguage()
   const [questions, setQuestions] = useState<AdminExamQuestion[] | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -76,13 +79,13 @@ function ExamQuestionsPreview({ contentId }: { contentId: number }) {
   }, [contentId])
 
   if (loading) return <div className="flex items-center justify-center py-3"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
-  if (!questions || questions.length === 0) return <p className="text-xs py-2 px-2" style={L}>Savollar topilmadi</p>
+  if (!questions || questions.length === 0) return <p className="text-xs py-2 px-2" style={L}>{t("adminOqituvchilar.noQuestions")}</p>
 
   return (
     <div className="flex flex-col gap-2 mt-2 pl-2" style={{ borderLeft: "2px solid rgba(14,88,168,0.15)" }}>
       {questions.map((q, qi) => (
         <div key={q.id} className="text-xs">
-          <p className="font-medium" style={T}>{qi + 1}. {q.questionText} <span style={L}>({q.points} ball)</span></p>
+          <p className="font-medium" style={T}>{qi + 1}. {q.questionText} <span style={L}>{t("adminOqituvchilar.pointsLabel", { points: q.points })}</span></p>
           <div className="flex flex-col gap-0.5 mt-1 ml-3">
             {q.options.map((opt, oi) => {
               const isCorrect = q.correctIndexes?.includes(oi) ?? oi === q.correctIndex
@@ -101,6 +104,7 @@ function ExamQuestionsPreview({ contentId }: { contentId: number }) {
 }
 
 function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: string; topicKey: string }) {
+  const { t } = useLanguage()
   const [items, setItems] = useState<AdminTeacherTopicContent[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandedTest, setExpandedTest] = useState<number | null>(null)
@@ -116,7 +120,7 @@ function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: stri
   }, [teacherHemisId, topicKey])
 
   if (loading) return <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
-  if (!items || items.length === 0) return <p className="text-xs py-3 px-4" style={L}>Material topilmadi</p>
+  if (!items || items.length === 0) return <p className="text-xs py-3 px-4" style={L}>{t("adminOqituvchilar.noMaterial")}</p>
 
   return (
     <div className="px-4 pb-3 flex flex-col gap-2">
@@ -128,10 +132,10 @@ function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: stri
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-xs font-semibold shrink-0 px-1.5 py-0.5 rounded" style={{ backgroundColor: "#eef4ff", color: "#0e58a8" }}>
-                  {isTest ? "Test" : it.type === "assignment" ? "Topshiriq" : CONTENT_KIND_LABEL[it.kind ?? ""] ?? it.kind}
+                  {isTest ? t("adminOqituvchilar.itemTypeTest") : it.type === "assignment" ? t("adminOqituvchilar.itemTypeAssignment") : (CONTENT_KIND_LABEL_KEY[it.kind ?? ""] ? t(CONTENT_KIND_LABEL_KEY[it.kind ?? ""]) : it.kind)}
                 </span>
                 <span className="text-sm truncate" style={T}>
-                  {it.fileName ?? (it.meetingLink ? it.meetingLink : isTest ? `Maks. ball: ${it.maxScore ?? "—"}` : it.title)}
+                  {it.fileName ?? (it.meetingLink ? it.meetingLink : isTest ? t("adminOqituvchilar.maxScoreLabel", { value: it.maxScore ?? "—" }) : it.title)}
                 </span>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -139,7 +143,7 @@ function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: stri
                   <button onClick={() => setExpandedTest(testOpen ? null : it.id)}
                     className="text-xs font-medium px-2 py-1 rounded hover:bg-[#f6f9ff] transition-colors"
                     style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                    {testOpen ? "Yopish" : "Savollarni ko'rish"}
+                    {testOpen ? t("adminOqituvchilar.closeBtn") : t("adminOqituvchilar.viewQuestionsBtn")}
                   </button>
                 )}
                 {it.fileName && (
@@ -167,11 +171,12 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
   state: RowState
   onChange: (patch: Partial<RowState>) => void
 }) {
+  const { t } = useLanguage()
   const { topics, topicSearch } = state
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null)
 
   const filtered = useMemo(() =>
-    topics.filter(t => !topicSearch.trim() || t.title.toLowerCase().includes(topicSearch.toLowerCase())),
+    topics.filter(tp => !topicSearch.trim() || tp.title.toLowerCase().includes(topicSearch.toLowerCase())),
     [topics, topicSearch]
   )
 
@@ -182,7 +187,7 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
     return (
       <div className="py-7 text-center">
         <BookOpen className="w-6 h-6 mx-auto mb-2" style={{ color: "#d8e6f7" }} />
-        <p className="text-sm" style={L}>Bu o'qituvchining kontentli mavzulari yo'q</p>
+        <p className="text-sm" style={L}>{t("adminOqituvchilar.noTopicsForTeacher")}</p>
       </div>
     )
 
@@ -193,10 +198,10 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
         <div className="relative max-w-[280px] w-full">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#7293b9" }} />
           <input value={topicSearch} onChange={e => onChange({ topicSearch: e.target.value })}
-            placeholder="Mavzu izlash..." className="w-full pl-8 pr-3 py-1.5 text-xs rounded-[6px] outline-none"
+            placeholder={t("adminOqituvchilar.topicSearchPlaceholder")} className="w-full pl-8 pr-3 py-1.5 text-xs rounded-[6px] outline-none"
             style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }} />
         </div>
-        <span className="text-xs ml-auto" style={L}>{filtered.length} mavzu · materialni ko'rish uchun bosing</span>
+        <span className="text-xs ml-auto" style={L}>{t("adminOqituvchilar.topicsCountHint", { n: filtered.length })}</span>
       </div>
 
       {/* Topics table */}
@@ -204,7 +209,7 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
         <table className="w-full min-w-[800px]">
           <thead>
             <tr style={{ backgroundColor: "#f0f7ff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              {["#", "MAVZU", "FAN", "GURUH", "MATERIALLAR"].map(h => (
+              {[t("adminOqituvchilar.colIndex"), t("adminOqituvchilar.colTopic"), t("adminOqituvchilar.colSubject"), t("adminOqituvchilar.colGroup"), t("adminOqituvchilar.colMaterials")].map(h => (
                 <th key={h} className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-left"
                   style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
               ))}
@@ -232,13 +237,13 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
                     <td className="px-4 py-3 text-sm" style={L}>{tp.groupName ?? (tp.groupId ? `#${tp.groupId}` : "—")}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        <ContentBadge active={tp.hasVideo} icon={Video} label="Video" color="#ea580c" />
-                        <ContentBadge active={tp.hasAudio} icon={Music} label="Audio" color="#15803d" />
-                        <ContentBadge active={tp.hasTheory} icon={FileText} label="Taqdimot" color="#7c3aed" />
-                        <ContentBadge active={tp.hasQollanma} icon={Layers} label="Qo'llanma" color="#0891b2" />
-                        <ContentBadge active={tp.hasYoutube} icon={Clapperboard} label="YouTube" color="#dc2626" />
-                        <ContentBadge active={tp.hasTest} icon={CheckCircle2} label="Test" color="#b91c1c" />
-                        <ContentBadge active={tp.hasAssignment} icon={ClipboardList} label="Topshiriq" color="#d97706" />
+                        <ContentBadge active={tp.hasVideo} icon={Video} label={t("adminOqituvchilar.contentKindVideo")} color="#ea580c" />
+                        <ContentBadge active={tp.hasAudio} icon={Music} label={t("adminOqituvchilar.contentKindAudio")} color="#15803d" />
+                        <ContentBadge active={tp.hasTheory} icon={FileText} label={t("adminOqituvchilar.contentKindTheory")} color="#7c3aed" />
+                        <ContentBadge active={tp.hasQollanma} icon={Layers} label={t("adminOqituvchilar.contentKindQollanma")} color="#0891b2" />
+                        <ContentBadge active={tp.hasYoutube} icon={Clapperboard} label={t("adminOqituvchilar.contentKindYoutube")} color="#dc2626" />
+                        <ContentBadge active={tp.hasTest} icon={CheckCircle2} label={t("adminOqituvchilar.itemTypeTest")} color="#b91c1c" />
+                        <ContentBadge active={tp.hasAssignment} icon={ClipboardList} label={t("adminOqituvchilar.itemTypeAssignment")} color="#d97706" />
                       </div>
                     </td>
                   </tr>
@@ -260,6 +265,7 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
 }
 
 export default function AdminOqituvchilar() {
+  const { t } = useLanguage()
   const [stats, setStats] = useState<AdminTeacherStat[]>([])
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Record<string, RowState>>({})
@@ -301,23 +307,28 @@ export default function AdminOqituvchilar() {
     }
   }
 
-  const reportColumns = ["#", "O'qituvchi", "Mavzular", "Videolar", "Audiolar", "Testlar", "Guruhlar", "Meetinglar", "Talabalar", "So'nggi faollik"]
+  const reportColumns = [
+    t("adminOqituvchilar.colIndex"), t("adminOqituvchilar.reportColTeacher"), t("adminOqituvchilar.reportColTopics"),
+    t("adminOqituvchilar.reportColVideos"), t("adminOqituvchilar.reportColAudios"), t("adminOqituvchilar.reportColTests"),
+    t("adminOqituvchilar.reportColGroups"), t("adminOqituvchilar.reportColMeetings"), t("adminOqituvchilar.reportColStudents"),
+    t("adminOqituvchilar.reportColLastActivity"),
+  ]
   const reportRows = (): (string | number)[][] =>
     filtered.map((s, i) => [i + 1, s.fullName, s.mavzular, s.videolar, s.audiolar, s.testlar, s.guruhlar, s.meetingCount, s.studentsCompleted, fmtDate(s.lastSeen)])
 
   function doExportExcel() {
     exportToExcel("oqituvchi-hisoboti", [{
-      name: "O'qituvchilar",
+      name: t("adminOqituvchilar.exportSheetName"),
       rows: filtered.map((s, i) => ({
-        "#": i + 1, "O'qituvchi": s.fullName, Mavzular: s.mavzular, Videolar: s.videolar, Audiolar: s.audiolar,
-        Testlar: s.testlar, Guruhlar: s.guruhlar, Meetinglar: s.meetingCount, Talabalar: s.studentsCompleted,
-        "So'nggi faollik": fmtDate(s.lastSeen),
+        [t("adminOqituvchilar.colIndex")]: i + 1, [t("adminOqituvchilar.reportColTeacher")]: s.fullName, [t("adminOqituvchilar.reportColTopics")]: s.mavzular, [t("adminOqituvchilar.reportColVideos")]: s.videolar, [t("adminOqituvchilar.reportColAudios")]: s.audiolar,
+        [t("adminOqituvchilar.reportColTests")]: s.testlar, [t("adminOqituvchilar.reportColGroups")]: s.guruhlar, [t("adminOqituvchilar.reportColMeetings")]: s.meetingCount, [t("adminOqituvchilar.reportColStudents")]: s.studentsCompleted,
+        [t("adminOqituvchilar.reportColLastActivity")]: fmtDate(s.lastSeen),
       })),
     }])
   }
 
   function doExportPdf() {
-    exportToPdf("oqituvchi-hisoboti", "O'qituvchi hisoboti", reportColumns, reportRows(), "Kontent va talabalar o'zlashtirishi")
+    exportToPdf("oqituvchi-hisoboti", t("adminOqituvchilar.exportPdfTitle"), reportColumns, reportRows(), t("adminOqituvchilar.exportPdfSubtitle"))
   }
 
   const [sendingTelegram, setSendingTelegram] = useState(false)
@@ -327,11 +338,11 @@ export default function AdminOqituvchilar() {
     setSendingTelegram(true)
     setTelegramMsg(null)
     try {
-      const pdfBase64 = buildPdfBase64("O'qituvchi hisoboti", reportColumns, reportRows(), "Kontent va talabalar o'zlashtirishi")
-      const res = await adminApi.sendReportTelegram({ filename: "oqituvchi-hisoboti.pdf", caption: "O'qituvchi hisoboti", pdfBase64 })
-      setTelegramMsg({ ok: true, text: res.message || "Yuborildi" })
+      const pdfBase64 = buildPdfBase64(t("adminOqituvchilar.exportPdfTitle"), reportColumns, reportRows(), t("adminOqituvchilar.exportPdfSubtitle"))
+      const res = await adminApi.sendReportTelegram({ filename: "oqituvchi-hisoboti.pdf", caption: t("adminOqituvchilar.exportPdfTitle"), pdfBase64 })
+      setTelegramMsg({ ok: true, text: res.message || t("adminOqituvchilar.telegramSent") })
     } catch (e) {
-      setTelegramMsg({ ok: false, text: e instanceof Error ? e.message : "Xatolik" })
+      setTelegramMsg({ ok: false, text: e instanceof Error ? e.message : t("adminOqituvchilar.telegramError") })
     } finally {
       setSendingTelegram(false)
     }
@@ -342,8 +353,8 @@ export default function AdminOqituvchilar() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-semibold" style={T}>O'qituvchi hisoboti</h1>
-          <p className="text-sm mt-1" style={L}>Har bir o'qituvchi bo'yicha kontent va talabalar o'zlashtirishining to'liq hisoboti</p>
+          <h1 className="text-[28px] font-semibold" style={T}>{t("adminOqituvchilar.exportPdfTitle")}</h1>
+          <p className="text-sm mt-1" style={L}>{t("adminOqituvchilar.pageSubtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={doExportExcel} disabled={!filtered.length}
@@ -364,7 +375,7 @@ export default function AdminOqituvchilar() {
           <button onClick={load}
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px] hover:bg-blue-100 transition-colors"
             style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            <RefreshCw className="w-3.5 h-3.5" /> Yangilash
+            <RefreshCw className="w-3.5 h-3.5" /> {t("adminOqituvchilar.refreshBtn")}
           </button>
         </div>
       </div>
@@ -381,14 +392,14 @@ export default function AdminOqituvchilar() {
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 1px 4px rgba(1,41,112,0.05)" }}>
         <Search className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
         <input value={search} onChange={e => { setSearch(e.target.value); setPage(0) }}
-          placeholder="O'qituvchi ismi bo'yicha izlash..." className="flex-1 text-sm outline-none bg-transparent"
+          placeholder={t("adminOqituvchilar.searchPlaceholder")} className="flex-1 text-sm outline-none bg-transparent"
           style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
         {search && (
           <button onClick={() => { setSearch(""); setPage(0) }}
             className="text-xs px-2 py-0.5 rounded-full hover:bg-slate-200 transition-colors"
             style={{ backgroundColor: "#f1f5f9", color: "#7293b9" }}>×</button>
         )}
-        <span className="text-xs shrink-0" style={L}>{filtered.length} ta o'qituvchi</span>
+        <span className="text-xs shrink-0" style={L}>{t("adminOqituvchilar.teacherCountLabel", { n: filtered.length })}</span>
       </div>
 
       {/* Content */}
@@ -399,7 +410,7 @@ export default function AdminOqituvchilar() {
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-[12px] p-12 text-center" style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
           <TrendingUp className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm" style={L}>{search ? `"${search}" bo'yicha hech narsa topilmadi` : "Hali o'qituvchi ma'lumotlari yo'q"}</p>
+          <p className="text-sm" style={L}>{search ? t("adminOqituvchilar.noSearchResults", { search }) : t("adminOqituvchilar.noTeacherData")}</p>
         </div>
       ) : (
         <>
@@ -410,16 +421,16 @@ export default function AdminOqituvchilar() {
               <table className="w-full min-w-[960px]">
                 <thead>
                   <tr style={{ backgroundColor: "#f6faff", borderBottom: "2px solid rgba(1,41,112,0.08)" }}>
-                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider w-12" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>#</th>
-                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>O'QITUVCHI</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>MAVZULAR</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>VIDEOLAR</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>AUDIOLAR</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>TESTLAR</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>GURUHLAR</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>MEETINGLAR</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>TALABALAR</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>SO'NGGI FAOLLIK</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider w-12" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.colIndex")}</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColTeacher")}</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColTopics")}</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColVideos")}</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColAudios")}</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColTests")}</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColGroups")}</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColMeetings")}</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColStudents")}</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColLastActivity")}</th>
                     <th className="w-10" />
                   </tr>
                 </thead>
@@ -451,7 +462,7 @@ export default function AdminOqituvchilar() {
                               </div>
                               <div>
                                 <div className="text-sm font-semibold" style={T}>{s.fullName}</div>
-                                <div className="text-[11px] mt-0.5" style={L}>ID: {s.hemisId}</div>
+                                <div className="text-[11px] mt-0.5" style={L}>{t("adminOqituvchilar.idLabel", { id: s.hemisId })}</div>
                               </div>
                             </div>
                           </td>
@@ -547,13 +558,13 @@ export default function AdminOqituvchilar() {
             <div className="bg-white rounded-[10px] px-5 py-3 flex items-center justify-between"
               style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
               <span className="text-xs" style={L}>
-                {curPage * PAGE_SIZE + 1}–{Math.min((curPage + 1) * PAGE_SIZE, filtered.length)} / {filtered.length} ta o'qituvchi
+                {t("adminOqituvchilar.paginationRange", { start: curPage * PAGE_SIZE + 1, end: Math.min((curPage + 1) * PAGE_SIZE, filtered.length), total: filtered.length })}
               </span>
               <div className="flex items-center gap-1.5">
                 <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={curPage === 0}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] text-xs font-medium disabled:opacity-30 hover:bg-blue-50 transition-colors"
                   style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  <ChevronLeft className="w-3.5 h-3.5" /> Oldingi
+                  <ChevronLeft className="w-3.5 h-3.5" /> {t("adminOqituvchilar.prevBtn")}
                 </button>
 
                 {pageNums(curPage, pageCount).map((n, idx) =>
@@ -574,7 +585,7 @@ export default function AdminOqituvchilar() {
                 <button onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))} disabled={curPage >= pageCount - 1}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] text-xs font-medium disabled:opacity-30 hover:bg-blue-50 transition-colors"
                   style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  Keyingi <ChevronRight className="w-3.5 h-3.5" />
+                  {t("adminOqituvchilar.nextBtn")} <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

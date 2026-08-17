@@ -5,6 +5,7 @@ import { BarChart3, Search, Users, BookOpen, Loader2, ChevronDown, Upload, Check
 import { adminApi, teachingApi, type AdminTeacherStat, type JournalData } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -43,6 +44,7 @@ function ScoreCell({ score, max }: { score: number | null; max: number }) {
 function NotifyModal({ name, userId, subject, jn, on1, on2, yn, att, onClose }: {
   name: string; userId: number; subject: string; jn: number | null; on1: number | null; on2: number | null; yn: number | null; att: number | null; onClose: () => void
 }) {
+  const { t } = useLanguage()
   const [msg, setMsg] = useState("")
   const [sending, setSending] = useState(false)
   const [res, setRes] = useState<{ ok: boolean; text: string } | null>(null)
@@ -52,8 +54,8 @@ function NotifyModal({ name, userId, subject, jn, on1, on2, yn, att, onClose }: 
     setSending(true); setRes(null)
     try {
       const r = await teachingApi.notifyStudent({ studentName: name, studentUserId: userId, message: msg.trim(), stats: { subject, jn, on1, on2, yn, attendance: att } })
-      setRes({ ok: true, text: r.message || "Yuborildi" })
-    } catch (e) { setRes({ ok: false, text: e instanceof Error ? e.message : "Xatolik" }) }
+      setRes({ ok: true, text: r.message || t("adminHisobot.notifySent") })
+    } catch (e) { setRes({ ok: false, text: e instanceof Error ? e.message : t("adminHisobot.errorGeneric") }) }
     finally { setSending(false) }
   }
 
@@ -64,7 +66,7 @@ function NotifyModal({ name, userId, subject, jn, on1, on2, yn, att, onClose }: 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4" style={{ color: "#0e58a8" }} />
-            <span className="text-sm font-semibold" style={T}>Talabaga xabar</span>
+            <span className="text-sm font-semibold" style={T}>{t("adminHisobot.notifyModalTitle")}</span>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 transition-colors"><X className="w-4 h-4" style={{ color: "#94a3b8" }} /></button>
         </div>
@@ -72,14 +74,14 @@ function NotifyModal({ name, userId, subject, jn, on1, on2, yn, att, onClose }: 
           <div className="text-xs font-semibold" style={T}>{name}</div>
           <div className="text-xs flex flex-wrap gap-2 mt-1">
             {subject && <span style={L}>{subject}</span>}
-            {jn != null && <span style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>JN: {jn}%</span>}
-            {on1 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON1: {on1}</span>}
-            {on2 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON2: {on2}</span>}
-            {yn  != null && <span style={{ color: "#0891b2", fontFamily: "var(--font-poppins)" }}>YN: {yn}</span>}
-            {att != null && <span style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>Davomat: {att}%</span>}
+            {jn != null && <span style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{t("adminHisobot.notifyJn", { value: jn })}</span>}
+            {on1 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>{t("adminHisobot.notifyOn1", { value: on1 })}</span>}
+            {on2 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>{t("adminHisobot.notifyOn2", { value: on2 })}</span>}
+            {yn  != null && <span style={{ color: "#0891b2", fontFamily: "var(--font-poppins)" }}>{t("adminHisobot.notifyYn", { value: yn })}</span>}
+            {att != null && <span style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{t("adminHisobot.notifyAttendance", { value: att })}</span>}
           </div>
         </div>
-        <textarea rows={4} value={msg} onChange={e => setMsg(e.target.value)} placeholder="Xabar matni..."
+        <textarea rows={4} value={msg} onChange={e => setMsg(e.target.value)} placeholder={t("adminHisobot.notifyMessagePlaceholder")}
           className="w-full rounded-[8px] p-3 text-sm resize-none outline-none"
           style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
         {res && <div className="text-xs px-3 py-2 rounded-[6px]"
@@ -88,7 +90,7 @@ function NotifyModal({ name, userId, subject, jn, on1, on2, yn, att, onClose }: 
           className="flex items-center justify-center gap-2 py-2.5 rounded-[8px] text-sm font-semibold text-white disabled:opacity-50"
           style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           {sending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
-          {sending ? "Yuborilmoqda..." : "Yuborish (platforma + Telegram)"}
+          {sending ? t("adminHisobot.notifySending") : t("adminHisobot.notifySendBtn")}
         </button>
       </div>
     </div>
@@ -96,6 +98,7 @@ function NotifyModal({ name, userId, subject, jn, on1, on2, yn, att, onClose }: 
 }
 
 function JournalTable({ journal, subject }: { journal: JournalData; subject: string }) {
+  const { t } = useLanguage()
   const { topics, students } = journal
   const totalStudents = students.length
   const [notify, setNotify] = useState<typeof students[0] | null>(null)
@@ -108,10 +111,10 @@ function JournalTable({ journal, subject }: { journal: JournalData; subject: str
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "Jami talabalar", value: totalStudents, icon: Users, color: "#0e58a8" },
-          { label: "O'rtacha JN", value: avgJn !== null ? `${avgJn}%` : "—", icon: BarChart3, color: "#7c3aed" },
-          { label: "Mavzular soni", value: topics.length, icon: BookOpen, color: "#0891b2" },
-          { label: "O'tgan", value: `${completed}/${totalStudents}`, icon: BarChart3, color: "#15803d" },
+          { label: t("adminHisobot.statTotalStudents"), value: totalStudents, icon: Users, color: "#0e58a8" },
+          { label: t("adminHisobot.statAvgJn"), value: avgJn !== null ? `${avgJn}%` : "—", icon: BarChart3, color: "#7c3aed" },
+          { label: t("adminHisobot.statTopicsCount"), value: topics.length, icon: BookOpen, color: "#0891b2" },
+          { label: t("adminHisobot.statCompleted"), value: `${completed}/${totalStudents}`, icon: BarChart3, color: "#15803d" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-[10px] p-4"
             style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
@@ -126,35 +129,35 @@ function JournalTable({ journal, subject }: { journal: JournalData; subject: str
 
       {students.length === 0 ? (
         <div className="bg-white rounded-[10px] p-8 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <p className="text-sm" style={L}>Talabalar ma'lumotlari topilmadi</p>
+          <p className="text-sm" style={L}>{t("adminHisobot.noStudentData")}</p>
         </div>
       ) : (
         <div className="bg-white rounded-[10px] overflow-x-auto"
           style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
           <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
             <span className="text-sm font-semibold" style={T}>
-              Talabalar ballari jurnali
+              {t("adminHisobot.journalTableTitle")}
             </span>
           </div>
           <table className="w-full text-xs">
             <thead>
               <tr style={{ backgroundColor: "#f8fbff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-[#f8fbff] z-10" style={T}>#</th>
-                <th className="text-left px-3 py-2 font-semibold sticky left-6 bg-[#f8fbff] z-10 min-w-[180px]" style={T}>TALABA</th>
+                <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-[#f8fbff] z-10" style={T}>{t("adminHisobot.colIndex")}</th>
+                <th className="text-left px-3 py-2 font-semibold sticky left-6 bg-[#f8fbff] z-10 min-w-[180px]" style={T}>{t("adminHisobot.colStudent")}</th>
                 <th colSpan={topics.length} className="text-center px-2 py-2 font-semibold border-l border-[rgba(1,41,112,0.08)]"
                   style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  MAVZULAR BO'YICHA BALL
+                  {t("adminHisobot.colTopicsScore")}
                 </th>
                 <th className="text-center px-3 py-2 font-semibold border-l border-[rgba(1,41,112,0.08)] bg-[#eef4ff]"
-                  style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>JN %</th>
+                  style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{t("adminHisobot.colJnPct")}</th>
               </tr>
               <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
                 <th className="sticky left-0 bg-white z-10" />
                 <th className="sticky left-6 bg-white z-10" />
-                {topics.map(t => (
-                  <th key={t.key} className="text-center px-1 py-1.5 border-r border-[rgba(1,41,112,0.06)] font-semibold" style={L}>
-                    {t.idx}-mavzu<br />
-                    <span style={{ color: "#94a3b8" }}>/{t.maxScore}</span>
+                {topics.map(tp => (
+                  <th key={tp.key} className="text-center px-1 py-1.5 border-r border-[rgba(1,41,112,0.06)] font-semibold" style={L}>
+                    {t("adminHisobot.topicHeader", { idx: tp.idx })}<br />
+                    <span style={{ color: "#94a3b8" }}>/{tp.maxScore}</span>
                   </th>
                 ))}
                 <th className="border-l border-[rgba(1,41,112,0.08)] bg-[#eef4ff]" />
@@ -171,8 +174,8 @@ function JournalTable({ journal, subject }: { journal: JournalData; subject: str
                       <div className="font-semibold" style={T}>{s.fullName}</div>
                       {s.studentIdNumber && <div style={L}>{s.studentIdNumber}</div>}
                     </td>
-                    {topics.map(t => (
-                      <ScoreCell key={t.key} score={s.topicScores[t.key] ?? null} max={t.maxScore} />
+                    {topics.map(tp => (
+                      <ScoreCell key={tp.key} score={s.topicScores[tp.key] ?? null} max={tp.maxScore} />
                     ))}
                     <td className="text-center px-3 py-2 border-l border-[rgba(1,41,112,0.08)] bg-[#f8fbff]">
                       {s.jn !== null ? (
@@ -185,7 +188,7 @@ function JournalTable({ journal, subject }: { journal: JournalData; subject: str
                     <td className="text-center px-2 py-2" style={{ backgroundColor: "#fff7ed" }}>
                       <button onClick={() => setNotify(s)}
                         className="w-7 h-7 rounded-full flex items-center justify-center mx-auto hover:bg-orange-100 transition-colors"
-                        title="Xabar yuborish">
+                        title={t("adminHisobot.notifyTooltip")}>
                         <Bell className="w-3.5 h-3.5" style={{ color: "#ea580c" }} />
                       </button>
                     </td>
@@ -206,6 +209,7 @@ function JournalTable({ journal, subject }: { journal: JournalData; subject: str
 }
 
 export default function AdminHisobot() {
+  const { t } = useLanguage()
   const [selectedTeacher, setSelectedTeacher] = useState<AdminTeacherStat | null>(null)
   const [groupId, setGroupId] = useState("")
   const [subject, setSubject] = useState("")
@@ -249,7 +253,7 @@ export default function AdminHisobot() {
       })
       setJournal(res.data)
     } catch (e: unknown) {
-      setErr2(e instanceof Error ? e.message : "Xatolik yuz berdi")
+      setErr2(e instanceof Error ? e.message : t("adminHisobot.errorOccurred"))
     } finally {
       setLoading2(false)
     }
@@ -260,9 +264,9 @@ export default function AdminHisobot() {
     setSyncMsg("")
     try {
       const res = await adminApi.hemisSync()
-      setSyncMsg(res.message || "Muvaffaqiyatli")
+      setSyncMsg(res.message || t("adminHisobot.hemisSyncSuccess"))
     } catch (e: unknown) {
-      setSyncMsg(e instanceof Error ? e.message : "Xatolik")
+      setSyncMsg(e instanceof Error ? e.message : t("adminHisobot.errorGeneric"))
     } finally {
       setSyncing(false)
     }
@@ -275,8 +279,8 @@ export default function AdminHisobot() {
     <div className="flex flex-col gap-6 p-[30px]">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] font-medium" style={T}>Natijalar jurnali</h1>
-          <p className="text-sm mt-1" style={L}>O'qituvchi, guruh va fan bo'yicha talabalar natijalarini ko'rish</p>
+          <h1 className="text-[28px] font-medium" style={T}>{t("adminHisobot.pageTitle")}</h1>
+          <p className="text-sm mt-1" style={L}>{t("adminHisobot.pageSubtitle")}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {syncMsg && (
@@ -289,7 +293,7 @@ export default function AdminHisobot() {
             className="flex items-center gap-2 px-4 py-2.5 rounded-[6px] text-sm font-semibold text-white transition-colors disabled:opacity-60"
             style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            HEMIS ga yuklash
+            {t("adminHisobot.hemisSyncBtn")}
           </button>
         </div>
       </div>
@@ -300,20 +304,20 @@ export default function AdminHisobot() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Teacher selector */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold" style={L}>O'qituvchi</label>
+            <label className="text-xs font-semibold" style={L}>{t("adminHisobot.teacherLabel")}</label>
             <div className="relative">
               <select
                 className="w-full px-3 py-2.5 rounded-[6px] appearance-none text-sm pr-8"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                 value={selectedTeacher?.hemisId ?? ""}
                 onChange={e => {
-                  const t = teachers.find(t => t.hemisId === e.target.value) ?? null
-                  setSelectedTeacher(t)
+                  const teacher = teachers.find(tt => tt.hemisId === e.target.value) ?? null
+                  setSelectedTeacher(teacher)
                   setJournal(null)
                 }}>
-                <option value="">— Tanlang —</option>
-                {teachers.map(t => (
-                  <option key={t.hemisId} value={t.hemisId}>{t.fullName}</option>
+                <option value="">{t("adminHisobot.selectPlaceholder")}</option>
+                {teachers.map(tt => (
+                  <option key={tt.hemisId} value={tt.hemisId}>{tt.fullName}</option>
                 ))}
               </select>
               <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={L} />
@@ -322,12 +326,12 @@ export default function AdminHisobot() {
 
           {/* Group select */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold" style={L}>Guruh</label>
+            <label className="text-xs font-semibold" style={L}>{t("adminHisobot.groupLabel")}</label>
             <div className="relative">
               {infoLoading ? (
                 <div className="px-3 py-2.5 rounded-[6px] text-sm flex items-center gap-2"
                   style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Yuklanmoqda...
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("adminHisobot.loadingLabel")}
                 </div>
               ) : teacherGroups.length > 0 ? (
                 <>
@@ -336,7 +340,7 @@ export default function AdminHisobot() {
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                     value={groupId}
                     onChange={e => { setGroupId(e.target.value); setJournal(null) }}>
-                    <option value="">— Guruh tanlang —</option>
+                    <option value="">{t("adminHisobot.selectGroupPlaceholder")}</option>
                     {teacherGroups.map(g => (
                       <option key={g.id} value={String(g.id)}>{g.name} (#{g.id})</option>
                     ))}
@@ -346,7 +350,7 @@ export default function AdminHisobot() {
               ) : (
                 <input
                   type="number"
-                  placeholder="Guruh ID kiriting"
+                  placeholder={t("adminHisobot.groupIdPlaceholder")}
                   className="w-full px-3 py-2.5 rounded-[6px] text-sm"
                   style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                   value={groupId}
@@ -358,7 +362,7 @@ export default function AdminHisobot() {
 
           {/* Subject select */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold" style={L}>Fan nomi</label>
+            <label className="text-xs font-semibold" style={L}>{t("adminHisobot.subjectLabel")}</label>
             <div className="relative">
               {teacherSubjects.length > 0 ? (
                 <>
@@ -367,7 +371,7 @@ export default function AdminHisobot() {
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                     value={subject}
                     onChange={e => { setSubject(e.target.value); setJournal(null) }}>
-                    <option value="">— Fan tanlang —</option>
+                    <option value="">{t("adminHisobot.selectSubjectPlaceholder")}</option>
                     {teacherSubjects.map(s => (
                       <option key={s} value={s}>{s}</option>
                     ))}
@@ -377,7 +381,7 @@ export default function AdminHisobot() {
               ) : (
                 <input
                   type="text"
-                  placeholder="Fan nomini kiriting"
+                  placeholder={t("adminHisobot.subjectNamePlaceholder")}
                   className="w-full px-3 py-2.5 rounded-[6px] text-sm"
                   style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                   value={subject}
@@ -396,7 +400,7 @@ export default function AdminHisobot() {
             className="px-5 py-2.5 rounded-[6px] text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             {loading2 ? <Loader2 className="w-4 h-4 animate-spin inline mr-1.5" /> : <Search className="w-4 h-4 inline mr-1.5" />}
-            Ko'rish
+            {t("adminHisobot.viewBtn")}
           </button>
           {err2 && <span className="text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{err2}</span>}
         </div>
@@ -408,7 +412,7 @@ export default function AdminHisobot() {
       {!journal && !loading2 && (
         <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <BarChart3 className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm" style={L}>O'qituvchi, guruh va fan tanlang, so'ng "Ko'rish" tugmasini bosing</p>
+          <p className="text-sm" style={L}>{t("adminHisobot.emptyStateHint")}</p>
         </div>
       )}
     </div>

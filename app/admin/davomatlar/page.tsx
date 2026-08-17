@@ -12,6 +12,7 @@ import {
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -22,25 +23,28 @@ function pctColor(pct: number) {
   return "#b91c1c"
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  present: "Keldi", absent: "Kelmadi", excused: "Uzrli", late: "Kechikdi",
+const STATUS_LABEL_KEY: Record<string, string> = {
+  present: "adminDavomatlar.statusPresent", absent: "adminDavomatlar.statusAbsent",
+  excused: "adminDavomatlar.statusExcused", late: "adminDavomatlar.statusLate",
 }
 const STATUS_COLOR: Record<string, string> = {
   present: "#15803d", absent: "#b91c1c", excused: "#7293b9", late: "#d97706",
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useLanguage()
   return (
     <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
       style={{ backgroundColor: `${STATUS_COLOR[status] ?? "#7293b9"}1a`, color: STATUS_COLOR[status] ?? "#7293b9" }}>
       {status === "present" ? <CheckCircle2 className="w-3 h-3" /> : status === "absent" ? <XCircle className="w-3 h-3" /> : null}
-      {STATUS_LABEL[status] ?? status}
+      {STATUS_LABEL_KEY[status] ? t(STATUS_LABEL_KEY[status]) : status}
     </span>
   )
 }
 
 /* ── Bitta sananing ichidagi talabalar ro'yxati (ism-familiya + holat) ─── */
 function DateDetailRows({ groupId, subject, date }: { groupId: number; subject: string; date: string }) {
+  const { t } = useLanguage()
   const [rows, setRows] = useState<AdminAttendanceDetailRow[] | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -55,16 +59,16 @@ function DateDetailRows({ groupId, subject, date }: { groupId: number; subject: 
   }, [groupId, subject, date])
 
   if (loading) return <div className="flex items-center justify-center py-5"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
-  if (!rows || rows.length === 0) return <p className="text-xs py-4 px-4" style={L}>Bu sana uchun talaba ma&apos;lumotlari topilmadi</p>
+  if (!rows || rows.length === 0) return <p className="text-xs py-4 px-4" style={L}>{t("adminDavomatlar.noStudentDataForDate")}</p>
 
   return (
     <div className="px-4 pb-3">
       <table className="w-full text-sm">
         <thead>
           <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-            <th className="text-left py-1.5 font-semibold text-xs" style={L}>#</th>
-            <th className="text-left py-1.5 font-semibold text-xs" style={L}>Ism familiya</th>
-            <th className="text-center py-1.5 font-semibold text-xs" style={L}>Holat</th>
+            <th className="text-left py-1.5 font-semibold text-xs" style={L}>{t("adminDavomatlar.colIndex")}</th>
+            <th className="text-left py-1.5 font-semibold text-xs" style={L}>{t("adminDavomatlar.colFullName")}</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={L}>{t("adminDavomatlar.colStatus")}</th>
           </tr>
         </thead>
         <tbody>
@@ -83,6 +87,7 @@ function DateDetailRows({ groupId, subject, date }: { groupId: number; subject: 
 
 /* ── Talaba bo'yicha ro'yxat: har birining umumiy foizi, bosilsa sana-sana tarixi ─── */
 function StudentAttendanceView({ groupId, subject }: { groupId: number; subject: string }) {
+  const { t } = useLanguage()
   const [rows, setRows] = useState<AdminAttendanceStudentRow[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandedStudent, setExpandedStudent] = useState<number | null>(null)
@@ -112,19 +117,19 @@ function StudentAttendanceView({ groupId, subject }: { groupId: number; subject:
   }
 
   if (loading) return <div className="flex items-center justify-center py-5"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
-  if (!rows || rows.length === 0) return <p className="text-xs py-4 px-4" style={L}>Bu guruh/fan uchun talaba ma&apos;lumotlari topilmadi</p>
+  if (!rows || rows.length === 0) return <p className="text-xs py-4 px-4" style={L}>{t("adminDavomatlar.noStudentDataForGroup")}</p>
 
   return (
     <div className="px-4 pb-3 flex flex-col gap-2">
       <table className="w-full text-sm">
         <thead>
           <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-            <th className="text-left py-1.5 font-semibold text-xs" style={L}>#</th>
-            <th className="text-left py-1.5 font-semibold text-xs" style={L}>Ism familiya</th>
-            <th className="text-center py-1.5 font-semibold text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>Keldi</th>
-            <th className="text-center py-1.5 font-semibold text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>Kelmadi</th>
-            <th className="text-center py-1.5 font-semibold text-xs" style={L}>Jami</th>
-            <th className="text-center py-1.5 font-semibold text-xs" style={T}>Foiz</th>
+            <th className="text-left py-1.5 font-semibold text-xs" style={L}>{t("adminDavomatlar.colIndex")}</th>
+            <th className="text-left py-1.5 font-semibold text-xs" style={L}>{t("adminDavomatlar.colFullName")}</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{t("adminDavomatlar.colPresent")}</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{t("adminDavomatlar.colAbsent")}</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={L}>{t("adminDavomatlar.colTotal")}</th>
+            <th className="text-center py-1.5 font-semibold text-xs" style={T}>{t("adminDavomatlar.colPercent")}</th>
           </tr>
         </thead>
         <tbody>
@@ -155,7 +160,7 @@ function StudentAttendanceView({ groupId, subject }: { groupId: number; subject:
                       {detailLoading === s.studentId ? (
                         <div className="flex items-center justify-center py-3"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
                       ) : (detail[s.studentId]?.length ?? 0) === 0 ? (
-                        <p className="text-xs py-2 px-2" style={L}>Sana bo&apos;yicha ma&apos;lumot topilmadi</p>
+                        <p className="text-xs py-2 px-2" style={L}>{t("adminDavomatlar.noDateData")}</p>
                       ) : (
                         <table className="w-full text-xs mt-1">
                           <tbody>
@@ -184,6 +189,7 @@ function StudentAttendanceView({ groupId, subject }: { groupId: number; subject:
 type AttGroup = { key: string; groupId: number; groupName: string; subjectName: string; rows: AdminAttendanceRow[] }
 
 function GroupAttendanceCard({ g, isOpen, onToggle }: { g: AttGroup; isOpen: boolean; onToggle: () => void }) {
+  const { t } = useLanguage()
   const [viewMode, setViewMode] = useState<"sana" | "talaba">("sana")
   const [expandedDate, setExpandedDate] = useState<string | null>(null)
 
@@ -206,15 +212,15 @@ function GroupAttendanceCard({ g, isOpen, onToggle }: { g: AttGroup; isOpen: boo
         <div className="flex items-center gap-4 shrink-0">
           <div className="text-right">
             <div className="text-sm font-bold" style={{ color: pctColor(avgPct) }}>{avgPct}%</div>
-            <div className="text-xs" style={L}>o&apos;rtacha</div>
+            <div className="text-xs" style={L}>{t("adminDavomatlar.avgLabel")}</div>
           </div>
           <div className="text-right">
             <div className="text-sm font-semibold" style={T}>{totalLessons}</div>
-            <div className="text-xs" style={L}>dars</div>
+            <div className="text-xs" style={L}>{t("adminDavomatlar.lessonsLabel")}</div>
           </div>
           <div className="text-right">
             <div className="text-sm font-semibold" style={T}>{totalStudents}</div>
-            <div className="text-xs" style={L}>talaba</div>
+            <div className="text-xs" style={L}>{t("adminDavomatlar.studentsLabel")}</div>
           </div>
           {isOpen ? <ChevronUp className="w-4 h-4" style={L} /> : <ChevronDown className="w-4 h-4" style={L} />}
         </div>
@@ -225,18 +231,18 @@ function GroupAttendanceCard({ g, isOpen, onToggle }: { g: AttGroup; isOpen: boo
           {/* Ko'rinish tugmalari */}
           <div className="flex gap-1 p-2" style={{ backgroundColor: "#f8fbff" }}>
             {([
-              { key: "sana",    label: "Sana bo'yicha" },
-              { key: "talaba",  label: "Talaba bo'yicha" },
-            ] as { key: "sana" | "talaba"; label: string }[]).map(t => (
-              <button key={t.key} type="button" onClick={() => setViewMode(t.key)}
+              { key: "sana",    label: t("adminDavomatlar.viewBySana") },
+              { key: "talaba",  label: t("adminDavomatlar.viewByTalaba") },
+            ] as { key: "sana" | "talaba"; label: string }[]).map(vm => (
+              <button key={vm.key} type="button" onClick={() => setViewMode(vm.key)}
                 className="px-3 py-1.5 rounded-[6px] text-xs font-medium transition-colors"
                 style={{
-                  backgroundColor: viewMode === t.key ? "#fff" : "transparent",
-                  color: viewMode === t.key ? "#0e58a8" : "#7293b9",
-                  border: viewMode === t.key ? "1px solid rgba(14,88,168,0.2)" : "1px solid transparent",
+                  backgroundColor: viewMode === vm.key ? "#fff" : "transparent",
+                  color: viewMode === vm.key ? "#0e58a8" : "#7293b9",
+                  border: viewMode === vm.key ? "1px solid rgba(14,88,168,0.2)" : "1px solid transparent",
                   fontFamily: "var(--font-poppins)",
                 }}>
-                {t.label}
+                {vm.label}
               </button>
             ))}
           </div>
@@ -246,12 +252,12 @@ function GroupAttendanceCard({ g, isOpen, onToggle }: { g: AttGroup; isOpen: boo
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ backgroundColor: "#f8fbff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                    <th className="px-4 py-2 text-left font-semibold" style={L}>Sana</th>
-                    <th className="px-3 py-2 text-center font-semibold" style={L}>Jami</th>
-                    <th className="px-3 py-2 text-center font-semibold" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>Keldi</th>
-                    <th className="px-3 py-2 text-center font-semibold" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>Kelmadi</th>
-                    <th className="px-3 py-2 text-center font-semibold" style={{ color: "#d97706", fontFamily: "var(--font-poppins)" }}>Kechikdi</th>
-                    <th className="px-3 py-2 text-center font-semibold" style={L}>Uzrli</th>
+                    <th className="px-4 py-2 text-left font-semibold" style={L}>{t("adminDavomatlar.tableColDate")}</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={L}>{t("adminDavomatlar.tableColTotal")}</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{t("adminDavomatlar.tableColPresent")}</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{t("adminDavomatlar.tableColAbsent")}</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={{ color: "#d97706", fontFamily: "var(--font-poppins)" }}>{t("adminDavomatlar.tableColLate")}</th>
+                    <th className="px-3 py-2 text-center font-semibold" style={L}>{t("adminDavomatlar.tableColExcused")}</th>
                     <th className="px-3 py-2 text-center font-semibold" style={T}>%</th>
                   </tr>
                 </thead>
@@ -299,6 +305,7 @@ function GroupAttendanceCard({ g, isOpen, onToggle }: { g: AttGroup; isOpen: boo
 }
 
 function ManualAttendance() {
+  const { t } = useLanguage()
   const [search, setSearch] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -326,20 +333,24 @@ function ManualAttendance() {
   }, [filtered])
 
   function doExportExcel() {
+    const sheetName = t("adminDavomatlar.exportSheetName")
+    const colGroup = t("adminDavomatlar.exportColGroup"), colSubject = t("adminDavomatlar.exportColSubject"), colDate = t("adminDavomatlar.exportColDate")
+    const colTotal = t("adminDavomatlar.exportColTotal"), colPresent = t("adminDavomatlar.exportColPresent"), colAbsent = t("adminDavomatlar.exportColAbsent")
+    const colLate = t("adminDavomatlar.exportColLate"), colExcused = t("adminDavomatlar.exportColExcused"), colPercent = t("adminDavomatlar.exportColPercent")
     exportToExcel("davomat-hisoboti", [{
-      name: "Davomat",
+      name: sheetName,
       rows: filtered.map(r => ({
-        Guruh: r.groupName, Fan: r.subjectName, Sana: r.lessonDate,
-        Jami: r.total, Keldi: r.present, Kelmadi: r.absent, Kechikdi: r.late, Uzrli: r.excused,
-        "Foiz (%)": r.presentPct,
+        [colGroup]: r.groupName, [colSubject]: r.subjectName, [colDate]: r.lessonDate,
+        [colTotal]: r.total, [colPresent]: r.present, [colAbsent]: r.absent, [colLate]: r.late, [colExcused]: r.excused,
+        [colPercent]: r.presentPct,
       })),
     }])
   }
 
   function doExportPdf() {
     exportToPdf(
-      "davomat-hisoboti", "Davomat hisoboti",
-      ["Guruh", "Fan", "Sana", "Jami", "Keldi", "Kelmadi", "Kechikdi", "Uzrli", "Foiz (%)"],
+      "davomat-hisoboti", t("adminDavomatlar.exportPdfTitle"),
+      [t("adminDavomatlar.exportColGroup"), t("adminDavomatlar.exportColSubject"), t("adminDavomatlar.exportColDate"), t("adminDavomatlar.exportColTotal"), t("adminDavomatlar.exportColPresent"), t("adminDavomatlar.exportColAbsent"), t("adminDavomatlar.exportColLate"), t("adminDavomatlar.exportColExcused"), t("adminDavomatlar.exportColPercent")],
       filtered.map(r => [r.groupName, r.subjectName, r.lessonDate, r.total, r.present, r.absent, r.late, r.excused, `${r.presentPct}%`])
     )
   }
@@ -352,14 +363,14 @@ function ManualAttendance() {
     setTelegramMsg(null)
     try {
       const pdfBase64 = buildPdfBase64(
-        "Davomat hisoboti",
-        ["Guruh", "Fan", "Sana", "Jami", "Keldi", "Kelmadi", "Kechikdi", "Uzrli", "Foiz (%)"],
+        t("adminDavomatlar.exportPdfTitle"),
+        [t("adminDavomatlar.exportColGroup"), t("adminDavomatlar.exportColSubject"), t("adminDavomatlar.exportColDate"), t("adminDavomatlar.exportColTotal"), t("adminDavomatlar.exportColPresent"), t("adminDavomatlar.exportColAbsent"), t("adminDavomatlar.exportColLate"), t("adminDavomatlar.exportColExcused"), t("adminDavomatlar.exportColPercent")],
         filtered.map(r => [r.groupName, r.subjectName, r.lessonDate, r.total, r.present, r.absent, r.late, r.excused, `${r.presentPct}%`])
       )
-      const res = await adminApi.sendReportTelegram({ filename: "davomat-hisoboti.pdf", caption: "Davomat hisoboti", pdfBase64 })
-      setTelegramMsg({ ok: true, text: res.message || "Yuborildi" })
+      const res = await adminApi.sendReportTelegram({ filename: "davomat-hisoboti.pdf", caption: t("adminDavomatlar.exportPdfTitle"), pdfBase64 })
+      setTelegramMsg({ ok: true, text: res.message || t("adminDavomatlar.telegramSent") })
     } catch (e) {
-      setTelegramMsg({ ok: false, text: e instanceof Error ? e.message : "Xatolik" })
+      setTelegramMsg({ ok: false, text: e instanceof Error ? e.message : t("adminDavomatlar.telegramError") })
     } finally {
       setSendingTelegram(false)
     }
@@ -375,7 +386,7 @@ function ManualAttendance() {
           style={{ border: "1px solid rgba(1,41,112,0.2)" }}>
           <Search className="w-4 h-4 shrink-0" style={L} />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Guruh, fan yoki sana bo'yicha"
+            placeholder={t("adminDavomatlar.searchPlaceholderManual")}
             className="flex-1 bg-transparent outline-none text-sm"
             style={T} />
         </label>
@@ -408,7 +419,7 @@ function ManualAttendance() {
       {groups.length === 0 ? (
         <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <ClipboardCheck className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm" style={L}>Davomat ma&apos;lumotlari topilmadi</p>
+          <p className="text-sm" style={L}>{t("adminDavomatlar.noAttendanceData")}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -424,6 +435,7 @@ function ManualAttendance() {
 
 /* ── Platforma asosida davomat (yangi tab) ────────────────────────────── */
 function PlatformAttendance() {
+  const { t } = useLanguage()
   const [selectedTeacher, setSelectedTeacher] = useState<AdminTeacherStat | null>(null)
   const [groups, setGroups]     = useState<{ id: number; name: string }[]>([])
   const [subjects, setSubjects] = useState<string[]>([])
@@ -463,7 +475,7 @@ function PlatformAttendance() {
       })
       setResult(r.data)
     } catch (e) {
-      setErr2(e instanceof Error ? e.message : "Xatolik yuz berdi")
+      setErr2(e instanceof Error ? e.message : t("adminDavomatlar.errorOccurred"))
     } finally {
       setLoading2(false)
     }
@@ -475,23 +487,23 @@ function PlatformAttendance() {
       <div className="bg-white rounded-[10px] p-5 flex flex-col gap-4"
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
         <p className="text-xs" style={L}>
-          Talaba kunlik platformada ≥40 min bo&apos;lsa — keldi. Meeting kuni: meeting davomiyligining 100% unda bo&apos;lsa — keldi.
+          {t("adminDavomatlar.platformHint")}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Teacher */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold" style={L}>O&apos;qituvchi</label>
+            <label className="text-xs font-semibold" style={L}>{t("adminDavomatlar.teacherLabel")}</label>
             <div className="relative">
               <select
                 className="w-full px-3 py-2.5 rounded-[6px] appearance-none text-sm pr-8"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                 value={selectedTeacher?.hemisId ?? ""}
                 onChange={e => {
-                  const t = teachers.find(t => t.hemisId === e.target.value) ?? null
-                  setSelectedTeacher(t); setResult(null)
+                  const teacher = teachers.find(tt => tt.hemisId === e.target.value) ?? null
+                  setSelectedTeacher(teacher); setResult(null)
                 }}>
-                <option value="">— Tanlang —</option>
-                {teachers.map(t => <option key={t.hemisId} value={t.hemisId}>{t.fullName}</option>)}
+                <option value="">{t("adminDavomatlar.selectPlaceholder")}</option>
+                {teachers.map(tt => <option key={tt.hemisId} value={tt.hemisId}>{tt.fullName}</option>)}
               </select>
               <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={L} />
             </div>
@@ -499,12 +511,12 @@ function PlatformAttendance() {
 
           {/* Group */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold" style={L}>Guruh</label>
+            <label className="text-xs font-semibold" style={L}>{t("adminDavomatlar.groupLabel")}</label>
             <div className="relative">
               {infoLoading ? (
                 <div className="px-3 py-2.5 rounded-[6px] text-sm flex items-center gap-2"
                   style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Yuklanmoqda...
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("adminDavomatlar.loadingLabel")}
                 </div>
               ) : groups.length > 0 ? (
                 <>
@@ -513,7 +525,7 @@ function PlatformAttendance() {
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                     value={groupId}
                     onChange={e => { setGroupId(e.target.value); setResult(null) }}>
-                    <option value="">— Guruh tanlang —</option>
+                    <option value="">{t("adminDavomatlar.selectGroupPlaceholder")}</option>
                     {groups.map(g => <option key={g.id} value={String(g.id)}>{g.name} (#{g.id})</option>)}
                   </select>
                   <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={L} />
@@ -521,7 +533,7 @@ function PlatformAttendance() {
               ) : (
                 <input
                   type="number"
-                  placeholder="Guruh ID kiriting"
+                  placeholder={t("adminDavomatlar.groupIdPlaceholder")}
                   className="w-full px-3 py-2.5 rounded-[6px] text-sm"
                   style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                   value={groupId}
@@ -533,7 +545,7 @@ function PlatformAttendance() {
 
           {/* Subject */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold" style={L}>Fan (ixtiyoriy)</label>
+            <label className="text-xs font-semibold" style={L}>{t("adminDavomatlar.subjectOptionalLabel")}</label>
             <div className="relative">
               {subjects.length > 0 ? (
                 <>
@@ -542,7 +554,7 @@ function PlatformAttendance() {
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                     value={subject}
                     onChange={e => { setSubject(e.target.value); setResult(null) }}>
-                    <option value="">— Barcha fanlar —</option>
+                    <option value="">{t("adminDavomatlar.allSubjectsOption")}</option>
                     {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={L} />
@@ -550,7 +562,7 @@ function PlatformAttendance() {
               ) : (
                 <input
                   type="text"
-                  placeholder="Fan nomi (ixtiyoriy)"
+                  placeholder={t("adminDavomatlar.subjectOptionalPlaceholder")}
                   className="w-full px-3 py-2.5 rounded-[6px] text-sm"
                   style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }}
                   value={subject}
@@ -563,13 +575,13 @@ function PlatformAttendance() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold" style={L}>Boshlanish sana</label>
+            <label className="text-xs font-semibold" style={L}>{t("adminDavomatlar.startDateLabel")}</label>
             <input type="date" value={from} onChange={e => { setFrom(e.target.value); setResult(null) }}
               className="px-3 py-2.5 rounded-[6px] text-sm"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold" style={L}>Tugash sana</label>
+            <label className="text-xs font-semibold" style={L}>{t("adminDavomatlar.endDateLabel")}</label>
             <input type="date" value={to} onChange={e => { setTo(e.target.value); setResult(null) }}
               className="px-3 py-2.5 rounded-[6px] text-sm"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }} />
@@ -579,7 +591,7 @@ function PlatformAttendance() {
               className="px-5 py-2.5 rounded-[6px] text-sm font-semibold text-white transition-colors disabled:opacity-50 flex items-center gap-2"
               style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
               {loading2 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              Ko&apos;rish
+              {t("adminDavomatlar.viewBtn")}
             </button>
           </div>
           {err2 && (
@@ -592,15 +604,15 @@ function PlatformAttendance() {
       {result === null && !loading2 && (
         <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <CalendarDays className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm" style={L}>Guruh va sana oraliqni tanlang, so&apos;ng &quot;Ko&apos;rish&quot; tugmasini bosing</p>
+          <p className="text-sm" style={L}>{t("adminDavomatlar.emptySelectHint")}</p>
         </div>
       )}
 
       {result !== null && result.length === 0 && (
         <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <ClipboardCheck className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm" style={L}>Tanlangan parametrlar bo&apos;yicha dars jadvali topilmadi</p>
-          <p className="text-xs mt-1" style={L}>Dars jadvali HEMIS'dan sinxronlanganligini tekshiring</p>
+          <p className="text-sm" style={L}>{t("adminDavomatlar.noScheduleFound")}</p>
+          <p className="text-xs mt-1" style={L}>{t("adminDavomatlar.noScheduleHint")}</p>
         </div>
       )}
 
@@ -610,10 +622,10 @@ function PlatformAttendance() {
           <div className="flex items-center gap-2 justify-end">
             <button type="button"
               onClick={() => exportToExcel("platforma-davomati", [{
-                name: "Davomat",
+                name: t("adminDavomatlar.exportSheetName"),
                 rows: result.flatMap(day => day.students.map(s => ({
-                  Sana: day.lessonDate, Fan: day.subjectName, Talaba: s.studentName || `Talaba #${s.studentId}`,
-                  Holat: s.status === "present" ? "Keldi" : "Kelmadi",
+                  [t("adminDavomatlar.exportColDate")]: day.lessonDate, [t("adminDavomatlar.exportColSubject")]: day.subjectName, [t("adminDavomatlar.platformExportColStudent")]: s.studentName || t("adminDavomatlar.studentFallback", { id: s.studentId }),
+                  [t("adminDavomatlar.platformExportColStatus")]: s.status === "present" ? t("adminDavomatlar.statusPresent") : t("adminDavomatlar.statusAbsent"),
                 }))),
               }])}
               className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#f0fdf4]"
@@ -622,11 +634,11 @@ function PlatformAttendance() {
             </button>
             <button type="button"
               onClick={() => exportToPdf(
-                "platforma-davomati", "Platforma davomati",
-                ["Sana", "Fan", "Talaba", "Holat"],
+                "platforma-davomati", t("adminDavomatlar.tabPlatform"),
+                [t("adminDavomatlar.exportColDate"), t("adminDavomatlar.exportColSubject"), t("adminDavomatlar.platformExportColStudent"), t("adminDavomatlar.platformExportColStatus")],
                 result.flatMap(day => day.students.map(s => [
-                  day.lessonDate, day.subjectName, s.studentName || `Talaba #${s.studentId}`,
-                  s.status === "present" ? "Keldi" : "Kelmadi",
+                  day.lessonDate, day.subjectName, s.studentName || t("adminDavomatlar.studentFallback", { id: s.studentId }),
+                  s.status === "present" ? t("adminDavomatlar.statusPresent") : t("adminDavomatlar.statusAbsent"),
                 ]))
               )}
               className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#fef2f2]"
@@ -638,9 +650,9 @@ function PlatformAttendance() {
           {/* Summary row */}
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: "Jami darslar", value: result.length, color: "#0e58a8" },
-              { label: "O'rtacha davomat", value: `${Math.round(result.reduce((s, r) => s + r.presentPct, 0) / result.length)}%`, color: pctColor(Math.round(result.reduce((s, r) => s + r.presentPct, 0) / result.length)) },
-              { label: "Meeting kunlari", value: result.filter(r => r.isMeetingDay).length, color: "#7c3aed" },
+              { label: t("adminDavomatlar.summaryTotalLessons"), value: result.length, color: "#0e58a8" },
+              { label: t("adminDavomatlar.summaryAvgAttendance"), value: `${Math.round(result.reduce((s, r) => s + r.presentPct, 0) / result.length)}%`, color: pctColor(Math.round(result.reduce((s, r) => s + r.presentPct, 0) / result.length)) },
+              { label: t("adminDavomatlar.summaryMeetingDays"), value: result.filter(r => r.isMeetingDay).length, color: "#7c3aed" },
             ].map(s => (
               <div key={s.label} className="bg-white rounded-[10px] p-4"
                 style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
@@ -668,7 +680,7 @@ function PlatformAttendance() {
                     <div className="text-sm font-semibold" style={T}>{day.lessonDate}</div>
                     <div className="text-xs mt-0.5" style={L}>
                       {day.subjectName}
-                      {day.isMeetingDay && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: "#f5f3ff", color: "#7c3aed" }}>Meeting {day.meetingMinutes} min</span>}
+                      {day.isMeetingDay && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: "#f5f3ff", color: "#7c3aed" }}>{t("adminDavomatlar.meetingBadge", { minutes: day.meetingMinutes })}</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-4 shrink-0">
@@ -682,7 +694,7 @@ function PlatformAttendance() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold" style={{ color: pctColor(day.presentPct) }}>{day.presentPct}%</div>
-                      <div className="text-xs" style={L}>{day.total} talaba</div>
+                      <div className="text-xs" style={L}>{t("adminDavomatlar.totalStudentsSuffix", { n: day.total })}</div>
                     </div>
                     {isOpen ? <ChevronUp className="w-4 h-4" style={L} /> : <ChevronDown className="w-4 h-4" style={L} />}
                   </div>
@@ -693,20 +705,20 @@ function PlatformAttendance() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr style={{ backgroundColor: "#f8fbff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                          <th className="px-4 py-2 text-left font-semibold" style={L}>#</th>
-                          <th className="px-4 py-2 text-left font-semibold" style={L}>Talaba</th>
-                          <th className="px-3 py-2 text-center font-semibold" style={L}>Holat</th>
+                          <th className="px-4 py-2 text-left font-semibold" style={L}>{t("adminDavomatlar.colIndex")}</th>
+                          <th className="px-4 py-2 text-left font-semibold" style={L}>{t("adminDavomatlar.platformExportColStudent")}</th>
+                          <th className="px-3 py-2 text-center font-semibold" style={L}>{t("adminDavomatlar.platformExportColStatus")}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {day.students.map((s, i) => (
                           <tr key={s.studentId} style={{ borderBottom: i < day.students.length - 1 ? "1px solid rgba(1,41,112,0.05)" : "none" }}>
                             <td className="px-4 py-2 text-xs" style={L}>{i + 1}</td>
-                            <td className="px-4 py-2 text-sm" style={T}>{s.studentName || `Talaba #${s.studentId}`}</td>
+                            <td className="px-4 py-2 text-sm" style={T}>{s.studentName || t("adminDavomatlar.studentFallback", { id: s.studentId })}</td>
                             <td className="px-3 py-2 text-center">
                               {s.status === "present"
-                                ? <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d" }}><CheckCircle2 className="w-3 h-3" /> Keldi</span>
-                                : <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#fef2f2", color: "#b91c1c" }}><XCircle className="w-3 h-3" /> Kelmadi</span>}
+                                ? <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d" }}><CheckCircle2 className="w-3 h-3" /> {t("adminDavomatlar.statusPresent")}</span>
+                                : <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#fef2f2", color: "#b91c1c" }}><XCircle className="w-3 h-3" /> {t("adminDavomatlar.statusAbsent")}</span>}
                             </td>
                           </tr>
                         ))}
@@ -725,30 +737,31 @@ function PlatformAttendance() {
 
 /* ── Main page ────────────────────────────────────────────────────────── */
 export default function AdminDavomatlar() {
+  const { t } = useLanguage()
   const [tab, setTab] = useState<"manual" | "platform">("manual")
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
-        <h1 className="text-[28px] font-medium" style={T}>Davomatlar</h1>
-        <p className="text-sm mt-1" style={L}>Guruh va fan bo&apos;yicha davomat statistikasi</p>
+        <h1 className="text-[28px] font-medium" style={T}>{t("adminDavomatlar.pageTitle")}</h1>
+        <p className="text-sm mt-1" style={L}>{t("adminDavomatlar.pageSubtitle")}</p>
       </div>
 
       {/* Tab switcher */}
       <div className="flex gap-1 p-1 rounded-[8px] w-fit" style={{ backgroundColor: "#f1f5f9" }}>
         {([
-          { key: "manual",   label: "Qo'lda kiritilgan" },
-          { key: "platform", label: "Platforma davomati" },
-        ] as { key: "manual" | "platform"; label: string }[]).map(t => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)}
+          { key: "manual",   label: t("adminDavomatlar.tabManual") },
+          { key: "platform", label: t("adminDavomatlar.tabPlatform") },
+        ] as { key: "manual" | "platform"; label: string }[]).map(tabItem => (
+          <button key={tabItem.key} type="button" onClick={() => setTab(tabItem.key)}
             className="px-4 py-2 rounded-[6px] text-sm font-medium transition-all"
             style={{
-              backgroundColor: tab === t.key ? "#fff" : "transparent",
-              color: tab === t.key ? "#012970" : "#7293b9",
+              backgroundColor: tab === tabItem.key ? "#fff" : "transparent",
+              color: tab === tabItem.key ? "#012970" : "#7293b9",
               fontFamily: "var(--font-poppins)",
-              boxShadow: tab === t.key ? "0 1px 3px rgba(1,41,112,0.12)" : "none",
+              boxShadow: tab === tabItem.key ? "0 1px 3px rgba(1,41,112,0.12)" : "none",
             }}>
-            {t.label}
+            {tabItem.label}
           </button>
         ))}
       </div>
