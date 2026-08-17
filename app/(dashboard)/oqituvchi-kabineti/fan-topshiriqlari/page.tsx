@@ -75,7 +75,7 @@ function SubmissionsModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-auto min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-2" style={labelStyle}>
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -207,7 +207,7 @@ export default function FanTopshiriqlariDetailPage() {
 
   return (
     <div className="flex flex-col gap-5 p-[30px]">
-      <div className="flex items-center gap-2 text-sm" style={labelStyle}>
+      <div className="flex items-center gap-2 text-sm flex-wrap" style={labelStyle}>
         <Link href="/dashboard" className="hover:underline">{t("fanTopshDetail.main")}</Link>
         <span>/</span>
         <Link href="/xodim/fan-topshiriqlari" className="hover:underline">{t("fanTopshDetail.subjectAssignments")}</Link>

@@ -360,7 +360,7 @@ function TopicsView({
                   </div>
                 ) : (
                   <>
-                    <span className="flex-1 text-sm font-medium truncate"
+                    <span className="flex-1 min-w-0 text-sm font-medium truncate"
                       style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>
                       {topic.title}
                     </span>

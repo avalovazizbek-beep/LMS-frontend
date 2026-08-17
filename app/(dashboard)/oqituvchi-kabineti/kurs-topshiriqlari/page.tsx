@@ -111,7 +111,7 @@ export default function KursTopshiriqlariDetailPage() {
       </div>
 
       <div className="rounded-[10px] bg-white" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
-        <div className="flex items-center justify-between gap-3 p-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+        <div className="flex items-center justify-between gap-3 p-4 flex-wrap" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <h1 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
             {t("kursTopshDetail.listTitle", { n: headerMaxBall })}
           </h1>

@@ -246,33 +246,35 @@ export default function YangiKursTopshirigiPage() {
 
           <div>
             <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("kursTopshForm.deadline")}</label>
-            <div className="flex items-stretch gap-0">
-              <input
-                className={`${inputCls} rounded-r-none`}
-                style={{ fontFamily: "var(--font-poppins)", backgroundColor: "#f3f6fb" }}
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                placeholder="YYYY-MM-DD H:M"
-              />
-              <input
-                type="datetime-local"
-                className="px-2 border-y border-r border-[#d8e6f7] text-sm outline-none"
-                style={{ fontFamily: "var(--font-poppins)" }}
-                onChange={(e) => {
-                  const value = e.target.value
-                  if (!value) return
-                  setDeadline(value.replace("T", " "))
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setDeadline("")}
-                className="px-3 border-y border-r border-[#d8e6f7] rounded-r-[8px] flex items-center justify-center"
-                style={{ backgroundColor: "#f3f6fb" }}
-                title={t("kursTopshForm.clear")}
-              >
-                <X className="w-4 h-4" style={{ color: "#7293b9" }} />
-              </button>
+            <div className="overflow-x-auto">
+              <div className="flex items-stretch gap-0">
+                <input
+                  className={`${inputCls} rounded-r-none`}
+                  style={{ fontFamily: "var(--font-poppins)", backgroundColor: "#f3f6fb" }}
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  placeholder="YYYY-MM-DD H:M"
+                />
+                <input
+                  type="datetime-local"
+                  className="px-2 border-y border-r border-[#d8e6f7] text-sm outline-none"
+                  style={{ fontFamily: "var(--font-poppins)" }}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (!value) return
+                    setDeadline(value.replace("T", " "))
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setDeadline("")}
+                  className="px-3 border-y border-r border-[#d8e6f7] rounded-r-[8px] flex items-center justify-center"
+                  style={{ backgroundColor: "#f3f6fb" }}
+                  title={t("kursTopshForm.clear")}
+                >
+                  <X className="w-4 h-4" style={{ color: "#7293b9" }} />
+                </button>
+              </div>
             </div>
           </div>
 

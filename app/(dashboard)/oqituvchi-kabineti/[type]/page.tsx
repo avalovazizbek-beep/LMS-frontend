@@ -1093,7 +1093,7 @@ export default function TeacherContentTypePage() {
   if (config.type === "kurs-topshiriq") {
     return (
       <div className="flex flex-col gap-6 p-[30px]">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
               {config.title}
@@ -1411,7 +1411,7 @@ export default function TeacherContentTypePage() {
                   </a>
                 )}
 
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   {config.type === "exam" && (
                     <button
                       onClick={() => setQuestionsFor(item)}
@@ -1715,7 +1715,7 @@ function ContentFormModal({
                   </div>
                   {form.docFile ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs truncate flex-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{form.docFile.name}</span>
+                      <span className="text-xs truncate flex-1 min-w-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{form.docFile.name}</span>
                       <button type="button" onClick={() => update("docFile", null)}
                         className="text-xs px-2 py-0.5 rounded" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                         {t("typeContentOq.form.remove")}
@@ -1739,7 +1739,7 @@ function ContentFormModal({
                   </div>
                   {form.videoFile ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs truncate flex-1" style={{ color: "#6d28d9", fontFamily: "var(--font-poppins)" }}>{form.videoFile.name}</span>
+                      <span className="text-xs truncate flex-1 min-w-0" style={{ color: "#6d28d9", fontFamily: "var(--font-poppins)" }}>{form.videoFile.name}</span>
                       <button type="button" onClick={() => update("videoFile", null)}
                         className="text-xs px-2 py-0.5 rounded" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                         {t("typeContentOq.form.remove")}
@@ -1994,7 +1994,7 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
 
         {/* Score summary */}
         {(sub.grade != null || total > 0) && (
-          <div className="flex items-center gap-4 px-4 py-3 rounded-[10px]" style={{ backgroundColor: "#f6f9ff" }}>
+          <div className="flex flex-wrap items-center gap-4 px-4 py-3 rounded-[10px]" style={{ backgroundColor: "#f6f9ff" }}>
             {sub.grade != null && (
               <div className="flex flex-col">
                 <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.submission.score")}</span>

@@ -70,7 +70,7 @@ function UploadSection({
         </p>
       ) : item ? (
         <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#f6f9ff" }}>
-          <span className="text-sm truncate" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+          <span className="text-sm truncate min-w-0" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             {item.file?.originalName ?? item.title}
           </span>
           <div className="flex items-center gap-1 shrink-0">
@@ -235,7 +235,7 @@ function MeetingSection({
           <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#f6f9ff" }}>
             <div className="flex items-center gap-2 min-w-0">
               <CalendarDays className="w-4 h-4 shrink-0" style={{ color: "#0e58a8" }} />
-              <span className="text-sm truncate" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <span className="text-sm truncate min-w-0" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 {meetingItem.title}
               </span>
               {meetingItem.meetingLink && (
@@ -459,6 +459,7 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
                 <p className="text-sm" style={labelStyle}>{t("fanResurslariOq.results.noSubmissions")}</p>
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f8fafc" }}>
@@ -505,6 +506,7 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
                   })}
                 </tbody>
               </table>
+              </div>
             )
           )}
         </div>
@@ -657,7 +659,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
           {opErr}
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
       {/* Video */}
       <UploadSection
@@ -903,6 +905,15 @@ export default function FanResurslariPage() {
   const [subjectName, setSubjectName] = useState("")
   const [topicKey, setTopicKey] = useState("")
 
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)")
+    const apply = () => setIsMobile(mql.matches)
+    apply()
+    mql.addEventListener("change", apply)
+    return () => mql.removeEventListener("change", apply)
+  }, [])
+
   const activeGroupId = groupId !== "" ? groupId : null
 
   const { data: subjectsRes } = useApi(
@@ -1017,10 +1028,10 @@ export default function FanResurslariPage() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0" style={{ flexDirection: isMobile ? "column" : "row" }}>
 
           {/* ── Left: main content area ── */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6" style={{ order: isMobile ? 2 : 0 }}>
             {selection ? (
               <div className="flex flex-col gap-4">
                 {/* Topic header */}
@@ -1082,7 +1093,13 @@ export default function FanResurslariPage() {
 
           {/* ── Right: course topics sidebar ── */}
           <div className="shrink-0 bg-white overflow-y-auto"
-            style={{ width: 300, borderLeft: "1px solid rgba(1,41,112,0.08)" }}>
+            style={{
+              width: isMobile ? "100%" : 300,
+              maxHeight: isMobile ? 260 : undefined,
+              borderLeft: isMobile ? "none" : "1px solid rgba(1,41,112,0.08)",
+              borderBottom: isMobile ? "1px solid rgba(1,41,112,0.08)" : "none",
+              order: isMobile ? 1 : 0,
+            }}>
             {/* Sidebar header */}
             <div className="px-4 py-3 sticky top-0 bg-white z-10"
               style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
