@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Faqat production build'da (Netlify: lms-samisi.uz/lms-samisi/...) ishlatiladi.
-  // Lokal `next dev`da bo'sh qoladi, aks holda localhost:3000/ 404 beradi.
-  basePath: process.env.NODE_ENV === 'production' ? '/lms-samisi' : '',
+  // Build vaqtidagi NEXT_PUBLIC_BASE_PATH orqali boshqariladi — shu bitta
+  // repo turli joylashuvlarga (Netlify: /lms-samisi ostida, yoki o'z domeni:
+  // bo'sh/root) moslashtirilishi uchun. Lokal `next dev`da bo'sh qoladi.
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
   typescript: { ignoreBuildErrors: true },
   images: { unoptimized: true },
 }
