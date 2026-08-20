@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   BookOpen, RefreshCw, Wallet, User, Video,
@@ -203,8 +203,22 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const toggle = (title: string) =>
     setOpenSection((prev) => (prev === title ? null : title))
 
+  // Agar joriy sahifa ro'yxatdagi bironta havolaga ANIQ mos kelsa (masalan
+  // /qayta-o-qish/ozlashtirish), faqat O'SHA band faol bo'lishi kerak —
+  // "prefix" tekshiruvi /qayta-o-qish kabi ota-havolani ham noto'g'ri faol
+  // qilib qo'yardi, chunki u ham shu yo'l bilan boshlanadi.
+  const allHrefs = useMemo(() => {
+    const list = ["/dashboard", "/meeting"]
+    if (isAdmin) list.push("/admin")
+    sections.forEach(s => s.items.forEach(i => list.push(i.href)))
+    return list
+  }, [sections, isAdmin])
+  const hasExactMatch = allHrefs.includes(pathname)
+
   const isActive = (href: string) =>
-    pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"))
+    hasExactMatch
+      ? pathname === href
+      : href !== "/dashboard" && pathname.startsWith(href + "/")
 
   return (
     <aside
