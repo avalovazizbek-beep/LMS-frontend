@@ -2143,6 +2143,11 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "davomatHisoboti.noAbsences":    { uz: "Qoldirilgan darslar yo'q!",           ru: "Пропущенных занятий нет!",                 en: "No missed classes!",                      kaa: "Qaldırılǵan sabaqlar joq!" },
   "davomatHisoboti.excused":       { uz: "Sababli",                             ru: "Уважительная",                             en: "Excused",                                 kaa: "Sebepli" },
   "davomatHisoboti.unexcused":     { uz: "Sababsiz",                            ru: "Неуважительная",                           en: "Unexcused",                               kaa: "Sebepsiz" },
+
+  // ── 404 (sahifa topilmadi) — root darajasida ─────────────────────────
+  "notFound.title":    { uz: "Sahifa topilmadi",                                    ru: "Страница не найдена",                          en: "Page not found",                            kaa: "Bet tabılmadı" },
+  "notFound.desc":     { uz: "Siz qidirayotgan sahifa mavjud emas yoki ko'chirilgan bo'lishi mumkin.", ru: "Страница, которую вы ищете, не существует или была перемещена.", en: "The page you're looking for doesn't exist or may have been moved.", kaa: "Siz izlep atırǵan bet joq yamasa kóshirilgen bolıwı múmkin." },
+  "notFound.backHome": { uz: "Bosh sahifaga qaytish",                                ru: "Вернуться на главную",                          en: "Back to home",                              kaa: "Bas betke qaytıw" },
 }
 
 export function translate(lang: Lang, key: string, params?: Record<string, string | number>): string {
