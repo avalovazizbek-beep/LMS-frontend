@@ -86,6 +86,7 @@ export const dictionary: Record<string, Record<Lang, string>> = {
 
   "sidebar.section.studyProcess":  { uz: "O'quv jarayoni",        ru: "Учебный процесс",                 en: "Study Process",             kaa: "Oqıw procesi" },
   "sidebar.item.examsList":        { uz: "Imtihonlar ro'yxati",   ru: "Список экзаменов",                en: "Exams List",                kaa: "Emtihanlar dizimi" },
+  "sidebar.item.finalControl":     { uz: "Yakuniy nazorat",       ru: "Итоговый контроль",               en: "Final Control",             kaa: "Juwmaqlaw baqlawı" },
   "sidebar.item.subjectExams":     { uz: "Fan imtihonlari",       ru: "Экзамены по предмету",            en: "Subject Exams",             kaa: "Pán emtihanları" },
 
   "sidebar.item.personalRecordEntry": { uz: "Shaxsiy qaydnoma kiritish", ru: "Ввод личной записи",       en: "Enter Personal Record",     kaa: "Jeke jazba kirgiziw" },
@@ -1271,6 +1272,9 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "typeContentOq.types.oraliqNazorat.title":        { uz: "Imtihonlar ro'yxati",  ru: "Список экзаменов",                     en: "Exams List",                         kaa: "Emtihanlar dizimi" },
   "typeContentOq.types.oraliqNazorat.subtitle":     { uz: "Oraliq nazorat (MCQ test) — yaratish va boshqarish", ru: "Промежуточный контроль (тест MCQ) — создание и управление", en: "Interim assessment (MCQ test) — create and manage", kaa: "Aralıq baqlaw (MCQ test) — jaratıw hám basqarıw" },
   "typeContentOq.types.oraliqNazorat.itemLabel":    { uz: "nazorat",              ru: "контроль",                             en: "assessment",                         kaa: "baqlaw" },
+  "typeContentOq.types.yakuniyNazorat.title":       { uz: "Yakuniy nazorat ro'yxati", ru: "Список итоговых контролей",          en: "Final Assessments List",             kaa: "Juwmaqlaw baqlawları dizimi" },
+  "typeContentOq.types.yakuniyNazorat.subtitle":    { uz: "Yakuniy nazorat (MCQ test) — yaratish va boshqarish", ru: "Итоговый контроль (тест MCQ) — создание и управление", en: "Final assessment (MCQ test) — create and manage", kaa: "Juwmaqlaw baqlaw (MCQ test) — jaratıw hám basqarıw" },
+  "typeContentOq.types.yakuniyNazorat.itemLabel":   { uz: "nazorat",              ru: "контроль",                             en: "assessment",                         kaa: "baqlaw" },
   "typeContentOq.types.mavzular.title":             { uz: "Fan mavzulari",        ru: "Темы предмета",                        en: "Subject Topics",                     kaa: "Pán temaları" },
   "typeContentOq.types.mavzular.subtitle":          { uz: "Dars mavzulari va qo'shimcha materiallar", ru: "Темы уроков и дополнительные материалы", en: "Lesson topics and additional materials", kaa: "Sabaq temaları hám qosımsha materiallar" },
   "typeContentOq.types.mavzular.itemLabel":         { uz: "mavzu",                ru: "тема",                                 en: "topic",                               kaa: "tema" },

@@ -121,6 +121,7 @@ const employeeSections: Section[] = [
     icon: GraduationCap,
     items: [
       { label: "Imtihonlar ro'yxati", href: "/oqituvchi-kabineti/oraliq-nazorat", tKey: "sidebar.item.examsList" },
+      { label: "Yakuniy nazorat",     href: "/oqituvchi-kabineti/yakuniy-nazorat", tKey: "sidebar.item.finalControl" },
       { label: "Fan imtihonlari",     href: "/oqituvchi-kabineti/imtihonlar",    tKey: "sidebar.item.subjectExams" },
     ],
   },

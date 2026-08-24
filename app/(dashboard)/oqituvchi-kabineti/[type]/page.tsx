@@ -92,6 +92,15 @@ const TYPE_MAP: Record<string, TypeConfigDef> = {
     hasTrainingLoad: false, hasActiveToggle: true,
     filterControlType: "oraliq",   // faqat controlType="oraliq" itemlar
   },
+  "yakuniy-nazorat": {
+    type: "exam",
+    titleKey: "typeContentOq.types.yakuniyNazorat.title",
+    subtitleKey: "typeContentOq.types.yakuniyNazorat.subtitle",
+    itemLabelKey: "typeContentOq.types.yakuniyNazorat.itemLabel",
+    hasFile: false, gradable: true, showMaterials: false, hasDuration: true,
+    hasTrainingLoad: false, hasActiveToggle: true,
+    filterControlType: "yakuniy",   // faqat controlType="yakuniy" itemlar
+  },
   mavzular: {
     type: "mavzu",
     titleKey: "typeContentOq.types.mavzular.title",
@@ -1054,7 +1063,7 @@ export default function TeacherContentTypePage() {
     const all: TeacherContent[] = contentRes?.data ?? []
     if (!config || config.filterControlType === undefined) return all
     if (config.filterControlType === null) {
-      return all.filter(i => !i.controlType || i.controlType !== "oraliq")
+      return all.filter(i => !i.controlType)
     }
     return all.filter(i => i.controlType === config.filterControlType)
   }, [contentRes, config])
