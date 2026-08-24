@@ -40,6 +40,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { meetingsApi, hemisApi, teachingApi, type Meeting, type MeetingRecording, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup } from "@/lib/api"
+import { MeetingMediaClient, type ProducerSummary } from "@/lib/meetingMediasoup"
 import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
 import MeetingFaceAttendanceTracker from "@/components/meeting/MeetingFaceAttendanceTracker"
@@ -151,10 +152,6 @@ type ViewState =
 
 const participantAccents = ["#0e58a8", "#1cc2dc", "#38bdf8", "#2563eb", "#14b8a6", "#f59e0b"]
 
-const rtcConfig: RTCConfiguration = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-}
-
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -248,25 +245,31 @@ function normalizeSocketParticipants(value: unknown): Participant[] {
   })
 }
 
-function normalizeRemotePeers(value: unknown): RemotePeer[] {
+function normalizeProducerSummaries(value: unknown): ProducerSummary[] {
   const items = Array.isArray(value) ? value : []
   return items
-    .map((item, index): RemotePeer | null => {
+    .map((item): ProducerSummary | null => {
       const record = recordValue(item)
-      const mediaState = recordValue(record.mediaState)
+      const producerId = socketText(record.producerId, record.id)
       const socketId = socketText(record.socketId, record.sid)
-      if (!socketId) return null
+      const kind = record.kind === "audio" || record.kind === "video" ? record.kind : null
+      if (!producerId || !socketId || !kind) return null
+      const source =
+        record.source === "camera" || record.source === "mic" || record.source === "screen"
+          ? record.source
+          : kind === "audio" ? "mic" : "camera"
       return {
+        producerId,
         socketId,
-        name: cleanName(socketText(record.fullName, record.name, record.username) || `Foydalanuvchi ${index + 1}`),
+        userId: socketNumber(record.userId) ?? 0,
+        fullName: cleanName(socketText(record.fullName, record.name) || "Foydalanuvchi"),
         role: socketText(record.role) || "student",
         groupId: socketNumber(record.groupId) ?? null,
-        cameraEnabled: mediaState.cameraEnabled === undefined ? undefined : Boolean(mediaState.cameraEnabled),
-        micEnabled: mediaState.micEnabled === undefined ? undefined : Boolean(mediaState.micEnabled),
-        screenSharing: Boolean(mediaState.screenSharing),
+        kind,
+        source,
       }
     })
-    .filter((peer): peer is RemotePeer => Boolean(peer))
+    .filter((producer): producer is ProducerSummary => Boolean(producer))
 }
 
 function normalizeChatMessage(value: unknown, fallbackIndex = 0): ChatMessage {
@@ -2291,15 +2294,9 @@ export default function MeetingPage() {
   const recordedChunksRef = useRef<Blob[]>([])
   const recordingScreenStreamRef = useRef<MediaStream | null>(null)
   const recordingAudioContextRef = useRef<AudioContext | null>(null)
-  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   const remoteStreamsRef = useRef<Map<string, RemoteStream>>(new Map())
   const remotePeerStatesRef = useRef<Map<string, Partial<RemotePeer>>>(new Map())
-  const offeredPeersRef = useRef<Set<string>>(new Set())
-  // "disconnected" is a transient ICE state that often self-recovers (e.g. the
-  // brief burst of renegotiation when a new peer joins a mesh call can flicker
-  // an EXISTING peer's state) — only "failed"/"closed" are truly terminal, so
-  // "disconnected" gets a grace period before we actually tear the peer down.
-  const reconnectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const mediaClientRef = useRef<MeetingMediaClient | null>(null)
 
   const upcoming = data?.data.upcoming ?? []
   const past     = data?.data.past     ?? []
@@ -2369,13 +2366,6 @@ export default function MeetingPage() {
     localStreamRef.current?.getVideoTracks()[0] ??
     null
 
-  const currentOutboundVideoStream = (track: MediaStreamTrack | null) => {
-    if (!track) return null
-    const screenStream = screenStreamRef.current
-    if (screenStream?.getVideoTracks().includes(track)) return screenStream
-    return localStreamRef.current
-  }
-
   const emitMediaState = (
     socket = socketRef.current,
     overrides: Partial<Pick<RemotePeer, "cameraEnabled" | "micEnabled" | "screenSharing">> = {}
@@ -2392,73 +2382,31 @@ export default function MeetingPage() {
     setRemoteStreams(Array.from(remoteStreamsRef.current.values()))
   }
 
-  const clearReconnectTimer = (socketId: string) => {
-    const timer = reconnectTimersRef.current.get(socketId)
-    if (timer) {
-      clearTimeout(timer)
-      reconnectTimersRef.current.delete(socketId)
-    }
-  }
-
+  // Removes one remote participant's tiles (their audio+video tracks combined
+  // into one MediaStream, matching the old mesh's per-peer stream shape).
   const closePeerConnection = (socketId: string) => {
-    clearReconnectTimer(socketId)
-    peerConnectionsRef.current.get(socketId)?.close()
-    peerConnectionsRef.current.delete(socketId)
-    offeredPeersRef.current.delete(socketId)
     remoteStreamsRef.current.delete(socketId)
     remotePeerStatesRef.current.delete(socketId)
     refreshRemoteStreams()
   }
 
   const closePeerConnections = () => {
-    reconnectTimersRef.current.forEach((timer) => clearTimeout(timer))
-    reconnectTimersRef.current.clear()
-    peerConnectionsRef.current.forEach((connection) => connection.close())
-    peerConnectionsRef.current.clear()
-    offeredPeersRef.current.clear()
+    mediaClientRef.current?.closeAll()
+    mediaClientRef.current = null
     remoteStreamsRef.current.clear()
     remotePeerStatesRef.current.clear()
     refreshRemoteStreams()
   }
 
-  const addLocalTracksToPeer = (connection: RTCPeerConnection) => {
-    const stream = localStreamRef.current
-    const videoTrack = currentOutboundVideoTrack()
-    const videoStream = currentOutboundVideoStream(videoTrack)
-
-    stream?.getAudioTracks().forEach((track) => {
-      const alreadyAdded = connection.getSenders().some((sender) => sender.track === track)
-      if (!alreadyAdded) connection.addTrack(track, stream)
-    })
-
-    if (videoTrack && videoStream) {
-      const alreadyAdded = connection.getSenders().some((sender) => sender.track === videoTrack)
-      if (!alreadyAdded) connection.addTrack(videoTrack, videoStream)
-    }
-  }
-
+  // Pushes whatever the current outbound camera/screen video track and mic
+  // audio track are into mediasoup — a single call updates every consumer in
+  // the room (unlike mesh, which had to replaceTrack() on every peer
+  // connection individually).
   const syncPeerMediaTracks = () => {
     const videoTrack = currentOutboundVideoTrack()
-    const videoStream = currentOutboundVideoStream(videoTrack)
     const audioTrack = localStreamRef.current?.getAudioTracks()[0] ?? null
-    const audioStream = localStreamRef.current
-
-    peerConnectionsRef.current.forEach((connection) => {
-      const videoSender = connection.getSenders().find((sender) => sender.track?.kind === "video")
-      const audioSender = connection.getSenders().find((sender) => sender.track?.kind === "audio")
-
-      if (videoSender) {
-        void videoSender.replaceTrack(videoTrack)
-      } else if (videoTrack && videoStream) {
-        connection.addTrack(videoTrack, videoStream)
-      }
-
-      if (audioSender) {
-        void audioSender.replaceTrack(audioTrack)
-      } else if (audioTrack && audioStream) {
-        connection.addTrack(audioTrack, audioStream)
-      }
-    })
+    void mediaClientRef.current?.setCameraTrack(videoTrack)
+    void mediaClientRef.current?.setMicTrack(audioTrack)
   }
 
   const updateRemoteMediaState = (payload: unknown) => {
@@ -2483,135 +2431,6 @@ export default function MeetingPage() {
         ...nextState,
       })
       refreshRemoteStreams()
-    }
-  }
-
-  const createPeerConnection = (socket: Socket, peer: RemotePeer) => {
-    const existing = peerConnectionsRef.current.get(peer.socketId)
-    if (existing) return existing
-
-    const connection = new RTCPeerConnection(rtcConfig)
-    peerConnectionsRef.current.set(peer.socketId, connection)
-    remotePeerStatesRef.current.set(peer.socketId, {
-      ...(remotePeerStatesRef.current.get(peer.socketId) ?? {}),
-      ...peer,
-    })
-
-    connection.onicecandidate = (event) => {
-      if (!event.candidate) return
-      socket.emit("webrtc:ice-candidate", {
-        targetSocketId: peer.socketId,
-        candidate: event.candidate,
-      })
-    }
-
-    connection.ontrack = (event) => {
-      const stream = event.streams[0] ?? new MediaStream([event.track])
-      const peerState = remotePeerStatesRef.current.get(peer.socketId) ?? {}
-      remoteStreamsRef.current.set(peer.socketId, {
-        ...peer,
-        ...peerState,
-        stream,
-      })
-      refreshRemoteStreams()
-    }
-
-    connection.onconnectionstatechange = () => {
-      const state = connection.connectionState
-      if (state === "failed" || state === "closed") {
-        clearReconnectTimer(peer.socketId)
-        closePeerConnection(peer.socketId)
-        return
-      }
-      if (state === "disconnected") {
-        // Give it a chance to self-recover (common when another peer joins
-        // the mesh) instead of instantly dropping this participant's video.
-        if (!reconnectTimersRef.current.has(peer.socketId)) {
-          const timer = setTimeout(() => {
-            reconnectTimersRef.current.delete(peer.socketId)
-            if (connection.connectionState === "disconnected" || connection.connectionState === "failed") {
-              closePeerConnection(peer.socketId)
-            }
-          }, 8000)
-          reconnectTimersRef.current.set(peer.socketId, timer)
-        }
-        return
-      }
-      // Recovered (e.g. back to "connected") — cancel any pending close.
-      clearReconnectTimer(peer.socketId)
-    }
-
-    addLocalTracksToPeer(connection)
-    return connection
-  }
-
-  const startPeerOffer = async (socket: Socket, peer: RemotePeer) => {
-    if (offeredPeersRef.current.has(peer.socketId)) return
-    offeredPeersRef.current.add(peer.socketId)
-
-    try {
-      const connection = createPeerConnection(socket, peer)
-      const offer = await connection.createOffer()
-      await connection.setLocalDescription(offer)
-      socket.emit("webrtc:offer", {
-        targetSocketId: peer.socketId,
-        sdp: connection.localDescription,
-      })
-    } catch (issue) {
-      offeredPeersRef.current.delete(peer.socketId)
-      setSocketError(issue instanceof Error ? issue.message : "WebRTC offer yuborilmadi")
-    }
-  }
-
-  const answerPeerOffer = async (socket: Socket, payload: unknown) => {
-    try {
-      const record = recordValue(payload)
-      const from = socketText(record.from, record.fromSocketId)
-      const sdp = record.sdp as RTCSessionDescriptionInit | undefined
-      if (!from || !sdp) return
-
-      const user = recordValue(record.user)
-      const peer: RemotePeer = {
-        socketId: from,
-        name: socketText(user.fullName, user.name, user.username, record.fullName) || "Foydalanuvchi",
-        role: socketText(user.role, user.groupId, record.role) || "Talaba",
-      }
-      const connection = createPeerConnection(socket, peer)
-      await connection.setRemoteDescription(sdp)
-      const answer = await connection.createAnswer()
-      await connection.setLocalDescription(answer)
-      socket.emit("webrtc:answer", {
-        targetSocketId: from,
-        sdp: connection.localDescription,
-      })
-    } catch (issue) {
-      setSocketError(issue instanceof Error ? issue.message : "WebRTC answer yuborilmadi")
-    }
-  }
-
-  const acceptPeerAnswer = async (payload: unknown) => {
-    try {
-      const record = recordValue(payload)
-      const from = socketText(record.from, record.fromSocketId)
-      const sdp = record.sdp as RTCSessionDescriptionInit | undefined
-      const connection = from ? peerConnectionsRef.current.get(from) : null
-      if (!connection || !sdp || connection.signalingState === "closed") return
-      await connection.setRemoteDescription(sdp)
-    } catch (issue) {
-      setSocketError(issue instanceof Error ? issue.message : "WebRTC answer qabul qilinmadi")
-    }
-  }
-
-  const acceptIceCandidate = async (payload: unknown) => {
-    try {
-      const record = recordValue(payload)
-      const from = socketText(record.from, record.fromSocketId)
-      const candidate = record.candidate as RTCIceCandidateInit | undefined
-      const connection = from ? peerConnectionsRef.current.get(from) : null
-      if (!connection || !candidate || connection.connectionState === "closed") return
-      await connection.addIceCandidate(candidate)
-    } catch (issue) {
-      setSocketError(issue instanceof Error ? issue.message : "ICE candidate qabul qilinmadi")
     }
   }
 
@@ -2940,22 +2759,52 @@ export default function MeetingPage() {
 
     socketRef.current = socket
 
+    const onRemoteTrack = (peer: { socketId: string; name: string; role: string; groupId: number | null }, track: MediaStreamTrack) => {
+      const existing = remoteStreamsRef.current.get(peer.socketId)
+      const stream = existing?.stream ?? new MediaStream()
+      stream.getTracks().filter((t) => t.kind === track.kind).forEach((t) => stream.removeTrack(t))
+      stream.addTrack(track)
+      const peerState = remotePeerStatesRef.current.get(peer.socketId) ?? {}
+      remoteStreamsRef.current.set(peer.socketId, {
+        socketId: peer.socketId,
+        name: peer.name,
+        role: peer.role,
+        groupId: peer.groupId,
+        ...peerState,
+        stream,
+      })
+      refreshRemoteStreams()
+    }
+
     const applyJoinedPayload = (payload: unknown) => {
       const body = recordValue(unwrapSocketData(payload))
       const joinedParticipants = normalizeSocketParticipants(body.participants)
-      const joinedPeers = normalizeRemotePeers(body.peers)
+      const joinedProducers = normalizeProducerSummaries(body.producers)
       const joinedMessages = Array.isArray(body.messages)
         ? body.messages.map((message, index) => normalizeChatMessage(message, index))
         : []
 
       if (joinedParticipants.length) setSocketParticipants(joinedParticipants)
-      joinedPeers.forEach((peer) => {
-        void startPeerOffer(socket, peer)
-      })
       if (joinedMessages.length) {
         setChatMessages((messages) =>
           joinedMessages.reduce(appendChatMessage, messages)
         )
+      }
+
+      const rtpCapabilities = body.rtpCapabilities as Parameters<MeetingMediaClient["init"]>[0] | undefined
+      if (rtpCapabilities) {
+        if (!mediaClientRef.current) {
+          mediaClientRef.current = new MeetingMediaClient(
+            socket,
+            isTeacher,
+            onRemoteTrack,
+            (socketId) => closePeerConnection(socketId)
+          )
+        }
+        mediaClientRef.current
+          .init(rtpCapabilities, joinedProducers)
+          .then(() => syncPeerMediaTracks())
+          .catch((issue) => setSocketError(issue instanceof Error ? issue.message : "Media ulanishida xatolik"))
       }
     }
 
@@ -3002,14 +2851,15 @@ export default function MeetingPage() {
             : items
       )
     })
-    socket.on("webrtc:offer", (payload: unknown) => {
-      void answerPeerOffer(socket, payload)
+    socket.on("mediasoup:newProducer", (payload: unknown) => {
+      const producer = normalizeProducerSummaries([payload])[0]
+      if (producer) void mediaClientRef.current?.handleNewProducer(producer)
     })
-    socket.on("webrtc:answer", (payload: unknown) => {
-      void acceptPeerAnswer(payload)
-    })
-    socket.on("webrtc:ice-candidate", (payload: unknown) => {
-      void acceptIceCandidate(payload)
+    socket.on("mediasoup:producerClosed", (payload: unknown) => {
+      const record = recordValue(payload)
+      const producerId = socketText(record.producerId)
+      const socketId = socketText(record.socketId)
+      if (producerId && socketId) mediaClientRef.current?.handleProducerClosed(socketId, producerId)
     })
     socket.on("media:state", updateRemoteMediaState)
     socket.on("chat:newMessage", (payload: unknown) => {
