@@ -1826,6 +1826,15 @@ function CallStage({
   // at all, so requestFullscreen() silently no-ops there — fall back to a
   // CSS-only "fullscreen" (fixed, covers the viewport) that works everywhere.
   const [pseudoFullscreen, setPseudoFullscreen] = useState(false)
+  // On mobile the chat/participants panel opens as a full-screen overlay
+  // instead of sitting in normal flow below the video (which required
+  // scrolling past everything to reach it). Desktop is unaffected — the
+  // panel there is always visible in the sidebar regardless of this.
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
+  const openMobilePanel = (panel: CallPanel) => {
+    onTogglePanel(panel)
+    setMobilePanelOpen(true)
+  }
   const handleFullscreen = () => {
     const el = videoSectionRef.current
     const supportsFullscreen = typeof document !== "undefined" && document.fullscreenEnabled && !!el?.requestFullscreen
@@ -1843,6 +1852,64 @@ function CallStage({
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [pseudoFullscreen])
+
+  // Active-speaker detection: the main frame automatically follows whoever
+  // is currently talking, instead of staying on whoever was last tapped.
+  const activeVideoIdRef = useRef(activeVideoId)
+  useEffect(() => { activeVideoIdRef.current = activeVideoId }, [activeVideoId])
+  useEffect(() => {
+    const streamsWithAudio = remoteStreams.filter(r => r.stream.getAudioTracks().length > 0)
+    if (streamsWithAudio.length < 2) return // nothing to switch between
+    const AudioCtxCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioCtxCtor) return
+    const audioCtx = new AudioCtxCtor()
+    const analysers: { socketId: string; analyser: AnalyserNode; data: Uint8Array }[] = []
+    for (const remote of streamsWithAudio) {
+      try {
+        const source = audioCtx.createMediaStreamSource(new MediaStream(remote.stream.getAudioTracks()))
+        const analyser = audioCtx.createAnalyser()
+        analyser.fftSize = 512
+        source.connect(analyser)
+        analysers.push({ socketId: remote.socketId, analyser, data: new Uint8Array(analyser.frequencyBinCount) })
+      } catch { /* stream not ready yet — skip this tick */ }
+    }
+    if (!analysers.length) { void audioCtx.close(); return }
+
+    let lastSwitch = 0
+    const SPEAKING_THRESHOLD = 12       // 0-255 scale; filters out background noise
+    const MIN_SWITCH_INTERVAL_MS = 1500 // avoid flicker between two people talking closely
+
+    const interval = window.setInterval(() => {
+      let loudestId: string | null = null
+      let loudestLevel = 0
+      for (const a of analysers) {
+        a.analyser.getByteFrequencyData(a.data as Uint8Array<ArrayBuffer>)
+        let sum = 0
+        for (let i = 0; i < a.data.length; i++) sum += a.data[i]
+        const avg = sum / a.data.length
+        if (avg > loudestLevel) { loudestLevel = avg; loudestId = a.socketId }
+      }
+      const now = Date.now()
+      if (
+        loudestId &&
+        loudestLevel > SPEAKING_THRESHOLD &&
+        loudestId !== activeVideoIdRef.current &&
+        now - lastSwitch > MIN_SWITCH_INTERVAL_MS
+      ) {
+        lastSwitch = now
+        onSelectVideo(loudestId)
+      }
+    }, 400)
+
+    return () => {
+      window.clearInterval(interval)
+      void audioCtx.close()
+    }
+    // Deliberately excludes activeVideoId/onSelectVideo — including them would
+    // tear down and rebuild the AudioContext on every speaker switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteStreams])
+
   const activeRemote = activeVideoId === "self"
     ? null
     : (remoteStreams.find(r => r.socketId === activeVideoId) ?? null)
@@ -1981,8 +2048,8 @@ function CallStage({
               <div className="flex flex-wrap items-center justify-center gap-2 rounded-full bg-white px-3 py-2 shadow-[0_2px_12px_rgba(1,41,112,0.1)] border border-[#d8e6f7]">
                 <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
                 <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
-                <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => onTogglePanel("chat")} />
-                <button type="button" aria-label="Yana" onClick={() => onTogglePanel(activePanel === "participants" ? "chat" : "participants")}
+                <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => openMobilePanel("chat")} />
+                <button type="button" aria-label="Yana" onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
                   className="grid h-11 w-11 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475]">
                   <MoreHorizontal className="h-5 w-5" />
                 </button>
@@ -2029,7 +2096,11 @@ function CallStage({
           </section>
 
           {/* Sidebar */}
-          <aside className="flex min-h-0 flex-col rounded-[8px] border border-[#d8e6f7] bg-white p-4 shadow-[0_2px_12px_rgba(1,41,112,0.06)]">
+          <aside className={cn(
+            "flex-col bg-white p-4",
+            mobilePanelOpen ? "fixed inset-0 z-40 flex" : "hidden",
+            "xl:flex xl:static xl:z-auto xl:min-h-0 xl:rounded-[8px] xl:border xl:border-[#d8e6f7] xl:shadow-[0_2px_12px_rgba(1,41,112,0.06)]"
+          )}>
             <div className="shrink-0">
               <div className="flex items-center gap-1 rounded-[5px] bg-[#f6f9ff] p-1">
                 {(["participants", ...(isTeacher ? ["cameras"] : []), "chat"] as CallPanel[]).map(id => (
@@ -2043,6 +2114,10 @@ function CallStage({
                 <span className="ml-auto rounded-full bg-[#e8fbff] px-2 py-0.5 text-xs font-medium text-[#0e58a8]" style={{ fontFamily: "var(--font-poppins)" }}>
                   {panelCount}
                 </span>
+                <button type="button" aria-label="Yopish" onClick={() => setMobilePanelOpen(false)}
+                  className="ml-2 grid h-7 w-7 place-items-center rounded-full text-[#7293b9] hover:bg-white xl:hidden">
+                  <X className="h-4 w-4" />
+                </button>
               </div>
               {activePanel === "participants" && (
                 <p className="mt-3 text-[11px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
