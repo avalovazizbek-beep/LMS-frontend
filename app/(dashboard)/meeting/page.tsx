@@ -667,6 +667,7 @@ function LocalVideoTile({
   stream,
   label,
   cameraEnabled,
+  micEnabled,
   screenSharing,
   active,
   onSelect,
@@ -675,6 +676,7 @@ function LocalVideoTile({
   stream: MediaStream | null
   label: string
   cameraEnabled: boolean
+  micEnabled?: boolean
   screenSharing: boolean
   active: boolean
   onSelect: () => void
@@ -722,6 +724,11 @@ function LocalVideoTile({
         <div className="flex h-full items-center justify-center">
           <Avatar name={label} />
         </div>
+      )}
+      {micEnabled === false && (
+        <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-black/60">
+          <MicOff className="h-3.5 w-3.5 text-white" />
+        </span>
       )}
       <div
         className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-2 py-1.5 text-xs font-medium text-white"
@@ -785,6 +792,11 @@ function RemoteVideoTile({
         <div className="flex h-full items-center justify-center">
           <Avatar name={remote.name} />
         </div>
+      )}
+      {remote.micEnabled === false && (
+        <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-black/60">
+          <MicOff className="h-3.5 w-3.5 text-white" />
+        </span>
       )}
       <div
         className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-2 py-1.5 text-xs font-medium text-white"
@@ -1944,7 +1956,7 @@ function CallStage({
               {(activeRemote || visibleRemoteStreams.length > 0) && (
                 <div className="absolute left-4 top-4 z-10 hidden max-w-[calc(100%-2rem)] flex-wrap gap-3 xl:flex">
                   {activeRemote && (
-                    <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} />
+                    <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} />
                   )}
                   {visibleRemoteStreams.map(remote => (
                     <RemoteVideoTile key={remote.socketId} remote={remote} active={activeVideoId === remote.socketId} onSelect={() => onSelectVideo(remote.socketId)} />
@@ -1982,7 +1994,7 @@ function CallStage({
             {(activeRemote || visibleRemoteStreams.length > 0) && (
               <div className="mt-3 grid grid-cols-2 gap-3 xl:hidden">
                 {activeRemote && (
-                  <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
+                  <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
                 )}
                 {visibleRemoteStreams.map(remote => (
                   <RemoteVideoTile key={remote.socketId} remote={remote} active={activeVideoId === remote.socketId} onSelect={() => onSelectVideo(remote.socketId)} fill />
@@ -2964,6 +2976,11 @@ export default function MeetingPage() {
       setSocketError(null)
       setCallSeconds(0)
       setViewState({ stage: "call", meetingId: prejoinMeeting.id })
+      // O'qituvchi kirganda yozib olish qo'lda tugma bosmasdan avtomatik boshlanadi.
+      // Brauzer baribir "qaysi ekran/oyna" so'rovini ko'rsatadi (xavfsizlik siyosati
+      // tufayli buni chetlab o'tib bo'lmaydi) — lekin ilovaning o'z "Yozishni
+      // boshlash" tugmasini bosish shart bo'lmay qoladi.
+      if (isTeacher) void startRecording()
     } catch (e) {
       setJoinError(e instanceof Error ? e.message : "Join-token olishda xatolik")
     } finally {
