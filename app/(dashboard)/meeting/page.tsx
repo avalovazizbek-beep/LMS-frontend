@@ -1543,7 +1543,9 @@ function PrejoinStage({
             </div>
           )}
 
-          <div className="mt-6 space-y-3">
+          {/* Sticky on mobile so the join button stays reachable without scrolling
+              past the preview/toggle cards above it; normal flow on desktop. */}
+          <div className="sticky bottom-0 -mx-5 mt-6 space-y-3 border-t border-[#d8e6f7] bg-white px-5 py-3 xl:static xl:mx-0 xl:border-0 xl:bg-transparent xl:px-0 xl:py-0">
             <PrimaryButton onClick={onEnter} loading={joining} disabled={joining}>
               {!joining ? <Play className="h-4 w-4 fill-current" /> : null}
               Meetingga kirish
@@ -1959,18 +1961,20 @@ function CallStage({
                 {pseudoFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </button>
 
-              {/* Mobile floating control pill — overlaid on the video, matches the app's compact call UI */}
-              <div className="absolute inset-x-0 bottom-4 z-20 flex justify-center xl:hidden">
-                <div className="flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 shadow-[0_8px_24px_rgba(1,41,112,0.25)] backdrop-blur-sm">
-                  <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
-                  <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
-                  <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => onTogglePanel("chat")} />
-                  <button type="button" aria-label="Yana" onClick={() => onTogglePanel(activePanel === "participants" ? "chat" : "participants")}
-                    className="grid h-11 w-11 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475]">
-                    <MoreHorizontal className="h-5 w-5" />
-                  </button>
-                  <CallControlButton label="Chiqish" icon={PhoneOff} tone="danger" onClick={onLeave} />
-                </div>
+            </div>
+
+            {/* Mobile control pill — sits below the video (not overlaid, so it never
+                covers video labels/content on short viewports) */}
+            <div className="mt-3 flex justify-center xl:hidden">
+              <div className="flex flex-wrap items-center justify-center gap-2 rounded-full bg-white px-3 py-2 shadow-[0_2px_12px_rgba(1,41,112,0.1)] border border-[#d8e6f7]">
+                <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
+                <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
+                <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => onTogglePanel("chat")} />
+                <button type="button" aria-label="Yana" onClick={() => onTogglePanel(activePanel === "participants" ? "chat" : "participants")}
+                  className="grid h-11 w-11 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475]">
+                  <MoreHorizontal className="h-5 w-5" />
+                </button>
+                <CallControlButton label="Chiqish" icon={PhoneOff} tone="danger" onClick={onLeave} />
               </div>
             </div>
 
