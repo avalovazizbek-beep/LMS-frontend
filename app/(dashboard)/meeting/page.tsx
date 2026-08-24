@@ -2295,6 +2295,11 @@ export default function MeetingPage() {
   const remoteStreamsRef = useRef<Map<string, RemoteStream>>(new Map())
   const remotePeerStatesRef = useRef<Map<string, Partial<RemotePeer>>>(new Map())
   const offeredPeersRef = useRef<Set<string>>(new Set())
+  // "disconnected" is a transient ICE state that often self-recovers (e.g. the
+  // brief burst of renegotiation when a new peer joins a mesh call can flicker
+  // an EXISTING peer's state) — only "failed"/"closed" are truly terminal, so
+  // "disconnected" gets a grace period before we actually tear the peer down.
+  const reconnectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   const upcoming = data?.data.upcoming ?? []
   const past     = data?.data.past     ?? []
@@ -2387,7 +2392,16 @@ export default function MeetingPage() {
     setRemoteStreams(Array.from(remoteStreamsRef.current.values()))
   }
 
+  const clearReconnectTimer = (socketId: string) => {
+    const timer = reconnectTimersRef.current.get(socketId)
+    if (timer) {
+      clearTimeout(timer)
+      reconnectTimersRef.current.delete(socketId)
+    }
+  }
+
   const closePeerConnection = (socketId: string) => {
+    clearReconnectTimer(socketId)
     peerConnectionsRef.current.get(socketId)?.close()
     peerConnectionsRef.current.delete(socketId)
     offeredPeersRef.current.delete(socketId)
@@ -2397,6 +2411,8 @@ export default function MeetingPage() {
   }
 
   const closePeerConnections = () => {
+    reconnectTimersRef.current.forEach((timer) => clearTimeout(timer))
+    reconnectTimersRef.current.clear()
     peerConnectionsRef.current.forEach((connection) => connection.close())
     peerConnectionsRef.current.clear()
     offeredPeersRef.current.clear()
@@ -2501,9 +2517,28 @@ export default function MeetingPage() {
     }
 
     connection.onconnectionstatechange = () => {
-      if (["closed", "disconnected", "failed"].includes(connection.connectionState)) {
+      const state = connection.connectionState
+      if (state === "failed" || state === "closed") {
+        clearReconnectTimer(peer.socketId)
         closePeerConnection(peer.socketId)
+        return
       }
+      if (state === "disconnected") {
+        // Give it a chance to self-recover (common when another peer joins
+        // the mesh) instead of instantly dropping this participant's video.
+        if (!reconnectTimersRef.current.has(peer.socketId)) {
+          const timer = setTimeout(() => {
+            reconnectTimersRef.current.delete(peer.socketId)
+            if (connection.connectionState === "disconnected" || connection.connectionState === "failed") {
+              closePeerConnection(peer.socketId)
+            }
+          }, 8000)
+          reconnectTimersRef.current.set(peer.socketId, timer)
+        }
+        return
+      }
+      // Recovered (e.g. back to "connected") — cancel any pending close.
+      clearReconnectTimer(peer.socketId)
     }
 
     addLocalTracksToPeer(connection)
@@ -2944,8 +2979,13 @@ export default function MeetingPage() {
     socket.on("participant:joined", (payload: unknown) => {
       const next = normalizeSocketParticipants([payload])[0]
       if (!next) return
+      // Match by socketId, not name — two sessions of the same person (or of
+      // two people who happen to share a display name) must stay separate
+      // rows, or one gets silently dropped from the list.
       setSocketParticipants((items) => {
-        const filtered = items.filter((item) => item.name !== next.name)
+        const filtered = next.socketId
+          ? items.filter((item) => item.socketId !== next.socketId)
+          : items.filter((item) => item.name !== next.name)
         return [...filtered, next]
       })
     })
@@ -2954,8 +2994,13 @@ export default function MeetingPage() {
       const socketId = socketText(record.socketId, record.sid)
       const name = socketText(record.fullName, record.name)
       if (socketId) closePeerConnection(socketId)
-      if (!name) return
-      setSocketParticipants((items) => items.filter((item) => item.name !== name))
+      setSocketParticipants((items) =>
+        socketId
+          ? items.filter((item) => item.socketId !== socketId)
+          : name
+            ? items.filter((item) => item.name !== name)
+            : items
+      )
     })
     socket.on("webrtc:offer", (payload: unknown) => {
       void answerPeerOffer(socket, payload)
