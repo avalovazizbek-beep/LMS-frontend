@@ -1649,7 +1649,7 @@ function ContentFormModal({
 
           {/* Talabaga ko'rsatiladigan savollar soni — savol bazasidan tasodifiy tanlanadi.
               Faqat tahrirlashda (savollar allaqachon qo'shilgan bo'lganda) mantiqan to'g'ri keladi. */}
-          {config.hasDuration && editingId && (
+          {config.hasDuration && editing && (
             <div className="col-span-2 sm:col-span-1">
               <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.questionDisplayCount")}</label>
               <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
