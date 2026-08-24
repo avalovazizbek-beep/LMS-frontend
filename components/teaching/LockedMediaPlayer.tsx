@@ -43,15 +43,25 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
     }
   }
 
+  // Tolerance above the furthest-reached position that still counts as normal
+  // playback (not a skip) — covers the gap between consecutive timeupdate ticks.
+  const SEEK_TOLERANCE_S = 1.5
+
   function clampSeek(e: React.SyntheticEvent<HTMLMediaElement>) {
     const el = e.currentTarget
-    if (el.currentTime > maxReachedRef.current + 1) {
+    if (el.currentTime > maxReachedRef.current + SEEK_TOLERANCE_S) {
       el.currentTime = maxReachedRef.current
     }
   }
 
   function handleTimeUpdate(e: React.SyntheticEvent<HTMLMediaElement>) {
     const el = e.currentTarget
+    // Authoritative check — timeupdate fires reliably during playback, unlike
+    // seeking (whose correction can race with timeupdate and get overwritten).
+    if (el.currentTime > maxReachedRef.current + SEEK_TOLERANCE_S) {
+      el.currentTime = maxReachedRef.current
+      return
+    }
     if (el.currentTime > maxReachedRef.current) {
       maxReachedRef.current = el.currentTime
       save(false)
