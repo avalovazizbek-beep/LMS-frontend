@@ -2198,9 +2198,9 @@ export default function MeetingPage() {
       ? "API xatosi"
       : viewState.stage === "call"
         ? socketStatus
-        : "Meeting API"
+        : "Tayyor"
   const sourceTone = error || socketError ? "warning" : loading ? "loading" : "success"
-  const apiError   = error ? `Meeting API xatosi: ${error}` : null
+  const apiError   = error ? `Xatolik: ${error}` : null
 
   useEffect(() => {
     if (
