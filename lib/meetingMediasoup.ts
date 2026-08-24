@@ -37,8 +37,6 @@ function emitAck<T = unknown>(socket: Socket, event: string, payload: unknown): 
   })
 }
 
-const MANAGER_ROLES = new Set(["teacher", "employee", "admin"])
-
 export class MeetingMediaClient {
   private device = new Device()
   private sendTransport: MediasoupClientTypes.Transport | null = null
@@ -50,7 +48,6 @@ export class MeetingMediaClient {
 
   constructor(
     private socket: Socket,
-    private isManager: boolean,
     private onTrack: (peer: RemotePeerIdentity, track: MediaStreamTrack) => void,
     private onProducerClosed: (socketId: string) => void
   ) {}
@@ -147,20 +144,15 @@ export class MeetingMediaClient {
       .catch((issue) => console.error("[mediasoup] resumeProducer failed:", issue))
   }
 
-  private shouldConsumeVideo(role: string): boolean {
-    return this.isManager || MANAGER_ROLES.has(role)
-  }
-
   async handleNewProducer(producer: ProducerSummary): Promise<void> {
     await this.maybeConsume(producer)
   }
 
+  // Everyone in the room consumes everyone else's audio AND video — this is
+  // a real, discussion-style meeting where every participant should see and
+  // hear every other participant, not just the teacher.
   private async maybeConsume(producer: ProducerSummary): Promise<void> {
     if (this.consumedProducerIds.has(producer.producerId)) return
-    if (producer.kind === "video" && !this.shouldConsumeVideo(producer.role)) {
-      console.log(`[mediasoup] skipping video from ${producer.fullName} (role=${producer.role}) — local user is not a manager`)
-      return
-    }
     this.consumedProducerIds.add(producer.producerId)
 
     try {

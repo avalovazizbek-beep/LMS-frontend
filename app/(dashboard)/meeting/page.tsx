@@ -1924,12 +1924,10 @@ function CallStage({
   const activeScreenSharing  = activeRemote?.screenSharing ?? screenSharing
   const activeCameraEnabled  = activeRemote ? (activeRemote.cameraEnabled !== false) : cameraEnabled
 
-  const allowedRemoteStreams = isTeacher
-    ? remoteStreams
-    : remoteStreams.filter(r => r.role === "teacher" || r.role === "employee")
+  // Everyone in the room sees everyone else — no role-based restriction.
   const visibleRemoteStreams = activeRemote
-    ? allowedRemoteStreams.filter(r => r.socketId !== activeRemote.socketId)
-    : allowedRemoteStreams
+    ? remoteStreams.filter(r => r.socketId !== activeRemote.socketId)
+    : remoteStreams
 
   const participantCount = liveParticipants.length + invitedParticipants.length
   const panelCount = activePanel === "chat" ? chatMessages.length
@@ -2796,7 +2794,6 @@ export default function MeetingPage() {
         if (!mediaClientRef.current) {
           mediaClientRef.current = new MeetingMediaClient(
             socket,
-            isTeacher,
             onRemoteTrack,
             (socketId) => closePeerConnection(socketId)
           )
