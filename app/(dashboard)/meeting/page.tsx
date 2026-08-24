@@ -670,6 +670,7 @@ function LocalVideoTile({
   screenSharing,
   active,
   onSelect,
+  fill,
 }: {
   stream: MediaStream | null
   label: string
@@ -677,6 +678,7 @@ function LocalVideoTile({
   screenSharing: boolean
   active: boolean
   onSelect: () => void
+  fill?: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hasVideo = Boolean(
@@ -703,7 +705,8 @@ function LocalVideoTile({
       onClick={onSelect}
       aria-pressed={active}
       className={cn(
-        "relative h-32 w-48 overflow-hidden rounded-[8px] border bg-[#10192a] text-left shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition focus:outline-none focus:ring-2 focus:ring-white/80",
+        "relative overflow-hidden rounded-[8px] border bg-[#10192a] text-left shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition focus:outline-none focus:ring-2 focus:ring-white/80",
+        fill ? "aspect-video w-full" : "h-32 w-48",
         active ? "border-white ring-2 ring-[#1cc2dc]" : "border-white/20 hover:border-white/70"
       )}
     >
@@ -734,10 +737,12 @@ function RemoteVideoTile({
   remote,
   active,
   onSelect,
+  fill,
 }: {
   remote: RemoteStream
   active: boolean
   onSelect: () => void
+  fill?: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hasVideo = Boolean(
@@ -764,7 +769,8 @@ function RemoteVideoTile({
       onClick={onSelect}
       aria-pressed={active}
       className={cn(
-        "relative h-32 w-48 overflow-hidden rounded-[8px] border bg-[#10192a] text-left shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition focus:outline-none focus:ring-2 focus:ring-white/80",
+        "relative overflow-hidden rounded-[8px] border bg-[#10192a] text-left shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition focus:outline-none focus:ring-2 focus:ring-white/80",
+        fill ? "aspect-video w-full" : "h-32 w-48",
         active ? "border-white ring-2 ring-[#1cc2dc]" : "border-white/20 hover:border-white/70"
       )}
     >
@@ -1932,9 +1938,9 @@ function CallStage({
                 </div>
               )}
 
-              {/* Thumbnails — top-left */}
+              {/* Thumbnails — top-left (desktop only; mobile gets a grid below the main video instead) */}
               {(activeRemote || visibleRemoteStreams.length > 0) && (
-                <div className="absolute left-4 top-4 z-10 flex max-w-[calc(100%-2rem)] flex-wrap gap-3">
+                <div className="absolute left-4 top-4 z-10 hidden max-w-[calc(100%-2rem)] flex-wrap gap-3 xl:flex">
                   {activeRemote && (
                     <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} />
                   )}
@@ -1945,17 +1951,43 @@ function CallStage({
               )}
 
               <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_50%,rgba(16,25,42,0.72)_100%)] pointer-events-none" />
-              <div className="absolute bottom-5 left-5 rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-[#012970] shadow-[0_6px_18px_rgba(1,41,112,0.16)]" style={{ fontFamily: "var(--font-poppins)" }}>
+              <div className="absolute bottom-5 left-5 hidden rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-[#012970] shadow-[0_6px_18px_rgba(1,41,112,0.16)] xl:block" style={{ fontFamily: "var(--font-poppins)" }}>
                 {activeLabel}
               </div>
               <button type="button" aria-label={pseudoFullscreen ? "Kichraytirish" : "Kattalashtirish"} onClick={handleFullscreen}
-                className="absolute right-5 bottom-5 grid h-10 w-10 place-items-center rounded-full bg-white text-[#104475] shadow-[0_6px_18px_rgba(1,41,112,0.16)]">
+                className="absolute right-5 bottom-5 hidden h-10 w-10 place-items-center rounded-full bg-white text-[#104475] shadow-[0_6px_18px_rgba(1,41,112,0.16)] xl:grid">
                 {pseudoFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </button>
+
+              {/* Mobile floating control pill — overlaid on the video, matches the app's compact call UI */}
+              <div className="absolute inset-x-0 bottom-4 z-20 flex justify-center xl:hidden">
+                <div className="flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 shadow-[0_8px_24px_rgba(1,41,112,0.25)] backdrop-blur-sm">
+                  <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
+                  <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
+                  <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => onTogglePanel("chat")} />
+                  <button type="button" aria-label="Yana" onClick={() => onTogglePanel(activePanel === "participants" ? "chat" : "participants")}
+                    className="grid h-11 w-11 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475]">
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+                  <CallControlButton label="Chiqish" icon={PhoneOff} tone="danger" onClick={onLeave} />
+                </div>
+              </div>
             </div>
 
-            {/* Controls */}
-            <div className="mt-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
+            {/* Mobile participant grid — two per row, below the main video */}
+            {(activeRemote || visibleRemoteStreams.length > 0) && (
+              <div className="mt-3 grid grid-cols-2 gap-3 xl:hidden">
+                {activeRemote && (
+                  <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
+                )}
+                {visibleRemoteStreams.map(remote => (
+                  <RemoteVideoTile key={remote.socketId} remote={remote} active={activeVideoId === remote.socketId} onSelect={() => onSelectVideo(remote.socketId)} fill />
+                ))}
+              </div>
+            )}
+
+            {/* Controls — desktop row (mobile uses the floating pill overlaid on the video instead) */}
+            <div className="mt-4 hidden shrink-0 flex-wrap items-center justify-between gap-3 xl:flex">
               <div />
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
