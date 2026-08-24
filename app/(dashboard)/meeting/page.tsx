@@ -20,6 +20,7 @@ import {
   Loader2,
   Maximize2,
   MessageSquareText,
+  Minimize2,
   Mic,
   MicOff,
   MonitorUp,
@@ -1801,12 +1802,27 @@ function CallStage({
 }) {
   const { t, lang } = useLanguage()
   const videoSectionRef = useRef<HTMLElement | null>(null)
+  // iOS Safari doesn't support the Fullscreen API for non-<video> elements
+  // at all, so requestFullscreen() silently no-ops there — fall back to a
+  // CSS-only "fullscreen" (fixed, covers the viewport) that works everywhere.
+  const [pseudoFullscreen, setPseudoFullscreen] = useState(false)
   const handleFullscreen = () => {
     const el = videoSectionRef.current
-    if (!el) { onFullscreen(); return }
+    const supportsFullscreen = typeof document !== "undefined" && document.fullscreenEnabled && !!el?.requestFullscreen
+    if (!supportsFullscreen) {
+      setPseudoFullscreen((value) => !value)
+      onFullscreen()
+      return
+    }
     if (!document.fullscreenElement) void el.requestFullscreen?.()
     else void document.exitFullscreen?.()
   }
+  useEffect(() => {
+    if (!pseudoFullscreen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPseudoFullscreen(false) }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [pseudoFullscreen])
   const activeRemote = activeVideoId === "self"
     ? null
     : (remoteStreams.find(r => r.socketId === activeVideoId) ?? null)
@@ -1876,7 +1892,14 @@ function CallStage({
         <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
 
           {/* Video area */}
-          <section ref={videoSectionRef} className="flex min-h-0 flex-col rounded-[8px] border border-[#d8e6f7] bg-white p-4 shadow-[0_2px_12px_rgba(1,41,112,0.06)]">
+          <section
+            ref={videoSectionRef}
+            className={
+              pseudoFullscreen
+                ? "fixed inset-0 z-50 flex min-h-0 flex-col bg-white p-4"
+                : "flex min-h-0 flex-col rounded-[8px] border border-[#d8e6f7] bg-white p-4 shadow-[0_2px_12px_rgba(1,41,112,0.06)]"
+            }
+          >
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
                 <InfoPill icon={CalendarDays} label={meeting.subject || "Meeting"} />
@@ -1925,9 +1948,9 @@ function CallStage({
               <div className="absolute bottom-5 left-5 rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-[#012970] shadow-[0_6px_18px_rgba(1,41,112,0.16)]" style={{ fontFamily: "var(--font-poppins)" }}>
                 {activeLabel}
               </div>
-              <button type="button" aria-label="Kattalashtirish" onClick={handleFullscreen}
+              <button type="button" aria-label={pseudoFullscreen ? "Kichraytirish" : "Kattalashtirish"} onClick={handleFullscreen}
                 className="absolute right-5 bottom-5 grid h-10 w-10 place-items-center rounded-full bg-white text-[#104475] shadow-[0_6px_18px_rgba(1,41,112,0.16)]">
-                <Maximize2 className="h-4 w-4" />
+                {pseudoFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </button>
             </div>
 
