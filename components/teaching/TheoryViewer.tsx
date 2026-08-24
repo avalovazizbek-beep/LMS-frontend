@@ -466,8 +466,10 @@ function ManualTheoryViewer({
 }) {
   const [completed, setCompleted] = useState(!!initialProgress?.completed)
   const [saving, setSaving] = useState(false)
+  const [hasOpened, setHasOpened] = useState(false)
 
   async function markRead() {
+    if (!hasOpened) return
     setSaving(true)
     try {
       await teachingApi.saveProgress(contentId, { pagesRead: [1], totalPages: 1, completed: true })
@@ -485,19 +487,24 @@ function ManualTheoryViewer({
         <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Taqdimot"}</span>
         {completed && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
       </div>
-      <a href={fileUrl} target="_blank" rel="noreferrer"
+      <a href={fileUrl} target="_blank" rel="noreferrer" onClick={() => setHasOpened(true)}
         className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-sm font-medium"
         style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
         <ExternalLink className="w-4 h-4" />
         {file.originalName}
       </a>
       {!completed && (
-        <button onClick={markRead} disabled={saving}
-          className="flex items-center justify-center gap-2 px-4 py-2 rounded-[8px] text-sm font-medium w-fit disabled:opacity-60"
-          style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-          O&apos;qib chiqdim
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={markRead} disabled={saving || !hasOpened}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-[8px] text-sm font-medium w-fit disabled:opacity-40"
+            style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+            O&apos;qib chiqdim
+          </button>
+          {!hasOpened && (
+            <p className="text-xs" style={labelStyle}>Avval faylni ochib chiqing</p>
+          )}
+        </div>
       )}
     </div>
   )
