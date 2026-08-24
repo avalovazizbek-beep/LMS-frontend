@@ -1826,10 +1826,9 @@ function CallStage({
   // at all, so requestFullscreen() silently no-ops there — fall back to a
   // CSS-only "fullscreen" (fixed, covers the viewport) that works everywhere.
   const [pseudoFullscreen, setPseudoFullscreen] = useState(false)
-  // On mobile the chat/participants panel opens as a full-screen overlay
-  // instead of sitting in normal flow below the video (which required
-  // scrolling past everything to reach it). Desktop is unaffected — the
-  // panel there is always visible in the sidebar regardless of this.
+  // Chat/participants panel is a slide-in drawer on every breakpoint (full-screen
+  // overlay on mobile, a right-edge panel on desktop) so the video stays full-bleed
+  // by default instead of permanently sharing width with a sidebar.
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
   const openMobilePanel = (panel: CallPanel) => {
     onTogglePanel(panel)
@@ -1975,8 +1974,9 @@ function CallStage({
           </div>
         </div>
 
-        {/* Body */}
-        <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        {/* Body — video is always full-width; the participants/chat panel is a
+            slide-in overlay on every breakpoint (no permanent sidebar column) */}
+        <div className="grid min-h-0 flex-1 gap-4">
 
           {/* Video area */}
           <section
@@ -2019,14 +2019,40 @@ function CallStage({
                 </div>
               )}
 
-              {/* Thumbnails — top-left (desktop only; mobile gets a grid below the main video instead) */}
+              {/* Status overlays — always visible on the video itself (not tucked
+                  inside the panel drawer, which is now closed by default) */}
+              <div className="absolute inset-x-4 top-4 z-10 flex flex-col items-center gap-2">
+                {(isRecording || recordingUploading) && (
+                  <div className="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white" style={{ fontFamily: "var(--font-poppins)" }}>
+                    {isRecording && (
+                      <>
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                        Yozib olinmoqda
+                      </>
+                    )}
+                    {recordingUploading && "Yozuv serverga yuklanmoqda..."}
+                  </div>
+                )}
+                {socketError && (
+                  <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800" style={{ fontFamily: "var(--font-poppins)" }}>
+                    {socketError}
+                  </div>
+                )}
+                {recordingError && (
+                  <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700" style={{ fontFamily: "var(--font-poppins)" }}>
+                    {recordingError}
+                  </div>
+                )}
+              </div>
+
+              {/* Thumbnails — vertical strip along the right edge (desktop only; mobile gets a grid below the main video instead) */}
               {(activeRemote || visibleRemoteStreams.length > 0) && (
-                <div className="absolute left-4 top-4 z-10 hidden max-w-[calc(100%-2rem)] flex-wrap gap-3 xl:flex">
+                <div className="absolute right-4 top-4 bottom-24 z-10 hidden w-32 flex-col gap-3 overflow-y-auto xl:flex">
                   {activeRemote && (
-                    <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} />
+                    <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
                   )}
                   {visibleRemoteStreams.map(remote => (
-                    <RemoteVideoTile key={remote.socketId} remote={remote} active={activeVideoId === remote.socketId} onSelect={() => onSelectVideo(remote.socketId)} />
+                    <RemoteVideoTile key={remote.socketId} remote={remote} active={activeVideoId === remote.socketId} onSelect={() => onSelectVideo(remote.socketId)} fill />
                   ))}
                 </div>
               )}
@@ -2036,9 +2062,34 @@ function CallStage({
                 {activeLabel}
               </div>
               <button type="button" aria-label={pseudoFullscreen ? "Kichraytirish" : "Kattalashtirish"} onClick={handleFullscreen}
-                className="absolute right-5 bottom-5 hidden h-10 w-10 place-items-center rounded-full bg-white text-[#104475] shadow-[0_6px_18px_rgba(1,41,112,0.16)] xl:grid">
+                className="absolute left-4 top-4 hidden h-10 w-10 place-items-center rounded-full bg-white/95 text-[#104475] shadow-[0_6px_18px_rgba(1,41,112,0.16)] xl:grid">
                 {pseudoFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </button>
+
+              {/* Controls — desktop floating pill, overlaid on the video itself
+                  (mobile keeps the separate pill below the video, unchanged) */}
+              <div className="absolute inset-x-0 bottom-5 z-10 hidden justify-center xl:flex">
+                <div className="flex flex-wrap items-center justify-center gap-2 rounded-full bg-[#10192a]/85 px-4 py-2.5 shadow-[0_10px_30px_rgba(1,10,25,0.35)] backdrop-blur">
+                  <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
+                  <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
+                  <CallControlButton label={screenSharing ? "Ekran ulashishni to'xtatish" : "Ekran ulashish"} icon={MonitorUp} tone="primary" active={screenSharing} onClick={onToggleScreen} />
+                  {isTeacher && (
+                    <CallControlButton
+                      label={isRecording ? "Yozishni tugatish" : "Yozishni boshlash"}
+                      icon={isRecording ? Square : Circle}
+                      tone={isRecording ? "danger" : "primary"}
+                      active={isRecording}
+                      onClick={onToggleRecording}
+                    />
+                  )}
+                  <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => openMobilePanel("chat")} />
+                  <button type="button" aria-label="Yana" onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20">
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+                  <CallControlButton label="Chiqish" icon={PhoneOff} tone="danger" onClick={onLeave} />
+                </div>
+              </div>
 
             </div>
 
@@ -2069,37 +2120,16 @@ function CallStage({
               </div>
             )}
 
-            {/* Controls — desktop row (mobile uses the floating pill overlaid on the video instead) */}
-            <div className="mt-4 hidden shrink-0 flex-wrap items-center justify-between gap-3 xl:flex">
-              <div />
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
-                <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
-                <CallControlButton label="Chiqish" icon={PhoneOff} tone="danger" onClick={onLeave} />
-                <CallControlButton label={screenSharing ? "Ekran ulashishni to'xtatish" : "Ekran ulashish"} icon={MonitorUp} tone="primary" active={screenSharing} onClick={onToggleScreen} />
-                {isTeacher && (
-                  <CallControlButton
-                    label={isRecording ? "Yozishni tugatish" : "Yozishni boshlash"}
-                    icon={isRecording ? Square : Circle}
-                    tone={isRecording ? "danger" : "primary"}
-                    active={isRecording}
-                    onClick={onToggleRecording}
-                  />
-                )}
-                <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => onTogglePanel("chat")} />
-              </div>
-              <button type="button" onClick={() => onTogglePanel(activePanel === "participants" ? "chat" : "participants")}
-                className="grid h-11 w-11 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475] hover:bg-[#f6f9ff]">
-                <MoreHorizontal className="h-5 w-5" />
-              </button>
-            </div>
           </section>
 
-          {/* Sidebar */}
+          {/* Sidebar — a slide-in drawer on every breakpoint, closed by default
+              so the video stays full-bleed; opens over the video/page when the
+              user picks Chat/Ishtirokchilar/More */}
           <aside className={cn(
             "flex-col bg-white p-4",
-            mobilePanelOpen ? "fixed inset-0 z-40 flex" : "hidden",
-            "xl:flex xl:static xl:z-auto xl:min-h-0 xl:rounded-[8px] xl:border xl:border-[#d8e6f7] xl:shadow-[0_2px_12px_rgba(1,41,112,0.06)]"
+            mobilePanelOpen
+              ? "fixed inset-0 z-40 flex xl:inset-y-4 xl:right-4 xl:left-auto xl:w-[360px] xl:rounded-[8px] xl:border xl:border-[#d8e6f7] xl:shadow-[0_20px_48px_rgba(1,10,25,0.28)]"
+              : "hidden"
           )}>
             <div className="shrink-0">
               <div className="flex items-center gap-1 rounded-[5px] bg-[#f6f9ff] p-1">
@@ -2115,7 +2145,7 @@ function CallStage({
                   {panelCount}
                 </span>
                 <button type="button" aria-label="Yopish" onClick={() => setMobilePanelOpen(false)}
-                  className="ml-2 grid h-7 w-7 place-items-center rounded-full text-[#7293b9] hover:bg-white xl:hidden">
+                  className="ml-2 grid h-7 w-7 place-items-center rounded-full text-[#7293b9] hover:bg-white">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -2125,30 +2155,6 @@ function CallStage({
                 </p>
               )}
             </div>
-
-            {socketError && (
-              <div className="mt-4 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" style={{ fontFamily: "var(--font-poppins)" }}>
-                {socketError}
-              </div>
-            )}
-
-            {recordingError && (
-              <div className="mt-4 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" style={{ fontFamily: "var(--font-poppins)" }}>
-                {recordingError}
-              </div>
-            )}
-
-            {(isRecording || recordingUploading) && (
-              <div className="mt-4 flex items-center gap-2 rounded-[8px] border border-[#d8e6f7] bg-[#f6f9ff] px-3 py-2 text-xs text-[#0e58a8]" style={{ fontFamily: "var(--font-poppins)" }}>
-                {isRecording && (
-                  <>
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                    Yozib olinmoqda...
-                  </>
-                )}
-                {recordingUploading && "Yozuv serverga yuklanmoqda..."}
-              </div>
-            )}
 
             {/* Participants */}
             {activePanel === "participants" && (
