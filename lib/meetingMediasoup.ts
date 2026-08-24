@@ -108,14 +108,19 @@ export class MeetingMediaClient {
 
   private async produceTrack(source: ProducerSource, track: MediaStreamTrack | null): Promise<void> {
     if (!track || !this.device.loaded) return
-    const existing = this.producers.get(source)
-    if (existing) {
-      await existing.replaceTrack({ track })
-      return
+    try {
+      const existing = this.producers.get(source)
+      if (existing) {
+        await existing.replaceTrack({ track })
+        return
+      }
+      const transport = await this.ensureSendTransport()
+      const producer = await transport.produce({ track, appData: { source } })
+      console.log(`[mediasoup] producing ${source} (${producer.kind}), id=${producer.id}`)
+      this.producers.set(source, producer)
+    } catch (issue) {
+      console.error(`[mediasoup] Failed to produce ${source}:`, issue)
     }
-    const transport = await this.ensureSendTransport()
-    const producer = await transport.produce({ track, appData: { source } })
-    this.producers.set(source, producer)
   }
 
   async setCameraTrack(track: MediaStreamTrack | null): Promise<void> {
@@ -130,14 +135,16 @@ export class MeetingMediaClient {
     const producer = this.producers.get(source)
     if (!producer || producer.paused) return
     producer.pause()
-    void emitAck(this.socket, "mediasoup:pauseProducer", { producerId: producer.id }).catch(() => undefined)
+    void emitAck(this.socket, "mediasoup:pauseProducer", { producerId: producer.id })
+      .catch((issue) => console.error("[mediasoup] pauseProducer failed:", issue))
   }
 
   resumeProducer(source: ProducerSource): void {
     const producer = this.producers.get(source)
     if (!producer || !producer.paused) return
     producer.resume()
-    void emitAck(this.socket, "mediasoup:resumeProducer", { producerId: producer.id }).catch(() => undefined)
+    void emitAck(this.socket, "mediasoup:resumeProducer", { producerId: producer.id })
+      .catch((issue) => console.error("[mediasoup] resumeProducer failed:", issue))
   }
 
   private shouldConsumeVideo(role: string): boolean {
@@ -150,7 +157,10 @@ export class MeetingMediaClient {
 
   private async maybeConsume(producer: ProducerSummary): Promise<void> {
     if (this.consumedProducerIds.has(producer.producerId)) return
-    if (producer.kind === "video" && !this.shouldConsumeVideo(producer.role)) return
+    if (producer.kind === "video" && !this.shouldConsumeVideo(producer.role)) {
+      console.log(`[mediasoup] skipping video from ${producer.fullName} (role=${producer.role}) — local user is not a manager`)
+      return
+    }
     this.consumedProducerIds.add(producer.producerId)
 
     try {
@@ -168,13 +178,15 @@ export class MeetingMediaClient {
       })
       this.consumers.set(consumer.id, consumer)
       this.consumerIdByProducerId.set(producer.producerId, consumer.id)
-      void emitAck(this.socket, "mediasoup:resumeConsumer", { consumerId: consumer.id }).catch(() => undefined)
+      await emitAck(this.socket, "mediasoup:resumeConsumer", { consumerId: consumer.id })
+      console.log(`[mediasoup] consuming ${producer.kind} from ${producer.fullName} (${producer.source}), track.readyState=${consumer.track.readyState}`)
 
       this.onTrack(
         { socketId: producer.socketId, name: producer.fullName, role: producer.role, groupId: producer.groupId },
         consumer.track
       )
-    } catch {
+    } catch (issue) {
+      console.error(`[mediasoup] Failed to consume producer ${producer.producerId} (${producer.kind}/${producer.source}):`, issue)
       this.consumedProducerIds.delete(producer.producerId)
     }
   }
