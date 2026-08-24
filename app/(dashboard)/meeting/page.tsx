@@ -2295,6 +2295,11 @@ export default function MeetingPage() {
   const remoteStreamsRef = useRef<Map<string, RemoteStream>>(new Map())
   const remotePeerStatesRef = useRef<Map<string, Partial<RemotePeer>>>(new Map())
   const mediaClientRef = useRef<MeetingMediaClient | null>(null)
+  // A "mediasoup:newProducer" broadcast (someone else turning on camera/mic)
+  // can arrive before this client's own MeetingMediaClient finishes its
+  // async setup (device.load + transports) — without buffering, that event
+  // is lost forever and that one track never gets consumed.
+  const pendingProducersRef = useRef<ProducerSummary[]>([])
 
   const upcoming = data?.data.upcoming ?? []
   const past     = data?.data.past     ?? []
@@ -2391,6 +2396,7 @@ export default function MeetingPage() {
   const closePeerConnections = () => {
     mediaClientRef.current?.closeAll()
     mediaClientRef.current = null
+    pendingProducersRef.current = []
     remoteStreamsRef.current.clear()
     remotePeerStatesRef.current.clear()
     refreshRemoteStreams()
@@ -2800,7 +2806,12 @@ export default function MeetingPage() {
         }
         mediaClientRef.current
           .init(rtpCapabilities, joinedProducers)
-          .then(() => syncPeerMediaTracks())
+          .then(() => {
+            syncPeerMediaTracks()
+            const pending = pendingProducersRef.current
+            pendingProducersRef.current = []
+            pending.forEach((producer) => void mediaClientRef.current?.handleNewProducer(producer))
+          })
           .catch((issue) => setSocketError(issue instanceof Error ? issue.message : "Media ulanishida xatolik"))
       }
     }
@@ -2850,7 +2861,12 @@ export default function MeetingPage() {
     })
     socket.on("mediasoup:newProducer", (payload: unknown) => {
       const producer = normalizeProducerSummaries([payload])[0]
-      if (producer) void mediaClientRef.current?.handleNewProducer(producer)
+      if (!producer) return
+      if (mediaClientRef.current) {
+        void mediaClientRef.current.handleNewProducer(producer)
+      } else {
+        pendingProducersRef.current.push(producer)
+      }
     })
     socket.on("mediasoup:producerClosed", (payload: unknown) => {
       const record = recordValue(payload)
