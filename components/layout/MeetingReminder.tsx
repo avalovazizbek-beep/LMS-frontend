@@ -6,7 +6,9 @@ import { AlarmClock } from "lucide-react"
 import { meetingsApi, type Meeting } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
-const WARN_BEFORE_MS = 60 * 1000     // dars boshlanishidan 1 daqiqa oldin
+const WARN_BEFORE_MS = 60 * 1000        // dars boshlanishidan 1 daqiqa oldin
+const SHOW_WINDOW_MS = 20 * 60 * 1000   // dars boshlangandan keyin 20 daqiqagacha
+const MAX_SHOWS_PER_MEETING = 3         // har bir dars uchun ko'pi bilan shuncha marta
 const POLL_INTERVAL_MS = 15 * 1000
 
 function parseTime(value?: string): number | null {
@@ -20,7 +22,10 @@ export function MeetingReminder() {
   const router = useRouter()
   const pathname = usePathname()
   const [due, setDue] = useState<Meeting | null>(null)
-  const dismissedRef = useRef<Set<string>>(new Set())
+  // Har bir dars nechchi marta ko'rsatilganini sanaydi — cheksiz qayta-qayta
+  // chiqib qolmasligi uchun (3 martadan keyin shu dars uchun to'xtaydi).
+  const showCountsRef = useRef<Map<string, number>>(new Map())
+  const lastShownIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (pathname === "/meeting") return
@@ -35,14 +40,21 @@ export function MeetingReminder() {
         const now = Date.now()
 
         const candidate = upcoming
-          .filter(m => !dismissedRef.current.has(m.id))
-          .map(m => ({ m, start: parseTime(m.startTime), end: parseTime(m.endTime) }))
-          .filter(({ start, end }) =>
-            start !== null && now >= start - WARN_BEFORE_MS && (end === null || now <= end)
+          .filter(m => (showCountsRef.current.get(m.id) ?? 0) < MAX_SHOWS_PER_MEETING)
+          .map(m => ({ m, start: parseTime(m.startTime) }))
+          .filter(({ start }) =>
+            start !== null && now >= start - WARN_BEFORE_MS && now <= start + SHOW_WINDOW_MS
           )
           .sort((a, b) => (a.start ?? 0) - (b.start ?? 0))[0]
 
-        setDue(candidate ? candidate.m : null)
+        const nextDue = candidate ? candidate.m : null
+        // Faqat YANGI (avval ko'rsatilmagan holatga) o'tganda sanoqni oshiramiz —
+        // shu bitta ko'rinish davomida qayta-qayta hisoblanmasin.
+        if (nextDue && nextDue.id !== lastShownIdRef.current) {
+          showCountsRef.current.set(nextDue.id, (showCountsRef.current.get(nextDue.id) ?? 0) + 1)
+        }
+        lastShownIdRef.current = nextDue?.id ?? null
+        setDue(nextDue)
       } catch {
         /* jimgina e'tiborsiz qoldirish — bu faqat eslatma, asosiy oqimga ta'sir qilmasin */
       }
@@ -56,7 +68,6 @@ export function MeetingReminder() {
   if (!due) return null
 
   function handleJoin() {
-    if (due) dismissedRef.current.add(due.id)
     setDue(null)
     router.push("/meeting")
   }
