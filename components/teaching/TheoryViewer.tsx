@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react"
 import { BookOpen, CheckCircle2, ExternalLink, Loader2, ChevronLeft, ChevronRight } from "lucide-react"
+import { Document, Page, pdfjs } from "react-pdf"
 import { teachingApi, type ContentProgress, type TeachingFile, type PptxSlide, type PptxShape } from "@/lib/api"
+
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ""
+pdfjs.GlobalWorkerOptions.workerSrc = `${BASE_PATH}/pdf.worker.min.mjs`
 
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -376,7 +380,7 @@ function SlideShape({ shape }: { shape: PptxShape }) {
   )
 }
 
-/* ── PDF Viewer — auto-completes when iframe finishes loading ─────────── */
+/* ── PDF Viewer — page-by-page, "O'qib chiqdim" only unlocks on the last page ── */
 function PdfTheoryViewer({
   contentId, fileUrl, title, initialProgress, onCompleted, downloadUrl, downloadName,
 }: {
@@ -389,66 +393,166 @@ function PdfTheoryViewer({
   downloadName?: string
 }) {
   const [completed, setCompleted] = useState(!!initialProgress?.completed)
-  const [iframeLoaded, setIframeLoaded] = useState(false)
+  const [numPages, setNumPages] = useState(0)
+  const [current, setCurrent] = useState(0)
+  const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [pageWidth, setPageWidth] = useState(860)
 
-  async function markRead() {
-    if (completed || saving) return
+  const initMax = initialProgress?.pagesRead?.length
+    ? Math.max(...initialProgress.pagesRead) - 1
+    : (initialProgress?.completed ? 9999 : 0)
+  const [maxReached, setMaxReached] = useState<number>(initMax)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => setPageWidth(Math.max(280, Math.round(el.clientWidth - 8)))
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  function goTo(idx: number) {
+    if (numPages <= 0) return
+    const clamped = Math.max(0, Math.min(idx, numPages - 1))
+    if (clamped > maxReached + 1) return
+    setCurrent(clamped)
+    if (clamped > maxReached) setMaxReached(clamped)
+  }
+
+  const allSeen = numPages > 0 && maxReached >= numPages - 1
+  const canGoNext = current < numPages - 1 && current <= maxReached
+
+  async function markDone() {
+    if (completed || saving || !allSeen) return
     setSaving(true)
     try {
-      await teachingApi.saveProgress(contentId, { pagesRead: [1], totalPages: 1, completed: true })
+      const pagesRead = Array.from({ length: numPages }, (_, i) => i + 1)
+      await teachingApi.saveProgress(contentId, { pagesRead, totalPages: numPages, completed: true })
       setCompleted(true)
       onCompleted?.()
-    } catch {} finally {
+    } finally {
       setSaving(false)
     }
   }
 
-  return (
-    <div className="rounded-[10px] p-4 flex flex-col gap-2" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-      <div className="flex items-center gap-2">
-        <BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Taqdimot"}</span>
-        {downloadUrl && (
-          <a href={downloadUrl} target="_blank" rel="noreferrer"
-            className="ml-auto flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-[5px] transition-colors hover:bg-[#e8f0fb]"
-            style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            <ExternalLink className="w-3.5 h-3.5" />
-            {downloadName ?? "Yuklab olish"}
-          </a>
-        )}
-        {completed && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
-      </div>
-
-      <div className="rounded-[8px] overflow-hidden" style={{ height: "75vh", backgroundColor: "#f4f6fa" }}>
-        <iframe
-          src={fileUrl}
-          title={title ?? "Taqdimot"}
-          onLoad={() => setIframeLoaded(true)}
-          style={{ width: "100%", height: "100%", border: "none" }}
-        />
-      </div>
-
-      {/* Tugallash — faqat iframe yuklangandan keyin va qo'lda bosilganda */}
-      {!completed ? (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs" style={labelStyle}>
-            Hujjatni o&apos;qib chiqqach, tugmani bosing
-          </p>
-          <button
-            onClick={markRead}
-            disabled={!iframeLoaded || saving}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] disabled:opacity-40 transition-colors"
-            style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-            {saving
-              ? <><Loader2 className="w-4 h-4 animate-spin" />Saqlanmoqda…</>
-              : <><CheckCircle2 className="w-4 h-4" />O&apos;qib chiqdim</>}
-          </button>
+  if (loadError) {
+    return (
+      <div className="rounded-[10px] p-4 flex flex-col gap-2" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />
+          <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Hujjat"}</span>
         </div>
-      ) : (
-        <p className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-          <CheckCircle2 className="w-3.5 h-3.5" /> Ko&apos;rib chiqildi
-        </p>
+        <a href={downloadUrl ?? fileUrl} target="_blank" rel="noreferrer"
+          className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-sm font-medium"
+          style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+          <ExternalLink className="w-4 h-4" />
+          {downloadName ?? "Faylni ochish"}
+        </a>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-[10px] flex flex-col gap-0" style={{ border: "1px solid rgba(1,41,112,0.15)", overflow: "hidden" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: "#f6f9ff", borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />
+          <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Taqdimot"}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {downloadUrl && (
+            <a href={downloadUrl} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-[5px] transition-colors hover:bg-[#e8f0fb]"
+              style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <ExternalLink className="w-3.5 h-3.5" />
+              {downloadName ?? "Yuklab olish"}
+            </a>
+          )}
+          {numPages > 0 && <span className="text-xs font-medium" style={labelStyle}>{current + 1} / {numPages}</span>}
+          {completed && <CheckCircle2 className="w-4 h-4" style={{ color: "#22c55e" }} />}
+          {saving && <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} />}
+        </div>
+      </div>
+
+      {/* Page canvas */}
+      <div ref={containerRef} style={{ backgroundColor: "#1a1f2e", padding: "20px 28px", display: "flex", justifyContent: "center" }}>
+        <Document
+          file={fileUrl}
+          loading={
+            <div className="flex items-center gap-3 py-16">
+              <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
+              <span className="text-sm" style={{ color: "#fff" }}>Yuklanmoqda…</span>
+            </div>
+          }
+          onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+          onLoadError={() => setLoadError(true)}
+        >
+          <Page
+            pageNumber={current + 1}
+            width={pageWidth}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+            loading={<div style={{ height: pageWidth * 0.75 }} />}
+          />
+        </Document>
+      </div>
+
+      {/* Progress bar */}
+      {numPages > 0 && (
+        <div style={{ height: 3, backgroundColor: "#e8f0fb" }}>
+          <div style={{
+            height: "100%", backgroundColor: allSeen ? "#22c55e" : "#0e58a8",
+            width: `${((Math.min(maxReached, numPages - 1) + 1) / numPages) * 100}%`,
+            transition: "width 0.3s ease",
+          }} />
+        </div>
+      )}
+
+      {/* Navigation */}
+      {numPages > 0 && (
+        <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: "#f6f9ff", borderTop: "1px solid rgba(1,41,112,0.1)" }}>
+          <button
+            onClick={() => goTo(current - 1)}
+            disabled={current === 0}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] disabled:opacity-40 transition-colors hover:bg-[#e8f0fb]"
+            style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            <ChevronLeft className="w-4 h-4" />
+            Oldingi
+          </button>
+
+          {current < numPages - 1 ? (
+            <button
+              onClick={() => goTo(current + 1)}
+              disabled={!canGoNext}
+              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] transition-colors disabled:opacity-40"
+              style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+              Keyingi <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              disabled={completed || saving || !allSeen}
+              onClick={markDone}
+              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] disabled:opacity-60"
+              style={{ backgroundColor: completed ? "#22c55e" : "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+              {completed
+                ? <><CheckCircle2 className="w-4 h-4" />Tugatildi</>
+                : saving
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Saqlanmoqda…</>
+                  : <><CheckCircle2 className="w-4 h-4" />O&apos;qib chiqdim</>}
+            </button>
+          )}
+        </div>
+      )}
+
+      {!completed && numPages > 0 && !allSeen && (
+        <div className="px-4 py-2 text-xs text-center" style={{ backgroundColor: "#fffbeb", borderTop: "1px solid rgba(217,119,6,0.15)", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+          Tugmani ochish uchun barcha {numPages} sahifani navbatma-navbat ko&apos;ring ({Math.min(maxReached + 1, numPages)}/{numPages} ko&apos;rildi)
+        </div>
       )}
     </div>
   )
