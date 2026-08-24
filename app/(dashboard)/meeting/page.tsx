@@ -1949,26 +1949,26 @@ function CallStage({
 
   return (
     <motion.div key="call-view" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }} className="h-full overflow-hidden">
-      <div className="flex h-full min-h-0 flex-col bg-[#f6f9ff] px-6 py-6">
+      <div className="flex h-full min-h-0 flex-col bg-[#f6f9ff] px-2 py-2 xl:px-6 xl:py-6">
 
-        {/* Header */}
-        <div className="mb-4 flex shrink-0 flex-col gap-3 rounded-[8px] border border-[#d8e6f7] bg-white px-4 py-3 shadow-[0_2px_12px_rgba(1,41,112,0.06)] xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={onLeave} className="grid h-10 w-10 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475] hover:bg-[#f6f9ff]" aria-label={t("common.back")}>
+        {/* Header — compact bar on mobile, full card on desktop */}
+        <div className="mb-2 flex shrink-0 items-center justify-between gap-3 xl:mb-4 xl:flex-row xl:rounded-[8px] xl:border xl:border-[#d8e6f7] xl:bg-white xl:px-4 xl:py-3 xl:shadow-[0_2px_12px_rgba(1,41,112,0.06)]">
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={onLeave} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475] hover:bg-[#f6f9ff]" aria-label={t("common.back")}>
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <div className="grid h-11 w-11 place-items-center rounded-[8px] bg-[#0e58a8] text-sm font-semibold text-white">
+            <div className="hidden h-11 w-11 place-items-center rounded-[8px] bg-[#0e58a8] text-sm font-semibold text-white xl:grid">
               {getInitials(meeting.subject || meeting.title)}
             </div>
-            <div>
-              <p className="text-[15px] font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>{meeting.title}</p>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>{meeting.title}</p>
+              <div className="mt-1 hidden flex-wrap items-center gap-2 text-xs text-[#7293b9] xl:flex" style={{ fontFamily: "var(--font-poppins)" }}>
                 <span>{meeting.date}</span><span>{meeting.time}</span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <SourceBadge label={sourceLabel} tone={sourceTone} />
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="hidden xl:inline-flex"><SourceBadge label={sourceLabel} tone={sourceTone} /></span>
             <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e6f7] bg-[#f6f9ff] px-3 py-2 text-sm text-[#104475]" style={{ fontFamily: "var(--font-poppins)" }}>
               <span className="h-2.5 w-2.5 rounded-full bg-red-500" />{formatCallDuration(callSeconds)}
             </div>
@@ -1984,10 +1984,10 @@ function CallStage({
             className={
               pseudoFullscreen
                 ? "fixed inset-0 z-50 flex min-h-0 flex-col bg-white p-4"
-                : "flex min-h-0 flex-col rounded-[8px] border border-[#d8e6f7] bg-white p-4 shadow-[0_2px_12px_rgba(1,41,112,0.06)]"
+                : "flex min-h-0 flex-col rounded-[8px] border border-[#d8e6f7] bg-white p-2 xl:p-4 xl:shadow-[0_2px_12px_rgba(1,41,112,0.06)]"
             }
           >
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+            <div className="hidden shrink-0 flex-wrap items-center justify-between gap-2 xl:flex">
               <div className="flex flex-wrap gap-2">
                 <InfoPill icon={CalendarDays} label={meeting.subject || "Meeting"} />
                 <InfoPill icon={Clock3} label={meeting.duration} />
