@@ -56,40 +56,45 @@ export default function DashboardLayout({
       className="flex h-screen overflow-hidden"
       style={{ backgroundColor: "var(--lms-bg)" }}
     >
-      <MeetingReminder />
+      {!isMeetingRoute && <MeetingReminder />}
 
       {/* Mobilda menyu ochiq bo'lsa — orqa fon (backdrop), bosilsa yopiladi */}
-      <AnimatePresence>
-        {isMobile && sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/40"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+      {!isMeetingRoute && (
+        <AnimatePresence>
+          {isMobile && sidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/40"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+      )}
 
-      {/* Sidebar — desktopda kontentni suradi, mobilda ustidan qoplaydi (drawer) */}
-      <AnimatePresence initial={false}>
-        {sidebarOpen && (
-          <motion.div
-            initial={{ x: -300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -300, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className={isMobile ? "fixed inset-y-0 left-0 z-50 h-screen" : "h-screen shrink-0"}
-          >
-            <Sidebar onNavigate={() => isMobile && setSidebarOpen(false)} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Sidebar — desktopda kontentni suradi, mobilda ustidan qoplaydi (drawer).
+          Meeting sahifasida umuman ko'rsatilmaydi — chaqiruv butun ekranni egallaydi. */}
+      {!isMeetingRoute && (
+        <AnimatePresence initial={false}>
+          {sidebarOpen && (
+            <motion.div
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className={isMobile ? "fixed inset-y-0 left-0 z-50 h-screen" : "h-screen shrink-0"}
+            >
+              <Sidebar onNavigate={() => isMobile && setSidebarOpen(false)} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Main content вЂ” fills remaining width, scrolls independently */}
       <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+        {!isMeetingRoute && <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />}
         <AnimatePresence mode="wait">
           <motion.main
             key={pathname}

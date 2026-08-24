@@ -1948,33 +1948,11 @@ function CallStage({
 
   return (
     <motion.div key="call-view" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }} className="h-full overflow-hidden">
-      <div className="flex h-full min-h-0 flex-col bg-[#f6f9ff] px-2 py-2 xl:px-6 xl:py-6">
+      <div className="flex h-full min-h-0 flex-col bg-[#f6f9ff] p-2 xl:p-4">
 
-        {/* Header — compact bar on mobile, full card on desktop */}
-        <div className="mb-2 flex shrink-0 items-center justify-between gap-3 xl:mb-4 xl:flex-row xl:rounded-[8px] xl:border xl:border-[#d8e6f7] xl:bg-white xl:px-4 xl:py-3 xl:shadow-[0_2px_12px_rgba(1,41,112,0.06)]">
-          <div className="flex min-w-0 items-center gap-3">
-            <button type="button" onClick={onLeave} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475] hover:bg-[#f6f9ff]" aria-label={t("common.back")}>
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="hidden h-11 w-11 place-items-center rounded-[8px] bg-[#0e58a8] text-sm font-semibold text-white xl:grid">
-              {getInitials(meeting.subject || meeting.title)}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>{meeting.title}</p>
-              <div className="mt-1 hidden flex-wrap items-center gap-2 text-xs text-[#7293b9] xl:flex" style={{ fontFamily: "var(--font-poppins)" }}>
-                <span>{meeting.date}</span><span>{meeting.time}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="hidden xl:inline-flex"><SourceBadge label={sourceLabel} tone={sourceTone} /></span>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e6f7] bg-[#f6f9ff] px-3 py-2 text-sm text-[#104475]" style={{ fontFamily: "var(--font-poppins)" }}>
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500" />{formatCallDuration(callSeconds)}
-            </div>
-          </div>
-        </div>
-
-        {/* Body — video is always full-width; the participants/chat panel is a
+        {/* Body — video is always full-width and full-height; there is no
+            separate page header any more (title/timer/back live as overlays
+            on the video itself), and the participants/chat panel is a
             slide-in overlay on every breakpoint (no permanent sidebar column) */}
         <div className="grid min-h-0 flex-1 gap-4">
 
@@ -1987,23 +1965,8 @@ function CallStage({
                 : "flex min-h-0 flex-col rounded-[8px] border border-[#d8e6f7] bg-white p-2 xl:p-4 xl:shadow-[0_2px_12px_rgba(1,41,112,0.06)]"
             }
           >
-            <div className="hidden shrink-0 flex-wrap items-center justify-between gap-2 xl:flex">
-              <div className="flex flex-wrap gap-2">
-                <InfoPill icon={CalendarDays} label={meeting.subject || "Meeting"} />
-                <InfoPill icon={Clock3} label={meeting.duration} />
-                <InfoPill icon={Users2} label={participantText(meeting.participants, lang)} />
-              </div>
-              {meeting.link !== "#" && (
-                <a href={meeting.link} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-xs font-medium text-[#104475] hover:bg-[#f6f9ff]"
-                  style={{ fontFamily: "var(--font-poppins)" }}>
-                  {t("meetingPage.link")} <ArrowUpRight className="h-3.5 w-3.5" />
-                </a>
-              )}
-            </div>
-
             {/* Main video */}
-            <div className="relative mt-3 min-h-[360px] flex-1 overflow-hidden rounded-[8px] bg-[#10192a]">
+            <div className="relative min-h-[360px] flex-1 overflow-hidden rounded-[8px] bg-[#10192a]">
               {/* Camera/screen ON */}
               {activeCameraEnabled || activeScreenSharing ? (
                 <LiveVideoPreview stream={activeStream} label={activeLabel} cameraEnabled={activeCameraEnabled} screenSharing={activeScreenSharing} mediaError={mediaError} />
@@ -2019,35 +1982,61 @@ function CallStage({
                 </div>
               )}
 
-              {/* Status overlays — always visible on the video itself (not tucked
-                  inside the panel drawer, which is now closed by default) */}
-              <div className="absolute inset-x-4 top-4 z-10 flex flex-col items-center gap-2">
-                {(isRecording || recordingUploading) && (
-                  <div className="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white" style={{ fontFamily: "var(--font-poppins)" }}>
-                    {isRecording && (
-                      <>
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                        Yozib olinmoqda
-                      </>
-                    )}
-                    {recordingUploading && "Yozuv serverga yuklanmoqda..."}
+              {/* Top overlay — replaces the old separate page header entirely:
+                  back + title/participants on the left, recording/connection
+                  status in the center, fullscreen + call timer on the right.
+                  This is the only place the meeting title appears now. */}
+              <div className="absolute inset-x-3 top-3 z-10 grid grid-cols-[auto_1fr_auto] items-start gap-2 xl:inset-x-4 xl:top-4">
+                <div className="flex min-w-0 items-center gap-2">
+                  <button type="button" onClick={onLeave} aria-label={t("common.back")}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/50 text-white hover:bg-black/65">
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <div className="min-w-0 rounded-[8px] bg-black/50 px-3 py-1.5">
+                    <p className="truncate text-sm font-semibold text-white" style={{ fontFamily: "var(--font-poppins)" }}>{meeting.title}</p>
+                    <p className="hidden truncate text-[11px] text-white/70 xl:block" style={{ fontFamily: "var(--font-poppins)" }}>{participantText(meeting.participants, lang)}</p>
                   </div>
-                )}
-                {socketError && (
-                  <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800" style={{ fontFamily: "var(--font-poppins)" }}>
-                    {socketError}
+                </div>
+
+                <div className="flex flex-col items-center gap-2">
+                  {(isRecording || recordingUploading) && (
+                    <div className="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white" style={{ fontFamily: "var(--font-poppins)" }}>
+                      {isRecording && (
+                        <>
+                          <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                          Yozib olinmoqda
+                        </>
+                      )}
+                      {recordingUploading && "Yozuv serverga yuklanmoqda..."}
+                    </div>
+                  )}
+                  {socketError && (
+                    <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800" style={{ fontFamily: "var(--font-poppins)" }}>
+                      {socketError}
+                    </div>
+                  )}
+                  {recordingError && (
+                    <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700" style={{ fontFamily: "var(--font-poppins)" }}>
+                      {recordingError}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <button type="button" aria-label={pseudoFullscreen ? "Kichraytirish" : "Kattalashtirish"} onClick={handleFullscreen}
+                    className="hidden h-9 w-9 place-items-center rounded-full bg-black/50 text-white hover:bg-black/65 xl:grid">
+                    {pseudoFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  </button>
+                  <div className="hidden items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 text-sm text-white xl:inline-flex" style={{ fontFamily: "var(--font-poppins)" }}>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: sourceTone === "success" ? "#22c55e" : sourceTone === "warning" ? "#f59e0b" : "#1cc2dc" }} />
+                    {formatCallDuration(callSeconds)}
                   </div>
-                )}
-                {recordingError && (
-                  <div className="rounded-[8px] border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700" style={{ fontFamily: "var(--font-poppins)" }}>
-                    {recordingError}
-                  </div>
-                )}
+                </div>
               </div>
 
               {/* Thumbnails — vertical strip along the right edge (desktop only; mobile gets a grid below the main video instead) */}
               {(activeRemote || visibleRemoteStreams.length > 0) && (
-                <div className="absolute right-4 top-4 bottom-24 z-10 hidden w-32 flex-col gap-3 overflow-y-auto xl:flex">
+                <div className="absolute right-4 top-16 bottom-24 z-10 hidden w-32 flex-col gap-3 overflow-y-auto xl:flex">
                   {activeRemote && (
                     <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
                   )}
@@ -2061,10 +2050,6 @@ function CallStage({
               <div className="absolute bottom-5 left-5 hidden rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-[#012970] shadow-[0_6px_18px_rgba(1,41,112,0.16)] xl:block" style={{ fontFamily: "var(--font-poppins)" }}>
                 {activeLabel}
               </div>
-              <button type="button" aria-label={pseudoFullscreen ? "Kichraytirish" : "Kattalashtirish"} onClick={handleFullscreen}
-                className="absolute left-4 top-4 hidden h-10 w-10 place-items-center rounded-full bg-white/95 text-[#104475] shadow-[0_6px_18px_rgba(1,41,112,0.16)] xl:grid">
-                {pseudoFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </button>
 
               {/* Controls — desktop floating pill, overlaid on the video itself
                   (mobile keeps the separate pill below the video, unchanged) */}
