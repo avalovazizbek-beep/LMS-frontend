@@ -1004,6 +1004,7 @@ interface FormState {
   deadlineTime: string
   maxScore: string
   durationMinutes: string
+  questionDisplayCount: string
   trainingLoad: string
   lessonDate: string
   delivered: boolean
@@ -1024,6 +1025,7 @@ const EMPTY_FORM: FormState = {
   deadlineTime: "",
   maxScore: "",
   durationMinutes: "",
+  questionDisplayCount: "",
   trainingLoad: "",
   lessonDate: "",
   delivered: false,
@@ -1171,6 +1173,7 @@ export default function TeacherContentTypePage() {
       deadlineTime: dl.time,
       maxScore: item.maxScore != null ? String(item.maxScore) : "",
       durationMinutes: item.durationMinutes != null ? String(item.durationMinutes) : "",
+      questionDisplayCount: item.questionDisplayCount != null ? String(item.questionDisplayCount) : "",
       trainingLoad: item.trainingLoad != null ? String(item.trainingLoad) : "",
       lessonDate: item.lessonDate ?? "",
       delivered: item.delivered,
@@ -1212,6 +1215,7 @@ export default function TeacherContentTypePage() {
           deadline: deadline,
           maxScore: form.maxScore ? Number(form.maxScore) : null,
           durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
+          questionDisplayCount: form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
@@ -1640,6 +1644,17 @@ function ContentFormModal({
               <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.duration")}</label>
               <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                 value={form.durationMinutes} onChange={e => update("durationMinutes", e.target.value)} placeholder="90" />
+            </div>
+          )}
+
+          {/* Talabaga ko'rsatiladigan savollar soni — savol bazasidan tasodifiy tanlanadi.
+              Faqat tahrirlashda (savollar allaqachon qo'shilgan bo'lganda) mantiqan to'g'ri keladi. */}
+          {config.hasDuration && editingId && (
+            <div className="col-span-2 sm:col-span-1">
+              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.questionDisplayCount")}</label>
+              <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
+                value={form.questionDisplayCount} onChange={e => update("questionDisplayCount", e.target.value)} placeholder="20" />
+              <p className="mt-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.questionDisplayCountHint")}</p>
             </div>
           )}
 

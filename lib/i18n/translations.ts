@@ -1380,6 +1380,8 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "typeContentOq.form.kind":        { uz: "Dars turi",  ru: "Тип урока",     en: "Lesson type", kaa: "Sabaq túri" },
   "typeContentOq.form.maxScore":    { uz: "Maksimal ball", ru: "Максимальный балл", en: "Maximum score", kaa: "Maksimal ball" },
   "typeContentOq.form.duration":    { uz: "Davomiyligi (daqiqa)", ru: "Продолжительность (мин)", en: "Duration (minutes)", kaa: "Dawamlılıǵı (minut)" },
+  "typeContentOq.form.questionDisplayCount": { uz: "Talabaga ko'rsatiladigan savollar soni", ru: "Число вопросов, показываемых студенту", en: "Number of questions shown to student", kaa: "Studentke kórsetiletuǵın sorawlar sanı" },
+  "typeContentOq.form.questionDisplayCountHint": { uz: "Bo'sh qoldirilsa, savol bazasidagi barchasi ko'rsatiladi", ru: "Если оставить пустым, показываются все вопросы из базы", en: "Leave blank to show every question in the bank", kaa: "Bos qaldırılsa, bazadaǵı barlıq sorawlar kórsetiledi" },
   "typeContentOq.form.load":        { uz: "Yuklama (soat)", ru: "Нагрузка (часы)", en: "Load (hours)", kaa: "Júkleme (saat)" },
   "typeContentOq.form.lessonDate":  { uz: "Dars sanasi", ru: "Дата урока",   en: "Lesson date", kaa: "Sabaq sánesi" },
   "typeContentOq.form.delivered":   { uz: "O'tildi",     ru: "Проведён",     en: "Delivered", kaa: "Ótkerildi" },
