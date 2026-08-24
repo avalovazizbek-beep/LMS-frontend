@@ -1243,6 +1243,7 @@ export default function TeacherContentTypePage() {
           deadline: deadline,
           maxScore: form.maxScore ? Number(form.maxScore) : null,
           durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
+          questionDisplayCount: form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
@@ -1656,9 +1657,8 @@ function ContentFormModal({
             </div>
           )}
 
-          {/* Talabaga ko'rsatiladigan savollar soni — savol bazasidan tasodifiy tanlanadi.
-              Faqat tahrirlashda (savollar allaqachon qo'shilgan bo'lganda) mantiqan to'g'ri keladi. */}
-          {config.hasDuration && editing && (
+          {/* Talabaga ko'rsatiladigan savollar soni — savol bazasidan tasodifiy tanlanadi */}
+          {config.hasDuration && (
             <div className="col-span-2 sm:col-span-1">
               <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.questionDisplayCount")}</label>
               <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}

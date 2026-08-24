@@ -1347,6 +1347,7 @@ export const teachingApi = {
     deadline?: string | null
     maxScore?: number | null
     attemptsCount?: number | null
+    questionDisplayCount?: number | null
     language?: string
     completionPoints?: number | null
     durationMinutes?: number | null
@@ -1375,6 +1376,7 @@ export const teachingApi = {
       deadline: input.deadline,
       maxScore: input.maxScore,
       attemptsCount: input.attemptsCount,
+      questionDisplayCount: input.questionDisplayCount,
       language: input.language,
       completionPoints: input.completionPoints,
       durationMinutes: input.durationMinutes,
