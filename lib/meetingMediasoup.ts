@@ -45,6 +45,13 @@ export class MeetingMediaClient {
   private consumers = new Map<string, MediasoupClientTypes.Consumer>()
   private consumerIdByProducerId = new Map<string, string>()
   private consumedProducerIds = new Set<string>()
+  // The server emits "meeting:joined" both as the meeting:join ack AND as a
+  // separate event — every join triggers TWO calls to init() with the same
+  // data. Without this guard, both calls race past the "transport already
+  // exists?" check before either finishes creating one, ending up with two
+  // send transports (and this.sendTransport left pointing at whichever
+  // resolved last, orphaning anything already attached to the other).
+  private setupPromise: Promise<void> | null = null
 
   constructor(
     private socket: Socket,
@@ -53,14 +60,21 @@ export class MeetingMediaClient {
   ) {}
 
   async init(rtpCapabilities: MediasoupClientTypes.RtpCapabilities, existingProducers: ProducerSummary[]): Promise<void> {
+    if (!this.setupPromise) {
+      this.setupPromise = this.setup(rtpCapabilities)
+    }
+    await this.setupPromise
+    for (const producer of existingProducers) {
+      await this.maybeConsume(producer)
+    }
+  }
+
+  private async setup(rtpCapabilities: MediasoupClientTypes.RtpCapabilities): Promise<void> {
     if (!this.device.loaded) {
       await this.device.load({ routerRtpCapabilities: rtpCapabilities })
     }
     await this.ensureSendTransport()
     await this.ensureRecvTransport()
-    for (const producer of existingProducers) {
-      await this.maybeConsume(producer)
-    }
   }
 
   private async ensureSendTransport(): Promise<MediasoupClientTypes.Transport> {

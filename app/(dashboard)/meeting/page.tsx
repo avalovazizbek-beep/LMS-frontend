@@ -2848,6 +2848,14 @@ export default function MeetingPage() {
 
     socket.on("connect", () => {
       setSocketStatus("Realtime ulandi")
+      // A reconnect (network blip, tab backgrounded, etc.) gets a brand new
+      // socket.io session server-side — any transports the old
+      // MeetingMediaClient was holding are already dead on the server, so
+      // reusing that instance would silently try to produce/consume through
+      // closed transports. Start clean on every connect, not just the first.
+      mediaClientRef.current?.closeAll()
+      mediaClientRef.current = null
+      pendingProducersRef.current = []
       socket.emit("meeting:join", {}, (ack: unknown) => {
         const record = recordValue(ack)
         if (record.success === false) {
