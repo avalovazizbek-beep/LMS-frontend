@@ -46,6 +46,13 @@ export default function MeetingFaceAttendanceTracker({ meetingId, stream, camera
     if (!modelsReady) return
     if (!stream || !cameraEnabled) return
 
+    // Consecutive-failure counter — if face-ping keeps failing (e.g. the
+    // meeting isn't "live" yet, a stable condition, not a transient blip),
+    // stop hammering the server every 15s with a request that can't succeed
+    // until that changes.
+    let consecutiveFailures = 0
+    const MAX_CONSECUTIVE_FAILURES = 3
+
     async function tick() {
       const vid = videoRef.current
       let visible = false
@@ -62,7 +69,14 @@ export default function MeetingFaceAttendanceTracker({ meetingId, stream, camera
 
       try {
         await meetingsApi.facePing(meetingId, { visible, intervalSeconds: PING_SECONDS })
-      } catch { /* tarmoq xatosi — keyingi tsiklda qayta urinamiz */ }
+        consecutiveFailures = 0
+      } catch {
+        consecutiveFailures += 1
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES && timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+      }
     }
 
     timerRef.current = setInterval(tick, PING_SECONDS * 1000)
