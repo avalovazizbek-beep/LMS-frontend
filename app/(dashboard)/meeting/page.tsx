@@ -759,6 +759,10 @@ function RemoteVideoTile({
     remote.stream.getVideoTracks().some((track) => track.readyState === "live")
   )
 
+  // Muted (browsers always allow muted autoplay) — audio plays separately
+  // via a global, always-mounted <RemoteAudioPlayer> in CallStage so sound
+  // doesn't depend on this tile being visible (it's hidden from the rail
+  // whenever this peer is the "active" main-stage speaker).
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
@@ -787,6 +791,7 @@ function RemoteVideoTile({
       {hasVideo ? (
         <video
           ref={videoRef}
+          muted
           playsInline
           autoPlay
           className="h-full w-full object-cover"
@@ -809,6 +814,25 @@ function RemoteVideoTile({
       </div>
     </button>
   )
+}
+
+// Plays one remote participant's audio, mounted unconditionally for every
+// entry in remoteStreams regardless of which tile/tab is currently visible —
+// a peer's video tile is hidden from the thumbnail rail whenever they're the
+// "active" main-stage speaker, but their audio must keep playing anyway.
+function RemoteAudioPlayer({ stream }: { stream: MediaStream }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const hasAudio = Boolean(stream.getAudioTracks().some((track) => track.readyState === "live"))
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.srcObject = hasAudio ? stream : null
+    if (hasAudio) void audio.play().catch(() => undefined)
+    return () => { audio.srcObject = null }
+  }, [hasAudio, stream])
+
+  return <audio ref={audioRef} autoPlay className="hidden" />
 }
 
 /* ── Create Meeting Modal ────────────────────────────────────────────── */
@@ -1669,6 +1693,9 @@ function ParticipantTile({
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hasVideo = Boolean(stream?.getVideoTracks().some(t => t.readyState === "live")) && (camOn !== false || screenOn)
 
+  // Muted (guaranteed autoplay everywhere) — audio for remote peers plays
+  // separately via a global, always-mounted <RemoteAudioPlayer> in CallStage,
+  // so it doesn't depend on which tab/tile layout happens to be showing.
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
@@ -1691,7 +1718,7 @@ function ParticipantTile({
       {hasVideo ? (
         <video
           ref={videoRef}
-          playsInline autoPlay muted={isSelf}
+          playsInline autoPlay muted
           className="h-full w-full object-cover"
           style={isSelf ? { transform: "scaleX(-1)" } : undefined}
         />
@@ -1949,6 +1976,9 @@ function CallStage({
 
   return (
     <motion.div key="call-view" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }} className="h-full overflow-hidden">
+      {remoteStreams.map(remote => (
+        <RemoteAudioPlayer key={remote.socketId} stream={remote.stream} />
+      ))}
       <div className="flex h-full min-h-0 flex-col bg-[#f6f9ff] p-2 xl:p-4">
 
         {/* Body — video is always full-width and full-height; there is no
