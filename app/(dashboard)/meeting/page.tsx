@@ -2849,12 +2849,13 @@ export default function MeetingPage() {
     socket.on("connect", () => {
       setSocketStatus("Realtime ulandi")
       // A reconnect (network blip, tab backgrounded, etc.) gets a brand new
-      // socket.io session server-side — any transports the old
-      // MeetingMediaClient was holding are already dead on the server, so
-      // reusing that instance would silently try to produce/consume through
-      // closed transports. Start clean on every connect, not just the first.
-      mediaClientRef.current?.closeAll()
-      mediaClientRef.current = null
+      // socket.io session server-side — any transports/consumers the old
+      // MeetingMediaClient was holding are already dead on the server, and
+      // any tracks already sitting in remoteStreamsRef belong to those now-
+      // closed consumers. Tear down BOTH (not just the media client) so a
+      // fresh consume merges into a clean stream instead of swapping a live
+      // track out of one a <video> element already has assigned.
+      closePeerConnections()
       pendingProducersRef.current = []
       socket.emit("meeting:join", {}, (ack: unknown) => {
         const record = recordValue(ack)
