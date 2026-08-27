@@ -401,6 +401,7 @@ function recordingFileUrl(id: string): string {
 function normalizeRecording(value: unknown): MeetingRecording {
   const raw = asRecord(value)
   const groupIds = asArray(raw.groupIds)
+  const groupNames = asArray(raw.groupNames)?.map(n => textValue(n)).filter(Boolean) as string[] | undefined
   const id = textValue(raw.id) || ""
 
   return {
@@ -409,6 +410,7 @@ function normalizeRecording(value: unknown): MeetingRecording {
     title: textValue(raw.title) || "Dars",
     subjectName: textValue(raw.subjectName, raw.subject_name) || "",
     groupIds: groupIds?.map((item) => numberValue(item) ?? 0) ?? [],
+    groupNames: groupNames ?? [],
     date: formatDateValue(raw.startTime, raw.createdAt),
     time: formatTimeValue(raw.startTime, raw.createdAt),
     fileUrl: id ? recordingFileUrl(id) : "",
@@ -730,6 +732,7 @@ export interface MeetingRecording {
   title: string
   subjectName: string
   groupIds: number[]
+  groupNames: string[]
   date: string
   time: string
   fileUrl: string
@@ -1188,6 +1191,22 @@ export interface TeachingSubmission {
   attemptsUsed: number
   questionIds: number[] | null
   optionPerms: Record<number, number[]> | null
+  retakeGranted: boolean
+  retakeGrantedAt: string | null
+}
+
+export interface AdminExamListItem {
+  id: number
+  title: string
+  subjectName: string
+  groupId: number
+  groupName: string
+  controlType: string | null
+  teacherName: string
+  maxScore: number | null
+  availableFrom: string
+  deadline: string | null
+  submissionCount: number
 }
 
 export interface ExamResultsTopic {
@@ -2242,4 +2261,18 @@ export const adminApi = {
 
   unlockContent: (id: number | string) =>
     patch<ItemRes<TeacherContent>>(`/api/admin/content/${id}/toggle`, {}),
+
+  examsList: (params?: { groupId?: number; subject?: string; controlType?: string }) => {
+    const q = new URLSearchParams(buildParams(params ?? {})).toString()
+    return get<ListRes<AdminExamListItem>>(`/api/admin/exams${q ? `?${q}` : ""}`)
+  },
+
+  contentSubmissions: (contentId: number | string) =>
+    get<ListRes<TeachingSubmission & { passed: boolean }>>(`/api/admin/content/${contentId}/submissions`),
+
+  grantRetake: (contentId: number | string, studentUserIds: number[], reason?: string) =>
+    post<MsgRes>(`/api/admin/content/${contentId}/retake-grants`, { studentUserIds, reason }),
+
+  revokeRetake: (contentId: number | string, studentUserId: number | string) =>
+    del<MsgRes>(`/api/admin/content/${contentId}/retake-grants/${studentUserId}`),
 }

@@ -1218,7 +1218,7 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                         const subjectName = itemValue(record.subject, ["name"], t)
                         const curriculumName = itemValue(record.curriculum, ["name", "code"], t)
                         const semesterName = itemValue(record.semester, ["name", "code"], t)
-                        const href = `/oqituvchi-kabineti/mavzular?subject=${encodeURIComponent(subjectName !== "-" ? subjectName : value)}&curriculum=${encodeURIComponent(curriculumName !== "-" ? curriculumName : "")}&semester=${encodeURIComponent(semesterName !== "-" ? semesterName : "")}`
+                        const href = `/oqituvchi-kabineti/fan-resurslari?subject=${encodeURIComponent(subjectName !== "-" ? subjectName : value)}&curriculum=${encodeURIComponent(curriculumName !== "-" ? curriculumName : "")}&semester=${encodeURIComponent(semesterName !== "-" ? semesterName : "")}`
                         return (
                           <td key={field.label} className="px-4 py-2.5 text-sm">
                             <Link href={href} className="font-medium hover:underline" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>

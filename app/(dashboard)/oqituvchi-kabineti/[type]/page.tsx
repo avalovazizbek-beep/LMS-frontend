@@ -6,6 +6,7 @@ import { useParams } from "next/navigation"
 import {
   Plus, X, Trash2, Pencil, FileText, Lock, CheckCircle2, Clock, Users, Loader2, Download,
   Video, Link as LinkIcon, File as FileIcon, HelpCircle, Power, CalendarCheck, BarChart2, ArrowLeft,
+  RefreshCw,
 } from "lucide-react"
 import {
   teachingApi,
@@ -1889,7 +1890,16 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                   return (
                     <tr key={sub.id} style={{ borderBottom: i < submissions.length - 1 ? "1px solid rgba(1,41,112,0.06)" : "none" }}>
                       <td className="px-4 py-3 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
-                      <td className="px-4 py-3 font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{sub.studentFullName}</td>
+                      <td className="px-4 py-3 font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                        {sub.studentFullName}
+                        {sub.retakeGranted && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium align-middle"
+                            style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                            <RefreshCw className="w-2.5 h-2.5" />
+                            {t("typeContentOq.grading.retakeGranted")}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 font-bold" style={{ color: sub.grade != null ? "#012970" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
                         {sub.grade ?? "—"}
                       </td>
@@ -2003,8 +2013,15 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
               {t("typeContentOq.submission.back")}
             </button>
             <div>
-              <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              <h2 className="text-base font-semibold flex items-center gap-2" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                 {sub.studentFullName}
+                {sub.retakeGranted && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                    style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    <RefreshCw className="w-2.5 h-2.5" />
+                    {t("typeContentOq.grading.retakeGranted")}
+                  </span>
+                )}
               </h2>
               <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                 {content.title} · {t("typeContentOq.submission.submittedAt", { date: formatDateTime(sub.submittedAt) })}

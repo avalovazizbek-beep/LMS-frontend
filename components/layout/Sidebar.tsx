@@ -109,8 +109,7 @@ const employeeSections: Section[] = [
     tKey: "sidebar.section.subjectBase",
     icon: BookOpen,
     items: [
-      { label: "Fan mavzulari",            href: "/oqituvchi-kabineti/mavzular",         tKey: "sidebar.item.subjectTopics" },
-      { label: "Fan resurslari",           href: "/oqituvchi-kabineti/fan-resurslari",   tKey: "sidebar.item.subjectResources" },
+      { label: "Mavzu va resurslar",       href: "/oqituvchi-kabineti/fan-resurslari",   tKey: "sidebar.item.subjectTopics" },
       { label: "Baholash",                 href: "/oqituvchi-kabineti/baholash-page",    tKey: "sidebar.item.grading" },
       { label: "Mavzular bo'yicha natijalar", href: "/oqituvchi-kabineti/natijalar",     tKey: "sidebar.item.topicResults" },
     ],

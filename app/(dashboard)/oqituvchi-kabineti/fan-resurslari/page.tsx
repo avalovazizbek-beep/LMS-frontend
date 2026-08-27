@@ -5,7 +5,7 @@ import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
   BookMarked, CalendarDays, VideoIcon, Save, BarChart3,
-  Check, X, RefreshCw, Users, ChevronLeft, Pencil,
+  Check, X, RefreshCw, Users, ChevronLeft, Pencil, Plus,
 } from "lucide-react"
 import {
   teachingApi, meetingsApi,
@@ -926,7 +926,7 @@ export default function FanResurslariPage() {
     return [...new Set(list)].sort()
   }, [subjectsRes])
 
-  const { data: contentRes, loading: lTopics } = useApi(
+  const { data: contentRes, loading: lTopics, refetch: refetchTopics } = useApi(
     () => activeGroupId && subjectName
       ? teachingApi.content({ group: activeGroupId, subject: subjectName })
       : Promise.resolve({ success: true, data: [] }),
@@ -934,19 +934,95 @@ export default function FanResurslariPage() {
   )
   const allItems = contentRes?.data ?? []
 
-  const topics = useMemo(() => {
-    const map = new Map<string, { key: string; title: string }>()
+  interface SidebarTopic { key: string; title: string; markerId: number | null }
+
+  const topics = useMemo<SidebarTopic[]>(() => {
+    const map = new Map<string, SidebarTopic>()
     allItems.forEach(item => {
       if (!item.topicKey) return
       if (!map.has(item.topicKey)) {
-        map.set(item.topicKey, { key: item.topicKey, title: item.title })
-      }
-      if (item.type === "mavzu" && item.kind === "topic") {
-        map.set(item.topicKey, { key: item.topicKey, title: item.title })
+        const markerId = (item.type === "mavzu" && item.kind === "topic") ? item.id : null
+        map.set(item.topicKey, { key: item.topicKey, title: item.title, markerId })
+      } else if (item.type === "mavzu" && item.kind === "topic") {
+        const existing = map.get(item.topicKey)!
+        map.set(item.topicKey, { ...existing, markerId: item.id, title: item.title })
       }
     })
     return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
   }, [allItems])
+
+  const [addingTopic, setAddingTopic] = useState(false)
+  const [newTopicTitle, setNewTopicTitle] = useState("")
+  const [addTopicLoading, setAddTopicLoading] = useState(false)
+  const [editTopicKey, setEditTopicKey] = useState<string | null>(null)
+  const [editTopicTitle, setEditTopicTitle] = useState("")
+  const [editTopicLoading, setEditTopicLoading] = useState(false)
+  const [deleteTopicKey, setDeleteTopicKey] = useState<string | null>(null)
+  const [deleteTopicLoading, setDeleteTopicLoading] = useState(false)
+  const [topicOpError, setTopicOpError] = useState<string | null>(null)
+
+  async function handleAddTopic() {
+    if (!newTopicTitle.trim() || !activeGroupId || !subjectName) return
+    setTopicOpError(null)
+    setAddTopicLoading(true)
+    try {
+      const newKey = `${subjectName}__${activeGroupId}__${Date.now()}`
+      await teachingApi.createContent({
+        type: "mavzu",
+        kind: "topic",
+        groupId: activeGroupId,
+        subjectName,
+        topicKey: newKey,
+        title: newTopicTitle.trim(),
+        availableFrom: new Date().toISOString(),
+      })
+      setNewTopicTitle("")
+      setAddingTopic(false)
+      await refetchTopics()
+      setTopicKey(newKey)
+    } catch (err) {
+      setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.addError"))
+    } finally {
+      setAddTopicLoading(false)
+    }
+  }
+
+  function startEditTopic(tp: SidebarTopic) {
+    setEditTopicKey(tp.key)
+    setEditTopicTitle(tp.title)
+    setTopicOpError(null)
+  }
+
+  async function saveEditTopic(tp: SidebarTopic) {
+    if (!editTopicTitle.trim() || !tp.markerId) return
+    setEditTopicLoading(true)
+    setTopicOpError(null)
+    try {
+      await teachingApi.updateContent(tp.markerId, { title: editTopicTitle.trim() })
+      setEditTopicKey(null)
+      await refetchTopics()
+    } catch (err) {
+      setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.editError"))
+    } finally {
+      setEditTopicLoading(false)
+    }
+  }
+
+  async function handleDeleteTopic(key: string) {
+    setDeleteTopicLoading(true)
+    setTopicOpError(null)
+    try {
+      const toDelete = allItems.filter(i => i.topicKey === key)
+      await Promise.all(toDelete.map(i => teachingApi.removeContent(i.id)))
+      setDeleteTopicKey(null)
+      if (topicKey === key) setTopicKey("")
+      await refetchTopics()
+    } catch (err) {
+      setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.deleteError"))
+    } finally {
+      setDeleteTopicLoading(false)
+    }
+  }
 
   const topicCounts = useMemo(() => {
     const map = new Map<string, number>()
@@ -1101,18 +1177,59 @@ export default function FanResurslariPage() {
               order: isMobile ? 1 : 0,
             }}>
             {/* Sidebar header */}
-            <div className="px-4 py-3 sticky top-0 bg-white z-10"
+            <div className="px-4 py-3 sticky top-0 bg-white z-10 flex items-center justify-between gap-2"
               style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                {t("fanResurslariOq.sidebar.courseTopics")}
-              </p>
-              {lTopics && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#7293b9" }} />
-                  <span className="text-xs" style={labelStyle}>{t("fanResurslariOq.sidebar.loading")}</span>
-                </div>
-              )}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                  {t("fanResurslariOq.sidebar.courseTopics")}
+                </p>
+                {lTopics && (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#7293b9" }} />
+                    <span className="text-xs" style={labelStyle}>{t("fanResurslariOq.sidebar.loading")}</span>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => { setAddingTopic(v => !v); setTopicOpError(null) }}
+                className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-[6px] shrink-0 transition-colors hover:bg-[#f6f9ff]"
+                style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                <Plus className="w-3.5 h-3.5" />
+                {t("mavzularOq.addTopic")}
+              </button>
             </div>
+
+            {addingTopic && (
+              <div className="px-4 py-3 flex flex-col gap-2" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+                <input
+                  value={newTopicTitle}
+                  onChange={e => setNewTopicTitle(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAddTopic()}
+                  placeholder={t("mavzularOq.topicName")}
+                  autoFocus
+                  className="px-3 py-2 rounded-[5px] text-sm outline-none"
+                  style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+                />
+                <div className="flex items-center gap-2">
+                  <button onClick={handleAddTopic} disabled={addTopicLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium text-white disabled:opacity-60"
+                    style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    {addTopicLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    {t("mavzularOq.add")}
+                  </button>
+                  <button onClick={() => { setAddingTopic(false); setNewTopicTitle("") }}
+                    className="px-3 py-1.5 rounded-[6px] text-xs font-medium"
+                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    {t("mavzularOq.cancel")}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {topicOpError && (
+              <div className="px-4 py-2 text-xs" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                {topicOpError}
+              </div>
+            )}
 
             {/* Topics list */}
             <div className="py-2">
@@ -1123,51 +1240,105 @@ export default function FanResurslariPage() {
               ) : topics.map((tp, idx) => {
                 const count  = topicCounts.get(tp.key) ?? 0
                 const isActive = tp.key === topicKey
+
+                if (editTopicKey === tp.key) {
+                  return (
+                    <div key={tp.key} className="px-4 py-3 flex items-center gap-2">
+                      <input
+                        value={editTopicTitle}
+                        onChange={e => setEditTopicTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveEditTopic(tp); if (e.key === "Escape") setEditTopicKey(null) }}
+                        autoFocus
+                        className="flex-1 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                        style={{ border: "1px solid rgba(1,41,112,0.35)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+                      />
+                      <button onClick={() => saveEditTopic(tp)} disabled={editTopicLoading}
+                        className="flex items-center justify-center w-7 h-7 rounded-[6px] transition-colors hover:bg-green-50 disabled:opacity-60">
+                        {editTopicLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#16a34a" }} /> : <Check className="w-4 h-4" style={{ color: "#16a34a" }} />}
+                      </button>
+                      <button onClick={() => setEditTopicKey(null)}
+                        className="flex items-center justify-center w-7 h-7 rounded-[6px] transition-colors hover:bg-red-50">
+                        <X className="w-4 h-4" style={{ color: "#dc2626" }} />
+                      </button>
+                    </div>
+                  )
+                }
+
+                if (deleteTopicKey === tp.key) {
+                  return (
+                    <div key={tp.key} className="px-4 py-3 flex flex-col gap-2">
+                      <span className="text-xs" style={labelStyle}>{t("mavzularOq.deleteConfirm", { title: tp.title })}</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleDeleteTopic(tp.key)} disabled={deleteTopicLoading}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium text-white disabled:opacity-60"
+                          style={{ backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+                          {deleteTopicLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                          {t("mavzularOq.yesDelete")}
+                        </button>
+                        <button onClick={() => setDeleteTopicKey(null)}
+                          className="px-3 py-1.5 rounded-[6px] text-xs font-medium"
+                          style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                          {t("mavzularOq.cancel")}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
+
                 return (
-                  <button key={tp.key} onClick={() => setTopicKey(tp.key)}
-                    className="w-full text-left px-4 py-3 flex items-start gap-3 transition-all"
+                  <div key={tp.key} className="group w-full flex items-start gap-1 transition-all"
                     style={{
                       backgroundColor: isActive ? "#eef4ff" : "transparent",
                       borderLeft: isActive ? "3px solid #0e58a8" : "3px solid transparent",
                     }}>
-                    {/* Number badge */}
-                    <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
-                      style={{
-                        backgroundColor: isActive ? "#0e58a8" : count > 0 ? "rgba(34,197,94,0.12)" : "rgba(1,41,112,0.06)",
-                        color: isActive ? "white" : count > 0 ? "#15803d" : "#7293b9",
-                        fontFamily: "var(--font-poppins)",
-                      }}>
-                      {idx + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-snug"
-                        style={{ color: isActive ? "#012970" : "#445b7a", fontFamily: "var(--font-poppins)" }}>
-                        {tp.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {count > 0 ? (
-                          <span className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                            {t("fanResurslariOq.sidebar.materialCount", { n: count })}
-                          </span>
-                        ) : (
-                          <span className="text-xs" style={{ color: "#b0c2d8", fontFamily: "var(--font-poppins)" }}>
-                            {t("fanResurslariOq.sidebar.empty")}
-                          </span>
-                        )}
-                        {count > 0 && (
-                          <div className="flex items-center gap-0.5">
-                            {allItems.some(i => i.topicKey === tp.key && i.kind === "video_lesson") && <Video className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                            {allItems.some(i => i.topicKey === tp.key && i.kind === "audio") && <Music className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                            {allItems.some(i => i.topicKey === tp.key && i.kind === "theory") && <BookOpen className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                            {allItems.some(i => i.topicKey === tp.key && i.type === "exam") && <HelpCircle className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                          </div>
-                        )}
+                    <button onClick={() => setTopicKey(tp.key)}
+                      className="flex-1 min-w-0 text-left px-4 py-3 flex items-start gap-3">
+                      {/* Number badge */}
+                      <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
+                        style={{
+                          backgroundColor: isActive ? "#0e58a8" : count > 0 ? "rgba(34,197,94,0.12)" : "rgba(1,41,112,0.06)",
+                          color: isActive ? "white" : count > 0 ? "#15803d" : "#7293b9",
+                          fontFamily: "var(--font-poppins)",
+                        }}>
+                        {idx + 1}
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-snug"
+                          style={{ color: isActive ? "#012970" : "#445b7a", fontFamily: "var(--font-poppins)" }}>
+                          {tp.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {count > 0 ? (
+                            <span className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                              {t("fanResurslariOq.sidebar.materialCount", { n: count })}
+                            </span>
+                          ) : (
+                            <span className="text-xs" style={{ color: "#b0c2d8", fontFamily: "var(--font-poppins)" }}>
+                              {t("fanResurslariOq.sidebar.empty")}
+                            </span>
+                          )}
+                          {count > 0 && (
+                            <div className="flex items-center gap-0.5">
+                              {allItems.some(i => i.topicKey === tp.key && i.kind === "video_lesson") && <Video className="w-3 h-3" style={{ color: "#94a3b8" }} />}
+                              {allItems.some(i => i.topicKey === tp.key && i.kind === "audio") && <Music className="w-3 h-3" style={{ color: "#94a3b8" }} />}
+                              {allItems.some(i => i.topicKey === tp.key && i.kind === "theory") && <BookOpen className="w-3 h-3" style={{ color: "#94a3b8" }} />}
+                              {allItems.some(i => i.topicKey === tp.key && i.type === "exam") && <HelpCircle className="w-3 h-3" style={{ color: "#94a3b8" }} />}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                    <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 pr-2 pt-3">
+                      <button onClick={() => startEditTopic(tp)} title={t("mavzularOq.edit")}
+                        className="flex items-center justify-center w-6 h-6 rounded-[5px] transition-colors hover:bg-[#f0f5ff]">
+                        <Pencil className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
+                      </button>
+                      <button onClick={() => { setDeleteTopicKey(tp.key); setTopicOpError(null) }} title={t("mavzularOq.delete")}
+                        className="flex items-center justify-center w-6 h-6 rounded-[5px] transition-colors hover:bg-red-50">
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
+                      </button>
                     </div>
-                    {isActive && (
-                      <div className="shrink-0 w-1.5 h-1.5 rounded-full mt-2.5" style={{ backgroundColor: "#0e58a8" }} />
-                    )}
-                  </button>
+                  </div>
                 )
               })}
             </div>

@@ -24,7 +24,7 @@ export function RecordingCard({ recording }: { recording: MeetingRecording }) {
         <InfoPill icon={CalendarDays} label={recording.date} />
         <InfoPill
           icon={Users2}
-          label={recording.groupIds.length ? `${t("meetingPage.groupLabel")} ${recording.groupIds.join(", ")}` : t("meetingPage.groupNotSpecified")}
+          label={recording.groupNames.length ? recording.groupNames.join(", ") : t("meetingPage.groupNotSpecified")}
         />
       </div>
       <p className="mt-2.5 text-sm font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
