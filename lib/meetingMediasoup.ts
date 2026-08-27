@@ -126,7 +126,13 @@ export class MeetingMediaClient {
         return
       }
       const transport = await this.ensureSendTransport()
-      const producer = await transport.produce({ track, appData: { source } })
+      // stopTracks defaults to true — mediasoup-client would stop the
+      // camera/mic MediaStreamTrack itself whenever this producer closes
+      // (e.g. on every reconnect). That track is owned and reused by the
+      // page (localStreamRef), not by us, so stopping it here permanently
+      // kills the local camera/mic and every future produce attempt fails
+      // with "InvalidStateError: track ended".
+      const producer = await transport.produce({ track, appData: { source }, stopTracks: false })
       console.log(`[mediasoup] producing ${source} (${producer.kind}), id=${producer.id}`)
       this.producers.set(source, producer)
     } catch (issue) {

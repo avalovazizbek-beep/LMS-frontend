@@ -1614,12 +1614,14 @@ function CallControlButton({
   tone,
   icon: Icon,
   active,
+  badge,
   onClick,
 }: {
   label: string
   tone: "primary" | "danger"
   icon: LucideIcon
   active?: boolean
+  badge?: number
   onClick: () => void
 }) {
   const danger = tone === "danger"
@@ -1631,7 +1633,7 @@ function CallControlButton({
       title={label}
       onClick={onClick}
       className={cn(
-        "inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-full px-3 text-sm font-medium transition-colors",
+        "relative inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-full px-3 text-sm font-medium transition-colors",
         danger
           ? "bg-red-500 text-white hover:bg-red-600"
           : active
@@ -1642,6 +1644,11 @@ function CallControlButton({
     >
       <Icon className="h-5 w-5" />
       {danger ? <span>{label}</span> : null}
+      {Boolean(badge) && (
+        <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white">
+          {badge && badge > 9 ? "9+" : badge}
+        </span>
+      )}
     </button>
   )
 }
@@ -1790,6 +1797,7 @@ function CallStage({
   mediaError,
   socketError,
   activePanel,
+  unreadChatCount,
   chatMessages,
   chatInput,
   callSeconds,
@@ -1828,6 +1836,7 @@ function CallStage({
   mediaError: string | null
   socketError: string | null
   activePanel: CallPanel
+  unreadChatCount: number
   chatMessages: ChatMessage[]
   chatInput: string
   callSeconds: number
@@ -2098,7 +2107,7 @@ function CallStage({
                       onClick={onToggleRecording}
                     />
                   )}
-                  <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => openMobilePanel("chat")} />
+                  <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} badge={unreadChatCount} onClick={() => openMobilePanel("chat")} />
                   <button type="button" aria-label="Yana" onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
                     className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20">
                     <MoreHorizontal className="h-5 w-5" />
@@ -2115,7 +2124,7 @@ function CallStage({
               <div className="flex flex-wrap items-center justify-center gap-2 rounded-full bg-white px-3 py-2 shadow-[0_2px_12px_rgba(1,41,112,0.1)] border border-[#d8e6f7]">
                 <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
                 <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
-                <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} onClick={() => openMobilePanel("chat")} />
+                <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} badge={unreadChatCount} onClick={() => openMobilePanel("chat")} />
                 <button type="button" aria-label="Yana" onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
                   className="grid h-11 w-11 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475]">
                   <MoreHorizontal className="h-5 w-5" />
@@ -2151,10 +2160,13 @@ function CallStage({
               <div className="flex items-center gap-1 rounded-[5px] bg-[#f6f9ff] p-1">
                 {(["participants", ...(isTeacher ? ["cameras"] : []), "chat"] as CallPanel[]).map(id => (
                   <button key={id} type="button" onClick={() => onTogglePanel(id)}
-                    className={cn("rounded-[5px] px-3 py-2 text-xs font-medium transition-colors",
+                    className={cn("relative rounded-[5px] px-3 py-2 text-xs font-medium transition-colors",
                       activePanel === id ? "bg-white text-[#012970] shadow-[0_2px_8px_rgba(1,41,112,0.08)]" : "text-[#7293b9] hover:bg-white")}
                     style={{ fontFamily: "var(--font-poppins)" }}>
                     {id === "participants" ? "Ishtirokchilar" : id === "cameras" ? "Kameralar" : "Chat"}
+                    {id === "chat" && unreadChatCount > 0 && (
+                      <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#f6f9ff]" />
+                    )}
                   </button>
                 ))}
                 <span className="ml-auto rounded-full bg-[#e8fbff] px-2 py-0.5 text-xs font-medium text-[#0e58a8]" style={{ fontFamily: "var(--font-poppins)" }}>
@@ -2311,6 +2323,15 @@ export default function MeetingPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState("")
   const [activePanel, setActivePanel] = useState<CallPanel>("participants")
+  // How many chat messages had already arrived the last time the chat panel
+  // was actually open — anything past that is "unread" and shows a badge on
+  // the Chat button(s), since new messages otherwise gave no indication at
+  // all while the panel was closed.
+  const [lastSeenChatCount, setLastSeenChatCount] = useState(0)
+  useEffect(() => {
+    if (activePanel === "chat") setLastSeenChatCount(chatMessages.length)
+  }, [activePanel, chatMessages.length])
+  const unreadChatCount = Math.max(0, chatMessages.length - lastSeenChatCount)
   const [callSeconds, setCallSeconds] = useState(0)
   const [isRecording, setIsRecording] = useState(false)
   const [recordingError, setRecordingError] = useState<string | null>(null)
@@ -3034,6 +3055,7 @@ export default function MeetingPage() {
             mediaError={mediaError}
             socketError={socketError}
             activePanel={activePanel}
+            unreadChatCount={unreadChatCount}
             chatMessages={chatMessages}
             chatInput={chatInput}
             callSeconds={callSeconds}
