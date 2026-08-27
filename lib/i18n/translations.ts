@@ -16,6 +16,7 @@ export const DEFAULT_LANG: Lang = "uz"
 export const dictionary: Record<string, Record<Lang, string>> = {
   // ── Umumiy (bir necha sahifada takrorlanadigan so'zlar) ─────────────
   "common.back":       { uz: "Orqaga",           ru: "Назад",              en: "Back",            kaa: "Artqa" },
+  "common.noAccess":   { uz: "Bu sahifaga kirish huquqingiz yo'q", ru: "У вас нет доступа к этой странице", en: "You don't have access to this page", kaa: "Bul betke kiriw huqıqıńız joq" },
   "common.cancel":      { uz: "Bekor qilish",     ru: "Отмена",             en: "Cancel",           kaa: "Biykar etiw" },
   "common.save":        { uz: "Saqlash",          ru: "Сохранить",          en: "Save",             kaa: "Saqlaw" },
   "common.loading":     { uz: "Yuklanmoqda...",   ru: "Загрузка...",        en: "Loading...",       kaa: "Júklenbekte..." },
@@ -218,6 +219,8 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "meetingPage.upcomingCountSuffix": { uz: "{n} ta kelgusi meeting", ru: "{n} предстоящих встреч",     en: "{n} upcoming meetings",       kaa: "{n} aldaǵı meeting" },
   "meetingPage.pastMeetings": { uz: "O'tgan meetinglar",        ru: "Прошедшие встречи",                en: "Past meetings",               kaa: "Ótken meetingler" },
   "meetingPage.lessonRecords": { uz: "Darslar yozuvlari",       ru: "Записи занятий",                   en: "Lesson recordings",           kaa: "Sabaq jazbaları" },
+  "meetingPage.viewAllRecordings": { uz: "Barchasini ko'rish",  ru: "Смотреть все",                     en: "View all",                    kaa: "Barlıǵın kóriw" },
+  "meetingPage.allRecordingsTitle": { uz: "Barcha dars yozuvlari", ru: "Все записи занятий",             en: "All lesson recordings",       kaa: "Barlıq sabaq jazbaları" },
   "meetingPage.none":         { uz: "Hozircha meeting yo'q",    ru: "Пока нет встреч",                  en: "No meetings yet",             kaa: "Hazirshe meeting joq" },
   "meetingPage.countUnit":    { uz: "{n} ta",                   ru: "{n}",                              en: "{n}",                          kaa: "{n} ta" },
   "meetingPage.newMeeting":   { uz: "Yangi meeting",            ru: "Новая встреча",                    en: "New meeting",                 kaa: "Jańa meeting" },

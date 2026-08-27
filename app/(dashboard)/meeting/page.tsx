@@ -7,6 +7,7 @@ import {
   useState,
   type FormEvent,
 } from "react"
+import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
 import { io, type Socket } from "socket.io-client"
 import {
@@ -39,11 +40,12 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react"
-import { meetingsApi, hemisApi, teachingApi, type Meeting, type MeetingRecording, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup } from "@/lib/api"
+import { meetingsApi, hemisApi, teachingApi, type Meeting, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup } from "@/lib/api"
 import { MeetingMediaClient, type ProducerSummary } from "@/lib/meetingMediasoup"
 import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
 import MeetingFaceAttendanceTracker from "@/components/meeting/MeetingFaceAttendanceTracker"
+import { RecordingCard } from "@/components/meeting/RecordingCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import type { Lang } from "@/lib/i18n/translations"
 import { translate } from "@/lib/i18n/translations"
@@ -1126,31 +1128,7 @@ function CreateMeetingModal({
   )
 }
 
-function RecordingCard({ recording }: { recording: MeetingRecording }) {
-  const { t } = useLanguage()
-  return (
-    <div className="rounded-[8px] border border-[#d8e6f7] bg-white p-4">
-      <div className="flex flex-wrap gap-2">
-        <InfoPill icon={BookOpen} label={recording.subjectName || t("meetingPage.subjectNotSpecified")} />
-        <InfoPill icon={CalendarDays} label={recording.date} />
-        <InfoPill
-          icon={Users2}
-          label={recording.groupIds.length ? `${t("meetingPage.groupLabel")} ${recording.groupIds.join(", ")}` : t("meetingPage.groupNotSpecified")}
-        />
-      </div>
-      <p className="mt-2.5 text-sm font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-        {recording.title}
-      </p>
-      <video
-        controls
-        playsInline
-        preload="metadata"
-        className="mt-2.5 w-full rounded-[8px] bg-black"
-        src={recording.fileUrl}
-      />
-    </div>
-  )
-}
+const RECORDINGS_PREVIEW_COUNT = 2
 
 function RecordingsSection() {
   const { t } = useLanguage()
@@ -1161,20 +1139,30 @@ function RecordingsSection() {
     if (seen.has(key)) return false
     seen.add(key); return true
   })
+  const preview = recordings.slice(0, RECORDINGS_PREVIEW_COUNT)
 
   return (
     <div className="rounded-[8px] border border-[#d8e6f7] bg-white p-5 shadow-[0_2px_12px_rgba(1,41,112,0.06)]">
-      <h3 className="text-lg font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-        {t("meetingPage.lessonRecords")}
-      </h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
+          {t("meetingPage.lessonRecords")}
+        </h3>
+        {recordings.length > RECORDINGS_PREVIEW_COUNT && (
+          <Link href="/meeting/recordings"
+            className="shrink-0 text-xs font-medium text-[#0e58a8] hover:underline"
+            style={{ fontFamily: "var(--font-poppins)" }}>
+            {t("meetingPage.viewAllRecordings")}
+          </Link>
+        )}
+      </div>
       {error && (
         <p className="mt-2 text-sm text-red-600" style={{ fontFamily: "var(--font-poppins)" }}>
           {error}
         </p>
       )}
       <div className="mt-4 space-y-3">
-        {recordings.length ? (
-          recordings.map((recording) => <RecordingCard key={recording.id} recording={recording} />)
+        {preview.length ? (
+          preview.map((recording) => <RecordingCard key={recording.id} recording={recording} />)
         ) : (
           <EmptyMeetings loading={loading} />
         )}
@@ -1409,7 +1397,10 @@ function LobbyStage({
               </div>
             </div>
 
-            <RecordingsSection />
+            {/* Students already reach recordings via Fan resurslari (they're
+                auto-linked there when a meeting ends) — keep this section for
+                teachers/admins only so the meeting lobby doesn't duplicate it. */}
+            {isTeacher && <RecordingsSection />}
           </aside>
         </div>
       </div>
