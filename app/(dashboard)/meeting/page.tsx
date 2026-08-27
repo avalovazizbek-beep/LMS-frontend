@@ -2034,7 +2034,7 @@ function CallStage({
                   </button>
                   <div className="min-w-0 rounded-[8px] bg-black/50 px-3 py-1.5">
                     <p className="truncate text-sm font-semibold text-white" style={{ fontFamily: "var(--font-poppins)" }}>{meeting.title}</p>
-                    <p className="hidden truncate text-[11px] text-white/70 xl:block" style={{ fontFamily: "var(--font-poppins)" }}>{participantText(meeting.participants, lang)}</p>
+                    <p className="hidden truncate text-[11px] text-white/70 xl:block" style={{ fontFamily: "var(--font-poppins)" }}>{participantText(participantCount + 1, lang)}</p>
                   </div>
                 </div>
 
