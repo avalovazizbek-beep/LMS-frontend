@@ -91,20 +91,40 @@ export default function FaceRegisterPage() {
   useEffect(() => {
     if (phase !== "liveness") return
     setCameraReady(false)
+    // No cleanup here previously — reopening the camera (retry after an
+    // error, register again, etc.) could request a second getUserMedia
+    // stream while an earlier one was still attached, and the earlier
+    // stream's tracks were never stopped. Some browsers then keep the
+    // camera "held" by the orphaned stream, so the new one never starts
+    // and only a full page reload frees the device.
+    let cancelled = false
     navigator.mediaDevices
       .getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } })
       .then(stream => {
+        if (cancelled) {
+          stream.getTracks().forEach(t => t.stop())
+          return
+        }
         const vid = videoRef.current
-        if (!vid) return
+        if (!vid) {
+          stream.getTracks().forEach(t => t.stop())
+          return
+        }
         vid.srcObject = stream
         vid.onloadedmetadata = () => {
           vid.play().then(() => setCameraReady(true)).catch(() => setCameraReady(true))
         }
       })
       .catch(() => {
+        if (cancelled) return
         setPhase("error")
         setSubmitError(t("faceRegister.cameraDenied"))
       })
+
+    return () => {
+      cancelled = true
+      stopCamera()
+    }
   }, [phase])
 
   /* ── Stop camera ─────────────────────────────────────────────────── */

@@ -93,18 +93,36 @@ export default function FaceSetupPage() {
   useEffect(() => {
     if (step !== "liveness") return
     setCameraReady(false)
+    // No cleanup here previously — reopening the camera while an earlier
+    // stream was still attached left its tracks running, and some browsers
+    // then keep the camera "held" by that orphaned stream so a new one
+    // never starts (only a full page reload frees the device).
+    let cancelled = false
     navigator.mediaDevices
       .getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } })
       .then(stream => {
+        if (cancelled) {
+          stream.getTracks().forEach(t => t.stop())
+          return
+        }
         const vid = videoRef.current
-        if (!vid) return
+        if (!vid) {
+          stream.getTracks().forEach(t => t.stop())
+          return
+        }
         vid.srcObject = stream
         vid.onloadedmetadata = () => vid.play().then(() => setCameraReady(true)).catch(() => setCameraReady(true))
       })
       .catch(() => {
+        if (cancelled) return
         setSubmitError("Kameraga ruxsat berilmadi. Brauzer sozlamalarini tekshiring.")
         setStep("error")
       })
+
+    return () => {
+      cancelled = true
+      stopCamera()
+    }
   }, [step])
 
   function stopCamera() {
