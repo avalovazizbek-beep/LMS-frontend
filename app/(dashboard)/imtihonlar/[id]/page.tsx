@@ -77,12 +77,17 @@ export default function ImtihonTopshirish() {
     return () => document.removeEventListener("fullscreenchange", onFsChange)
   }, [])
 
+  // iOS Safari doesn't implement the Fullscreen API for non-<video> elements —
+  // requestFullscreen is simply undefined there, and calling it throws a
+  // TypeError that aborts startExam() before setPhase("face_scan") runs, so
+  // the "Imtihonni boshlash" button silently does nothing. Optional-chain the
+  // whole call (same fix already used in meeting/page.tsx for this exact issue).
   function requestFS() {
-    document.documentElement.requestFullscreen().catch(() => {})
+    document.documentElement.requestFullscreen?.()?.catch(() => {})
     setFsExited(false)
   }
   function exitFS() {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+    if (document.fullscreenElement) document.exitFullscreen?.()?.catch(() => {})
   }
 
   /* ── Alt+Tab / oyna yashirish aniqlash ───────────────────────────── */
