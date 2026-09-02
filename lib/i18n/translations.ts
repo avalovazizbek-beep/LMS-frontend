@@ -1232,6 +1232,7 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "examTake.maxScore":       { uz: "Maksimal ball:",            ru: "Максимальный балл:",                en: "Max score:",                    kaa: "Maksimal ball:" },
   "examTake.attemptsLeft":   { uz: "Qolgan urinishlar:",        ru: "Оставшиеся попытки:",                en: "Attempts left:",               kaa: "Qalǵan urınıwlar:" },
   "examTake.retry":          { uz: "Qayta topshirish",          ru: "Пересдать",                          en: "Retry",                         kaa: "Qayta tapsırıw" },
+  "examTake.retakeGrantedNotice": { uz: "Qayta urinish ruxsati berilgan", ru: "Разрешён повторный доступ", en: "A retake has been granted", kaa: "Qayta urınıw ruqsat etilgen" },
   "examTake.notOpenedYet":   { uz: "Bu imtihon hali ochilmagan", ru: "Этот экзамен ещё не открыт",        en: "This exam hasn't opened yet", kaa: "Bul emtihan áli ashılmaǵan" },
   "examTake.deadlinePassed": { uz: "Bu imtihonning muddati tugagan", ru: "Срок этого экзамена истёк",   en: "This exam's deadline has passed", kaa: "Bul emtihannıń мuddeti ótken" },
   "examTake.questionCount":  { uz: "Savollar soni:",            ru: "Количество вопросов:",               en: "Number of questions:",         kaa: "Sораwlar sanı:" },

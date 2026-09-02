@@ -63,7 +63,9 @@ export default function ImtihonTopshirish() {
 
   const maxAttempts  = content?.attemptsCount && content.attemptsCount > 0 ? content.attemptsCount : null
   const attemptsUsed = mySubmission?.attemptsUsed ?? 0
-  const canRetry     = content?.status === "open" && mySubmission !== null && (maxAttempts === null || attemptsUsed < maxAttempts)
+  // Admin "Qayta urinish" orqali maxsus ruxsat bergan bo'lsa, limitga qaramasdan qayta urinishga ruxsat beriladi
+  const canRetry     = content?.status === "open" && mySubmission !== null &&
+    (maxAttempts === null || attemptsUsed < maxAttempts || mySubmission?.retakeGranted === true)
 
   /* ── To'liq ekran lock ────────────────────────────────────────────── */
   useEffect(() => {
@@ -316,7 +318,11 @@ export default function ImtihonTopshirish() {
           <div className="flex flex-col gap-1 mt-4 text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
             {content.durationMinutes != null && <span>{t("examTake.duration")} <strong>{t("examTake.minutes", { n: content.durationMinutes })}</strong></span>}
             {content.maxScore != null && <span>{t("examTake.maxScore")} <strong>{content.maxScore}</strong></span>}
-            {maxAttempts !== null && <span>{t("examTake.attemptsLeft")} <strong>{maxAttempts - attemptsUsed}</strong></span>}
+            {maxAttempts !== null && (
+              attemptsUsed < maxAttempts
+                ? <span>{t("examTake.attemptsLeft")} <strong>{maxAttempts - attemptsUsed}</strong></span>
+                : <span style={{ color: "#0e58a8" }}>{t("examTake.retakeGrantedNotice")}</span>
+            )}
           </div>
           <div className="flex flex-col gap-3 mt-6">
             <button onClick={startExam}

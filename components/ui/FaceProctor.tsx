@@ -108,11 +108,19 @@ export default function FaceProctor({
 
   useEffect(() => {
     if (!modelsLoaded || disabled) return
+    // Effekt qayta ishga tushsa yoki komponent kutish paytida unmount bo'lsa
+    // ham stream albatta to'xtatilishi uchun — aks holda kamera brauzerda
+    // "band" bo'lib qolib, keyingi testda ochilmay qoladi (faqat sahifani
+    // yangilash yordam beradi).
+    let cancelled = false
+    let acquiredStream: MediaStream | null = null
     navigator.mediaDevices
       .getUserMedia({ video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: "user" } })
       .then(stream => {
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return }
+        acquiredStream = stream
         const vid = videoRef.current
-        if (!vid) return
+        if (!vid) { stream.getTracks().forEach(t => t.stop()); return }
         vid.srcObject = stream
         vid.onloadedmetadata = () => {
           vid.play().then(() => setCameraReady(true)).catch(() => setCameraReady(true))
@@ -122,6 +130,10 @@ export default function FaceProctor({
         setStatusSynced("error")
         setStatusMsg("Kameraga ruxsat berilmadi")
       })
+    return () => {
+      cancelled = true
+      acquiredStream?.getTracks().forEach(t => t.stop())
+    }
   }, [modelsLoaded, disabled])
 
   function stopAll() {
@@ -365,6 +377,17 @@ export default function FaceProctor({
   }, [cameraReady])
 
   useEffect(() => () => { stopAll() }, [])
+
+  // Qo'shimcha himoya: ba'zi mobil brauzerlarda sahifadan chiqishda (masalan
+  // bfcache holatiga o'tganda) React unmount effekti ishonchli chaqirilmasligi
+  // mumkin — shu sabab kamera "band" holatda qolib, keyingi testda ochilmaydi.
+  // pagehide bfcache holatida ham ishonchli ishlaydi (unload'dan farqli).
+  useEffect(() => {
+    const handlePageHide = () => stopAll()
+    window.addEventListener("pagehide", handlePageHide)
+    return () => window.removeEventListener("pagehide", handlePageHide)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const colors: Record<ProcStatus, { bg: string; border: string; text: string; icon: string }> = {
     loading:   { bg: "#f0f5ff", border: "rgba(14,88,168,0.2)",  text: "#0e58a8", icon: "#0e58a8" },
