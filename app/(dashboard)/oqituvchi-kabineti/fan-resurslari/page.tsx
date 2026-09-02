@@ -631,7 +631,9 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
     setUploadingKind(kind)
     setUploadProgress(0)
     try {
-      await teachingApi.removeContent(item.id)
+      // Avval YANGI faylni yuklaymiz, faqat muvaffaqiyatli bo'lsa eskisini
+      // o'chiramiz — aks holda internet uzilib yuklash muvaffaqiyatsiz
+      // tugasa, o'qituvchi eski faylini butunlay yo'qotib qo'yardi.
       await teachingApi.createContent({
         type, groupId: sel.groupId, subjectName: sel.subjectName,
         topicKey: sel.topicKey, title: sel.topicTitle, kind,
@@ -639,6 +641,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
         docFile: file,
         onUploadProgress: setUploadProgress,
       })
+      await teachingApi.removeContent(item.id)
       await refetch()
     } catch (err) {
       setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.replaceError"))

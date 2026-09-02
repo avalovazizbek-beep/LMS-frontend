@@ -1331,6 +1331,9 @@ function buildParams(input: Record<string, string | number | null | undefined>):
 export const teachingApi = {
   groups: () => get<ListRes<TeacherGroup>>("/api/teaching/groups"),
 
+  examSettings: () =>
+    get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null } }>("/api/teaching/exam-settings"),
+
   sync: () =>
     post<{ success: boolean; message: string; data: { groups: TeacherGroup[]; schedule: TeacherScheduleItem[] } }>(
       "/api/teaching/sync",

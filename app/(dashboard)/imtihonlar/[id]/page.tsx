@@ -26,6 +26,9 @@ export default function ImtihonTopshirish() {
   const { data: subRes, loading: lSub, refetch: refetchSub } = useApi(() => teachingApi.mySubmission(id), [id])
   const mySubmission = subRes?.data ?? null
 
+  const { data: settingsRes } = useApi(() => teachingApi.examSettings(), [])
+  const examSettings = settingsRes?.data ?? null
+
   const [attemptKey, setAttemptKey]   = useState(0)
 
   const { data: questionsRes, loading: lQuestions } = useApi(
@@ -111,10 +114,16 @@ export default function ImtihonTopshirish() {
     window.addEventListener("blur", onBlur)
     document.addEventListener("visibilitychange", onHide)
 
-    // Ekran yozish APIni bloklash — brauzer screen share urinishlarini oldini olish
+    // Ekran yozish APIni bloklash — brauzer screen share urinishlarini oldini olish.
+    // MUHIM: bu global navigator.mediaDevices ob'ektini o'zgartiradi (faqat shu
+    // komponentga xos emas) — asl funksiyani saqlab, tozalashda albatta qaytarish
+    // kerak, aks holda imtihondan keyin meeting'da screen-share butun tab
+    // sessiyasi davomida (sahifa yangilanmaguncha) buzilib qoladi.
+    let originalGetDisplayMedia: typeof navigator.mediaDevices.getDisplayMedia | undefined
     try {
       const md = navigator.mediaDevices as MediaDevices & { getDisplayMedia?: unknown }
       if (md && "getDisplayMedia" in md) {
+        originalGetDisplayMedia = md.getDisplayMedia as typeof navigator.mediaDevices.getDisplayMedia
         Object.defineProperty(md, "getDisplayMedia", {
           value: () => Promise.reject(new DOMException("Imtihon vaqtida ekran yozish taqiqlangan", "NotAllowedError")),
           configurable: true, writable: true,
@@ -125,6 +134,12 @@ export default function ImtihonTopshirish() {
     return () => {
       window.removeEventListener("blur", onBlur)
       document.removeEventListener("visibilitychange", onHide)
+      try {
+        const md = navigator.mediaDevices as MediaDevices & { getDisplayMedia?: unknown }
+        if (md && originalGetDisplayMedia) {
+          Object.defineProperty(md, "getDisplayMedia", { value: originalGetDisplayMedia, configurable: true, writable: true })
+        }
+      } catch { /* ignore */ }
     }
   }, [phase])
 
@@ -226,7 +241,12 @@ export default function ImtihonTopshirish() {
 
   /* ── Topshirildi ──────────────────────────────────────────────────── */
   if (phase === "submitted_now") {
-    const usedNow      = result?.attemptsUsed ?? (attemptsUsed + 1)
+    // Agar topshirish xato bilan tugagan bo'lsa (result === null — masalan
+    // Face ID buzilishi savollar yuklanmasdan avtomatik yubordi va backend
+    // bo'sh javobni rad etdi), haqiqiy urinish sarflanmagan — attemptsUsed
+    // o'zgarmagan holicha qoladi, aks holda talaba "qolgan urinish yo'q"
+    // holatiga tushib qolib, qayta kira olmay qolardi.
+    const usedNow      = result?.attemptsUsed ?? attemptsUsed
     const canRetryNow  = content.status === "open" && (maxAttempts === null || usedNow < maxAttempts)
     return (
       <div className="min-h-full flex items-center justify-center p-[30px]">
@@ -251,12 +271,12 @@ export default function ImtihonTopshirish() {
             <ApiError message={submitError ?? t("examTake.submitError")} />
           )}
           <div className="flex flex-col gap-3 mt-6">
-            {canRetryNow && result && (
+            {canRetryNow && (
               <button onClick={startExam}
                 className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-[5px] text-white font-medium"
                 style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 <RefreshCw className="w-4 h-4" />
-                {t("examTake.retryWithLeft", { n: maxAttempts! - usedNow })}
+                {maxAttempts !== null ? t("examTake.retryWithLeft", { n: maxAttempts - usedNow }) : t("examTake.retry")}
               </button>
             )}
             <button onClick={() => router.push("/imtihonlar")}
@@ -489,6 +509,7 @@ export default function ImtihonTopshirish() {
         fixed
         onFirstVerified={handleFirstVerified}
         onTerminate={handleTerminate}
+        maxViolations={examSettings?.faceBlockThreshold}
       >
         {/* ── Yuz tekshiruvi fazasi ───────────────────────────────── */}
         {phase === "face_scan" && (

@@ -15,7 +15,7 @@ const MODEL_URL           = `${BASE_PATH}/models`
 const TINY_CONF           = 0.30   // 0.25→0.30: kamroq soxta aniqlash
 const VERIFY_INTERVAL     = 6000   // 10s→6s: tezroq tekshiruv
 const ABSENT_LIMIT        = 10000
-const MAX_VIOLATIONS      = 5
+const DEFAULT_MAX_VIOLATIONS = 5   // admin "Face ID bloklash chegarasi" sozlamasi orqali o'zgartirilishi mumkin
 const LIVENESS_INTERVAL   = 400
 const EAR_THRESHOLD       = 0.22
 const BLINK_TIMEOUT       = 90000
@@ -39,11 +39,13 @@ interface FaceProcProps {
   onFirstVerified?: () => void   // fires once after first successful identity verification
   disabled?: boolean
   fixed?: boolean                // render widget + overlays as position:fixed
+  maxViolations?: number         // admin-configurable "Face ID bloklash chegarasi" (lms_settings)
 }
 
 export default function FaceProctor({
-  children, onTerminate, onFirstVerified, disabled = false, fixed = false,
+  children, onTerminate, onFirstVerified, disabled = false, fixed = false, maxViolations,
 }: FaceProcProps) {
+  const MAX_VIOLATIONS = maxViolations && maxViolations > 0 ? maxViolations : DEFAULT_MAX_VIOLATIONS
   const videoRef            = useRef<HTMLVideoElement>(null)
   const rafRef              = useRef<number>(0)
   const verifyTimerRef      = useRef<ReturnType<typeof setInterval> | null>(null)

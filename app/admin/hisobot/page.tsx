@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { BarChart3, Search, Users, BookOpen, Loader2, ChevronDown, Upload, CheckCircle2, Bell, Send, X } from "lucide-react"
+import { BarChart3, Search, Users, BookOpen, Loader2, ChevronDown, Upload, CheckCircle2, Bell, Send, X, Info } from "lucide-react"
 import { adminApi, teachingApi, type AdminTeacherStat, type JournalData } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -284,9 +284,13 @@ export default function AdminHisobot() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {syncMsg && (
-            <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full"
-              style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-              <CheckCircle2 className="w-3.5 h-3.5" />{syncMsg}
+            // Diqqat: HEMIS hozircha tashqi yozishga ruxsat bermaydi — bu
+            // faqat LMS ichida ma'lumot to'planganini bildiradi, HAQIQATDA
+            // HEMIS'ga yuborilgani emas. Shuning uchun yashil "muvaffaqiyat"
+            // emas, neytral "ma'lumot" ko'rinishida ko'rsatiladi.
+            <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full max-w-md"
+              style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <Info className="w-3.5 h-3.5 shrink-0" />{syncMsg}
             </span>
           )}
           <button type="button" onClick={doHemisSync} disabled={syncing}
