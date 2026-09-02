@@ -15,6 +15,7 @@ import {
   ScanFace,
 } from "lucide-react"
 import { faceApi } from "@/lib/api"
+import { ensureFaceModels } from "@/lib/faceModelCache"
 
 declare global {
   interface Window { faceapi: any }
@@ -23,7 +24,6 @@ declare global {
 type Step = "intro" | "loading" | "camera" | "liveness" | "confirm" | "submitting" | "done" | "error"
 
 const BASE_PATH     = process.env.NEXT_PUBLIC_BASE_PATH || ""
-const MODEL_URL     = `${BASE_PATH}/models`
 const TOTAL_SAMPLES = 3
 const HOLD_FRAMES   = 5
 const MIN_CONF      = 0.4
@@ -70,18 +70,16 @@ export default function FaceSetupPage() {
     }
   }, [])
 
-  /* ── Load models after script ready ── */
+  /* ── Load models after script ready — parallel, shared cache (mobil tarmoqda tezroq) ── */
   useEffect(() => {
     if (!scriptReady || step !== "loading") return
     ;(async () => {
       try {
-        const fa = window.faceapi
-        setLoadStatus("Yuz aniqlash modeli... (1/3)")
-        await fa.nets.tinyFaceDetector.loadFromUri(MODEL_URL); setLoadedCount(1)
-        setLoadStatus("Yuz nuqtalari modeli... (2/3)")
-        await fa.nets.faceLandmark68Net.loadFromUri(MODEL_URL); setLoadedCount(2)
-        setLoadStatus("Yuz tanish modeli... (3/3)")
-        await fa.nets.faceRecognitionNet.loadFromUri(MODEL_URL); setLoadedCount(3)
+        setLoadStatus("AI modellari yuklanmoqda... (0/3)")
+        await ensureFaceModels((loaded, total) => {
+          setLoadedCount(loaded)
+          setLoadStatus(`AI modellari yuklanmoqda... (${loaded}/${total})`)
+        })
         setStep("camera")
       } catch {
         setLoadStatus("Xatolik. Sahifani qayta yuklang.")
