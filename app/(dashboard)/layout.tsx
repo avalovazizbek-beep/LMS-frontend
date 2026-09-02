@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
 import { MeetingReminder } from "@/components/layout/MeetingReminder"
+import { AnnouncementModal } from "@/components/layout/AnnouncementModal"
 
 export default function DashboardLayout({
   children,
@@ -57,6 +58,10 @@ export default function DashboardLayout({
       style={{ backgroundColor: "var(--lms-bg)" }}
     >
       {!isMeetingRoute && <MeetingReminder />}
+      {/* MeetingReminder bilan bir xil z-[5000] fixed overlay — ikkisi bir vaqtda
+          chiqib qolsa (kamdan-kam), keyingisi (shu, AnnouncementModal) ustida
+          chiqadi, chunki DOM tartibida keyinroq turadi. */}
+      {!isMeetingRoute && <AnnouncementModal />}
 
       {/* Mobilda menyu ochiq bo'lsa — orqa fon (backdrop), bosilsa yopiladi */}
       {!isMeetingRoute && (

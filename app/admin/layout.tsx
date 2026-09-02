@@ -19,6 +19,7 @@ import {
   BarChart3,
   BookCheck,
   RefreshCw,
+  Megaphone,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 
@@ -33,6 +34,7 @@ const NAV = [
   { href: "/admin/baholash", label: "Baholashlar", icon: BookCheck },
   { href: "/admin/qayta-urinish", label: "Qayta urinish", icon: RefreshCw },
   { href: "/admin/face-id", label: "Face ID so'rovlari", icon: ShieldAlert },
+  { href: "/admin/elonlar", label: "E'lonlar", icon: Megaphone },
   { href: "/admin/sozlamalar", label: "Sozlamalar", icon: Settings },
 ]
 

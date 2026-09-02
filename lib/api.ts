@@ -2275,4 +2275,63 @@ export const adminApi = {
 
   revokeRetake: (contentId: number | string, studentUserId: number | string) =>
     del<MsgRes>(`/api/admin/content/${contentId}/retake-grants/${studentUserId}`),
+
+  announcements: () => get<ListRes<AdminAnnouncement>>("/api/admin/announcements"),
+
+  createAnnouncement: (body: { title?: string; message?: string; audience: AnnouncementAudience }) =>
+    post<ItemRes<AdminAnnouncement>>("/api/admin/announcements", body),
+
+  uploadAnnouncement: (
+    file: File,
+    meta: { audience: AnnouncementAudience; title?: string; message?: string },
+    onProgress?: (percent: number) => void
+  ) => {
+    const q = new URLSearchParams(buildParams({ ...meta, filename: file.name })).toString()
+    return onProgress
+      ? rawUploadWithProgress<ItemRes<AdminAnnouncement>>(`/api/admin/announcements/upload?${q}`, file, onProgress)
+      : rawUpload<ItemRes<AdminAnnouncement>>(`/api/admin/announcements/upload?${q}`, file)
+  },
+
+  updateAnnouncement: (id: number, body: { title?: string | null; message?: string | null; audience?: AnnouncementAudience }) =>
+    put<MsgRes>(`/api/admin/announcements/${id}`, body),
+
+  toggleAnnouncement: (id: number) => patch<MsgRes>(`/api/admin/announcements/${id}/toggle`, {}),
+
+  deleteAnnouncement: (id: number) => del<MsgRes>(`/api/admin/announcements/${id}`),
+
+  announcementFileUrl: (id: number) =>
+    `${BASE}/api/announcements/${id}/file?token=${encodeURIComponent(getToken() ?? "")}`,
+}
+
+/* ── E'lonlar (foydalanuvchi tomonidan ko'riladigan) ───────────────────── */
+export type AnnouncementAudience = "student" | "employee" | "all"
+export type AnnouncementMediaKind = "image" | "video" | "file"
+
+export interface AnnouncementFileInfo {
+  url: string
+  originalName: string
+  mimeType: string
+  size: number
+  mediaKind: AnnouncementMediaKind
+}
+
+export interface Announcement {
+  id: number
+  title: string | null
+  message: string | null
+  audience: AnnouncementAudience
+  file: AnnouncementFileInfo | null
+  createdAt: string
+}
+
+export interface AdminAnnouncement extends Announcement {
+  isActive: boolean
+  createdByName: string | null
+  updatedAt: string
+}
+
+export const announcementsApi = {
+  mine: () => get<ListRes<Announcement>>("/api/announcements/mine"),
+  dismiss: (ids: number[]) => post<MsgRes>("/api/announcements/dismiss", { ids }),
+  fileUrl: (id: number) => `${BASE}/api/announcements/${id}/file?token=${encodeURIComponent(getToken() ?? "")}`,
 }
