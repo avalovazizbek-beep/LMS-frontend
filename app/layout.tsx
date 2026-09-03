@@ -12,9 +12,33 @@ const poppins = Poppins({
   variable: "--font-poppins",
 })
 
+const SITE_URL = "https://lms.sies.uz"
+
 export const metadata = {
-  title: "Masofaviy Ta'lim Tizimi",
-  description: "LMS - Distance Learning Management System",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "SamISI — Masofaviy Ta'lim Tizimi (LMS)",
+    template: "%s · SamISI LMS",
+  },
+  description:
+    "SamISI Masofaviy Ta'lim Tizimi — talabalar va o'qituvchilar uchun onlayn darslar, imtihonlar, davomat, baholash va meeting tizimi.",
+  keywords: ["SamISI", "masofaviy ta'lim", "LMS", "onlayn ta'lim", "Samarqand", "talabalar", "o'qituvchilar"],
+  applicationName: "SamISI LMS",
+  openGraph: {
+    type: "website",
+    locale: "uz_UZ",
+    url: SITE_URL,
+    siteName: "SamISI LMS",
+    title: "SamISI — Masofaviy Ta'lim Tizimi",
+    description: "Talabalar va o'qituvchilar uchun onlayn masofaviy ta'lim platformasi.",
+    images: [{ url: "/logo.png" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "SamISI — Masofaviy Ta'lim Tizimi",
+    description: "Talabalar va o'qituvchilar uchun onlayn masofaviy ta'lim platformasi.",
+    images: ["/logo.png"],
+  },
 }
 
 export const viewport = {
