@@ -15,6 +15,15 @@ const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 const sel = "w-full px-3 py-2.5 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none bg-white"
 
+// HEMIS'da o'quv yili sentyabrdan boshlanadi — boshqa sahifalardagi bilan
+// bir xil hisoblash (masalan fan-resurslari, xodim/[...slug]).
+function academicYearStart() {
+  const now = new Date()
+  const year = now.getFullYear()
+  return now.getMonth() >= 8 ? year : year - 1
+}
+const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => academicYearStart() - i)
+
 function fmtSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -298,20 +307,44 @@ function SubmissionsList({
 export default function BaholashPage() {
   const { t } = useLanguage()
   const [groupId, setGroupId] = useState<number | "">("")
+  const [academicYear, setAcademicYear] = useState("")
   const [subjectName, setSubjectName] = useState("")
   const [selectedContent, setSelectedContent] = useState<TeacherContent | null>(null)
 
   const { data: groupsRes, loading: lGroups, error: eGroups } = useApi(() => teachingApi.groups(), [])
   const groups = groupsRes?.data ?? []
 
+  // Faqat aniq bir yil tanlanganda HEMIS'dan so'raladi — o'sha yilda dars
+  // bergan guruhlar, o'tganlari ham (joriy /groups faqat so'nggi
+  // sinxronizatsiya + kontenti bor guruhlarni beradi).
+  const { data: yearGroupsRes } = useApi(
+    () => academicYear ? teachingApi.groupsByYear(academicYear) : Promise.resolve(null),
+    [academicYear]
+  )
+  const yearGroups = yearGroupsRes?.data ?? []
+
+  const displayGroups = useMemo(() => {
+    if (!academicYear) return groups
+    return [...yearGroups].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  }, [academicYear, groups, yearGroups])
+
+  function handleYearChange(val: string) {
+    setAcademicYear(val)
+    setGroupId("")
+    setSubjectName("")
+  }
+
   const { data: subjectsRes } = useApi(
     () => groupId !== "" ? teachingApi.mySubjects(groupId as number) : Promise.resolve(null),
     [groupId]
   )
   const subjects = useMemo(() => {
-    const list = subjectsRes?.data?.map(s => s.subjectName) ?? []
-    return [...new Set(list)].sort()
-  }, [subjectsRes])
+    const fromContent = subjectsRes?.data?.map(s => s.subjectName) ?? []
+    const fromHemis = academicYear
+      ? (yearGroups.find(g => g.id === groupId)?.subjects ?? [])
+      : []
+    return [...new Set([...fromContent, ...fromHemis])].sort()
+  }, [subjectsRes, academicYear, yearGroups, groupId])
 
   const ready = groupId !== "" && subjectName !== ""
 
@@ -347,13 +380,21 @@ export default function BaholashPage() {
       {/* Filters */}
       <div className="rounded-[10px] bg-white p-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col gap-1 min-w-[160px] flex-1">
+            <label className="text-xs font-medium" style={L}>{t("baholashPageOq.academicYear")}</label>
+            <select value={academicYear} onChange={e => handleYearChange(e.target.value)}
+              className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              <option value="">{t("baholashPageOq.allYears")}</option>
+              {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}-{y + 1}</option>)}
+            </select>
+          </div>
           <div className="flex flex-col gap-1 min-w-[200px] flex-1">
             <label className="text-xs font-medium" style={L}>{t("baholashPageOq.group")}</label>
             <select value={groupId}
               onChange={e => { setGroupId(Number(e.target.value) || ""); setSubjectName("") }}
               className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
               <option value="">{t("baholashPageOq.selectGroup")}</option>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              {displayGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1 min-w-[220px] flex-1">

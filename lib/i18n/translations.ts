@@ -1205,6 +1205,8 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "baholashPageOq.pageTitle":       { uz: "Baholash",                          ru: "Оценивание",                             en: "Grading",                            kaa: "Bahalaw" },
   "baholashPageOq.subtitleSubmissions": { uz: "Talabalar topshirgan ishlarni ko'rib baholang", ru: "Просмотрите и оцените сданные студентами работы", en: "Review and grade student submissions", kaa: "Studentler tapsırǵan jumıslardı kórip bahalań" },
   "baholashPageOq.subtitleMain":    { uz: "Talabalar topshirgan amaliy ishlarni baholash", ru: "Оценивание практических работ, сданных студентами", en: "Grading practical work submitted by students", kaa: "Studentler tapsırǵan ámeliy jumıslardı bahalaw" },
+  "baholashPageOq.academicYear":    { uz: "O'quv yili",                        ru: "Учебный год",                           en: "Academic year",                      kaa: "Oqıw jılı" },
+  "baholashPageOq.allYears":        { uz: "Barcha yillar",                     ru: "Все годы",                              en: "All years",                          kaa: "Barlıq jıllar" },
   "baholashPageOq.group":           { uz: "O'quv guruhi",                      ru: "Учебная группа",                        en: "Study group",                        kaa: "Oqıw gruppası" },
   "baholashPageOq.selectGroup":     { uz: "— Guruhni tanlang —",               ru: "— Выберите группу —",                   en: "— Select a group —",                 kaa: "— Gruppanı tańlań —" },
   "baholashPageOq.subject":         { uz: "Fan",                               ru: "Предмет",                                en: "Subject",                            kaa: "Pán" },
