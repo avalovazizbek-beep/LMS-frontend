@@ -1122,6 +1122,8 @@ export interface TeacherGroup {
   name: string
   direction?: string | null
   course?: number | null
+  /** groupsByYear orqali kelganda — HEMIS'da shu guruhga o'qitilgan fanlar */
+  subjects?: string[]
 }
 
 

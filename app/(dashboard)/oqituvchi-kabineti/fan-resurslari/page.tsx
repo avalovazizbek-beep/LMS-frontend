@@ -949,10 +949,16 @@ export default function FanResurslariPage() {
     [activeGroupId]
   )
 
+  // Bazamizda hali kontenti yo'q guruh uchun mySubjects bo'sh qaytadi — bunday
+  // holatda HEMIS'dan (groupsByYear orqali) shu guruhga o'qitilgan fanlar
+  // ro'yxatini qo'shib, tanlashni ishga tushirib beramiz.
   const subjects = useMemo<string[]>(() => {
-    const list = subjectsRes?.data?.map(s => s.subjectName) ?? []
-    return [...new Set(list)].sort()
-  }, [subjectsRes])
+    const fromContent = subjectsRes?.data?.map(s => s.subjectName) ?? []
+    const fromHemis = academicYear
+      ? (yearGroups.find(g => g.id === activeGroupId)?.subjects ?? [])
+      : []
+    return [...new Set([...fromContent, ...fromHemis])].sort()
+  }, [subjectsRes, academicYear, yearGroups, activeGroupId])
 
   const { data: contentRes, loading: lTopics, refetch: refetchTopics } = useApi(
     () => activeGroupId && subjectName
