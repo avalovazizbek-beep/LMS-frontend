@@ -18,6 +18,22 @@ const nextConfig = {
       },
     ]
   },
+  // basePath o'rnatilganda Next.js domen ILDIZINI (masalan https://lms.sies.uz/,
+  // /lms-samisi'siz) hech qanday sahifaga bog'lamaydi — kimdir shu manzilga
+  // to'g'ridan-to'g'ri kirsa (OAuth qaytishi, eski havola, qo'lda yozish)
+  // 404 ko'radi. `basePath: false` bu qoidani basePath'dan TASHQARIDA
+  // qo'llash uchun Next.js'ning maxsus imkoniyati.
+  async redirects() {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ""
+    return [
+      {
+        source: "/",
+        destination: `${basePath}/login`,
+        basePath: false,
+        permanent: false,
+      },
+    ]
+  },
 }
 
 export default nextConfig
