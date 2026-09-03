@@ -10,7 +10,7 @@ import {
 import {
   teachingApi, meetingsApi,
   type TeacherContent, type CreateMeetingRequest, type SubjectRecording,
-  type TeachingSubmission, type ExamQuestion,
+  type TeachingSubmission, type ExamQuestion, type TeacherGroup,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -901,12 +901,33 @@ function TeacherRecordingsSection({ subjectName, topicTitle }: { subjectName: st
 export default function FanResurslariPage() {
   const { t } = useLanguage()
   const { data: groupsRes, loading: lGroups, error: eGroups } = useApi(() => teachingApi.groups(), [])
+  const { data: yearGroupsRes } = useApi(() => teachingApi.groupsByYear(), [])
 
   const groups = groupsRes?.data ?? []
+  const yearGroups = yearGroupsRes?.data?.groups ?? []
+  const years = yearGroupsRes?.data?.years ?? []
+
+  // Joriy /groups (bazamizdagi kontenti bor guruhlar) va HEMIS'dan olingan
+  // barcha o'quv yillari guruhlarini birlashtiramiz — shu bilan o'tgan
+  // yillarda dars berilgan, hali kontent yaratilmagan guruhlar ham chiqadi.
+  const allGroups = useMemo<TeacherGroup[]>(() => {
+    const map = new Map<number, TeacherGroup>()
+    groups.forEach(g => map.set(g.id, g))
+    yearGroups.forEach(g => { if (!map.has(g.id)) map.set(g.id, g) })
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  }, [groups, yearGroups])
 
   const [groupId, setGroupId] = useState<number | "">("")
+  const [academicYear, setAcademicYear] = useState("")
   const [subjectName, setSubjectName] = useState("")
   const [topicKey, setTopicKey] = useState("")
+
+  // O'quv yili tanlansa, faqat shu yilda dars berilgan guruhlar ko'rsatiladi
+  const displayGroups = useMemo<TeacherGroup[]>(() => {
+    if (!academicYear) return allGroups
+    const ids = new Set(yearGroups.filter(g => g.educationYearCode === academicYear).map(g => g.id))
+    return allGroups.filter(g => ids.has(g.id))
+  }, [allGroups, yearGroups, academicYear])
 
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
@@ -1037,7 +1058,14 @@ export default function FanResurslariPage() {
   }, [allItems])
 
   const selectedTopic = topics.find(tp => tp.key === topicKey)
-  const groupName = groups.find(g => g.id === activeGroupId)?.name ?? ""
+  const groupName = allGroups.find(g => g.id === activeGroupId)?.name ?? ""
+
+  function handleYearChange(val: string) {
+    setAcademicYear(val)
+    setGroupId("")
+    setSubjectName("")
+    setTopicKey("")
+  }
 
   function handleGroupChange(val: string) {
     setGroupId(val === "" ? "" : Number(val))
@@ -1070,12 +1098,21 @@ export default function FanResurslariPage() {
           </div>
           <div className="flex items-end gap-3 flex-wrap">
             <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.academicYear")}</label>
+              <select value={academicYear} onChange={e => handleYearChange(e.target.value)}
+                className="px-3 py-2 rounded-[6px] text-sm outline-none"
+                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 140, backgroundColor: "white" }}>
+                <option value="">{t("fanResurslariOq.allYears")}</option>
+                {years.map(y => <option key={y.code} value={y.code}>{y.name}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.group")}</label>
               <select value={groupId} onChange={e => handleGroupChange(e.target.value)}
                 className="px-3 py-2 rounded-[6px] text-sm outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 140, backgroundColor: "white" }}>
                 <option value="">{t("fanResurslariOq.selectPlaceholder")}</option>
-                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                {displayGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1">

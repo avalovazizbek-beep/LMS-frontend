@@ -1456,6 +1456,8 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "fanResurslariOq.group":                  { uz: "Guruh",                              ru: "Группа",                                     en: "Group",                                    kaa: "Gruppa" },
   "fanResurslariOq.selectPlaceholder":      { uz: "— Tanlang —",                        ru: "— Выберите —",                              en: "— Select —",                               kaa: "— Tańlań —" },
   "fanResurslariOq.subjectName":            { uz: "Fan nomi",                           ru: "Название предмета",                         en: "Subject name",                             kaa: "Pán atı" },
+  "fanResurslariOq.academicYear":            { uz: "O'quv yili",                         ru: "Учебный год",                               en: "Academic year",                            kaa: "Oqıw jılı" },
+  "fanResurslariOq.allYears":                { uz: "Barcha yillar",                      ru: "Все годы",                                  en: "All years",                                kaa: "Barlıq jıllar" },
   "fanResurslariOq.selectGroupPrompt":      { uz: "Guruhni tanlang",                    ru: "Выберите группу",                           en: "Select a group",                           kaa: "Gruppanı tańlań" },
   "fanResurslariOq.selectSubjectPrompt":    { uz: "Fan nomini tanlang",                 ru: "Выберите название предмета",                en: "Select the subject name",                  kaa: "Pán atın tańlań" },
   "fanResurslariOq.selectFromFiltersAbove": { uz: "Yuqoridagi filtrlardan tanlang",     ru: "Выберите из фильтров выше",                 en: "Select from the filters above",            kaa: "Joqarıdaǵı filtrlerden tańlań" },
