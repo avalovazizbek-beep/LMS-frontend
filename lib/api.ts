@@ -1124,15 +1124,6 @@ export interface TeacherGroup {
   course?: number | null
 }
 
-export interface TeacherYearGroup extends TeacherGroup {
-  educationYearCode: string | null
-  educationYearName: string | null
-}
-
-export interface TeacherGroupsByYear {
-  years: { code: string; name: string }[]
-  groups: TeacherYearGroup[]
-}
 
 export interface TeacherScheduleItem {
   id: number
@@ -1341,8 +1332,8 @@ function buildParams(input: Record<string, string | number | null | undefined>):
 export const teachingApi = {
   groups: () => get<ListRes<TeacherGroup>>("/api/teaching/groups"),
 
-  /** O'qituvchining HEMIS'dagi barcha o'quv yillari bo'yicha guruhlari (o'tgan yillar ham) */
-  groupsByYear: () => get<ItemRes<TeacherGroupsByYear>>("/api/teaching/groups-by-year"),
+  /** O'qituvchining berilgan o'quv yildagi guruhlari (o'tgan yillar ham, HEMIS'dan) */
+  groupsByYear: (year: string) => get<ListRes<TeacherGroup>>(`/api/teaching/groups-by-year?year=${encodeURIComponent(year)}`),
 
   examSettings: () =>
     get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null } }>("/api/teaching/exam-settings"),

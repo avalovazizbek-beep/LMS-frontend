@@ -20,6 +20,15 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 
+// HEMIS'da o'quv yili sentyabrdan boshlanadi — boshqa "xodim" sahifalaridagi
+// bilan bir xil hisoblash (masalan app/(dashboard)/xodim/[...slug]/page.tsx).
+function academicYearStart() {
+  const now = new Date()
+  const year = now.getFullYear()
+  return now.getMonth() >= 8 ? year : year - 1
+}
+const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => academicYearStart() - i)
+
 interface Selection {
   groupId: number
   groupName: string
@@ -901,33 +910,28 @@ function TeacherRecordingsSection({ subjectName, topicTitle }: { subjectName: st
 export default function FanResurslariPage() {
   const { t } = useLanguage()
   const { data: groupsRes, loading: lGroups, error: eGroups } = useApi(() => teachingApi.groups(), [])
-  const { data: yearGroupsRes } = useApi(() => teachingApi.groupsByYear(), [])
 
   const groups = groupsRes?.data ?? []
-  const yearGroups = yearGroupsRes?.data?.groups ?? []
-  const years = yearGroupsRes?.data?.years ?? []
-
-  // Joriy /groups (bazamizdagi kontenti bor guruhlar) va HEMIS'dan olingan
-  // barcha o'quv yillari guruhlarini birlashtiramiz — shu bilan o'tgan
-  // yillarda dars berilgan, hali kontent yaratilmagan guruhlar ham chiqadi.
-  const allGroups = useMemo<TeacherGroup[]>(() => {
-    const map = new Map<number, TeacherGroup>()
-    groups.forEach(g => map.set(g.id, g))
-    yearGroups.forEach(g => { if (!map.has(g.id)) map.set(g.id, g) })
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-  }, [groups, yearGroups])
 
   const [groupId, setGroupId] = useState<number | "">("")
   const [academicYear, setAcademicYear] = useState("")
   const [subjectName, setSubjectName] = useState("")
   const [topicKey, setTopicKey] = useState("")
 
-  // O'quv yili tanlansa, faqat shu yilda dars berilgan guruhlar ko'rsatiladi
+  // Faqat aniq bir yil tanlanganda HEMIS'dan so'raladi (join sahifa
+  // yuklanishida emas) — o'sha yilda o'qituvchi dars bergan guruhlar,
+  // o'tganlari ham (joriy /groups faqat so'nggi sinxronizatsiya + kontenti
+  // bor guruhlarni beradi).
+  const { data: yearGroupsRes, loading: lYearGroups } = useApi(
+    () => academicYear ? teachingApi.groupsByYear(academicYear) : Promise.resolve(null),
+    [academicYear]
+  )
+  const yearGroups = yearGroupsRes?.data ?? []
+
   const displayGroups = useMemo<TeacherGroup[]>(() => {
-    if (!academicYear) return allGroups
-    const ids = new Set(yearGroups.filter(g => g.educationYearCode === academicYear).map(g => g.id))
-    return allGroups.filter(g => ids.has(g.id))
-  }, [allGroups, yearGroups, academicYear])
+    if (!academicYear) return groups
+    return [...yearGroups].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  }, [academicYear, groups, yearGroups])
 
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
@@ -1058,7 +1062,7 @@ export default function FanResurslariPage() {
   }, [allItems])
 
   const selectedTopic = topics.find(tp => tp.key === topicKey)
-  const groupName = allGroups.find(g => g.id === activeGroupId)?.name ?? ""
+  const groupName = displayGroups.find(g => g.id === activeGroupId)?.name ?? ""
 
   function handleYearChange(val: string) {
     setAcademicYear(val)
@@ -1103,8 +1107,11 @@ export default function FanResurslariPage() {
                 className="px-3 py-2 rounded-[6px] text-sm outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 140, backgroundColor: "white" }}>
                 <option value="">{t("fanResurslariOq.allYears")}</option>
-                {years.map(y => <option key={y.code} value={y.code}>{y.name}</option>)}
+                {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}-{y + 1}</option>)}
               </select>
+              {lYearGroups && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin mt-1" style={{ color: "#7293b9" }} />
+              )}
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.group")}</label>
