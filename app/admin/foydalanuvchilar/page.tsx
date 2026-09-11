@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { Search, ChevronDown, UserCheck, Shield, BookOpen, Ban, Clock, RefreshCw } from "lucide-react"
+import { Search, ChevronDown, UserCheck, Shield, BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon } from "lucide-react"
 import { adminApi, type AdminUser } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -107,6 +107,15 @@ export default function AdminFoydalanuvchilar() {
     )
   }, [users, search])
 
+  const roleCounts = useMemo(() => {
+    const counts: Record<string, number> = { admin: 0, teacher: 0, student: 0, blocked: 0, pending: 0 }
+    for (const u of users) {
+      const role = u.isAutoAdmin ? "admin" : u.lmsRole
+      if (role && role in counts) counts[role] += 1
+    }
+    return counts
+  }, [users])
+
   async function handleSetRole(user: AdminUser, role: string) {
     setSaving(user.hemisId)
     try {
@@ -140,6 +149,32 @@ export default function AdminFoydalanuvchilar() {
           <RefreshCw className="w-3.5 h-3.5" /> {t("adminFoydalanuvchilar.refresh")}
         </button>
       </div>
+
+      {/* Rol bo'yicha qisqa xulosa */}
+      {!loading && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {(["admin", "teacher", "student", "blocked", "pending"] as const).map(r => {
+            const cfg = ROLE_CONFIG[r]
+            const Icon = cfg.icon
+            return (
+              <div key={r} className="bg-white rounded-[10px] p-3.5 flex items-center gap-3"
+                style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
+                <div className="w-9 h-9 rounded-[8px] flex items-center justify-center shrink-0" style={{ backgroundColor: cfg.bg }}>
+                  <Icon className="w-4.5 h-4.5" style={{ color: cfg.color }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-lg font-bold leading-tight" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                    {roleCounts[r]}
+                  </div>
+                  <div className="text-xs truncate" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    {t(cfg.labelKey)}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -203,24 +238,38 @@ export default function AdminFoydalanuvchilar() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      {t("adminFoydalanuvchilar.noUsersFound")}
+                    <td colSpan={7} className="px-4 py-14 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                      <div className="flex flex-col items-center gap-2">
+                        <UsersIcon className="w-8 h-8" style={{ color: "#d8e6f7" }} />
+                        {t("adminFoydalanuvchilar.noUsersFound")}
+                      </div>
                     </td>
                   </tr>
-                ) : filtered.map((u, i) => (
+                ) : filtered.map((u, i) => {
+                  const displayName = u.fullName || u.username || "—"
+                  const initial = displayName.charAt(0).toUpperCase() || "?"
+                  return (
                   <tr key={u.hemisId}
                     className="hover:bg-[#f6f9ff]/50 transition-colors"
                     style={{ borderBottom: "1px solid rgba(1,41,112,0.05)" }}>
                     <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                        {u.fullName || u.username || "—"}
-                      </div>
-                      {u.username && u.fullName && (
-                        <div className="text-xs mt-0.5" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
-                          {u.username}
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold text-white"
+                          style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                          {initial}
                         </div>
-                      )}
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                            {displayName}
+                          </div>
+                          {u.username && u.fullName && (
+                            <div className="text-xs mt-0.5 truncate" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
+                              {u.username}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs font-medium px-2 py-0.5 rounded-full"
@@ -255,7 +304,8 @@ export default function AdminFoydalanuvchilar() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

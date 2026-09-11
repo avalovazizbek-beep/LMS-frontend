@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Megaphone,
   ArrowLeftRight,
+  UsersRound,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 
@@ -29,6 +30,7 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ""
 const NAV = [
   { href: "/admin/dashboard", label: "Boshqaruv paneli", icon: LayoutDashboard },
   { href: "/admin/foydalanuvchilar", label: "Foydalanuvchilar", icon: Users },
+  { href: "/admin/talabalar", label: "Talabalar ro'yxati", icon: UsersRound },
   { href: "/admin/oqituvchilar", label: "O'qituvchi hisoboti", icon: GraduationCap },
   { href: "/admin/hisobot", label: "Natijalar jurnali", icon: BarChart3 },
   { href: "/admin/davomatlar", label: "Davomatlar", icon: ClipboardCheck },

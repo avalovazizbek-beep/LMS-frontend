@@ -2236,6 +2236,14 @@ export const adminApi = {
   /** So'nggi N kunlik kirishlar soni, kun bo'yicha (YYYY-MM-DD -> son) — bazadagi hamma sessiyaga qaraydi */
   loginTrend: (days = 7) => get<{ data: Record<string, number> }>(`/api/admin/login-trend?days=${days}`),
 
+  /** HEMIS'dan (so'ragan adminning o'z departmenti bo'yicha) guruhlar + talaba soni */
+  hemisStudents: () => get<{
+    success: boolean
+    totalStudents: number
+    departmentId: string | null
+    groups: { groupId: number; groupName: string; studentCount: number }[]
+  }>("/api/admin/hemis-students"),
+
   attendance: (params?: { groupId?: number; subject?: string; date?: string }) => {
     const q = new URLSearchParams(buildParams(params ?? {})).toString()
     return get<{ data: AdminAttendanceRow[] }>(`/api/admin/attendance${q ? `?${q}` : ""}`)

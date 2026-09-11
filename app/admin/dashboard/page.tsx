@@ -5,23 +5,12 @@ import Link from "next/link"
 import {
   Users, BookOpen, Video, CalendarCheck, ShieldAlert,
   ClipboardList, CheckCircle2, TrendingUp, ArrowRight,
-  GraduationCap, ShieldCheck, LogIn, Circle, ScanFace, ClipboardCheck,
+  GraduationCap, ShieldCheck, ScanFace, ClipboardCheck,
 } from "lucide-react"
 import { adminApi, type AdminStats, type AdminTeacherStat } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { motion, pageVariants, staggerContainer, staggerItem, fadeUp } from "@/components/ui/motion"
-import { CountUp, TrendAreaChart, StackedBreakdownBar, RadialStatCard, useTimeAgo, type BreakdownSegment, type TrendPoint } from "@/components/admin/DashboardCharts"
-
-interface SessionRow {
-  user_id: number
-  full_name: string
-  role: string
-  group_id: number | null
-  login_at: string
-  last_seen_at: string
-  logout_at: string | null
-  group_name: string | null
-}
+import { CountUp, TrendAreaChart, StackedBreakdownBar, RadialStatCard, type BreakdownSegment, type TrendPoint } from "@/components/admin/DashboardCharts"
 
 function dayKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -102,19 +91,16 @@ function StatCard({
 
 export default function AdminDashboard() {
   const { t } = useLanguage()
-  const timeAgo = useTimeAgo()
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [teacherStats, setTeacherStats] = useState<AdminTeacherStat[]>([])
-  const [sessions, setSessions] = useState<SessionRow[]>([])
   const [loginTrend, setLoginTrend] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.allSettled([adminApi.stats(), adminApi.teacherStats(), adminApi.sessions(80), adminApi.loginTrend(7)])
-      .then(([statsRes, teacherRes, sessionsRes, trendRes]) => {
+    Promise.allSettled([adminApi.stats(), adminApi.teacherStats(), adminApi.loginTrend(7)])
+      .then(([statsRes, teacherRes, trendRes]) => {
         if (statsRes.status === "fulfilled") setStats(statsRes.value.data)
         if (teacherRes.status === "fulfilled") setTeacherStats(teacherRes.value.data)
-        if (sessionsRes.status === "fulfilled") setSessions(sessionsRes.value.data as SessionRow[])
         if (trendRes.status === "fulfilled") setLoginTrend(trendRes.value.data)
       })
       .finally(() => setLoading(false))
@@ -155,7 +141,6 @@ export default function AdminDashboard() {
   }, [teacherStats, t])
 
   const contentTotal = breakdown.reduce((s, b) => s + b.value, 0)
-  const recentActivity = sessions.slice(0, 6)
 
   const videoShare = contentTotal > 0 ? ((breakdown.find(b => b.key === "video")?.value ?? 0) / contentTotal) * 100 : 0
   const gradedShare = stats && stats.totalSubmissions > 0 ? (stats.gradedSubmissions / stats.totalSubmissions) * 100 : 0
@@ -334,88 +319,6 @@ export default function AdminDashboard() {
             <StatCard icon={ShieldAlert} label={t("adminDashboard.statFaceRequests")} value={stats.facePending} color={stats.facePending > 0 ? "#dc2626" : "#6b7280"} href="/admin/face-id" />
           </motion.div>
 
-          {/* Recent activity + quick links */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <motion.div variants={fadeUp} initial="hidden" animate="visible"
-              className="lg:col-span-2 bg-white rounded-[14px] p-5"
-              style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0px 0px 6px rgba(1,41,112,0.04)" }}>
-              <div className="text-sm font-semibold mb-0.5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                {t("adminDashboard.sectionRecentActivityTitle")}
-              </div>
-              <p className="text-xs mb-4" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                {t("adminDashboard.sectionRecentActivitySubtitle")}
-              </p>
-
-              {recentActivity.length === 0 ? (
-                <div className="text-center text-sm py-8" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  {t("adminDashboard.noActivity")}
-                </div>
-              ) : (
-                <motion.ul variants={staggerContainer} initial="hidden" animate="visible" className="flex flex-col gap-1">
-                  {recentActivity.map((s, i) => {
-                    const isEmployee = s.role === "employee"
-                    const color = isEmployee ? "#7c3aed" : "#0e58a8"
-                    const online = !s.logout_at
-                    return (
-                      <motion.li key={`${s.user_id}-${s.login_at}-${i}`} variants={staggerItem}
-                        className="flex items-center gap-3 py-2.5" style={{ borderBottom: i < recentActivity.length - 1 ? "1px solid rgba(1,41,112,0.06)" : "none" }}>
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}18` }}>
-                          <LogIn className="w-4 h-4" style={{ color }} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                            {s.full_name} <span className="font-normal" style={{ color: "#7293b9" }}>{t("adminDashboard.loggedIn")}</span>
-                          </div>
-                          <div className="text-xs flex items-center gap-1.5 mt-0.5" style={{ color: "#9db3cf", fontFamily: "var(--font-poppins)" }}>
-                            <span>{isEmployee ? t("adminDashboard.roleEmployee") : t("adminDashboard.roleStudent")}</span>
-                            {s.group_name && <><span>·</span><span className="truncate">{s.group_name}</span></>}
-                            <span>·</span>
-                            <span>{timeAgo(s.login_at)}</span>
-                          </div>
-                        </div>
-                        {online && (
-                          <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full shrink-0" style={{ backgroundColor: "#ecfdf5", color: "#15803d" }}>
-                            <Circle className="w-1.5 h-1.5 fill-current" />
-                            {t("adminDashboard.onlineNow")}
-                          </span>
-                        )}
-                      </motion.li>
-                    )
-                  })}
-                </motion.ul>
-              )}
-            </motion.div>
-
-            <motion.div variants={fadeUp} initial="hidden" animate="visible" className="flex flex-col gap-4">
-              <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                {t("adminDashboard.quickLinksTitle")}
-              </div>
-              <Link href="/admin/oqituvchilar"
-                className="bg-white rounded-[12px] p-5 flex items-center gap-4 hover:shadow-md transition-shadow"
-                style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
-                <div className="w-10 h-10 rounded-[8px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
-                  <TrendingUp className="w-5 h-5" style={{ color: "#0e58a8" }} />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("adminDashboard.quickLinkTeacherReportTitle")}</div>
-                  <div className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("adminDashboard.quickLinkTeacherReportDesc")}</div>
-                </div>
-                <ArrowRight className="w-4 h-4 ml-auto shrink-0" style={{ color: "#d8e6f7" }} />
-              </Link>
-              <Link href="/admin/foydalanuvchilar"
-                className="bg-white rounded-[12px] p-5 flex items-center gap-4 hover:shadow-md transition-shadow"
-                style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
-                <div className="w-10 h-10 rounded-[8px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0fdf4" }}>
-                  <Users className="w-5 h-5" style={{ color: "#15803d" }} />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("adminDashboard.quickLinkUsersTitle")}</div>
-                  <div className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("adminDashboard.quickLinkUsersDesc")}</div>
-                </div>
-                <ArrowRight className="w-4 h-4 ml-auto shrink-0" style={{ color: "#d8e6f7" }} />
-              </Link>
-            </motion.div>
-          </div>
         </>
       ) : (
         <div className="text-center text-sm py-16" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>

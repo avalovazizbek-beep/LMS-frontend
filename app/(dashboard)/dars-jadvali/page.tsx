@@ -48,6 +48,7 @@ type DayItem =
 export default function DarsJadvali() {
   const { t } = useLanguage()
   const today = new Date()
+  const [viewMode, setViewMode] = useState<"daily" | "weekly">("daily")
   const [weekOffset, setWeekOffset] = useState(0)
   const [showWeekPicker, setShowWeekPicker] = useState(false)
   const [activeDay, setActiveDay] = useState(() => {
@@ -247,6 +248,96 @@ export default function DarsJadvali() {
         </div>
       </div>
 
+      {/* Kunlik / Haftalik almashtirish */}
+      <div className="flex items-center gap-1 p-1 rounded-[10px] w-fit" style={{ backgroundColor: "#eef4ff" }}>
+        {(["daily", "weekly"] as const).map(mode => (
+          <button key={mode} onClick={() => setViewMode(mode)}
+            className="px-4 py-1.5 rounded-[8px] text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: viewMode === mode ? "#0e58a8" : "transparent",
+              color: viewMode === mode ? "#fff" : "#445b7a",
+              fontFamily: "var(--font-poppins)",
+            }}>
+            {mode === "daily" ? t("darsJadvali.viewDaily") : t("darsJadvali.viewWeekly")}
+          </button>
+        ))}
+      </div>
+
+      {viewMode === "weekly" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {weekDates.map((date, idx) => {
+            const items = (byDay[idx] ?? []).filter(item => {
+              const d = item.time
+              return d.getFullYear() === date.getFullYear() &&
+                     d.getMonth() === date.getMonth() &&
+                     d.getDate() === date.getDate()
+            })
+            if (items.length === 0) return null
+            const isToday =
+              date.getDate() === today.getDate() &&
+              date.getMonth() === today.getMonth() &&
+              date.getFullYear() === today.getFullYear()
+            return (
+              <div key={idx} className="bg-white rounded-[10px] overflow-hidden"
+                style={{ border: `1px solid ${isToday ? "rgba(14,88,168,0.3)" : "rgba(1,41,112,0.1)"}` }}>
+                <div className="px-4 py-3 flex items-center justify-between gap-2"
+                  style={{ borderBottom: "2px solid #22c55e" }}>
+                  <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                    {DAYS[idx]}
+                  </span>
+                  <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    {date.toLocaleDateString("uz-UZ", { day: "2-digit", month: "long", year: "numeric" })}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  {items.map((entry, i) => {
+                    const timeStr = entry.kind === "hemis"
+                      ? (entry.data.lessonPair?.start_time ?? "—")
+                      : entry.time.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })
+                    const title = entry.kind === "hemis" ? entry.data.subject.name
+                      : entry.kind === "meeting" ? entry.data.title
+                      : entry.data.title
+                    const meta = entry.kind === "hemis"
+                      ? [entry.data.auditorium?.name, entry.data.trainingType?.name, entry.data.employee?.name].filter(Boolean).join(" / ")
+                      : entry.kind === "meeting" ? t("darsJadvali.onlineLesson")
+                      : entry.data.subjectName
+                    return (
+                      <div key={i} className="px-4 py-2.5 flex items-start justify-between gap-3"
+                        style={{ borderBottom: i < items.length - 1 ? "1px solid rgba(1,41,112,0.06)" : "none" }}>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                            {i + 1}. {title}
+                          </div>
+                          {meta && (
+                            <div className="text-xs mt-0.5 truncate" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                              {meta}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs font-semibold shrink-0" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                          {timeStr}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+          {weekDates.every((date, idx) => (byDay[idx] ?? []).filter(item => {
+            const d = item.time
+            return d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth() && d.getDate() === date.getDate()
+          }).length === 0) && (
+            <div className="bg-white rounded-[10px] p-10 text-center col-span-full" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+              <BookOpen className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
+              <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                {t("darsJadvali.noLessonsWeek")}
+              </p>
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
       {/* Kun tablar */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {DAYS.map((day, idx) => {
@@ -497,6 +588,8 @@ export default function DarsJadvali() {
           )}
         </motion.div>
       </AnimatePresence>
+      </>
+      )}
     </div>
   )
 }
