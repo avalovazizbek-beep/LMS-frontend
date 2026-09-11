@@ -1,137 +1,76 @@
 "use client"
 
-import { useState } from "react"
-import { RefreshCw, FileText, Send, CheckCircle2, Clock } from "lucide-react"
+import { useEffect, useState } from "react"
+import { RefreshCw, GraduationCap, CheckCircle2, XCircle, Clock } from "lucide-react"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { reeduApi } from "@/lib/api"
 
-const applications = [
-  { id: 1, subject: "Ingliz tili", semester: "1-semestr", reason: "Kasallik", submittedDate: "2024-03-01", status: "approved", score: 76, newScore: 82 },
-  { id: 2, subject: "Tarix", semester: "1-semestr", reason: "Oilaviy holat", submittedDate: "2024-03-05", status: "pending", score: 68, newScore: null },
-]
-
-const failedSubjects = [
-  { subject: "Iqtisodiyot asoslari", semester: "1-semestr", score: 52, minPass: 55, credits: 3 },
-]
+type MyEnrollment = Awaited<ReturnType<typeof reeduApi.me>>["data"][number]
 
 export default function QaytaOqish() {
   const { t } = useLanguage()
-  const [showForm, setShowForm] = useState(false)
-  const [selectedSubject, setSelectedSubject] = useState("")
-  const [reason, setReason] = useState("")
+  const [enrollments, setEnrollments] = useState<MyEnrollment[] | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const statusConfig: Record<string, { label: string; bg: string; color: string; border: string }> = {
-    approved: { label: t("qaytaOqish.status.approved"), bg: "#f0fbfd", color: "#1cc2dc", border: "#1cc2dc" },
-    pending: { label: t("qaytaOqish.status.pending"), bg: "#fff8e6", color: "#f59e0b", border: "#f59e0b" },
-    rejected: { label: t("qaytaOqish.status.rejected"), bg: "#fff0f0", color: "#ef4444", border: "#ef4444" },
+  useEffect(() => {
+    reeduApi.me().then(res => setEnrollments(res.data)).finally(() => setLoading(false))
+  }, [])
+
+  const statusConfig: Record<string, { label: string; bg: string; color: string; icon: typeof Clock }> = {
+    active:    { label: "Davom etmoqda", bg: "#fff8e6", color: "#f59e0b", icon: Clock },
+    completed: { label: "Tugallandi",    bg: "#f0fdf4", color: "#22c55e", icon: CheckCircle2 },
+    failed:    { label: "Yiqildi",       bg: "#fff0f0", color: "#ef4444", icon: XCircle },
   }
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.title")}</h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.subtitle")}</p>
-        </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-[5px] text-white text-sm font-medium transition-opacity hover:opacity-90"
-          style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}
-        >
-          <FileText className="w-4 h-4" />
-          {t("qaytaOqish.submitApp")}
-        </button>
+      <div>
+        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.title")}</h1>
+        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+          Fandan jami ball (oraliq + yakuniy) 55dan past bo'lgani uchun biriktirilgan qayta o'qish guruhlaringiz
+        </p>
       </div>
 
-      {/* New application form */}
-      {showForm && (
-        <div className="bg-white rounded-[10px] p-6" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 10px rgba(1,41,112,0.08)" }}>
-          <h2 className="text-lg font-medium mb-4" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.newApp")}</h2>
-          <div className="flex flex-col gap-4">
-            <div>
-              <label className="text-sm font-medium block mb-1.5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.subject")}</label>
-              <select
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-[5px] text-sm outline-none"
-                style={{ border: "1px solid rgba(1,41,112,0.3)", color: "#012970", fontFamily: "var(--font-poppins)" }}
-              >
-                <option value="">{t("qaytaOqish.selectSubject")}</option>
-                {failedSubjects.map((f) => (
-                  <option key={f.subject} value={f.subject}>{f.subject} ({f.semester})</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium block mb-1.5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.reason")}</label>
-              <textarea
-                rows={3}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder={t("qaytaOqish.reasonPlaceholder")}
-                className="w-full px-3 py-2.5 rounded-[5px] text-sm outline-none resize-none"
-                style={{ border: "1px solid rgba(1,41,112,0.3)", color: "#012970", fontFamily: "var(--font-poppins)" }}
-              />
-            </div>
-            <div className="flex gap-3">
-              <button className="flex items-center gap-2 px-4 py-2.5 rounded-[5px] text-white text-sm font-medium" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                <Send className="w-4 h-4" /> {t("qaytaOqish.send")}
-              </button>
-              <button onClick={() => setShowForm(false)} className="px-4 py-2.5 rounded-[5px] text-sm font-medium" style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                {t("qaytaOqish.cancel")}
-              </button>
-            </div>
-          </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <RefreshCw className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} />
         </div>
-      )}
-
-      {/* Failed subjects */}
-      {failedSubjects.length > 0 && (
+      ) : !enrollments || enrollments.length === 0 ? (
+        <div className="bg-white rounded-[10px] p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "#f0fff4" }}>
+            <GraduationCap className="w-8 h-8" style={{ color: "#22c55e" }} />
+          </div>
+          <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+            Siz hozircha qayta o'qish guruhiga biriktirilmagansiz
+          </p>
+          <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+            Fandan qarzdorlik aniqlansa, dekanat sizni tegishli guruhga biriktiradi va bu yerda ko'rinadi
+          </p>
+        </div>
+      ) : (
         <div className="bg-white rounded-[10px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-            <h2 className="text-lg font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.needRetake")}</h2>
-          </div>
-          {failedSubjects.map((f, i) => (
-            <div key={i} className="flex items-center justify-between px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-[8px] flex items-center justify-center" style={{ backgroundColor: "#fff0f0" }}>
-                  <RefreshCw className="w-5 h-5" style={{ color: "#ef4444" }} />
+          {enrollments.map((e) => {
+            const st = statusConfig[e.status]
+            const Icon = st.icon
+            return (
+              <div key={e.id} className="flex items-center justify-between px-5 py-4 flex-wrap gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                <div className="flex items-center gap-3">
+                  <Icon className="w-5 h-5 shrink-0" style={{ color: st.color }} />
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{e.subjectName}</p>
+                    <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                      {e.groupName}{e.teacherFullName ? ` · ${e.teacherFullName}` : ""} · Qarzdorlik balli: {e.debtorTotalPoint ?? "—"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{f.subject}</p>
-                  <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{f.semester} · {f.credits} {t("qaytaOqish.credits")}</p>
-                </div>
+                <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: st.bg, color: st.color }}>
+                  {st.label}{e.finalScore !== null ? ` · ${e.finalScore}` : ""}
+                </span>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.scoreMin", { score: f.score, min: f.minPass })}</span>
-                <button className="px-3 py-1.5 rounded-[5px] text-xs font-medium text-white" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.application")}</button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
-
-      {/* Applications */}
-      <div className="bg-white rounded-[10px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-        <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-          <h2 className="text-lg font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.myApplications")}</h2>
-        </div>
-        {applications.map((a) => {
-          const st = statusConfig[a.status]
-          return (
-            <div key={a.id} className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-              <div className="flex items-center gap-3">
-                {a.status === "approved" ? <CheckCircle2 className="w-5 h-5" style={{ color: "#22c55e" }} /> : <Clock className="w-5 h-5" style={{ color: "#f59e0b" }} />}
-                <div>
-                  <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{a.subject} · {a.semester}</p>
-                  <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.submittedOn", { date: a.submittedDate, reason: a.reason })}</p>
-                  {a.newScore && <p className="text-xs mt-0.5" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.newScore", { score: a.newScore, diff: a.newScore - a.score })}</p>}
-                </div>
-              </div>
-              <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: st.bg, color: st.color, border: `1px solid ${st.border}` }}>{st.label}</span>
-            </div>
-          )
-        })}
-      </div>
     </div>
   )
 }

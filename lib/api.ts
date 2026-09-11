@@ -2361,3 +2361,110 @@ export const announcementsApi = {
   dismiss: (ids: number[]) => post<MsgRes>("/api/announcements/dismiss", { ids }),
   fileUrl: (id: number) => `${BASE}/api/announcements/${id}/file?token=${encodeURIComponent(getToken() ?? "")}`,
 }
+
+/* ── Qayta o'qish (reedu) — akademik qarzdorlarni aniqlash va guruhga
+   biriktirib, jarayonni oxirigacha yuritish ────────────────────────── */
+export interface ReeduDebtor {
+  studentUserId: number
+  studentFullName: string
+  studentIdNumber: string | null
+  subjectName: string
+  groupId: number
+  groupName: string
+  semester: string
+  totalPoint: number
+  grade: number | null
+  alreadyEnrolled: boolean
+}
+
+export interface ReeduGroup {
+  id: number
+  name: string
+  subjectName: string
+  teacherUserId: number | null
+  teacherFullName: string | null
+  semester: string | null
+  status: "active" | "closed"
+  createdBy: string | null
+  createdAt: string
+  studentCount: number
+}
+
+export interface ReeduEnrollment {
+  id: number
+  reeduGroupId: number
+  studentUserId: number
+  studentFullName: string
+  studentIdNumber: string | null
+  subjectName: string
+  originalGroupId: number
+  originalGroupName: string | null
+  semester: string | null
+  debtorTotalPoint: number | null
+  status: "active" | "completed" | "failed"
+  finalScore: number | null
+  createdAt: string
+}
+
+export interface ReeduScheduleSlot {
+  id: number
+  reeduGroupId: number
+  weekDay: number
+  startTime: string
+  endTime: string
+  room: string | null
+}
+
+export type ReeduGradeType = "JN" | "ON1" | "ON2" | "YN"
+export interface ReeduGradeRow {
+  reeduGroupId: number
+  studentUserId: number
+  gradeType: ReeduGradeType
+  grade: number | null
+}
+
+export interface ReeduGroupDetail {
+  group: ReeduGroup
+  enrollments: ReeduEnrollment[]
+  schedule: ReeduScheduleSlot[]
+  attendance: { studentUserId: number; present: number; total: number }[]
+  grades: ReeduGradeRow[]
+}
+
+export const reeduApi = {
+  debtors: (semester?: string) => {
+    const q = semester ? `?semester=${encodeURIComponent(semester)}` : ""
+    return get<{ data: { debtors: ReeduDebtor[]; departmentId: string | null; message?: string } }>(`/api/reedu/admin/debtors${q}`)
+  },
+
+  groups: () => get<{ data: ReeduGroup[] }>("/api/reedu/admin/groups"),
+
+  createGroup: (body: { name: string; subjectName: string; teacherUserId?: number; teacherFullName?: string; semester?: string }) =>
+    post<{ data: { id: number } }>("/api/reedu/admin/groups", body),
+
+  groupDetail: (id: number) => get<{ data: ReeduGroupDetail }>(`/api/reedu/admin/groups/${id}`),
+
+  closeGroup: (id: number) => post<MsgRes>(`/api/reedu/admin/groups/${id}/close`, {}),
+
+  enroll: (id: number, debtors: ReeduDebtor[]) =>
+    post<{ data: { inserted: number } }>(`/api/reedu/admin/groups/${id}/enroll`, { debtors }),
+
+  setSchedule: (id: number, slots: { weekDay: number; startTime: string; endTime: string; room?: string }[]) =>
+    put<MsgRes>(`/api/reedu/admin/groups/${id}/schedule`, { slots }),
+
+  markAttendance: (id: number, lessonDate: string, records: { studentUserId: number; status: string }[]) =>
+    post<MsgRes>(`/api/reedu/admin/groups/${id}/attendance`, { lessonDate, records }),
+
+  attendance: (id: number) => get<{ data: { studentUserId: number; lessonDate: string; status: string }[] }>(`/api/reedu/admin/groups/${id}/attendance`),
+
+  setGrade: (id: number, studentUserId: number, gradeType: ReeduGradeType, grade: number | null) =>
+    put<MsgRes>(`/api/reedu/admin/groups/${id}/grade`, { studentUserId, gradeType, grade }),
+
+  finalize: (id: number, studentUserId: number) =>
+    post<{ data: { finalScore: number; status: string } }>(`/api/reedu/admin/groups/${id}/finalize`, { studentUserId }),
+
+  exportRecord: (id: number) =>
+    get<{ data: { studentFullName: string; studentIdNumber: string | null; subjectName: string; originalGroupName: string | null; debtorTotalPoint: number | null; finalScore: number | null; status: string; readyForHemis: boolean }[] }>(`/api/reedu/admin/groups/${id}/export`),
+
+  me: () => get<{ data: (ReeduEnrollment & { groupName: string; teacherFullName: string | null; schedule: ReeduScheduleSlot[]; grades: ReeduGradeRow[] })[] }>("/api/reedu/me"),
+}

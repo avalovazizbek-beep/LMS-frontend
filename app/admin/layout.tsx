@@ -22,6 +22,7 @@ import {
   Megaphone,
   ArrowLeftRight,
   UsersRound,
+  Repeat,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 
@@ -36,6 +37,7 @@ const NAV = [
   { href: "/admin/davomatlar", label: "Davomatlar", icon: ClipboardCheck },
   { href: "/admin/baholash", label: "Baholashlar", icon: BookCheck },
   { href: "/admin/qayta-urinish", label: "Qayta urinish", icon: RefreshCw },
+  { href: "/admin/qayta-oqish", label: "Qayta o'qish", icon: Repeat },
   { href: "/admin/face-id", label: "Face ID so'rovlari", icon: ShieldAlert },
   { href: "/admin/elonlar", label: "E'lonlar", icon: Megaphone },
   { href: "/admin/sozlamalar", label: "Sozlamalar", icon: Settings },
