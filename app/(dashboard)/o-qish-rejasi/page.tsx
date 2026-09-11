@@ -41,7 +41,7 @@ export default function OqishRejasi() {
             {t("oqishRejasi.subtitle")}
           </p>
         </div>
-        <SemesterTabs currentCode={currentCode} value={activeCode || currentCode} onChange={code => setSelectedCode(code)} />
+        <SemesterTabs currentCode={currentCode} value={activeCode || currentCode} onChange={code => setSelectedCode(code)} lockFuture={false} />
       </div>
 
       {/* Stats */}

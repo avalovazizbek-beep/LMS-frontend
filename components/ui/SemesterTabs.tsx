@@ -5,9 +5,10 @@ interface Props {
   value: number            // currently selected tab
   onChange: (code: number) => void
   total?: number           // default 8
+  lockFuture?: boolean     // default true — set false for pages that show the whole plan (e.g. o'quv rejasi), not just what's already happened
 }
 
-export default function SemesterTabs({ currentCode, value, onChange, total = 8 }: Props) {
+export default function SemesterTabs({ currentCode, value, onChange, total = 8, lockFuture = true }: Props) {
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       <span className="text-xs font-semibold mr-1 tracking-widest"
@@ -17,7 +18,7 @@ export default function SemesterTabs({ currentCode, value, onChange, total = 8 }
       {Array.from({ length: total }, (_, i) => i + 1).map(n => {
         const isActive   = n === value
         // Only disable if we've actually loaded currentCode (> 0) and n exceeds it
-        const isDisabled = currentCode > 0 && n > currentCode
+        const isDisabled = lockFuture && currentCode > 0 && n > currentCode
         return (
           <button
             key={n}
