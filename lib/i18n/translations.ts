@@ -1953,6 +1953,7 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "adminFoydalanuvchilar.searchPlaceholder":   { uz: "Ism, login, ID bo'yicha qidirish",       ru: "Поиск по имени, логину, ID",                en: "Search by name, login, ID",            kaa: "Atı, login, ID boyınsha izlew" },
   "adminFoydalanuvchilar.filterAll":           { uz: "Barchasi",                               ru: "Все",                                       en: "All",                                  kaa: "Barlıǵı" },
   "adminFoydalanuvchilar.roleAdmin":           { uz: "Admin",                                  ru: "Администратор",                             en: "Admin",                                kaa: "Administrator" },
+  "adminFoydalanuvchilar.roleDean":            { uz: "Dekan",                                  ru: "Декан",                                     en: "Dean",                                 kaa: "Dekan" },
   "adminFoydalanuvchilar.roleTeacher":         { uz: "O'qituvchi",                             ru: "Преподаватель",                             en: "Teacher",                              kaa: "Oqıtıwshı" },
   "adminFoydalanuvchilar.roleStudent":         { uz: "Talaba",                                 ru: "Студент",                                   en: "Student",                              kaa: "Student" },
   "adminFoydalanuvchilar.roleBlocked":         { uz: "Bloklangan",                             ru: "Заблокирован",                              en: "Blocked",                              kaa: "Bloklanǵan" },

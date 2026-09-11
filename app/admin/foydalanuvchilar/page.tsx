@@ -1,19 +1,20 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { Search, ChevronDown, UserCheck, Shield, BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon } from "lucide-react"
+import { Search, ChevronDown, UserCheck, Shield, ShieldHalf, BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon } from "lucide-react"
 import { adminApi, type AdminUser } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const ROLE_CONFIG: Record<string, { labelKey: string; bg: string; color: string; icon: React.ElementType }> = {
   admin:   { labelKey: "adminFoydalanuvchilar.roleAdmin",   bg: "#fef2f2", color: "#b91c1c", icon: Shield },
+  dean:    { labelKey: "adminFoydalanuvchilar.roleDean",    bg: "#fdf4ff", color: "#7c3aed", icon: ShieldHalf },
   teacher: { labelKey: "adminFoydalanuvchilar.roleTeacher", bg: "#f0fdf4", color: "#15803d", icon: BookOpen },
   student: { labelKey: "adminFoydalanuvchilar.roleStudent", bg: "#eef4ff", color: "#0e58a8", icon: UserCheck },
   blocked: { labelKey: "adminFoydalanuvchilar.roleBlocked", bg: "#f1f5f9", color: "#64748b", icon: Ban },
   pending: { labelKey: "adminFoydalanuvchilar.rolePending", bg: "#fffbeb", color: "#92400e", icon: Clock },
 }
 
-const LMS_ROLES = ["admin", "teacher", "student", "blocked", "pending"]
+const LMS_ROLES = ["admin", "dean", "teacher", "student", "blocked", "pending"]
 const HEMIS_ROLE_LABEL_KEY: Record<string, string> = {
   employee: "adminFoydalanuvchilar.hemisEmployee",
   student: "adminFoydalanuvchilar.hemisStudent",
@@ -108,7 +109,7 @@ export default function AdminFoydalanuvchilar() {
   }, [users, search])
 
   const roleCounts = useMemo(() => {
-    const counts: Record<string, number> = { admin: 0, teacher: 0, student: 0, blocked: 0, pending: 0 }
+    const counts: Record<string, number> = { admin: 0, dean: 0, teacher: 0, student: 0, blocked: 0, pending: 0 }
     for (const u of users) {
       const role = u.isAutoAdmin ? "admin" : u.lmsRole
       if (role && role in counts) counts[role] += 1
@@ -153,7 +154,7 @@ export default function AdminFoydalanuvchilar() {
       {/* Rol bo'yicha qisqa xulosa */}
       {!loading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {(["admin", "teacher", "student", "blocked", "pending"] as const).map(r => {
+          {(["admin", "dean", "teacher", "student", "blocked", "pending"] as const).map(r => {
             const cfg = ROLE_CONFIG[r]
             const Icon = cfg.icon
             return (
@@ -191,7 +192,7 @@ export default function AdminFoydalanuvchilar() {
         </label>
 
         <div className="flex items-center gap-1">
-          {["", "admin", "teacher", "student", "blocked", "pending"].map(r => (
+          {["", "admin", "dean", "teacher", "student", "blocked", "pending"].map(r => (
             <button
               key={r || "all"}
               onClick={() => { setRoleFilter(r); load(search, r) }}

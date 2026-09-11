@@ -23,6 +23,8 @@ import {
   ArrowLeftRight,
   UsersRound,
   Repeat,
+  ShieldHalf,
+  History,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 
@@ -40,6 +42,8 @@ const NAV = [
   { href: "/admin/qayta-oqish", label: "Qayta o'qish", icon: Repeat },
   { href: "/admin/face-id", label: "Face ID so'rovlari", icon: ShieldAlert },
   { href: "/admin/elonlar", label: "E'lonlar", icon: Megaphone },
+  { href: "/admin/ruxsatlar", label: "Ruxsatlar boshqaruvi", icon: ShieldHalf },
+  { href: "/admin/audit-log", label: "Audit log", icon: History },
   { href: "/admin/sozlamalar", label: "Sozlamalar", icon: Settings },
 ]
 

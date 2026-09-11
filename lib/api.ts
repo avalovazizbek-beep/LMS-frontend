@@ -2257,6 +2257,32 @@ export interface AdminFaceRequest {
   reviewed_at: number | null
 }
 
+export type AdminModule =
+  | "users" | "students" | "teachers" | "results" | "attendance"
+  | "grading" | "retake" | "reedu" | "faceid" | "announcements" | "settings" | "permissions"
+
+export interface ModulePermission {
+  module: AdminModule
+  canView: boolean
+  canCreate: boolean
+  canEdit: boolean
+  canDelete: boolean
+}
+
+export interface AuditLogRow {
+  id: number
+  actorHemisId: string
+  actorName: string | null
+  actorRole: string | null
+  action: string
+  module: string | null
+  target: string | null
+  detail: unknown
+  ipAddress: string | null
+  userAgent: string | null
+  createdAt: string
+}
+
 export const adminApi = {
   check: () => get<{ isAdmin: boolean; name: string; role: string; hemisRoles: string[]; lmsRole: string }>("/api/admin/check"),
 
@@ -2396,6 +2422,18 @@ export const adminApi = {
 
   announcementFileUrl: (id: number) =>
     `${BASE}/api/announcements/${id}/file?token=${encodeURIComponent(getToken() ?? "")}`,
+
+  /** Kengaytirilgan boshqaruv: rol x modul (Ko'rish/Yaratish/Tahrirlash/O'chirish) ruxsatlari */
+  permissions: () => get<{ data: { modules: AdminModule[]; roles: Record<"admin" | "dean", ModulePermission[]> } }>("/api/admin/permissions"),
+
+  setPermission: (role: "admin" | "dean", module: AdminModule, perm: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean }) =>
+    put<MsgRes>("/api/admin/permissions", { role, module, ...perm }),
+
+  /** Audit log: kim (IP bilan) qaysi amalni bajargani */
+  auditLog: (params?: { limit?: number; actorHemisId?: string; module?: string }) => {
+    const q = new URLSearchParams(buildParams(params ?? {})).toString()
+    return get<{ data: AuditLogRow[] }>(`/api/admin/audit-log${q ? `?${q}` : ""}`)
+  },
 }
 
 /* ── E'lonlar (foydalanuvchi tomonidan ko'riladigan) ───────────────────── */
