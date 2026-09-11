@@ -2230,6 +2230,9 @@ export const adminApi = {
     return get<{ data: unknown[] }>(`/api/admin/sessions${q}`)
   },
 
+  /** So'nggi N kunlik kirishlar soni, kun bo'yicha (YYYY-MM-DD -> son) — bazadagi hamma sessiyaga qaraydi */
+  loginTrend: (days = 7) => get<{ data: Record<string, number> }>(`/api/admin/login-trend?days=${days}`),
+
   attendance: (params?: { groupId?: number; subject?: string; date?: string }) => {
     const q = new URLSearchParams(buildParams(params ?? {})).toString()
     return get<{ data: AdminAttendanceRow[] }>(`/api/admin/attendance${q ? `?${q}` : ""}`)

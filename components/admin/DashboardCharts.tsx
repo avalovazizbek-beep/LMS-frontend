@@ -49,34 +49,47 @@ export interface TrendPoint {
   value: number
 }
 
+/** Gridlines uchun "chiroyli" yumaloq maksimal qiymat (0, 1, 2, 5, 10, 20, 25, 50, 100...) */
+function niceMax(value: number): number {
+  if (value <= 5) return Math.max(2, value)
+  const magnitude = Math.pow(10, Math.floor(Math.log10(value)))
+  const normalized = value / magnitude
+  const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10
+  return step * magnitude
+}
+
 export function TrendAreaChart({
   data,
   color = "#0e58a8",
-  height = 200,
+  height = 220,
 }: {
   data: TrendPoint[]
   color?: string
   height?: number
 }) {
   const [hover, setHover] = useState<number | null>(null)
+  if (data.length === 0) return null
   const width = 600
   const padTop = 16
   const padBottom = 28
-  const padX = 4
+  const padLeft = 28
+  const padRight = 36
   const plotH = height - padTop - padBottom
-  const max = Math.max(1, ...data.map((d) => d.value))
+  const max = niceMax(Math.max(1, ...data.map((d) => d.value)))
+  const gridSteps = [0, 0.5, 1]
 
-  const xAt = (i: number) => padX + (i / Math.max(1, data.length - 1)) * (width - padX * 2)
+  const xAt = (i: number) => padLeft + (i / Math.max(1, data.length - 1)) * (width - padLeft - padRight)
   const yAt = (v: number) => padTop + plotH - (v / max) * plotH
 
   const linePath = data.map((d, i) => `${i === 0 ? "M" : "L"} ${xAt(i).toFixed(2)} ${yAt(d.value).toFixed(2)}`).join(" ")
   const areaPath = `${linePath} L ${xAt(data.length - 1).toFixed(2)} ${padTop + plotH} L ${xAt(0).toFixed(2)} ${padTop + plotH} Z`
+  const last = data[data.length - 1]
 
   function handleMove(e: React.PointerEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
     const relX = ((e.clientX - rect.left) / rect.width) * width
-    const step = (width - padX * 2) / Math.max(1, data.length - 1)
-    const idx = Math.round((relX - padX) / step)
+    const step = (width - padLeft - padRight) / Math.max(1, data.length - 1)
+    const idx = Math.round((relX - padLeft) / step)
     setHover(Math.min(data.length - 1, Math.max(0, idx)))
   }
 
@@ -89,7 +102,19 @@ export function TrendAreaChart({
         onPointerMove={handleMove}
         onPointerLeave={() => setHover(null)}
       >
-        <line x1={padX} y1={padTop + plotH} x2={width - padX} y2={padTop + plotH} stroke="#e3ecf7" strokeWidth={1} />
+        {/* Gridlines + Y-axis qiymat yorliqlari — recessive, hairline */}
+        {gridSteps.map((step) => {
+          const y = padTop + plotH - step * plotH
+          const val = Math.round(max * step)
+          return (
+            <g key={step}>
+              <line x1={padLeft} y1={y} x2={width - padRight} y2={y} stroke="#eef2f8" strokeWidth={1} />
+              <text x={padLeft - 8} y={y + 3} textAnchor="end" fontSize={10} fill="#a9bcd6" fontFamily="var(--font-poppins)">
+                {val}
+              </text>
+            </g>
+          )
+        })}
 
         <motion.g initial={{ scaleY: 0, opacity: 0 }} animate={{ scaleY: 1, opacity: 1 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -109,10 +134,20 @@ export function TrendAreaChart({
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         />
 
+        {/* Har bir nuqtada doim ko'rinadigan belgi — grafik hech qachon "bo'sh" ko'rinmasin */}
+        {data.map((d, i) => (
+          <circle key={`dot-${d.label}`} cx={xAt(i)} cy={yAt(d.value)} r={3} fill={color} stroke="#fff" strokeWidth={1.5} />
+        ))}
+
+        {/* Oxirgi qiymat — chiziq oxirida to'g'ridan-to'g'ri yorliq */}
+        <text x={xAt(data.length - 1) + 8} y={yAt(last.value) + 3} fontSize={11} fontWeight={600} fill="#012970" fontFamily="var(--font-poppins)">
+          {last.value}
+        </text>
+
         {hover !== null && (
           <g>
             <line x1={xAt(hover)} y1={padTop} x2={xAt(hover)} y2={padTop + plotH} stroke={color} strokeOpacity={0.25} strokeWidth={1} />
-            <circle cx={xAt(hover)} cy={yAt(data[hover].value)} r={4} fill={color} stroke="#fff" strokeWidth={2} />
+            <circle cx={xAt(hover)} cy={yAt(data[hover].value)} r={5} fill={color} stroke="#fff" strokeWidth={2} />
           </g>
         )}
 

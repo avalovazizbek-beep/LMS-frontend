@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Settings, RefreshCw, Save, ShieldAlert, FileText, CheckCircle2 } from "lucide-react"
+import { Settings, RefreshCw, Save, ShieldAlert, FileText, CheckCircle2, Video } from "lucide-react"
 import { adminApi } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -14,6 +14,7 @@ export default function AdminSozlamalar() {
 
   const [faceThreshold, setFaceThreshold] = useState("3")
   const [testAttempts, setTestAttempts] = useState("1")
+  const [meetingMinutes, setMeetingMinutes] = useState("70")
 
   function load() {
     setLoading(true)
@@ -23,6 +24,7 @@ export default function AdminSozlamalar() {
         setSettings(d)
         setFaceThreshold(d.face_block_threshold ?? "3")
         setTestAttempts(d.test_max_attempts ?? "1")
+        setMeetingMinutes(d.meeting_attendance_minutes ?? "70")
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -37,6 +39,7 @@ export default function AdminSozlamalar() {
       await adminApi.saveSettings({
         face_block_threshold: faceThreshold,
         test_max_attempts: testAttempts,
+        meeting_attendance_minutes: meetingMinutes,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -148,6 +151,46 @@ export default function AdminSozlamalar() {
               />
               <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                 {t("adminSozlamalar.rangeHint1to10")}
+              </span>
+            </div>
+          </div>
+
+          {/* Meeting attendance threshold */}
+          <div className="bg-white rounded-[12px] p-6" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
+                <Video className="w-5 h-5" style={{ color: "#0e58a8" }} />
+              </div>
+              <div>
+                <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  {t("adminSozlamalar.meetingAttendanceTitle")}
+                </div>
+                <div className="text-xs mt-0.5 leading-5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                  {t("adminSozlamalar.meetingAttendanceDesc")}
+                  {" "}{t("adminSozlamalar.currentValueLabel")} <strong>{settings.meeting_attendance_minutes ?? "70"}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium shrink-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                {t("adminSozlamalar.minutesLabel")}
+              </label>
+              <input
+                type="number"
+                min={5}
+                max={180}
+                value={meetingMinutes}
+                onChange={e => setMeetingMinutes(e.target.value)}
+                className="w-24 px-3 py-2 text-sm rounded-[8px] outline-none"
+                style={{
+                  border: "1px solid rgba(1,41,112,0.2)",
+                  color: "#012970",
+                  fontFamily: "var(--font-poppins)"
+                }}
+              />
+              <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                {t("adminSozlamalar.rangeHint5to180")}
               </span>
             </div>
           </div>

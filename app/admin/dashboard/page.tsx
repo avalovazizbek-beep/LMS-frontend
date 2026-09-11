@@ -24,7 +24,7 @@ interface SessionRow {
 }
 
 function dayKey(d: Date) {
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
 function HeroStat({
@@ -106,14 +106,16 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [teacherStats, setTeacherStats] = useState<AdminTeacherStat[]>([])
   const [sessions, setSessions] = useState<SessionRow[]>([])
+  const [loginTrend, setLoginTrend] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.allSettled([adminApi.stats(), adminApi.teacherStats(), adminApi.sessions(80)])
-      .then(([statsRes, teacherRes, sessionsRes]) => {
+    Promise.allSettled([adminApi.stats(), adminApi.teacherStats(), adminApi.sessions(80), adminApi.loginTrend(7)])
+      .then(([statsRes, teacherRes, sessionsRes, trendRes]) => {
         if (statsRes.status === "fulfilled") setStats(statsRes.value.data)
         if (teacherRes.status === "fulfilled") setTeacherStats(teacherRes.value.data)
         if (sessionsRes.status === "fulfilled") setSessions(sessionsRes.value.data as SessionRow[])
+        if (trendRes.status === "fulfilled") setLoginTrend(trendRes.value.data)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -125,13 +127,10 @@ export default function AdminDashboard() {
       d.setDate(d.getDate() - i)
       days.push({ key: dayKey(d), label: `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}` })
     }
-    const counts = new Map(days.map((d) => [d.key, 0]))
-    for (const s of sessions) {
-      const k = dayKey(new Date(s.login_at))
-      if (counts.has(k)) counts.set(k, (counts.get(k) ?? 0) + 1)
-    }
-    return days.map((d) => ({ label: d.label, value: counts.get(d.key) ?? 0 }))
-  }, [sessions])
+    return days.map((d) => ({ label: d.label, value: loginTrend[d.key] ?? 0 }))
+  }, [loginTrend])
+
+  const trendTotal = useMemo(() => trendData.reduce((sum, d) => sum + d.value, 0), [trendData])
 
   const breakdown: BreakdownSegment[] = useMemo(() => {
     const sum = teacherStats.reduce(
@@ -196,16 +195,26 @@ export default function AdminDashboard() {
             <motion.div variants={fadeUp} initial="hidden" animate="visible"
               className="lg:col-span-2 bg-white rounded-[14px] p-5"
               style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0px 0px 6px rgba(1,41,112,0.04)" }}>
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className="w-4 h-4" style={{ color: "#0e58a8" }} />
-                <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                  {t("adminDashboard.sectionActivityTitle")}
-                </span>
+              <div className="flex items-start justify-between gap-3 mb-1">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" style={{ color: "#0e58a8" }} />
+                  <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                    {t("adminDashboard.sectionActivityTitle")}
+                  </span>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-2xl font-bold leading-none" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                    <CountUp value={trendTotal} />
+                  </div>
+                  <div className="text-[11px] mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    {t("adminDashboard.total")}
+                  </div>
+                </div>
               </div>
               <p className="text-xs mb-2" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                 {t("adminDashboard.sectionActivitySubtitle")}
               </p>
-              <TrendAreaChart data={trendData} color="#0e58a8" height={200} />
+              <TrendAreaChart data={trendData} color="#0e58a8" height={220} />
             </motion.div>
 
             <motion.div variants={fadeUp} initial="hidden" animate="visible"
