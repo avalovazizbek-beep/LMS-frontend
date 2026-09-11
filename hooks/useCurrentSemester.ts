@@ -9,7 +9,12 @@ interface SemesterEntry { id: string; code: number; name: string }
 interface SemesterData { semesters: SemesterEntry[]; currentCode: number; currentId: string }
 
 let _cache: SemesterData | null = null
+let _cacheAt = 0
 let _pending: Promise<SemesterData> | null = null
+// Xotiradagi keshni muddatsiz ishlatmaymiz — HEMIS'da yangi semestr paydo
+// bo'lganda (yoki talabaning "joriy semestri" o'zgarganda) LMS uzoq vaqt
+// ochiq turgan tabda ham eski ro'yxatda qolib ketmasin uchun.
+const CACHE_TTL_MS = 10 * 60 * 1000 // 10 daqiqa
 
 function readLocalCache(): SemesterData {
   try {
@@ -42,8 +47,8 @@ function parseSemesterEntry(s: any): SemesterEntry | null {
   return { id: apiId, code: displayCode, name }
 }
 
-async function loadSemesterData(): Promise<SemesterData> {
-  if (_cache) return _cache
+async function loadSemesterData(forceRefresh = false): Promise<SemesterData> {
+  if (_cache && !forceRefresh && Date.now() - _cacheAt < CACHE_TTL_MS) return _cache
   if (_pending) return _pending
 
   _pending = Promise.all([
@@ -72,6 +77,7 @@ async function loadSemesterData(): Promise<SemesterData> {
 
     const data: SemesterData = { semesters, currentCode, currentId }
     _cache = data
+    _cacheAt = Date.now()
     try {
       if (typeof window !== "undefined") {
         localStorage.removeItem("_hemis_sem") // clear old v1 cache
