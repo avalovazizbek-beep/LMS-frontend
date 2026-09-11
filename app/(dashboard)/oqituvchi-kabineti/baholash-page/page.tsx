@@ -1,11 +1,12 @@
 "use client"
 
 import { useMemo, useState, useCallback } from "react"
-import { ChevronLeft, FileText, Download, CheckCircle, Lock, AlertCircle } from "lucide-react"
+import { ChevronLeft, FileText, Download, CheckCircle, Lock, AlertCircle, ShieldAlert, ExternalLink } from "lucide-react"
 import {
   teachingApi,
   type TeacherContent,
   type TeachingSubmission,
+  type PlagiarismResult,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -57,6 +58,26 @@ function SubmissionsList({
   const [finalizing, setFinalizing] = useState(false)
   const [finalized, setFinalized] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Antiplagiat — talaba-talaba o'xshashlik + (sozlangan bo'lsa) internet tekshiruvi
+  const { data: plagData, refetch: refetchPlag } = useApi(() => teachingApi.plagiarismResults(content.id), [content.id])
+  const plagByStudent = new Map((plagData?.data ?? []).map(p => [p.studentUserId, p]))
+  const [plagChecking, setPlagChecking] = useState(false)
+  const [plagError, setPlagError] = useState<string | null>(null)
+  const [openPlagFor, setOpenPlagFor] = useState<number | null>(null)
+
+  async function runPlagCheck() {
+    setPlagChecking(true)
+    setPlagError(null)
+    try {
+      await teachingApi.runPlagiarismCheck(content.id)
+      await refetchPlag()
+    } catch (e) {
+      setPlagError(e instanceof Error ? e.message : "Tekshirishda xatolik")
+    } finally {
+      setPlagChecking(false)
+    }
+  }
 
   const submissions: TeachingSubmission[] = useMemo(() => {
     const list = data?.data ?? []
@@ -158,9 +179,24 @@ function SubmissionsList({
               <div className="text-2xl font-bold" style={{ color: gradedCount === submissions.length && submissions.length > 0 ? "#15803d" : "#012970", fontFamily: "var(--font-poppins)" }}>{gradedCount}</div>
               <div className="text-[10px] mt-0.5 font-medium" style={L}>{t("baholashPageOq.gradedStat")}</div>
             </div>
+            {submissions.length > 0 && (
+              <button onClick={runPlagCheck} disabled={plagChecking}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors hover:bg-[#f0f5ff] disabled:opacity-60 self-stretch"
+                style={{ border: "1px solid #d8e6f7", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                <ShieldAlert className={`w-3.5 h-3.5 ${plagChecking ? "animate-pulse" : ""}`} />
+                {plagChecking ? "Tekshirilmoqda…" : "Antiplagiat tekshirish"}
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {plagError && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-[8px] text-sm" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", border: "1px solid #fca5a5", fontFamily: "var(--font-poppins)" }}>
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {plagError}
+        </div>
+      )}
 
       {saveError && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-[8px] text-sm" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", border: "1px solid #fca5a5", fontFamily: "var(--font-poppins)" }}>
@@ -188,6 +224,7 @@ function SubmissionsList({
               const isSaving = saving[sub.id]
               const gradeVal = grades[sub.id] ?? (sub.grade !== null ? String(sub.grade) : "")
               const feedbackVal = feedbacks[sub.id] ?? (sub.feedback ?? "")
+              const plag = plagByStudent.get(sub.studentUserId)
               return (
                 <div key={sub.id}
                   className="rounded-[10px] bg-white p-4 flex flex-col gap-3"
@@ -203,13 +240,54 @@ function SubmissionsList({
                       <div className="text-xs mt-0.5" style={L}>{t("baholashPageOq.submittedAt", { date: fmtDate(sub.submittedAt) })}</div>
                       {sub.comment && <div className="text-xs mt-1 italic" style={L}>"{sub.comment}"</div>}
                     </div>
-                    {(isGraded || isSavedNow) && (
-                      <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        {t("baholashPageOq.gradedBadge", { grade: sub.grade !== null ? sub.grade : gradeVal })}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {plag && (
+                        <button onClick={() => setOpenPlagFor(openPlagFor === sub.id ? null : sub.id)}
+                          className="text-xs font-semibold px-2.5 py-1 rounded-full transition-opacity hover:opacity-80"
+                          style={{
+                            backgroundColor: plag.maxSimilarityPct >= 50 || plag.internetMatches.length > 0 ? "#fff0f0" : plag.maxSimilarityPct >= 20 ? "#fff8e6" : "#f0fdf4",
+                            color: plag.maxSimilarityPct >= 50 || plag.internetMatches.length > 0 ? "#b91c1c" : plag.maxSimilarityPct >= 20 ? "#92400e" : "#15803d",
+                            fontFamily: "var(--font-poppins)",
+                          }}>
+                          Antiplagiat: {plag.maxSimilarityPct}%{plag.internetMatches.length > 0 ? " · web" : ""}
+                        </button>
+                      )}
+                      {(isGraded || isSavedNow) && (
+                        <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          {t("baholashPageOq.gradedBadge", { grade: sub.grade !== null ? sub.grade : gradeVal })}
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Antiplagiat tafsiloti */}
+                  {plag && openPlagFor === sub.id && (
+                    <div className="rounded-[8px] p-3 flex flex-col gap-2" style={{ backgroundColor: "#f6f9ff" }}>
+                      <p className="text-xs" style={L}>
+                        {plag.matchedStudentName ? `Eng o'xshash: ${plag.matchedStudentName}` : "O'xshash topshiriq topilmadi"}
+                      </p>
+                      {!plag.internetEnabled ? (
+                        <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                          Internet tekshiruvi uchun API kalit sozlanmagan
+                        </p>
+                      ) : plag.internetMatches.length === 0 ? (
+                        <p className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>Internetdan mos matn topilmadi</p>
+                      ) : (
+                        plag.internetMatches.map((m, i) => (
+                          <a key={i} href={m.link} target="_blank" rel="noreferrer"
+                            className="flex items-start gap-2 text-xs p-2 rounded-[6px] bg-white transition-colors hover:bg-[#eef4ff]"
+                            style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+                            <ExternalLink className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#0e58a8" }} />
+                            <div className="min-w-0">
+                              <p className="font-medium truncate" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{m.title || m.link}</p>
+                              <p className="mt-0.5" style={L}>{m.snippet}</p>
+                            </div>
+                          </a>
+                        ))
+                      )}
+                    </div>
+                  )}
 
                   {/* File download */}
                   {sub.file && (
