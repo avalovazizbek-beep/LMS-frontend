@@ -1350,6 +1350,20 @@ export interface ViolationSummaryRow {
   lastAt: string
 }
 
+/* ── Antiplagiat ──────────────────────────────────────────────────────── */
+export interface PlagiarismInternetMatch { sentence: string; title: string; link: string; snippet: string }
+export interface PlagiarismResult {
+  submissionId: number
+  studentUserId: number
+  studentFullName: string
+  maxSimilarityPct: number
+  matchedSubmissionId: number | null
+  matchedStudentName: string | null
+  internetEnabled: boolean
+  internetMatches: PlagiarismInternetMatch[]
+  checkedAt: string
+}
+
 function buildParams(input: Record<string, string | number | null | undefined>): Record<string, string> {
   const params: Record<string, string> = {}
   for (const [key, value] of Object.entries(input)) {
@@ -1582,6 +1596,14 @@ export const teachingApi = {
   /** O'qituvchi/admin: bitta imtihon bo'yicha buzilishlar xulosasi (talaba bo'yicha) */
   violations: (contentId: number | string) =>
     get<ListRes<ViolationSummaryRow>>(`/api/teaching/content/${contentId}/violations`),
+
+  /** Antiplagiat: keshlangan natijalarni olish (qayta hisoblamaydi) */
+  plagiarismResults: (contentId: number | string) =>
+    get<ListRes<PlagiarismResult>>(`/api/plagiarism/content/${contentId}/results`),
+
+  /** Antiplagiat: talaba-talaba + (sozlangan bo'lsa) internetdan qayta tekshirish */
+  runPlagiarismCheck: (contentId: number | string) =>
+    post<ListRes<PlagiarismResult>>(`/api/plagiarism/content/${contentId}/check`, {}),
 
   /** Talaba: bitta fan bo'yicha mavzular ro'yxati (ketma-ket qulflash holati bilan) */
   studentTopics: (subject: string) => {

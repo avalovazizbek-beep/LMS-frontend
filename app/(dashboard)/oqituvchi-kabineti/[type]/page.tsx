@@ -6,7 +6,7 @@ import { useParams } from "next/navigation"
 import {
   Plus, X, Trash2, Pencil, FileText, Lock, CheckCircle2, Clock, Users, Loader2, Download,
   Video, Link as LinkIcon, File as FileIcon, HelpCircle, Power, CalendarCheck, BarChart2, ArrowLeft,
-  RefreshCw,
+  RefreshCw, ShieldAlert, ExternalLink,
 } from "lucide-react"
 import {
   teachingApi,
@@ -19,6 +19,7 @@ import {
   type TeachingSubmission,
   type ContentStatus,
   type ExamQuestion,
+  type PlagiarismResult,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -1864,6 +1865,30 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
   )
   const violationsByStudent = new Map((violData?.data ?? []).map(v => [v.studentUserId, v]))
 
+  // Antiplagiat — imtihondan tashqari (topshiriq/kurs-topshiriq) turlarda
+  const isPlagiarismCheckable = content.type !== "exam"
+  const { data: plagData, refetch: refetchPlag } = useApi(
+    () => isPlagiarismCheckable ? teachingApi.plagiarismResults(content.id) : Promise.resolve({ success: true, data: [] }),
+    [content.id, isPlagiarismCheckable]
+  )
+  const plagByStudent = new Map((plagData?.data ?? []).map(p => [p.studentUserId, p]))
+  const [plagChecking, setPlagChecking] = useState(false)
+  const [plagError, setPlagError] = useState<string | null>(null)
+  const [plagDetail, setPlagDetail] = useState<{ studentName: string; result: PlagiarismResult } | null>(null)
+
+  async function runPlagCheck() {
+    setPlagChecking(true)
+    setPlagError(null)
+    try {
+      await teachingApi.runPlagiarismCheck(content.id)
+      await refetchPlag()
+    } catch (err) {
+      setPlagError(err instanceof Error ? err.message : "Tekshirishda xatolik")
+    } finally {
+      setPlagChecking(false)
+    }
+  }
+
   const graded = submissions.filter(s => s.grade != null)
   const avg = graded.length > 0
     ? Math.round(graded.reduce((a, s) => a + s.grade!, 0) / graded.length)
@@ -1882,6 +1907,66 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
     )
   }
 
+  if (plagDetail) {
+    const { studentName, result } = plagDetail
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.35)" }}>
+        <div className="bg-white rounded-[14px] w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              Antiplagiat — {studentName}
+            </h2>
+            <button onClick={() => setPlagDetail(null)} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">
+              <X className="w-5 h-5" style={{ color: "#7293b9" }} />
+            </button>
+          </div>
+
+          <div className="rounded-[10px] p-4" style={{ backgroundColor: "#f6f9ff" }}>
+            <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              Talaba-talaba o'xshashlik: {result.maxSimilarityPct}%
+            </p>
+            <p className="text-xs mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {result.matchedStudentName ? `Eng o'xshash: ${result.matchedStudentName}` : "O'xshash topshiriq topilmadi"}
+            </p>
+          </div>
+
+          <div className="rounded-[10px] p-4" style={{ backgroundColor: "#f6f9ff" }}>
+            <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              Internet tekshiruvi
+            </p>
+            {!result.internetEnabled ? (
+              <p className="text-xs mt-1" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                Internet tekshiruvi uchun API kalit sozlanmagan (GOOGLE_CSE_KEY/GOOGLE_CSE_CX)
+              </p>
+            ) : result.internetMatches.length === 0 ? (
+              <p className="text-xs mt-1" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                Internetdan mos matn topilmadi
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2 mt-2">
+                {result.internetMatches.map((m, i) => (
+                  <a key={i} href={m.link} target="_blank" rel="noreferrer"
+                    className="flex items-start gap-2 text-xs p-2 rounded-[6px] transition-colors hover:bg-[#eef4ff]"
+                    style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#0e58a8" }} />
+                    <div className="min-w-0">
+                      <p className="font-medium truncate" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{m.title || m.link}</p>
+                      <p className="mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{m.snippet}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <p className="text-[11px]" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
+            Tekshirilgan vaqt: {formatDateTime(result.checkedAt)}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.35)" }}>
       <div className="bg-white rounded-[14px] w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4">
@@ -1894,10 +1979,22 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
               {t("typeContentOq.grading.subtitle", { title: content.title, count: submissions.length })}{avg != null ? t("typeContentOq.grading.avgSuffix", { avg }) : ""}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">
-            <X className="w-5 h-5" style={{ color: "#7293b9" }} />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {isPlagiarismCheckable && submissions.length > 0 && (
+              <button onClick={runPlagCheck} disabled={plagChecking}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors hover:bg-[#f0f5ff] disabled:opacity-60"
+                style={{ color: "#0e58a8", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
+                <ShieldAlert className={`w-3.5 h-3.5 ${plagChecking ? "animate-pulse" : ""}`} />
+                {plagChecking ? "Tekshirilmoqda…" : "Antiplagiat tekshirish"}
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">
+              <X className="w-5 h-5" style={{ color: "#7293b9" }} />
+            </button>
+          </div>
         </div>
+
+        {plagError && <ApiError message={plagError} />}
 
         {loading ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : submissions.length === 0 ? (
           <p className="text-sm text-center py-8" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
@@ -1911,6 +2008,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                   {[
                     "#", t("typeContentOq.grading.colStudent"), t("typeContentOq.grading.colScore"), t("typeContentOq.grading.colPercent"),
                     ...(content.type === "exam" ? ["Buzilishlar"] : []),
+                    ...(isPlagiarismCheckable ? ["Antiplagiat"] : []),
                     t("typeContentOq.grading.colSubmitted"), t("typeContentOq.grading.colView"),
                   ].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold"
@@ -1951,6 +2049,27 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                                 style={{ backgroundColor: "#fff0f0", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                                 {v.total}
                               </span>
+                            )
+                          })()}
+                        </td>
+                      )}
+                      {isPlagiarismCheckable && (
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const p = plagByStudent.get(sub.studentUserId)
+                            if (!p) return <span className="text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>—</span>
+                            const hot = p.maxSimilarityPct >= 50 || p.internetMatches.length > 0
+                            const warm = p.maxSimilarityPct >= 20
+                            return (
+                              <button onClick={() => setPlagDetail({ studentName: sub.studentFullName, result: p })}
+                                className="text-xs font-semibold px-2 py-0.5 rounded-full transition-opacity hover:opacity-80"
+                                style={{
+                                  backgroundColor: hot ? "#fff0f0" : warm ? "#fff8e6" : "#f0fdf4",
+                                  color: hot ? "#b91c1c" : warm ? "#92400e" : "#15803d",
+                                  fontFamily: "var(--font-poppins)",
+                                }}>
+                                {p.maxSimilarityPct}%{p.internetMatches.length > 0 ? " · web" : ""}
+                              </button>
                             )
                           })()}
                         </td>
