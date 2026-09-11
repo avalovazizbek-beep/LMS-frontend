@@ -92,7 +92,7 @@ export default function Reyting() {
             {groupName}
           </span>
         </div>
-        <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => setSelectedCode(code)} />
+        <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => setSelectedCode(code)} lockFuture={false} />
       </div>
 
       {/* Jadval */}
