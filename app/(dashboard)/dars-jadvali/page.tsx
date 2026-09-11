@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Fragment, useMemo, useState } from "react"
 import { Clock, BookOpen, Link as LinkIcon, CalendarDays, ChevronDown } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { meetingsApi, hemisApi, teachingApi, type HemisSchedule, type Meeting, type TeacherContent } from "@/lib/api"
@@ -127,6 +127,55 @@ export default function DarsJadvali() {
              d.getDate() === dayDate.getDate()
     })
   }, [byDay, activeDay, weekDates])
+
+  // Haftalik vaqt-setka ko'rinishi uchun — faqat ish kunlari (Dush-Jum),
+  // qatorlar esa shu haftada haqiqatan dars/tadbir bo'lgan vaqtlardan
+  // avtomatik hisoblanadi (HEMIS juftlik vaqtlariga bog'lanmasdan).
+  const GRID_DAYS = [0, 1, 2, 3, 4]
+
+  function itemsOnDayAt(dayIdx: number, timeKey: string) {
+    const date = weekDates[dayIdx]
+    return (byDay[dayIdx] ?? []).filter(item => {
+      const d = item.time
+      const hh = String(d.getHours()).padStart(2, "0")
+      const mm = String(d.getMinutes()).padStart(2, "0")
+      return d.getFullYear() === date.getFullYear() &&
+             d.getMonth() === date.getMonth() &&
+             d.getDate() === date.getDate() &&
+             `${hh}:${mm}` === timeKey
+    })
+  }
+
+  const weekTimeSlots = useMemo(() => {
+    const slots = new Set<string>()
+    GRID_DAYS.forEach(idx => {
+      const date = weekDates[idx]
+      ;(byDay[idx] ?? []).forEach(item => {
+        const d = item.time
+        if (d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth() && d.getDate() === date.getDate()) {
+          slots.add(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`)
+        }
+      })
+    })
+    return Array.from(slots).sort()
+  }, [byDay, weekDates]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function entryDisplay(entry: DayItem) {
+    if (entry.kind === "hemis") {
+      const s = entry.data
+      const isLecture = (s.trainingType?.name ?? "").toLowerCase().includes("ma'ruza")
+      return {
+        title: s.subject.name,
+        meta: s.employee.name,
+        badge: s.trainingType?.name ?? null,
+        accent: isLecture ? "#22c55e" : "#3b82f6",
+      }
+    }
+    if (entry.kind === "meeting") {
+      return { title: entry.data.title, meta: t("darsJadvali.onlineLesson"), badge: null, accent: "#0891b2" }
+    }
+    return { title: entry.data.title, meta: entry.data.subjectName, badge: null, accent: "#b91c1c" }
+  }
 
   const weekLabel = useMemo(() => {
     const end = new Date(weekStart)
@@ -264,78 +313,83 @@ export default function DarsJadvali() {
       </div>
 
       {viewMode === "weekly" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {weekDates.map((date, idx) => {
-            const items = (byDay[idx] ?? []).filter(item => {
-              const d = item.time
-              return d.getFullYear() === date.getFullYear() &&
-                     d.getMonth() === date.getMonth() &&
-                     d.getDate() === date.getDate()
-            })
-            if (items.length === 0) return null
-            const isToday =
-              date.getDate() === today.getDate() &&
-              date.getMonth() === today.getMonth() &&
-              date.getFullYear() === today.getFullYear()
-            return (
-              <div key={idx} className="bg-white rounded-[10px] overflow-hidden"
-                style={{ border: `1px solid ${isToday ? "rgba(14,88,168,0.3)" : "rgba(1,41,112,0.1)"}` }}>
-                <div className="px-4 py-3 flex items-center justify-between gap-2"
-                  style={{ borderBottom: "2px solid #22c55e" }}>
-                  <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                    {DAYS[idx]}
-                  </span>
-                  <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    {date.toLocaleDateString("uz-UZ", { day: "2-digit", month: "long", year: "numeric" })}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  {items.map((entry, i) => {
-                    const timeStr = entry.kind === "hemis"
-                      ? (entry.data.lessonPair?.start_time ?? "—")
-                      : entry.time.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })
-                    const title = entry.kind === "hemis" ? entry.data.subject.name
-                      : entry.kind === "meeting" ? entry.data.title
-                      : entry.data.title
-                    const meta = entry.kind === "hemis"
-                      ? [entry.data.auditorium?.name, entry.data.trainingType?.name, entry.data.employee?.name].filter(Boolean).join(" / ")
-                      : entry.kind === "meeting" ? t("darsJadvali.onlineLesson")
-                      : entry.data.subjectName
-                    return (
-                      <div key={i} className="px-4 py-2.5 flex items-start justify-between gap-3"
-                        style={{ borderBottom: i < items.length - 1 ? "1px solid rgba(1,41,112,0.06)" : "none" }}>
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                            {i + 1}. {title}
-                          </div>
-                          {meta && (
-                            <div className="text-xs mt-0.5 truncate" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                              {meta}
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-xs font-semibold shrink-0" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                          {timeStr}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-          {weekDates.every((date, idx) => (byDay[idx] ?? []).filter(item => {
-            const d = item.time
-            return d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth() && d.getDate() === date.getDate()
-          }).length === 0) && (
-            <div className="bg-white rounded-[10px] p-10 text-center col-span-full" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-              <BookOpen className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-              <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                {t("darsJadvali.noLessonsWeek")}
-              </p>
+        weekTimeSlots.length === 0 ? (
+          <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+            <BookOpen className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
+            <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {t("darsJadvali.noLessonsWeek")}
+            </p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-[10px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+            <div className="px-4 py-3 flex items-center justify-between gap-2" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+              <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                {t("darsJadvali.title")}
+              </span>
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                {weekOffset === 0 ? t("darsJadvali.today") : weekLabel}
+              </span>
             </div>
-          )}
-        </div>
+            <div className="overflow-x-auto">
+              <div style={{ display: "grid", gridTemplateColumns: `64px repeat(${GRID_DAYS.length}, minmax(150px, 1fr))`, minWidth: 700 }}>
+                <div />
+                {GRID_DAYS.map(idx => {
+                  const date = weekDates[idx]
+                  const isToday =
+                    date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear()
+                  return (
+                    <div key={idx} className="px-2 py-2.5 text-center"
+                      style={{ borderBottom: "2px solid #22c55e", backgroundColor: isToday ? "#f0f5ff" : "transparent" }}>
+                      <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                        {DAY_SHORT[idx]} <span style={{ color: "#7293b9", fontWeight: 400 }}>{date.getDate()}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {weekTimeSlots.map(slot => (
+                  <Fragment key={slot}>
+                    <div className="px-1.5 py-2 text-xs font-semibold text-right"
+                      style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)", borderTop: "1px solid rgba(1,41,112,0.06)" }}>
+                      {slot}
+                    </div>
+                    {GRID_DAYS.map(idx => {
+                      const items = itemsOnDayAt(idx, slot)
+                      return (
+                        <div key={`${slot}-${idx}`} className="p-1.5 flex flex-col gap-1"
+                          style={{ borderTop: "1px solid rgba(1,41,112,0.06)", borderLeft: "1px solid rgba(1,41,112,0.06)", minHeight: 64 }}>
+                          {items.map((entry, i) => {
+                            const { title, meta, badge, accent } = entryDisplay(entry)
+                            return (
+                              <div key={i} className="px-2 py-1.5 rounded-[6px] text-left"
+                                style={{ backgroundColor: `${accent}12`, borderLeft: `2px solid ${accent}` }}>
+                                <div className="flex items-start justify-between gap-1">
+                                  <span className="text-xs font-semibold truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                                    {title}
+                                  </span>
+                                  {badge && (
+                                    <span className="text-[9px] font-medium px-1 py-0.5 rounded shrink-0" style={{ backgroundColor: accent, color: "#fff" }}>
+                                      {badge}
+                                    </span>
+                                  )}
+                                </div>
+                                {meta && (
+                                  <div className="text-[11px] truncate" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                                    {meta}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
       ) : (
       <>
       {/* Kun tablar */}
