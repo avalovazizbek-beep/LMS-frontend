@@ -1618,7 +1618,7 @@ export const teachingApi = {
   /** Talaba: video/audio/hujjat ko'rish progresini saqlash */
   saveProgress: (
     contentId: number | string,
-    patch: { positionSeconds?: number; durationSeconds?: number; pagesRead?: number[]; totalPages?: number }
+    patch: { positionSeconds?: number; durationSeconds?: number; pagesRead?: number[]; totalPages?: number; completed?: boolean }
   ) => put<ItemRes<ContentProgress>>(`/api/teaching/content/${contentId}/progress`, patch),
 
   /** Talaba: qo'llanmani "Ko'rib chiqdim" deb belgilash (completed = true) */
