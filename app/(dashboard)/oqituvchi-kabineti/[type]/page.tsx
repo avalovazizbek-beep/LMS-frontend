@@ -1015,6 +1015,7 @@ interface FormState {
   maxScore: string
   durationMinutes: string
   questionDisplayCount: string
+  isAdaptive: boolean
   trainingLoad: string
   lessonDate: string
   delivered: boolean
@@ -1036,6 +1037,7 @@ const EMPTY_FORM: FormState = {
   maxScore: "",
   durationMinutes: "",
   questionDisplayCount: "",
+  isAdaptive: false,
   trainingLoad: "",
   lessonDate: "",
   delivered: false,
@@ -1184,6 +1186,7 @@ export default function TeacherContentTypePage() {
       maxScore: item.maxScore != null ? String(item.maxScore) : "",
       durationMinutes: item.durationMinutes != null ? String(item.durationMinutes) : "",
       questionDisplayCount: item.questionDisplayCount != null ? String(item.questionDisplayCount) : "",
+      isAdaptive: item.isAdaptive,
       trainingLoad: item.trainingLoad != null ? String(item.trainingLoad) : "",
       lessonDate: item.lessonDate ?? "",
       delivered: item.delivered,
@@ -1226,6 +1229,7 @@ export default function TeacherContentTypePage() {
           maxScore: form.maxScore ? Number(form.maxScore) : null,
           durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
           questionDisplayCount: form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
+          isAdaptive: config!.type === "exam" ? form.isAdaptive : undefined,
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
@@ -1245,6 +1249,7 @@ export default function TeacherContentTypePage() {
           maxScore: form.maxScore ? Number(form.maxScore) : null,
           durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
           questionDisplayCount: form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
+          isAdaptive: config!.type === "exam" ? form.isAdaptive : undefined,
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
@@ -1668,6 +1673,25 @@ function ContentFormModal({
             </div>
           )}
 
+          {/* Moslashuvchan test — savol qiyinligi talaba javobiga qarab moslashadi */}
+          {config.hasDuration && (
+            <div className="col-span-2">
+              <button type="button" onClick={() => update("isAdaptive", !form.isAdaptive)}
+                className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm font-medium transition-colors"
+                style={{
+                  border: `1px solid ${form.isAdaptive ? "#7c3aed" : "rgba(1,41,112,0.2)"}`,
+                  backgroundColor: form.isAdaptive ? "#fdf4ff" : "transparent",
+                  color: form.isAdaptive ? "#7c3aed" : "#445b7a",
+                  fontFamily: "var(--font-poppins)",
+                }}>
+                {form.isAdaptive ? "☑" : "☐"} Moslashuvchan test (qiyinlik javobga qarab moslashadi)
+              </button>
+              <p className="mt-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                Yoqilsa, savollar bittalab ko'rsatiladi: to'g'ri javob — qiyinroq savol, xato javob — osonroq savol. Savollarga qiyinlik darajasini "Savollar" oynasida belgilang.
+              </p>
+            </div>
+          )}
+
           {/* Yuklama (soat) — mashg'ulot turi bo'yicha o'quv yuki */}
           {config.hasTrainingLoad && (
             <div className="col-span-2 sm:col-span-1">
@@ -1833,6 +1857,13 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
   const submissions: TeachingSubmission[] = data?.data ?? []
   const [viewSub, setViewSub] = useState<TeachingSubmission | null>(null)
 
+  // Imtihon davomidagi buzilishlar (fullscreen/tab/Face ID) — faqat "exam" turida
+  const { data: violData } = useApi(
+    () => content.type === "exam" ? teachingApi.violations(content.id) : Promise.resolve({ success: true, data: [] }),
+    [content.id, content.type]
+  )
+  const violationsByStudent = new Map((violData?.data ?? []).map(v => [v.studentUserId, v]))
+
   const graded = submissions.filter(s => s.grade != null)
   const avg = graded.length > 0
     ? Math.round(graded.reduce((a, s) => a + s.grade!, 0) / graded.length)
@@ -1877,7 +1908,11 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
             <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ backgroundColor: "#f6f9ff", borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-                  {["#", t("typeContentOq.grading.colStudent"), t("typeContentOq.grading.colScore"), t("typeContentOq.grading.colPercent"), t("typeContentOq.grading.colSubmitted"), t("typeContentOq.grading.colView")].map(h => (
+                  {[
+                    "#", t("typeContentOq.grading.colStudent"), t("typeContentOq.grading.colScore"), t("typeContentOq.grading.colPercent"),
+                    ...(content.type === "exam" ? ["Buzilishlar"] : []),
+                    t("typeContentOq.grading.colSubmitted"), t("typeContentOq.grading.colView"),
+                  ].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold"
                       style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{h}</th>
                   ))}
@@ -1904,6 +1939,22 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                         {sub.grade ?? "—"}
                       </td>
                       <td className="px-4 py-3" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{pct}</td>
+                      {content.type === "exam" && (
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const v = violationsByStudent.get(sub.studentUserId)
+                            if (!v || v.total === 0) {
+                              return <span className="text-xs" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>—</span>
+                            }
+                            return (
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full" title={Object.entries(v.counts).map(([k, n]) => `${k}: ${n}`).join(", ")}
+                                style={{ backgroundColor: "#fff0f0", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                                {v.total}
+                              </span>
+                            )
+                          })()}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                         {formatDateTime(sub.submittedAt)}
                       </td>

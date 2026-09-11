@@ -6,7 +6,7 @@ import {
   Clock, ChevronLeft, ChevronRight, CheckCircle2, Flag,
   GraduationCap, RefreshCw, ShieldAlert, Maximize, AlertTriangle,
 } from "lucide-react"
-import { teachingApi, type ExamQuestionPublic } from "@/lib/api"
+import { teachingApi, type ExamQuestionPublic, type AdaptiveProgress } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import FaceProctor from "@/components/ui/FaceProctor"
@@ -50,6 +50,14 @@ export default function ImtihonTopshirish() {
   const [winHidden,     setWinHidden]     = useState(false)   // Alt+Tab: oyna yashirildi
   const [isMobile,      setIsMobile]      = useState(false)
 
+  // Moslashuvchan (adaptive) test — bitta-bittalab savol, sinovga qarab qiyinlik moslashadi
+  const isAdaptive = content?.isAdaptive === true
+  const [adaptiveQuestion, setAdaptiveQuestion] = useState<ExamQuestionPublic | null>(null)
+  const [adaptiveProgress, setAdaptiveProgress] = useState<AdaptiveProgress | null>(null)
+  const [adaptiveSelected, setAdaptiveSelected] = useState<number | null>(null)
+  const [adaptiveLoading,  setAdaptiveLoading]  = useState(false)
+  const [adaptiveError,    setAdaptiveError]    = useState<string | null>(null)
+
   const phaseRef = useRef<Phase>("intro")
   useEffect(() => { phaseRef.current = phase }, [phase])
 
@@ -76,6 +84,7 @@ export default function ImtihonTopshirish() {
       if (!document.fullscreenElement &&
           (phaseRef.current === "exam" || phaseRef.current === "face_scan")) {
         setFsExited(true)
+        teachingApi.reportViolation(id, "fullscreen_exit").catch(() => {})
       }
     }
     document.addEventListener("fullscreenchange", onFsChange)
@@ -105,6 +114,7 @@ export default function ImtihonTopshirish() {
       if (el) el.style.display = show ? "flex" : "none"
       // React state ham yangilanadi (qaytish tugmasi uchun)
       setWinHidden(show)
+      if (show) teachingApi.reportViolation(id, "tab_blur").catch(() => {})
     }
 
     const onBlur = () => showHideOverlay(true)
@@ -156,6 +166,7 @@ export default function ImtihonTopshirish() {
           el.style.display = "flex"
           setTimeout(() => { if (el) el.style.display = "none" }, 3000)
         }
+        teachingApi.reportViolation(id, "screenshot_attempt").catch(() => {})
         return
       }
       if (e.ctrlKey && !e.altKey) {
@@ -221,6 +232,57 @@ export default function ImtihonTopshirish() {
   const handleTerminate = useCallback(() => {
     if (phase === "exam" || phase === "face_scan") handleSubmit()
   }, [phase, handleSubmit])
+
+  /* ── Moslashuvchan test: fazaga kirganda birinchi savolni yuklash ──── */
+  useEffect(() => {
+    if (phase !== "exam" || !isAdaptive) return
+    let cancelled = false
+    setAdaptiveLoading(true)
+    teachingApi.adaptiveNext(id)
+      .then(res => {
+        if (cancelled) return
+        if (res.data.done) {
+          setAdaptiveQuestion(null)
+          setAdaptiveProgress(res.data.progress ?? null)
+        } else {
+          setAdaptiveQuestion(res.data.question ?? null)
+          setAdaptiveProgress(res.data.progress ?? null)
+        }
+      })
+      .catch(err => { if (!cancelled) setAdaptiveError(err instanceof Error ? err.message : t("examTake.submitError")) })
+      .finally(() => { if (!cancelled) setAdaptiveLoading(false) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, isAdaptive, attemptKey])
+
+  const handleAdaptiveAnswer = useCallback(async () => {
+    if (!adaptiveQuestion || adaptiveSelected === null || submittingRef.current) return
+    submittingRef.current = true
+    setSubmitting(true)
+    setAdaptiveError(null)
+    try {
+      const res = await teachingApi.adaptiveAnswer(id, adaptiveQuestion.id, adaptiveSelected)
+      if (res.data.done) {
+        setResult({
+          grade:        res.data.submission?.grade ?? null,
+          maxScore:     res.data.maxScore ?? null,
+          attemptsUsed: res.data.submission?.attemptsUsed ?? 1,
+        })
+        setPhase("submitted_now")
+        refetchSub()
+        exitFS()
+      } else {
+        setAdaptiveQuestion(res.data.question ?? null)
+        setAdaptiveProgress(res.data.progress ?? null)
+        setAdaptiveSelected(null)
+      }
+    } catch (err) {
+      setAdaptiveError(err instanceof Error ? err.message : t("examTake.submitError"))
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
+  }, [adaptiveQuestion, adaptiveSelected, id, refetchSub, t])
 
   useEffect(() => {
     if (phase !== "exam" || timeLeft === null) return
@@ -509,6 +571,7 @@ export default function ImtihonTopshirish() {
         fixed
         onFirstVerified={handleFirstVerified}
         onTerminate={handleTerminate}
+        onViolation={(type, detail) => { teachingApi.reportViolation(id, type, detail).catch(() => {}) }}
         maxViolations={examSettings?.faceBlockThreshold}
       >
         {/* ── Yuz tekshiruvi fazasi ───────────────────────────────── */}
@@ -549,8 +612,109 @@ export default function ImtihonTopshirish() {
           </div>
         )}
 
+        {/* ── Imtihon fazasi — Moslashuvchan (adaptive) test: bitta-bittalab savol ── */}
+        {phase === "exam" && isAdaptive && (
+          <div className="exam-vh-fix" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "auto", padding: isMobile ? 16 : 32 }}>
+            {adaptiveLoading && !adaptiveQuestion ? (
+              <Loading />
+            ) : adaptiveQuestion ? (
+              <div style={{
+                width: "100%", maxWidth: 640,
+                backgroundColor: "white", borderRadius: 10, padding: isMobile ? 16 : 24,
+                border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    {adaptiveProgress ? t("examTake.questionsAnswered", { total: adaptiveProgress.total, answered: adaptiveProgress.answered }) : ""}
+                  </span>
+                  {timeLeft != null && (
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "5px 14px", borderRadius: 20,
+                      backgroundColor: isLow ? "#fff0f0" : "#f0f5ff",
+                      border: `1px solid ${isLow ? "rgba(239,68,68,0.3)" : "rgba(14,88,168,0.15)"}`,
+                    }}>
+                      <Clock className="w-4 h-4" style={{ color: isLow ? "#ef4444" : "#0e58a8" }} />
+                      <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 15, color: isLow ? "#ef4444" : "#0e58a8" }}>
+                        {mm}:{ss}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <p style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 15, fontWeight: 500, margin: "4px 0 0", lineHeight: 1.55 }}>
+                  {adaptiveQuestion.questionText}
+                </p>
+                {adaptiveQuestion.imageUrl && (
+                  <img
+                    src={adaptiveQuestion.imageUrl.startsWith("/api/") ? teachingApi.fileUrl(adaptiveQuestion.imageUrl) : adaptiveQuestion.imageUrl}
+                    alt="savol rasmi"
+                    style={{ marginTop: 10, maxHeight: 200, width: "auto", borderRadius: 8, objectFit: "contain", border: "1px solid rgba(1,41,112,0.1)" }}
+                  />
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
+                  {(adaptiveQuestion.optionPerm ?? adaptiveQuestion.options.map((_, i) => i)).map((origIdx, shuffledPos) => {
+                    const opt = adaptiveQuestion.options[origIdx]
+                    const optImg = adaptiveQuestion.optionImages?.[origIdx] ?? null
+                    const isSelected = adaptiveSelected === origIdx
+                    return (
+                      <label key={shuffledPos} style={{
+                        display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px",
+                        borderRadius: 8, cursor: "pointer",
+                        border: `1.5px solid ${isSelected ? "#1cc2dc" : "rgba(1,41,112,0.1)"}`,
+                        backgroundColor: isSelected ? "rgba(28,194,220,0.05)" : "#fff",
+                        transition: "all 0.12s",
+                      }}>
+                        <div style={{
+                          width: 20, height: 20, borderRadius: "50%", flexShrink: 0, marginTop: 2,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          border: `2px solid ${isSelected ? "#1cc2dc" : "rgba(1,41,112,0.2)"}`,
+                        }}>
+                          {isSelected && <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#1cc2dc" }} />}
+                        </div>
+                        <input type="radio" style={{ display: "none" }} checked={isSelected}
+                          onChange={() => setAdaptiveSelected(origIdx)} />
+                        <div style={{ flex: 1 }}>
+                          <span style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 14, lineHeight: 1.5 }}>{opt}</span>
+                          {optImg && (
+                            <img
+                              src={optImg.startsWith("/api/") ? teachingApi.fileUrl(optImg) : optImg}
+                              alt={`variant ${shuffledPos + 1} rasmi`}
+                              style={{ marginTop: 8, maxHeight: 120, width: "auto", maxWidth: "100%", display: "block",
+                                borderRadius: 6, objectFit: "contain", border: "1px solid rgba(1,41,112,0.1)" }}
+                            />
+                          )}
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+
+                {adaptiveError && <div style={{ marginTop: 12 }}><ApiError message={adaptiveError} /></div>}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(1,41,112,0.08)" }}>
+                  <button onClick={handleAdaptiveAnswer} disabled={adaptiveSelected === null || submitting} style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "9px 22px", borderRadius: 7, fontSize: 13, fontWeight: 600,
+                    backgroundColor: adaptiveSelected !== null ? "#0e58a8" : "rgba(1,41,112,0.15)",
+                    color: adaptiveSelected !== null ? "#fff" : "#7293b9",
+                    border: "none", cursor: adaptiveSelected !== null ? "pointer" : "not-allowed",
+                    fontFamily: "var(--font-poppins)", opacity: submitting ? 0.7 : 1,
+                  }}>
+                    <CheckCircle2 className="w-4 h-4" />
+                    {submitting ? t("examTake.submitting") : t("examTake.nextQuestion")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <Loading />
+            )}
+          </div>
+        )}
+
         {/* ── Imtihon fazasi — ESKI dizayn (chap panel) ──────────── */}
-        {phase === "exam" && (
+        {phase === "exam" && !isAdaptive && (
           <div className="exam-vh-fix" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
             {/* Header */}

@@ -6,7 +6,7 @@ import {
   CheckSquare, Square, Check, Image as ImageIcon,
   FileText, AlertCircle, ChevronDown, ChevronUp,
 } from "lucide-react"
-import { teachingApi, type TeacherContent, type ExamQuestion } from "@/lib/api"
+import { teachingApi, type TeacherContent, type ExamQuestion, type QuestionDifficulty } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 
@@ -24,6 +24,7 @@ interface QuestionDraft {
   correctIndexes: number[]
   isMulti: boolean
   points: number
+  difficulty: QuestionDifficulty
 }
 
 const emptyDraft = (): QuestionDraft => ({
@@ -34,7 +35,14 @@ const emptyDraft = (): QuestionDraft => ({
   correctIndexes: [0],
   isMulti: false,
   points: 1,
+  difficulty: "orta",
 })
+
+const DIFFICULTY_LABELS: Record<QuestionDifficulty, { label: string; color: string; bg: string }> = {
+  oson: { label: "Oson", color: "#22c55e", bg: "#f0fdf4" },
+  orta: { label: "O'rta", color: "#f59e0b", bg: "#fff8e6" },
+  qiyin: { label: "Qiyin", color: "#ef4444", bg: "#fff0f0" },
+}
 
 /* ── Template parser ────────────────────────────────────────────────── */
 function parseTemplate(text: string): ExamQuestion[] {
@@ -160,6 +168,7 @@ function QuestionCard({
   const [expanded, setExpanded] = useState(false)
   const correctSet = new Set(q.correctIndexes ?? [q.correctIndex])
   const isMulti = (q.correctIndexes?.length ?? 1) > 1
+  const diff = DIFFICULTY_LABELS[q.difficulty ?? "orta"]
 
   return (
     <div className="rounded-[10px]" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -182,6 +191,7 @@ function QuestionCard({
               {isMulti ? "Ko'p to'g'ri" : "Bir to'g'ri"}
             </span>
             <span className="text-xs" style={labelStyle}>{q.options.length} variant · {q.points} ball</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: diff.bg, color: diff.color, fontFamily: "var(--font-poppins)" }}>{diff.label}</span>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -477,15 +487,34 @@ function QuestionForm({
         )}
       </div>
 
-      {/* Points */}
-      <div className="flex items-center gap-3">
-        <label className="text-xs font-medium" style={labelStyle}>Ball:</label>
-        <input type="number" min={1} max={100}
-          className={inputCls}
-          style={{ fontFamily: "var(--font-poppins)", maxWidth: 80 }}
-          value={d.points}
-          onChange={e => setD(p => ({ ...p, points: Math.max(1, Number(e.target.value) || 1) }))}
-        />
+      {/* Points + Difficulty */}
+      <div className="flex items-center gap-5 flex-wrap">
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-medium" style={labelStyle}>Ball:</label>
+          <input type="number" min={1} max={100}
+            className={inputCls}
+            style={{ fontFamily: "var(--font-poppins)", maxWidth: 80 }}
+            value={d.points}
+            onChange={e => setD(p => ({ ...p, points: Math.max(1, Number(e.target.value) || 1) }))}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-medium" style={labelStyle}>Qiyinlik:</label>
+          {(["oson", "orta", "qiyin"] as QuestionDifficulty[]).map(level => {
+            const cfg = DIFFICULTY_LABELS[level]
+            const active = d.difficulty === level
+            return (
+              <button key={level} onClick={() => setD(p => ({ ...p, difficulty: level }))}
+                className="text-xs font-medium px-3 py-1.5 rounded-full border transition-colors"
+                style={{
+                  borderColor: cfg.color,
+                  backgroundColor: active ? cfg.color : "transparent",
+                  color: active ? "#fff" : cfg.color,
+                  fontFamily: "var(--font-poppins)",
+                }}>{cfg.label}</button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 pt-1">
@@ -555,6 +584,7 @@ export function QuestionsModal({
       correctIndexes,
       isMulti: correctIndexes.length > 1,
       points: q.points ?? 1,
+      difficulty: q.difficulty ?? "orta",
     }
   }
 
@@ -567,6 +597,7 @@ export function QuestionsModal({
       correctIndex: d.correctIndexes[0] ?? 0,
       correctIndexes: d.correctIndexes,
       points: d.points,
+      difficulty: d.difficulty,
     }
   }
 

@@ -1164,6 +1164,7 @@ export interface TeacherContent {
   attemptsCount: number | null     // Urinishlar soni
   questionDisplayCount: number | null  // Ko'rsatiladigan savollar soni
   language: string | null
+  isAdaptive: boolean               // Moslashuvchan test — qiyinlik javobga qarab moslashadi
   completionPoints: number | null  // Resurs uchun ball (ketma-ket qulflash uchun)
   durationMinutes: number | null
   trainingLoad: number | null      // Yuklama (soat)
@@ -1301,6 +1302,8 @@ export interface StudentTopic {
 }
 
 /* ── Imtihon savollari (MCQ) ─────────────────────────────────────────── */
+export type QuestionDifficulty = "oson" | "orta" | "qiyin"
+
 export interface ExamQuestion {
   id?: number
   questionText: string
@@ -1310,6 +1313,7 @@ export interface ExamQuestion {
   correctIndex: number
   correctIndexes?: number[]
   points: number
+  difficulty?: QuestionDifficulty
 }
 
 export interface ExamQuestionPublic {
@@ -1320,6 +1324,30 @@ export interface ExamQuestionPublic {
   options: string[]
   optionPerm: number[]   // shuffled indices: optionPerm[shuffledPos] = originalIdx
   points: number
+  difficulty?: QuestionDifficulty
+}
+
+/* ── Adaptiv (moslashuvchan) test ────────────────────────────────────── */
+export interface AdaptiveProgress { answered: number; total: number }
+export interface AdaptiveNextResult {
+  done: boolean
+  question?: ExamQuestionPublic
+  progress?: AdaptiveProgress
+}
+export interface AdaptiveAnswerResult extends AdaptiveNextResult {
+  correct?: boolean
+  submission?: TeachingSubmission
+  maxScore?: number | null
+  score?: number
+}
+
+export type ViolationType = "fullscreen_exit" | "tab_blur" | "screenshot_attempt" | "face_mismatch" | "no_face" | "multi_face" | "liveness"
+export interface ViolationSummaryRow {
+  studentUserId: number
+  studentFullName: string
+  counts: Record<string, number>
+  total: number
+  lastAt: string
 }
 
 function buildParams(input: Record<string, string | number | null | undefined>): Record<string, string> {
@@ -1377,6 +1405,7 @@ export const teachingApi = {
     attemptsCount?: number | null
     questionDisplayCount?: number | null
     language?: string
+    isAdaptive?: boolean
     completionPoints?: number | null
     durationMinutes?: number | null
     trainingLoad?: number | null
@@ -1406,6 +1435,7 @@ export const teachingApi = {
       attemptsCount: input.attemptsCount,
       questionDisplayCount: input.questionDisplayCount,
       language: input.language,
+      isAdaptive: input.isAdaptive === undefined ? undefined : String(input.isAdaptive),
       completionPoints: input.completionPoints,
       durationMinutes: input.durationMinutes,
       trainingLoad: input.trainingLoad,
@@ -1458,6 +1488,7 @@ export const teachingApi = {
       attemptsCount: number | null
       questionDisplayCount: number | null
       language: string | null
+      isAdaptive: boolean
       completionPoints: number | null
       durationMinutes: number | null
       trainingLoad: number | null
@@ -1535,6 +1566,22 @@ export const teachingApi = {
       `/api/teaching/content/${contentId}/exam-submit`,
       { answers }
     ),
+
+  /** Moslashuvchan test: joriy (yoki keyingi) savolni olish */
+  adaptiveNext: (contentId: number | string) =>
+    get<ItemRes<AdaptiveNextResult>>(`/api/teaching/content/${contentId}/adaptive/next`),
+
+  /** Moslashuvchan test: savolga javob yuborish — natija + keyingi savol (yoki yakun) qaytadi */
+  adaptiveAnswer: (contentId: number | string, questionId: number, selectedIndex: number) =>
+    post<ItemRes<AdaptiveAnswerResult>>(`/api/teaching/content/${contentId}/adaptive/answer`, { questionId, selectedIndex }),
+
+  /** Imtihon paytida fullscreen/tab/Face ID buzilishini xabar qilish */
+  reportViolation: (contentId: number | string, violationType: ViolationType, detail?: string) =>
+    post<MsgRes>(`/api/teaching/content/${contentId}/violation`, { violationType, detail }),
+
+  /** O'qituvchi/admin: bitta imtihon bo'yicha buzilishlar xulosasi (talaba bo'yicha) */
+  violations: (contentId: number | string) =>
+    get<ListRes<ViolationSummaryRow>>(`/api/teaching/content/${contentId}/violations`),
 
   /** Talaba: bitta fan bo'yicha mavzular ro'yxati (ketma-ket qulflash holati bilan) */
   studentTopics: (subject: string) => {

@@ -33,17 +33,27 @@ function eyeAspectRatio(eye: { x: number; y: number }[]): number {
 
 type ProcStatus = "loading" | "ready" | "ok" | "warning" | "violation" | "error"
 
+export type FaceViolationType = "face_mismatch" | "no_face" | "multi_face" | "liveness"
+
+function classifyViolation(reason: string): FaceViolationType {
+  if (reason.includes("ko'rinmadi")) return "no_face"
+  if (reason.includes("Boshqa odam")) return "multi_face"
+  if (reason.includes("Jonlilik")) return "liveness"
+  return "face_mismatch"
+}
+
 interface FaceProcProps {
   children: ReactNode
   onTerminate?: () => void
   onFirstVerified?: () => void   // fires once after first successful identity verification
+  onViolation?: (type: FaceViolationType, detail: string) => void  // server-side proctoring log uchun (ixtiyoriy)
   disabled?: boolean
   fixed?: boolean                // render widget + overlays as position:fixed
   maxViolations?: number         // admin-configurable "Face ID bloklash chegarasi" (lms_settings)
 }
 
 export default function FaceProctor({
-  children, onTerminate, onFirstVerified, disabled = false, fixed = false, maxViolations,
+  children, onTerminate, onFirstVerified, onViolation, disabled = false, fixed = false, maxViolations,
 }: FaceProcProps) {
   const MAX_VIOLATIONS = maxViolations && maxViolations > 0 ? maxViolations : DEFAULT_MAX_VIOLATIONS
   const videoRef            = useRef<HTMLVideoElement>(null)
@@ -173,6 +183,7 @@ export default function FaceProctor({
     const now = new Date()
     const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`
     setViolationHistory(h => [...h, { reason, time: timeStr }])
+    onViolation?.(classifyViolation(reason), reason)
 
     // ref orqali hisoblash — state updater ichida setState chaqirishdan qochish
     violationsRef.current += 1
@@ -195,7 +206,7 @@ export default function FaceProctor({
         setStatusMsg("Tekshiruv davom etmoqda")
       }, 4000)
     }
-  }, [onTerminate, setStatusSynced])
+  }, [onTerminate, onViolation, setStatusSynced])
 
   const runVerify = useCallback(async () => {
     if (isVerifyingRef.current) return
