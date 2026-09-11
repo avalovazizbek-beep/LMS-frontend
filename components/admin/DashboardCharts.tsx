@@ -97,6 +97,7 @@ export function TrendAreaChart({
     <div className="relative w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
         className="w-full touch-none"
         style={{ height }}
         onPointerMove={handleMove}

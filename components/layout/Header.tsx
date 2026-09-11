@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Menu, ChevronDown, LogOut, User as UserIcon, Bell } from "lucide-react"
+import { Menu, ChevronDown, LogOut, User as UserIcon, Bell, ShieldCheck } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { authApi, hemisApi, HemisEmployee, HemisStudent, notificationsApi } from "@/lib/api"
+import { authApi, hemisApi, adminApi, HemisEmployee, HemisStudent, notificationsApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
@@ -15,8 +15,16 @@ export function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [role, setRole] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [unread, setUnread] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
+
+  // Bir odam ham o'qituvchi, ham admin bo'lishi mumkin (admin huquqi
+  // HEMIS rolining ustiga qo'shiladi) — shunday holatda dropdown'da admin
+  // panelga o'tish tugmasi ham chiqishi kerak.
+  useEffect(() => {
+    adminApi.check().then(res => setIsAdmin(res.isAdmin)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -151,6 +159,16 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <UserIcon className="h-4 w-4 text-[var(--lms-muted)]" />
                   Profil
                 </button>
+
+                {/* Admin huquqi bo'lganlar uchun — admin panelga o'tish */}
+                {isAdmin && (
+                  <button onClick={() => { setOpen(false); router.push("/admin/dashboard") }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--lms-primary)] hover:bg-[var(--lms-bg)] transition-colors"
+                    style={{ fontFamily: "var(--font-poppins)" }}>
+                    <ShieldCheck className="h-4 w-4 text-[var(--lms-muted)]" />
+                    Admin panelga o'tish
+                  </button>
+                )}
 
                 {/* Chiqish */}
                 <button onClick={logout}

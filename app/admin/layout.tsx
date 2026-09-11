@@ -20,6 +20,7 @@ import {
   BookCheck,
   RefreshCw,
   Megaphone,
+  ArrowLeftRight,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 
@@ -43,6 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const [checked, setChecked] = useState(false)
   const [adminName, setAdminName] = useState("")
+  const [isAlsoEmployee, setIsAlsoEmployee] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
@@ -53,6 +55,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .then(res => {
         if (!res.isAdmin) { router.replace("/dashboard"); return }
         setAdminName(res.name)
+        // Admin huquqi HEMIS rolining ustiga qo'shiladi — shu odam ayni
+        // paytda o'qituvchi (employee) ham bo'lishi mumkin. Shunday holatda
+        // o'qituvchi paneliga qaytish tugmasi ko'rsatiladi.
+        setIsAlsoEmployee(res.role === "employee")
         setChecked(true)
       })
       .catch(() => router.replace("/dashboard"))
@@ -122,10 +128,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
 
           {/* User footer */}
-          <div className="px-4 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="text-xs font-medium mb-3 truncate" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-poppins)" }}>
+          <div className="px-4 py-4 flex flex-col gap-1" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+            <div className="text-xs font-medium mb-2 truncate" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-poppins)" }}>
               {adminName || "Admin"}
             </div>
+            {isAlsoEmployee && (
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-[6px] w-full hover:bg-white/10 transition-colors"
+                style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-poppins)" }}>
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                O'qituvchi paneliga o'tish
+              </Link>
+            )}
             <button
               onClick={logout}
               className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-[6px] w-full hover:bg-white/10 transition-colors"
