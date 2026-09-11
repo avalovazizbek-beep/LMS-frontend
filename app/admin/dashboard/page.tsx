@@ -10,7 +10,9 @@ import {
 import { adminApi, type AdminStats, type AdminTeacherStat } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { motion, pageVariants, staggerContainer, staggerItem, fadeUp } from "@/components/ui/motion"
-import { CountUp, TrendAreaChart, StackedBreakdownBar, RadialStatCard, type BreakdownSegment, type TrendPoint } from "@/components/admin/DashboardCharts"
+import { CountUp, TrendAreaChart, StackedBreakdownBar, RadialStatCard, SimpleBarChart, type BreakdownSegment, type TrendPoint } from "@/components/admin/DashboardCharts"
+
+const UZ_MONTHS_SHORT = ["Yan", "Fev", "Mar", "Apr", "May", "Iyn", "Iyl", "Avg", "Sen", "Okt", "Noy", "Dek"]
 
 function dayKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -94,14 +96,16 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [teacherStats, setTeacherStats] = useState<AdminTeacherStat[]>([])
   const [loginTrend, setLoginTrend] = useState<Record<string, number>>({})
+  const [monthlyTrend, setMonthlyTrend] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.allSettled([adminApi.stats(), adminApi.teacherStats(), adminApi.loginTrend(7)])
-      .then(([statsRes, teacherRes, trendRes]) => {
+    Promise.allSettled([adminApi.stats(), adminApi.teacherStats(), adminApi.loginTrend(7), adminApi.loginTrendMonthly(6)])
+      .then(([statsRes, teacherRes, trendRes, monthlyRes]) => {
         if (statsRes.status === "fulfilled") setStats(statsRes.value.data)
         if (teacherRes.status === "fulfilled") setTeacherStats(teacherRes.value.data)
         if (trendRes.status === "fulfilled") setLoginTrend(trendRes.value.data)
+        if (monthlyRes.status === "fulfilled") setMonthlyTrend(monthlyRes.value.data)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -117,6 +121,17 @@ export default function AdminDashboard() {
   }, [loginTrend])
 
   const trendTotal = useMemo(() => trendData.reduce((sum, d) => sum + d.value, 0), [trendData])
+
+  const monthlyData: TrendPoint[] = useMemo(() => {
+    const months: { key: string; label: string }[] = []
+    const now = new Date()
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+      months.push({ key, label: UZ_MONTHS_SHORT[d.getMonth()] })
+    }
+    return months.map((m) => ({ label: m.label, value: monthlyTrend[m.key] ?? 0 }))
+  }, [monthlyTrend])
 
   const breakdown: BreakdownSegment[] = useMemo(() => {
     const sum = teacherStats.reduce(
@@ -276,6 +291,22 @@ export default function AdminDashboard() {
               <StackedBreakdownBar segments={breakdown} />
             </motion.div>
           </div>
+
+          {/* Oylik faollik */}
+          <motion.div variants={fadeUp} initial="hidden" animate="visible"
+            className="bg-white rounded-[14px] p-5"
+            style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0px 0px 6px rgba(1,41,112,0.04)" }}>
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="w-4 h-4" style={{ color: "#0e58a8" }} />
+              <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                {t("adminDashboard.sectionMonthlyTitle")}
+              </span>
+            </div>
+            <p className="text-xs mb-4" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {t("adminDashboard.sectionMonthlySubtitle")}
+            </p>
+            <SimpleBarChart data={monthlyData} color="#0e58a8" height={160} />
+          </motion.div>
 
           {/* Comprehension rate */}
           {stats.totalContent > 0 && stats.totalCompletions > 0 && (

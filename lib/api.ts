@@ -2236,6 +2236,9 @@ export const adminApi = {
   /** So'nggi N kunlik kirishlar soni, kun bo'yicha (YYYY-MM-DD -> son) — bazadagi hamma sessiyaga qaraydi */
   loginTrend: (days = 7) => get<{ data: Record<string, number> }>(`/api/admin/login-trend?days=${days}`),
 
+  /** So'nggi N oylik kirishlar soni, oy bo'yicha (YYYY-MM -> son) */
+  loginTrendMonthly: (months = 6) => get<{ data: Record<string, number> }>(`/api/admin/login-trend?unit=month&months=${months}`),
+
   /** HEMIS'dan (so'ragan adminning o'z departmenti bo'yicha) guruhlar + talaba soni */
   hemisStudents: () => get<{
     success: boolean

@@ -284,3 +284,43 @@ export function RadialStatCard({
     </motion.div>
   )
 }
+
+/* ── Oddiy ustunli grafik (vaqt bo'yicha, bitta seriya) ──────────── */
+
+export function SimpleBarChart({
+  data,
+  color = "#0e58a8",
+  height = 160,
+}: {
+  data: TrendPoint[]
+  color?: string
+  height?: number
+}) {
+  if (data.length === 0) return null
+  const max = Math.max(1, ...data.map((d) => d.value))
+  const barW = 28
+
+  return (
+    <div className="flex items-end justify-between gap-2 w-full" style={{ height }}>
+      {data.map((d) => {
+        const barH = Math.max(4, (d.value / max) * (height - 28))
+        return (
+          <div key={d.label} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+            <span className="text-xs font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              {d.value}
+            </span>
+            <motion.div
+              initial={{ height: 0 }}
+              animate={{ height: barH }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              style={{ width: barW, maxWidth: "70%", backgroundColor: color, borderRadius: "4px 4px 0 0" }}
+            />
+            <span className="text-xs truncate" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {d.label}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
