@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { animate } from "framer-motion"
-import { motion } from "@/components/ui/motion"
+import { motion, staggerItem } from "@/components/ui/motion"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 /* ── Animated number ───────────────────────────────────────────── */
@@ -223,5 +223,63 @@ export function StackedBreakdownBar({ segments }: { segments: BreakdownSegment[]
         ))}
       </div>
     </div>
+  )
+}
+
+/* ── Radial stat card (bosh sahifa tepasidagi qisqa xulosa kartasi) ── */
+
+export function RadialStatCard({
+  icon,
+  label,
+  sublabel,
+  percent,
+  color = "#0e58a8",
+}: {
+  icon: React.ReactNode
+  label: string
+  sublabel: string
+  percent: number
+  color?: string
+}) {
+  const clamped = Math.max(0, Math.min(100, percent))
+  const r = 26
+  const circumference = 2 * Math.PI * r
+
+  return (
+    <motion.div
+      variants={staggerItem}
+      whileHover={{ y: -2 }}
+      className="bg-white rounded-[12px] p-4 flex flex-col gap-3"
+      style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0px 0px 6px rgba(1,41,112,0.04)" }}
+    >
+      <div className="flex items-center gap-2">
+        <div className="p-1.5 rounded-[6px]" style={{ backgroundColor: `${color}14` }}>
+          {icon}
+        </div>
+        <span className="text-sm font-semibold truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+          {label}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <svg width={64} height={64} viewBox="0 0 64 64" className="shrink-0">
+          <circle cx={32} cy={32} r={r} fill="none" stroke="#eef2f8" strokeWidth={6} />
+          <motion.circle
+            cx={32} cy={32} r={r} fill="none" stroke={color} strokeWidth={6} strokeLinecap="round"
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: circumference - (clamped / 100) * circumference }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            transform="rotate(-90 32 32)"
+          />
+          <text x={32} y={36} textAnchor="middle" fontSize={15} fontWeight={700} fill="#012970" fontFamily="var(--font-poppins)">
+            {Math.round(clamped)}%
+          </text>
+        </svg>
+        <div className="text-xs leading-5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+          {sublabel}
+        </div>
+      </div>
+    </motion.div>
   )
 }

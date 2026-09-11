@@ -2064,6 +2064,9 @@ export interface AdminStats {
   facePending: number
   totalSubmissions: number
   totalCompletions: number
+  gradedSubmissions: number
+  faceRegistered: number
+  activeStudents30d: number
 }
 
 export interface AdminTeacherStat {

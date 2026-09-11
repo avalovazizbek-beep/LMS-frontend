@@ -5,12 +5,12 @@ import Link from "next/link"
 import {
   Users, BookOpen, Video, CalendarCheck, ShieldAlert,
   ClipboardList, CheckCircle2, TrendingUp, ArrowRight,
-  GraduationCap, ShieldCheck, LogIn, Circle,
+  GraduationCap, ShieldCheck, LogIn, Circle, ScanFace, ClipboardCheck,
 } from "lucide-react"
 import { adminApi, type AdminStats, type AdminTeacherStat } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { motion, pageVariants, staggerContainer, staggerItem, fadeUp } from "@/components/ui/motion"
-import { CountUp, TrendAreaChart, StackedBreakdownBar, useTimeAgo, type BreakdownSegment, type TrendPoint } from "@/components/admin/DashboardCharts"
+import { CountUp, TrendAreaChart, StackedBreakdownBar, RadialStatCard, useTimeAgo, type BreakdownSegment, type TrendPoint } from "@/components/admin/DashboardCharts"
 
 interface SessionRow {
   user_id: number
@@ -157,6 +157,11 @@ export default function AdminDashboard() {
   const contentTotal = breakdown.reduce((s, b) => s + b.value, 0)
   const recentActivity = sessions.slice(0, 6)
 
+  const videoShare = contentTotal > 0 ? ((breakdown.find(b => b.key === "video")?.value ?? 0) / contentTotal) * 100 : 0
+  const gradedShare = stats && stats.totalSubmissions > 0 ? (stats.gradedSubmissions / stats.totalSubmissions) * 100 : 0
+  const faceIdShare = stats && stats.totalStudents > 0 ? (stats.faceRegistered / stats.totalStudents) * 100 : 0
+  const activeStudentShare = stats && stats.totalStudents > 0 ? (stats.activeStudents30d / stats.totalStudents) * 100 : 0
+
   return (
     <motion.div initial="hidden" animate="visible" variants={pageVariants} className="flex flex-col gap-6 p-8">
       <div>
@@ -177,6 +182,58 @@ export default function AdminDashboard() {
         </div>
       ) : stats ? (
         <>
+          {/* Qisqa xulosa qatori — 5 ta karta */}
+          <motion.div variants={staggerContainer} initial="hidden" animate="visible"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <motion.div variants={staggerItem}
+              className="bg-white rounded-[12px] p-4 flex items-start gap-3"
+              style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0px 0px 6px rgba(1,41,112,0.04)" }}>
+              <div className="p-1.5 rounded-[6px] shrink-0" style={{ backgroundColor: "#0e58a814" }}>
+                <TrendingUp className="w-4 h-4" style={{ color: "#0e58a8" }} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  {t("adminDashboard.summary.activityTitle")}
+                </div>
+                <div className="text-2xl font-bold mt-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  <CountUp value={trendTotal} />
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                  {t("adminDashboard.summary.activitySub")}
+                </div>
+              </div>
+            </motion.div>
+
+            <RadialStatCard
+              icon={<Video className="w-4 h-4" style={{ color: "#2a78d6" }} />}
+              label={t("adminDashboard.summary.contentTitle")}
+              sublabel={t("adminDashboard.summary.contentSub")}
+              percent={videoShare}
+              color="#2a78d6"
+            />
+            <RadialStatCard
+              icon={<ClipboardCheck className="w-4 h-4" style={{ color: "#1baf7a" }} />}
+              label={t("adminDashboard.summary.controlTitle")}
+              sublabel={t("adminDashboard.summary.controlSub")}
+              percent={gradedShare}
+              color="#1baf7a"
+            />
+            <RadialStatCard
+              icon={<ScanFace className="w-4 h-4" style={{ color: "#8b5cf6" }} />}
+              label={t("adminDashboard.summary.faceIdTitle")}
+              sublabel={t("adminDashboard.summary.faceIdSub")}
+              percent={faceIdShare}
+              color="#8b5cf6"
+            />
+            <RadialStatCard
+              icon={<Users className="w-4 h-4" style={{ color: "#eda100" }} />}
+              label={t("adminDashboard.summary.studentsTitle")}
+              sublabel={t("adminDashboard.summary.studentsSub")}
+              percent={activeStudentShare}
+              color="#eda100"
+            />
+          </motion.div>
+
           {/* Hero KPI row */}
           <motion.div variants={staggerContainer} initial="hidden" animate="visible"
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

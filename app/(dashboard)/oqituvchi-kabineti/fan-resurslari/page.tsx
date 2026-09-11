@@ -15,6 +15,7 @@ import {
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
+import RichTextEditor from "@/components/ui/RichTextEditor"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -37,103 +38,102 @@ interface Selection {
   topicTitle: string
 }
 
-/* ── UploadSection ──────────────────────────────────────────────────── */
-function UploadSection({
-  icon, title, description, item, accept, noFile, uploading, progress, disabled, disabledMessage,
-  onUpload, onCreate, onDelete, onReplace, extra,
+/* ── FileDropZone — fayl yuklash/almashtirish/o'chirish (drag & drop) ── */
+function FileDropZone({
+  item, accept, uploading, progress, onUpload, onReplace, onDelete,
 }: {
-  icon: React.ReactNode
-  title: string
-  description: string
   item?: TeacherContent
   accept: string
-  noFile?: boolean
   uploading: boolean
   progress?: number | null
-  disabled?: boolean
-  disabledMessage?: string
   onUpload: (file: File) => void
-  onCreate?: () => void
-  onDelete: () => void
   onReplace?: (file: File) => void
-  extra?: React.ReactNode
+  onDelete: () => void
 }) {
   const { t } = useLanguage()
   const replaceRef = useRef<HTMLInputElement>(null)
-  return (
-    <div className="rounded-[10px] p-4 flex flex-col gap-2"
-      style={{ border: item ? "1px solid rgba(34,197,94,0.25)" : "1px solid rgba(1,41,112,0.1)", opacity: disabled ? 0.55 : 1, backgroundColor: item ? "rgba(240,253,244,0.4)" : "white" }}>
-      <div className="flex items-center gap-2">
-        <div className="p-1.5 rounded-[6px]" style={{ backgroundColor: item ? "rgba(34,197,94,0.1)" : "#eef4ff" }}>
-          {icon}
-        </div>
-        <span className="text-sm font-semibold" style={titleStyle}>{title}</span>
-        {item && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
-      </div>
-      <p className="text-xs" style={labelStyle}>{description}</p>
+  const [dragOver, setDragOver] = useState(false)
 
-      {disabled ? (
-        <p className="text-xs px-3 py-2 rounded-[6px]"
-          style={{ backgroundColor: "#fff7ed", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-          {disabledMessage}
-        </p>
-      ) : item ? (
-        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#f6f9ff" }}>
+  function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files?.[0]
+    if (f) onUpload(f)
+  }
+
+  if (item) {
+    return (
+      <div className="flex items-center justify-between gap-2 px-4 py-3 rounded-[8px]"
+        style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="flex items-center gap-2 min-w-0">
+          <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: "#22c55e" }} />
           <span className="text-sm truncate min-w-0" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             {item.file?.originalName ?? item.title}
           </span>
-          <div className="flex items-center gap-1 shrink-0">
-            {item.file && (
-              <a href={teachingApi.fileUrl(item.file.url)} target="_blank" rel="noreferrer"
-                className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.openFile")}>
-                <ExternalLink className="w-4 h-4" style={{ color: "#0e58a8" }} />
-              </a>
-            )}
-            {onReplace && !noFile && (
-              <>
-                <input ref={replaceRef} type="file" accept={accept} className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) { onReplace(f); replaceRef.current!.value = "" } }} />
-                <button onClick={() => replaceRef.current?.click()}
-                  className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.replace")}>
-                  <Pencil className="w-4 h-4" style={{ color: "#d97706" }} />
-                </button>
-              </>
-            )}
-            <button onClick={onDelete} className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.delete")}>
-              <Trash2 className="w-4 h-4" style={{ color: "#dc2626" }} />
-            </button>
-          </div>
         </div>
-      ) : noFile ? (
-        <button onClick={onCreate} disabled={uploading}
-          className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-[6px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
-          style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-          {uploading ? t("fanResurslariOq.upload.creating") : t("fanResurslariOq.upload.createTest")}
-        </button>
-      ) : uploading ? (
-        <div className="flex flex-col gap-1.5 w-full max-w-[260px]">
-          <div className="flex items-center gap-2 text-sm font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            {t("fanResurslariOq.upload.uploading")} {progress != null ? `${progress}%` : ""}
-          </div>
-          <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: "#eef4ff" }}>
-            <div className="h-full rounded-full transition-all"
-              style={{ width: `${progress ?? 0}%`, backgroundColor: "#0e58a8" }} />
-          </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {item.file && (
+            <a href={teachingApi.fileUrl(item.file.url)} target="_blank" rel="noreferrer"
+              className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.openFile")}>
+              <ExternalLink className="w-4 h-4" style={{ color: "#0e58a8" }} />
+            </a>
+          )}
+          {onReplace && (
+            <>
+              <input ref={replaceRef} type="file" accept={accept} className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) { onReplace(f); replaceRef.current!.value = "" } }} />
+              <button onClick={() => replaceRef.current?.click()}
+                className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.replace")}>
+                <Pencil className="w-4 h-4" style={{ color: "#d97706" }} />
+              </button>
+            </>
+          )}
+          <button onClick={onDelete} className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.delete")}>
+            <Trash2 className="w-4 h-4" style={{ color: "#dc2626" }} />
+          </button>
         </div>
-      ) : (
-        <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-[6px] text-sm font-medium cursor-pointer w-fit transition-colors hover:bg-[#f6f9ff]"
-          style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-          <Upload className="w-4 h-4" />
-          {t("fanResurslariOq.upload.uploadFile")}
-          <input type="file" accept={accept} className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f) }} />
-        </label>
-      )}
+      </div>
+    )
+  }
 
-      {extra}
-    </div>
+  return (
+    <label
+      onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
+      className="flex flex-col items-center justify-center gap-2 py-9 rounded-[10px] cursor-pointer transition-colors"
+      style={{
+        border: `2px dashed ${dragOver ? "#0e58a8" : "rgba(1,41,112,0.22)"}`,
+        backgroundColor: dragOver ? "#f0f5ff" : "#f8fafc",
+      }}>
+      {uploading ? (
+        <>
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#0e58a8" }} />
+          <span className="text-sm font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            {t("fanResurslariOq.upload.uploading")} {progress != null ? `${progress}%` : ""}
+          </span>
+          {progress != null && (
+            <div className="h-1.5 w-40 rounded-full overflow-hidden" style={{ backgroundColor: "#eef4ff" }}>
+              <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: "#0e58a8" }} />
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "#eef4ff" }}>
+            <Upload className="w-5 h-5" style={{ color: "#0e58a8" }} />
+          </div>
+          <span className="text-sm font-semibold" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            {t("fanResurslariOq.upload.uploadFile")}
+          </span>
+          <span className="text-xs" style={{ color: "#a9bcd6", fontFamily: "var(--font-poppins)" }}>
+            {t("fanResurslariOq.form.dropHint")}
+          </span>
+        </>
+      )}
+      <input type="file" accept={accept} className="hidden" disabled={uploading}
+        onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f) }} />
+    </label>
   )
 }
 
@@ -534,6 +534,17 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
   )
 }
 
+/* ── Resurs tablari ───────────────────────────────────────────────────── */
+const RESOURCE_TABS = [
+  { kind: "video_lesson", contentType: "mavzu" as const, icon: Video, labelKey: "fanResurslariOq.video.title", descKey: "fanResurslariOq.video.description", accept: "video/*" },
+  { kind: "audio", contentType: "mavzu" as const, icon: Music, labelKey: "fanResurslariOq.audio.title", descKey: "fanResurslariOq.audio.description", accept: "audio/*" },
+  { kind: "theory", contentType: "mavzu" as const, icon: BookOpen, labelKey: "fanResurslariOq.presentation.title", descKey: "fanResurslariOq.presentation.description", accept: ".pdf,.ppt,.pptx" },
+  { kind: "qollanma", contentType: "mavzu" as const, icon: Library, labelKey: "fanResurslariOq.guide.title", descKey: "fanResurslariOq.guide.description", accept: ".pdf,.doc,.docx,.zip,.rar" },
+  { kind: "exam", contentType: "exam" as const, icon: HelpCircle, labelKey: "fanResurslariOq.test.title", descKey: "fanResurslariOq.test.description", accept: "" },
+  { kind: "assignment", contentType: "assignment" as const, icon: ClipboardList, labelKey: "fanResurslariOq.assignment.title", descKey: "fanResurslariOq.assignment.description", accept: ".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar" },
+] as const
+type TabKind = typeof RESOURCE_TABS[number]["kind"]
+
 /* ── Resurslar panel ─────────────────────────────────────────────────── */
 function ResourcesPanel({ sel }: { sel: Selection }) {
   const { t } = useLanguage()
@@ -543,6 +554,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
   )
   const items = data?.data ?? []
 
+  const [activeTab, setActiveTab] = useState<TabKind>("video_lesson")
   const [uploadingKind, setUploadingKind] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [opErr, setOpErr] = useState<string | null>(null)
@@ -551,7 +563,10 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsErr, setSettingsErr] = useState<string | null>(null)
   const [settingsOk, setSettingsOk] = useState(false)
-
+  const [titleDraft, setTitleDraft] = useState(sel.topicTitle)
+  const [descDraft, setDescDraft] = useState("")
+  const [metaSaving, setMetaSaving] = useState(false)
+  const [metaSaved, setMetaSaved] = useState(false)
 
   const video      = items.find(i => i.type === "mavzu" && i.kind === "video_lesson")
   const audio      = items.find(i => i.type === "mavzu" && i.kind === "audio")
@@ -560,6 +575,37 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
   const test       = items.find(i => i.type === "exam")
   const assignment = items.find(i => i.type === "assignment")
   const meeting    = items.find(i => i.type === "mavzu" && i.kind === "meeting")
+
+  const itemByTab: Record<TabKind, TeacherContent | undefined> = {
+    video_lesson: video, audio, theory, qollanma, exam: test, assignment,
+  }
+  const activeMeta = RESOURCE_TABS.find(tb => tb.kind === activeTab)!
+  const activeItem = itemByTab[activeTab]
+  const ActiveIcon = activeMeta.icon
+
+  // Har bir tab o'zining nomlanishi/tavsifini eslab qoladi — item mavjud
+  // bo'lsa saqlangan qiymatdan, aks holda mavzu nomidan boshlanadi.
+  useEffect(() => {
+    setTitleDraft(activeItem?.title ?? sel.topicTitle)
+    setDescDraft(activeItem?.description ?? "")
+    setMetaSaved(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activeItem?.id, sel.topicTitle])
+
+  async function saveMeta() {
+    if (!activeItem) return
+    setMetaSaving(true)
+    setMetaSaved(false)
+    try {
+      await teachingApi.updateContent(activeItem.id, { title: titleDraft, description: descDraft })
+      await refetch()
+      setMetaSaved(true)
+    } catch (err) {
+      setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.saveError"))
+    } finally {
+      setMetaSaving(false)
+    }
+  }
 
   // Unified settings state — only test has saveable settings
   const [settings, setSettings] = useState({
@@ -611,7 +657,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
     try {
       await teachingApi.createContent({
         type, groupId: sel.groupId, subjectName: sel.subjectName,
-        topicKey: sel.topicKey, title: sel.topicTitle, kind,
+        topicKey: sel.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
         availableFrom: now(), docFile: file,
         onUploadProgress: file ? setUploadProgress : undefined,
       })
@@ -645,7 +691,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       // tugasa, o'qituvchi eski faylini butunlay yo'qotib qo'yardi.
       await teachingApi.createContent({
         type, groupId: sel.groupId, subjectName: sel.subjectName,
-        topicKey: sel.topicKey, title: sel.topicTitle, kind,
+        topicKey: sel.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
         availableFrom: item.availableFrom ?? new Date().toISOString(),
         docFile: file,
         onUploadProgress: setUploadProgress,
@@ -663,6 +709,9 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
   if (loading) return <Loading />
   if (error) return <ApiError message={error} onRetry={refetch} />
 
+  const examDisabled = !!assignment && !test
+  const assignmentDisabled = !!test && !assignment
+
   return (
     <div className="flex flex-col gap-4">
       {opErr && (
@@ -671,156 +720,191 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
           {opErr}
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-      {/* Video */}
-      <UploadSection
-        icon={<Video className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title={t("fanResurslariOq.video.title")}
-        description={t("fanResurslariOq.video.description")}
-        item={video} accept="video/*"
-        uploading={uploadingKind === "video_lesson"}
-        progress={uploadingKind === "video_lesson" ? uploadProgress : null}
-        onUpload={f => upload("video_lesson", "mavzu", f)}
-        onDelete={() => remove(video)}
-        onReplace={video ? f => replace(video, "video_lesson", "mavzu", f) : undefined}
-      />
+      {/* Tab bar */}
+      <div className="flex items-center gap-1 p-1 rounded-[10px] flex-wrap" style={{ backgroundColor: "#eef4ff" }}>
+        {RESOURCE_TABS.map(tab => {
+          const Icon = tab.icon
+          const isActive = tab.kind === activeTab
+          const hasItem = !!itemByTab[tab.kind]
+          return (
+            <button key={tab.kind} onClick={() => setActiveTab(tab.kind)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: isActive ? "#0e58a8" : "transparent",
+                color: isActive ? "#fff" : "#445b7a",
+                fontFamily: "var(--font-poppins)",
+              }}>
+              <Icon className="w-4 h-4" />
+              {t(tab.labelKey)}
+              {hasItem && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: isActive ? "#fff" : "#22c55e" }} />}
+            </button>
+          )
+        })}
+      </div>
 
-      {/* Audio */}
-      <UploadSection
-        icon={<Music className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title={t("fanResurslariOq.audio.title")}
-        description={t("fanResurslariOq.audio.description")}
-        item={audio} accept="audio/*"
-        uploading={uploadingKind === "audio"}
-        progress={uploadingKind === "audio" ? uploadProgress : null}
-        onUpload={f => upload("audio", "mavzu", f)}
-        onDelete={() => remove(audio)}
-        onReplace={audio ? f => replace(audio, "audio", "mavzu", f) : undefined}
-      />
+      {/* Active panel */}
+      <div className="rounded-[12px] bg-white p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="p-1.5 rounded-[6px]" style={{ backgroundColor: "#eef4ff" }}>
+            <ActiveIcon className="w-4 h-4" style={{ color: "#0e58a8" }} />
+          </div>
+          <span className="text-sm font-semibold" style={titleStyle}>{t(activeMeta.labelKey)}</span>
+        </div>
+        <p className="text-xs mb-4" style={labelStyle}>{t(activeMeta.descKey)}</p>
 
-      {/* Taqdimot */}
-      <UploadSection
-        icon={<BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title={t("fanResurslariOq.presentation.title")}
-        description={t("fanResurslariOq.presentation.description")}
-        item={theory} accept=".pdf,.ppt,.pptx"
-        uploading={uploadingKind === "theory"}
-        progress={uploadingKind === "theory" ? uploadProgress : null}
-        onUpload={f => upload("theory", "mavzu", f)}
-        onDelete={() => remove(theory)}
-        onReplace={theory ? f => replace(theory, "theory", "mavzu", f) : undefined}
-      />
-
-      {/* Qo'llanma */}
-      <UploadSection
-        icon={<Library className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title={t("fanResurslariOq.guide.title")}
-        description={t("fanResurslariOq.guide.description")}
-        item={qollanma} accept=".pdf,.doc,.docx,.zip,.rar"
-        uploading={uploadingKind === "qollanma"}
-        progress={uploadingKind === "qollanma" ? uploadProgress : null}
-        onUpload={f => upload("qollanma", "mavzu", f)}
-        onDelete={() => remove(qollanma)}
-        onReplace={qollanma ? f => replace(qollanma, "qollanma", "mavzu", f) : undefined}
-      />
-
-      </div>{/* end grid 2-col */}
-
-      {/* Test — full width (settings, buttons ko'p) */}
-      <UploadSection
-        icon={<HelpCircle className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title={t("fanResurslariOq.test.title")}
-        description={t("fanResurslariOq.test.description")}
-        item={test} accept="" noFile
-        uploading={uploadingKind === "test"}
-        disabled={!!assignment && !test}
-        disabledMessage={t("fanResurslariOq.test.disabledMessage")}
-        onUpload={() => {}}
-        onCreate={() => upload("test", "exam", null)}
-        onDelete={() => remove(test)}
-        extra={test && (
-          <div className="flex flex-col gap-3 pt-1 mt-1" style={{ borderTop: "1px solid rgba(1,41,112,0.06)" }}>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={() => setShowQuestions(true)}
-                className="px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
-                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                {t("fanResurslariOq.test.editQuestions")}
-              </button>
-              <button onClick={() => setShowTestResults(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
-                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                <BarChart3 className="w-4 h-4" />
-                {t("fanResurslariOq.test.resultsBtn")}
-              </button>
-            </div>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.maxScoreLabel")}</label>
-                <input type="number" min={0} max={1000} value={settings.testMaxScore}
-                  onChange={e => setSt("testMaxScore", Math.max(0, Number(e.target.value) || 0))}
-                  className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
-                  style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.durationLabel")}</label>
-                <input type="number" min={0} max={300} value={settings.testDuration}
-                  onChange={e => setSt("testDuration", Math.max(0, Number(e.target.value) || 0))}
-                  className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
-                  style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.attemptsLabel")}</label>
-                <input type="number" min={0} max={10} value={settings.testAttempts}
-                  onChange={e => setSt("testAttempts", Math.max(0, Number(e.target.value) || 0))}
-                  className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
-                  style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium" style={labelStyle}>
-                  {t("fanResurslariOq.test.questionCountLabel", {
-                    extra: test?.questionCount ? t("fanResurslariOq.test.questionCountExtra", { n: test.questionCount }) : "",
-                  })}
-                </label>
-                <input type="number" min={0} max={test?.questionCount || 9999} value={settings.testDisplayCount}
-                  onChange={e => setSt("testDisplayCount", Math.max(0, Number(e.target.value) || 0))}
-                  className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
-                  style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-              </div>
-            </div>
-            <p className="text-xs" style={labelStyle}>
-              {t("fanResurslariOq.test.summaryMaxScore", { n: settings.testMaxScore > 0 ? settings.testMaxScore : 100 })} ·{" "}
-              {settings.testDuration > 0 ? t("fanResurslariOq.test.durationMinutes", { n: settings.testDuration }) : t("fanResurslariOq.test.unlimitedTime")} ·{" "}
-              {settings.testAttempts > 0 ? t("fanResurslariOq.test.attemptsTimes", { n: settings.testAttempts }) : t("fanResurslariOq.test.unlimitedAttempts")} ·{" "}
-              {settings.testDisplayCount > 0
-                ? t("fanResurslariOq.test.questionsShown", { n: settings.testDisplayCount })
-                : t("fanResurslariOq.test.allQuestions", { n: test?.questionCount ?? 0 })}
+        {activeTab === "exam" ? (
+          examDisabled ? (
+            <p className="text-xs px-3 py-2 rounded-[6px]"
+              style={{ backgroundColor: "#fff7ed", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+              {t("fanResurslariOq.test.disabledMessage")}
             </p>
-            {showQuestions && (
-              <QuestionsModal content={test} onClose={() => setShowQuestions(false)} onSaved={refetch} />
+          ) : !test ? (
+            <button onClick={() => upload("test", "exam", null)} disabled={uploadingKind === "test"}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
+              style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              {uploadingKind === "test" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {uploadingKind === "test" ? t("fanResurslariOq.upload.creating") : t("fanResurslariOq.upload.createTest")}
+            </button>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={() => setShowQuestions(true)}
+                  className="px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
+                  style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {t("fanResurslariOq.test.editQuestions")}
+                </button>
+                <button onClick={() => setShowTestResults(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
+                  style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  <BarChart3 className="w-4 h-4" />
+                  {t("fanResurslariOq.test.resultsBtn")}
+                </button>
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.maxScoreLabel")}</label>
+                  <input type="number" min={0} max={1000} value={settings.testMaxScore}
+                    onChange={e => setSt("testMaxScore", Math.max(0, Number(e.target.value) || 0))}
+                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.durationLabel")}</label>
+                  <input type="number" min={0} max={300} value={settings.testDuration}
+                    onChange={e => setSt("testDuration", Math.max(0, Number(e.target.value) || 0))}
+                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.attemptsLabel")}</label>
+                  <input type="number" min={0} max={10} value={settings.testAttempts}
+                    onChange={e => setSt("testAttempts", Math.max(0, Number(e.target.value) || 0))}
+                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium" style={labelStyle}>
+                    {t("fanResurslariOq.test.questionCountLabel", {
+                      extra: test?.questionCount ? t("fanResurslariOq.test.questionCountExtra", { n: test.questionCount }) : "",
+                    })}
+                  </label>
+                  <input type="number" min={0} max={test?.questionCount || 9999} value={settings.testDisplayCount}
+                    onChange={e => setSt("testDisplayCount", Math.max(0, Number(e.target.value) || 0))}
+                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                </div>
+              </div>
+              <p className="text-xs" style={labelStyle}>
+                {t("fanResurslariOq.test.summaryMaxScore", { n: settings.testMaxScore > 0 ? settings.testMaxScore : 100 })} ·{" "}
+                {settings.testDuration > 0 ? t("fanResurslariOq.test.durationMinutes", { n: settings.testDuration }) : t("fanResurslariOq.test.unlimitedTime")} ·{" "}
+                {settings.testAttempts > 0 ? t("fanResurslariOq.test.attemptsTimes", { n: settings.testAttempts }) : t("fanResurslariOq.test.unlimitedAttempts")} ·{" "}
+                {settings.testDisplayCount > 0
+                  ? t("fanResurslariOq.test.questionsShown", { n: settings.testDisplayCount })
+                  : t("fanResurslariOq.test.allQuestions", { n: test?.questionCount ?? 0 })}
+              </p>
+              <div className="flex items-center gap-3 flex-wrap px-4 py-3 rounded-[10px]"
+                style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.12)" }}>
+                <button onClick={saveAllSettings} disabled={savingSettings}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {savingSettings ? t("fanResurslariOq.saveBar.saving") : t("fanResurslariOq.saveBar.save")}
+                </button>
+                {settingsOk && !savingSettings && (
+                  <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                    <CheckCircle2 className="w-4 h-4" /> {t("fanResurslariOq.saveBar.saved")}
+                  </span>
+                )}
+                {settingsErr && (
+                  <span className="text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{settingsErr}</span>
+                )}
+                <span className="text-xs ml-auto" style={labelStyle}>
+                  {t("fanResurslariOq.saveBar.hint")}
+                </span>
+              </div>
+              {showQuestions && (
+                <QuestionsModal content={test} onClose={() => setShowQuestions(false)} onSaved={refetch} />
+              )}
+              {showTestResults && (
+                <TestResultsModal test={test} onClose={() => setShowTestResults(false)} />
+              )}
+            </div>
+          )
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.titleLabel")}</label>
+              <input value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
+                className="px-3 py-2 rounded-[8px] text-sm outline-none"
+                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.descriptionLabel")}</label>
+              <RichTextEditor value={descDraft} onChange={setDescDraft} placeholder={t("fanResurslariOq.form.descriptionPlaceholder")} />
+            </div>
+
+            {activeItem && (
+              <div className="flex items-center gap-3">
+                <button onClick={saveMeta} disabled={metaSaving}
+                  className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {metaSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {t("fanResurslariOq.form.saveMeta")}
+                </button>
+                {metaSaved && !metaSaving && (
+                  <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                    <CheckCircle2 className="w-4 h-4" /> {t("fanResurslariOq.form.metaSaved")}
+                  </span>
+                )}
+              </div>
             )}
-            {showTestResults && (
-              <TestResultsModal test={test} onClose={() => setShowTestResults(false)} />
-            )}
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.fileLabel")}</label>
+              {activeTab === "assignment" && assignmentDisabled ? (
+                <p className="text-xs px-3 py-2 rounded-[6px]"
+                  style={{ backgroundColor: "#fff7ed", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                  {t("fanResurslariOq.assignment.disabledMessage")}
+                </p>
+              ) : (
+                <FileDropZone
+                  item={activeItem}
+                  accept={activeMeta.accept}
+                  uploading={uploadingKind === activeTab}
+                  progress={uploadingKind === activeTab ? uploadProgress : null}
+                  onUpload={f => upload(activeTab, activeMeta.contentType, f)}
+                  onReplace={activeItem ? f => replace(activeItem, activeTab, activeMeta.contentType, f) : undefined}
+                  onDelete={() => remove(activeItem)}
+                />
+              )}
+            </div>
           </div>
         )}
-      />
+      </div>
 
-      {/* Topshiriq — full width */}
-      <UploadSection
-        icon={<ClipboardList className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-        title={t("fanResurslariOq.assignment.title")}
-        description={t("fanResurslariOq.assignment.description")}
-        item={assignment} accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar"
-        uploading={uploadingKind === "assignment"}
-        progress={uploadingKind === "assignment" ? uploadProgress : null}
-        disabled={!!test && !assignment}
-        disabledMessage={t("fanResurslariOq.assignment.disabledMessage")}
-        onUpload={f => upload("assignment", "assignment", f)}
-        onDelete={() => remove(assignment)}
-      />
-
-      {/* Meeting — full width */}
+      {/* Meeting */}
       <MeetingSection
         meetingItem={meeting}
         groupId={sel.groupId}
@@ -832,30 +916,6 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
 
       {/* Yozuvlar */}
       <TeacherRecordingsSection subjectName={sel.subjectName} topicTitle={sel.topicTitle} />
-
-      {/* Save bar — only shown when test is uploaded */}
-      {test && (
-        <div className="flex items-center gap-3 flex-wrap px-4 py-3 rounded-[10px]"
-          style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.12)" }}>
-          <button onClick={saveAllSettings} disabled={savingSettings}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold text-white disabled:opacity-60"
-            style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {savingSettings ? t("fanResurslariOq.saveBar.saving") : t("fanResurslariOq.saveBar.save")}
-          </button>
-          {settingsOk && !savingSettings && (
-            <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-              <CheckCircle2 className="w-4 h-4" /> {t("fanResurslariOq.saveBar.saved")}
-            </span>
-          )}
-          {settingsErr && (
-            <span className="text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{settingsErr}</span>
-          )}
-          <span className="text-xs ml-auto" style={labelStyle}>
-            {t("fanResurslariOq.saveBar.hint")}
-          </span>
-        </div>
-      )}
     </div>
   )
 }
