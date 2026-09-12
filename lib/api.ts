@@ -1171,6 +1171,9 @@ export interface TeacherContent {
   lessonDate: string | null        // Dars sanasi (kalendar reja)
   delivered: boolean               // O'tildi
   isActive: boolean                // Faol
+  isReopened: boolean              // Mavzu qayta ochilganmi (deadline/urinish chegarasini vaqtincha bypass qiladi)
+  reopenedBy: string | null
+  reopenedAt: string | null
   status: ContentStatus
   questionCount: number
   createdAt: string
@@ -1402,6 +1405,11 @@ export const teachingApi = {
     const q = new URLSearchParams(buildParams(params)).toString()
     return get<ListRes<TeacherContent>>(`/api/teaching/content/by-topic?${q}`)
   },
+
+  /** O'qituvchi: mavzuni qayta ochish (faqat mavzu deadline'i o'tmagan bo'lsa) */
+  reopenTopic: (topicKey: string) => post<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}/reopen`, {}),
+  /** O'qituvchi: mavzuni qayta yopish */
+  closeTopic: (topicKey: string) => post<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}/close`, {}),
 
   createContent: (input: {
     type: TeachingContentType
@@ -2283,6 +2291,19 @@ export interface AuditLogRow {
   createdAt: string
 }
 
+export interface AdminTopicRow {
+  topicKey: string
+  title: string
+  deadline: string | null
+  deadlinePassed: boolean
+  isReopened: boolean
+  reopenedBy: string | null
+  hasTest: boolean
+  testId: number | null
+  hasAssignment: boolean
+  assignmentId: number | null
+}
+
 export const adminApi = {
   check: () => get<{ isAdmin: boolean; name: string; role: string; hemisRoles: string[]; lmsRole: string }>("/api/admin/check"),
 
@@ -2371,6 +2392,14 @@ export const adminApi = {
 
   teacherInfo: (teacherId: number | string) =>
     get<{ data: { groups: { id: number; name: string }[]; subjects: string[] } }>(`/api/admin/teacher-info?teacherId=${teacherId}`),
+
+  /** Bitta o'qituvchi+fan+guruh bo'yicha mavzular ro'yxati — deadline, qayta ochish holati */
+  teacherTopicsList: (params: { teacherId: number | string; subject: string; groupId: number | string }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<{ data: AdminTopicRow[] }>(`/api/admin/teacher-topics-list?${q}`)
+  },
+  reopenTopic: (topicKey: string) => post<MsgRes>(`/api/admin/topics/${encodeURIComponent(topicKey)}/reopen`, {}),
+  closeTopic: (topicKey: string) => post<MsgRes>(`/api/admin/topics/${encodeURIComponent(topicKey)}/close`, {}),
 
   platformAttendance: (params: { groupId: number; subject?: string; from?: string; to?: string }) => {
     const q = new URLSearchParams(buildParams(params)).toString()

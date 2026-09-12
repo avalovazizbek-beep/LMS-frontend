@@ -2,265 +2,217 @@
 
 import { useMemo, useState } from "react"
 import {
-  RefreshCw, Search, ArrowLeft, Users2, CheckCircle2, XCircle,
-  AlertCircle, Loader2, Undo2,
+  RefreshCw, Search, Clock, CheckCircle2, AlertCircle, Lock,
+  FileText, HelpCircle, ShieldAlert,
 } from "lucide-react"
-import { adminApi, type AdminExamListItem, type TeachingSubmission } from "@/lib/api"
+import { adminApi, type AdminTeacherStat, type AdminTopicRow } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
-import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
+const sel = "w-full px-3 py-2.5 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none bg-white"
 
-function fmtDate(iso: string) {
+function fmtDeadline(iso: string | null) {
+  if (!iso) return "Muddat belgilanmagan"
   const d = new Date(iso)
-  if (isNaN(d.getTime())) return iso
-  return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
+  if (isNaN(d.getTime())) return "—"
+  return d.toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
 }
 
-function controlTypeLabel(controlType: string | null, t: (k: string) => string) {
-  if (controlType === "oraliq") return t("adminRetake.typeOraliq")
-  if (controlType === "yakuniy") return t("adminRetake.typeYakuniy")
-  return t("adminRetake.typeRegular")
-}
-
-/* ── Imtihonlar ro'yxati ── */
-function ExamList({ onSelect }: { onSelect: (exam: AdminExamListItem) => void }) {
-  const { t } = useLanguage()
-  const { data, loading, error, refetch } = useApi(() => adminApi.examsList(), [])
-  const exams = data?.data ?? []
+export default function AdminQaytaUrinish() {
+  const [teacherId, setTeacherId] = useState<number | "">("")
+  const [subjectName, setSubjectName] = useState("")
+  const [groupId, setGroupId] = useState<number | "">("")
+  const [toggling, setToggling] = useState<string | null>(null)
+  const [toggleErr, setToggleErr] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+
+  const { data: teachersRes, loading: lTeachers, error: eTeachers } = useApi(() => adminApi.teacherStats(), [])
+  const teachers: AdminTeacherStat[] = teachersRes?.data ?? []
+
+  const { data: infoRes } = useApi(
+    () => teacherId !== "" ? adminApi.teacherInfo(teacherId) : Promise.resolve(null),
+    [teacherId]
+  )
+  const subjects = infoRes?.data?.subjects ?? []
+  const groups = infoRes?.data?.groups ?? []
+
+  function handleTeacherChange(val: string) {
+    setTeacherId(val === "" ? "" : Number(val))
+    setSubjectName("")
+    setGroupId("")
+  }
+
+  const ready = teacherId !== "" && subjectName !== "" && groupId !== ""
+
+  const { data: topicsRes, loading: lTopics, error: eTopics, refetch: refetchTopics } = useApi(
+    () => ready ? adminApi.teacherTopicsList({ teacherId, subject: subjectName, groupId }) : Promise.resolve(null),
+    [teacherId, subjectName, groupId, ready]
+  )
+  const topics: AdminTopicRow[] = topicsRes?.data ?? []
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return exams
-    return exams.filter(e =>
-      e.title.toLowerCase().includes(q) ||
-      e.subjectName.toLowerCase().includes(q) ||
-      e.teacherName.toLowerCase().includes(q) ||
-      e.groupName.toLowerCase().includes(q)
-    )
-  }, [exams, search])
+    if (!q) return topics
+    return topics.filter(t => t.title.toLowerCase().includes(q))
+  }, [topics, search])
 
-  if (loading) return <Loading />
-  if (error) return <ApiError message={error} onRetry={refetch} />
+  async function toggleTopic(topic: AdminTopicRow) {
+    setToggling(topic.topicKey)
+    setToggleErr(null)
+    try {
+      if (topic.isReopened) await adminApi.closeTopic(topic.topicKey)
+      else await adminApi.reopenTopic(topic.topicKey)
+      await refetchTopics()
+    } catch (e) {
+      setToggleErr(e instanceof Error ? e.message : "Xatolik yuz berdi")
+    } finally {
+      setToggling(null)
+    }
+  }
+
+  if (lTeachers) return <Loading />
+  if (eTeachers) return <ApiError message={eTeachers} onRetry={() => window.location.reload()} />
 
   return (
     <div className="flex flex-col gap-5 p-[30px]">
       <div>
-        <h1 className="text-[28px] font-medium" style={T}>{t("adminRetake.pageTitle")}</h1>
-        <p className="text-sm mt-1" style={L}>{t("adminRetake.pageSubtitle")}</p>
+        <h1 className="text-[28px] font-medium" style={T}>Qayta topshirish</h1>
+        <p className="text-sm mt-1" style={L}>
+          Mavzu deadline'i o'tgandan keyin talabalar test/topshiriqni qayta topshira olishi uchun ruxsat bering
+        </p>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#b0c2d8" }} />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder={t("adminRetake.searchPlaceholder")}
-          className="w-full pl-9 pr-3 py-2.5 rounded-[8px] text-sm outline-none"
-          style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}
-        />
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="rounded-[10px] bg-white p-16 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <RefreshCw className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-semibold" style={T}>{t("adminRetake.emptyExams")}</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {filtered.map(exam => (
-            <button key={exam.id} onClick={() => onSelect(exam)}
-              className="text-left rounded-[10px] bg-white p-4 flex items-center justify-between gap-4 flex-wrap transition-colors hover:bg-[#f6f9ff]"
-              style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
-              <div className="min-w-0">
-                <div className="text-sm font-semibold truncate" style={T}>{exam.title}</div>
-                <div className="text-xs mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5" style={L}>
-                  <span>{exam.subjectName}</span>
-                  <span>{exam.groupName}</span>
-                  <span>{exam.teacherName}</span>
-                  {exam.deadline && <span>{fmtDate(exam.deadline)}</span>}
-                </div>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                    style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                    {controlTypeLabel(exam.controlType, t)}
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1"
-                    style={{ backgroundColor: "#f6f9ff", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    <Users2 className="w-2.5 h-2.5" />
-                    {exam.submissionCount}
-                  </span>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ── Tanlangan imtihon: natijalar + ruxsat berish ── */
-function ExamDetail({ exam, onBack }: { exam: AdminExamListItem; onBack: () => void }) {
-  const { t } = useLanguage()
-  const { data, loading, error, refetch } = useApi(() => adminApi.contentSubmissions(exam.id), [exam.id])
-  const submissions = useMemo(() => data?.data ?? [], [data])
-
-  const [showAll, setShowAll] = useState(false)
-  const [selected, setSelected] = useState<Set<number>>(new Set())
-  const [granting, setGranting] = useState(false)
-  const [revokingId, setRevokingId] = useState<number | null>(null)
-  const [opError, setOpError] = useState<string | null>(null)
-
-  const visible = showAll ? submissions : submissions.filter(s => !s.passed)
-
-  function toggleSelect(studentUserId: number) {
-    setSelected(prev => {
-      const next = new Set(prev)
-      if (next.has(studentUserId)) next.delete(studentUserId)
-      else next.add(studentUserId)
-      return next
-    })
-  }
-
-  async function handleGrant() {
-    if (!selected.size) return
-    setGranting(true)
-    setOpError(null)
-    try {
-      await adminApi.grantRetake(exam.id, Array.from(selected))
-      setSelected(new Set())
-      await refetch()
-    } catch (err) {
-      setOpError(err instanceof Error ? err.message : t("adminRetake.grantError"))
-    } finally {
-      setGranting(false)
-    }
-  }
-
-  async function handleRevoke(studentUserId: number) {
-    setRevokingId(studentUserId)
-    setOpError(null)
-    try {
-      await adminApi.revokeRetake(exam.id, studentUserId)
-      await refetch()
-    } catch (err) {
-      setOpError(err instanceof Error ? err.message : t("adminRetake.revokeError"))
-    } finally {
-      setRevokingId(null)
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-5 p-[30px]">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack}
-          className="flex items-center justify-center w-9 h-9 rounded-[8px] transition-colors hover:bg-[#f0f5ff] shrink-0"
-          style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
-          <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        </button>
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-medium truncate" style={T}>{exam.title}</h1>
-          <p className="text-sm mt-0.5" style={L}>
-            {exam.subjectName} · {exam.groupName} · {controlTypeLabel(exam.controlType, t)}
-          </p>
+      {/* Filters */}
+      <div className="rounded-[10px] bg-white p-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col gap-1 min-w-[220px] flex-1">
+            <label className="text-xs font-medium" style={L}>O'qituvchi</label>
+            <select value={teacherId} onChange={e => handleTeacherChange(e.target.value)}
+              className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              <option value="">Tanlang...</option>
+              {teachers.map(tc => <option key={tc.hemisId} value={tc.hemisId}>{tc.fullName}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 min-w-[200px] flex-1">
+            <label className="text-xs font-medium" style={L}>Fan</label>
+            <select value={subjectName} onChange={e => { setSubjectName(e.target.value); setGroupId("") }}
+              disabled={teacherId === ""}
+              className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)", opacity: teacherId === "" ? 0.5 : 1 }}>
+              <option value="">Tanlang...</option>
+              {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 min-w-[200px] flex-1">
+            <label className="text-xs font-medium" style={L}>Guruh</label>
+            <select value={groupId} onChange={e => setGroupId(e.target.value === "" ? "" : Number(e.target.value))}
+              disabled={subjectName === ""}
+              className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)", opacity: subjectName === "" ? 0.5 : 1 }}>
+              <option value="">Tanlang...</option>
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
-      {opError && (
+      {toggleErr && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-[8px] text-sm"
           style={{ backgroundColor: "#fef2f2", color: "#b91c1c", border: "1px solid #fca5a5", fontFamily: "var(--font-poppins)" }}>
           <AlertCircle className="w-4 h-4 shrink-0" />
-          {opError}
+          {toggleErr}
         </div>
       )}
 
-      {loading ? (
-        <Loading />
-      ) : error ? (
-        <ApiError message={error} onRetry={refetch} />
+      {!ready ? (
+        <div className="rounded-[10px] bg-white p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+          <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
+          <p className="text-sm font-medium" style={T}>O'qituvchi, fan va guruhni tanlang</p>
+        </div>
+      ) : lTopics ? (
+        <div className="rounded-[10px] bg-white p-8 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+          <div className="w-7 h-7 border-2 border-[#0e58a8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm" style={L}>Yuklanmoqda…</p>
+        </div>
+      ) : eTopics ? (
+        <ApiError message={eTopics} onRetry={refetchTopics} />
+      ) : topics.length === 0 ? (
+        <div className="rounded-[10px] bg-white p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+          <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
+          <p className="text-sm font-medium" style={T}>Bu kombinatsiyada mavzu topilmadi</p>
+        </div>
       ) : (
-        <div className="rounded-[10px] bg-white overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <div className="flex items-center justify-between gap-3 px-5 py-4 flex-wrap"
-            style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-            <button onClick={() => setShowAll(v => !v)}
-              className="text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors hover:bg-[#f6f9ff]"
-              style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              {showAll ? t("adminRetake.onlyFailedToggle") : t("adminRetake.showAllToggle")}
-            </button>
-            <button onClick={handleGrant} disabled={!selected.size || granting}
-              className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm font-semibold text-white disabled:opacity-50 transition-colors"
-              style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              {granting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              {selected.size
-                ? t("adminRetake.selectedCount", { n: selected.size })
-                : t("adminRetake.grantBtn")}
-            </button>
+        <>
+          <div className="relative max-w-md">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#b0c2d8" }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Mavzu nomi bo'yicha qidirish"
+              className="w-full pl-9 pr-3 py-2.5 rounded-[8px] text-sm outline-none"
+              style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+            />
           </div>
 
-          {visible.length === 0 ? (
-            <div className="p-14 text-center">
-              <CheckCircle2 className="w-9 h-9 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-              <p className="text-sm font-semibold" style={T}>{t("adminRetake.noFailedStudents")}</p>
-            </div>
-          ) : (
-            <div className="flex flex-col">
-              {visible.map((sub: TeachingSubmission & { passed: boolean }) => (
-                <div key={sub.id} className="flex items-center gap-3 px-5 py-3.5 flex-wrap"
-                  style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(sub.studentUserId)}
-                    onChange={() => toggleSelect(sub.studentUserId)}
-                    disabled={sub.passed}
-                    className="w-4 h-4 shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate" style={T}>
-                      {sub.studentFullName}
-                      {sub.retakeGranted && (
-                        <span className="ml-2 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium align-middle"
-                          style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                          <RefreshCw className="w-2.5 h-2.5" />
-                          {t("adminRetake.grantedBadge")}
+          <div className="flex flex-col gap-3">
+            {filtered.map(topic => {
+              const isBusy = toggling === topic.topicKey
+              return (
+                <div key={topic.topicKey} className="rounded-[10px] bg-white p-4 flex items-center justify-between gap-4 flex-wrap"
+                  style={{
+                    border: `1px solid ${topic.isReopened ? "rgba(21,128,61,0.25)" : "rgba(1,41,112,0.1)"}`,
+                    boxShadow: "0px 0px 5px rgba(1,41,112,0.05)",
+                  }}>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold" style={T}>{topic.title}</div>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap text-xs" style={L}>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        {fmtDeadline(topic.deadline)}
+                        {topic.deadlinePassed && <span style={{ color: "#b91c1c" }}> · o'tgan</span>}
+                      </span>
+                      {topic.hasTest && (
+                        <span className="flex items-center gap-1"><HelpCircle className="w-3.5 h-3.5" /> Test bor</span>
+                      )}
+                      {topic.hasAssignment && (
+                        <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> Topshiriq bor</span>
+                      )}
+                      {!topic.hasTest && !topic.hasAssignment && (
+                        <span className="flex items-center gap-1" style={{ color: "#94a3b8" }}>
+                          <ShieldAlert className="w-3.5 h-3.5" /> Test/topshiriq yo'q
                         </span>
                       )}
                     </div>
-                    <div className="text-xs mt-0.5" style={L}>
-                      {fmtDate(sub.submittedAt)} · {t("adminRetake.scoreLabel", { n: sub.grade ?? 0 })}
-                    </div>
+                    {topic.isReopened && (
+                      <div className="flex items-center gap-1.5 mt-1.5 text-xs font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Qayta ochilgan{topic.reopenedBy ? ` — ${topic.reopenedBy}` : ""}
+                      </div>
+                    )}
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 shrink-0"
-                    style={sub.passed
-                      ? { backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }
-                      : { backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                    {sub.passed ? <CheckCircle2 className="w-2.5 h-2.5" /> : <XCircle className="w-2.5 h-2.5" />}
-                    {sub.passed ? t("adminRetake.statusPassed") : t("adminRetake.statusFailed")}
-                  </span>
-                  {sub.retakeGranted && (
-                    <button onClick={() => handleRevoke(sub.studentUserId)} disabled={revokingId === sub.studentUserId}
-                      className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-[6px] shrink-0 transition-colors hover:bg-red-50 disabled:opacity-60"
-                      style={{ color: "#dc2626", fontFamily: "var(--font-poppins)" }}>
-                      {revokingId === sub.studentUserId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Undo2 className="w-3.5 h-3.5" />}
-                      {t("adminRetake.revokeBtn")}
+
+                  {!topic.hasTest && !topic.hasAssignment ? (
+                    <span className="shrink-0 text-xs px-3 py-2 rounded-[6px]" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
+                      Faollashtirib bo'lmaydi
+                    </span>
+                  ) : (
+                    <button onClick={() => toggleTopic(topic)} disabled={isBusy}
+                      className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-semibold disabled:opacity-60 transition-colors"
+                      style={{
+                        backgroundColor: topic.isReopened ? "#fff0f0" : "#0e58a8",
+                        color: topic.isReopened ? "#b91c1c" : "#fff",
+                        fontFamily: "var(--font-poppins)",
+                      }}>
+                      {isBusy ? <RefreshCw className="w-4 h-4 animate-spin" /> : topic.isReopened ? <Lock className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                      {topic.isReopened ? "Yopish" : "Faollikni yoqish"}
                     </button>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )
-}
-
-export default function AdminRetakePage() {
-  const [exam, setExam] = useState<AdminExamListItem | null>(null)
-  return exam
-    ? <ExamDetail exam={exam} onBack={() => setExam(null)} />
-    : <ExamList onSelect={setExam} />
 }

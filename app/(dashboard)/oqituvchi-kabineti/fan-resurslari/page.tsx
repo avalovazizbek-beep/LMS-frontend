@@ -5,7 +5,7 @@ import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
   BookMarked, CalendarDays, VideoIcon, Save, BarChart3,
-  Check, X, RefreshCw, Users, ChevronLeft, Pencil, Plus,
+  Check, X, RefreshCw, Users, ChevronLeft, Pencil, Plus, Clock,
 } from "lucide-react"
 import {
   teachingApi, meetingsApi,
@@ -587,6 +587,26 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
   const test       = items.find(i => i.type === "exam")
   const assignment = items.find(i => i.type === "assignment")
   const meeting    = items.find(i => i.type === "mavzu" && i.kind === "meeting")
+  const topicMarker = items.find(i => i.type === "mavzu" && i.kind === "topic")
+  const topicDeadline = topicMarker?.deadline ?? null
+  const deadlinePassed = topicDeadline !== null && new Date(topicDeadline).getTime() < Date.now()
+  const [reopenLoading, setReopenLoading] = useState(false)
+  const [reopenErr, setReopenErr] = useState<string | null>(null)
+
+  async function toggleReopen() {
+    if (!topicMarker) return
+    setReopenLoading(true)
+    setReopenErr(null)
+    try {
+      if (topicMarker.isReopened) await teachingApi.closeTopic(sel.topicKey)
+      else await teachingApi.reopenTopic(sel.topicKey)
+      await refetch()
+    } catch (e) {
+      setReopenErr(e instanceof Error ? e.message : "Xatolik yuz berdi")
+    } finally {
+      setReopenLoading(false)
+    }
+  }
 
   const itemByTab: Record<TabKind, TeacherContent | undefined> = {
     video_lesson: video, audio, theory, qollanma, exam: test, assignment, meeting,
@@ -670,7 +690,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       await teachingApi.createContent({
         type, groupId: sel.groupId, subjectName: sel.subjectName,
         topicKey: sel.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
-        availableFrom: now(), docFile: file,
+        availableFrom: now(), deadline: topicDeadline, docFile: file,
         onUploadProgress: file ? setUploadProgress : undefined,
       })
       await refetch()
@@ -730,6 +750,41 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
         <div className="text-sm px-3 py-2 rounded-[6px]"
           style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
           {opErr}
+        </div>
+      )}
+
+      {/* Mavzu muddati + qayta ochish */}
+      {topicMarker && (
+        <div className="flex items-center gap-3 flex-wrap px-4 py-3 rounded-[10px]"
+          style={{ backgroundColor: topicMarker.isReopened ? "#f0fdf4" : deadlinePassed ? "#fff7ed" : "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
+          <Clock className="w-4 h-4 shrink-0" style={{ color: "#0e58a8" }} />
+          <span className="text-xs font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+            {topicDeadline
+              ? `Muddat: ${new Date(topicDeadline).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}${deadlinePassed ? " — o'tgan" : ""}`
+              : "Muddat belgilanmagan (cheksiz ochiq)"}
+          </span>
+          {topicMarker.isReopened && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#dcfce7", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+              Qayta ochilgan{topicMarker.reopenedBy ? ` — ${topicMarker.reopenedBy}` : ""}
+            </span>
+          )}
+          {reopenErr && <span className="text-xs" style={{ color: "#b91c1c" }}>{reopenErr}</span>}
+          {!deadlinePassed && (test || assignment) && (
+            <button onClick={toggleReopen} disabled={reopenLoading}
+              className="ml-auto text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors disabled:opacity-60"
+              style={{
+                backgroundColor: topicMarker.isReopened ? "#fff0f0" : "#eef4ff",
+                color: topicMarker.isReopened ? "#b91c1c" : "#0e58a8",
+                fontFamily: "var(--font-poppins)",
+              }}>
+              {reopenLoading ? "…" : topicMarker.isReopened ? "Yopish" : "Qayta topshirishga ruxsat berish"}
+            </button>
+          )}
+          {deadlinePassed && !topicMarker.isReopened && (
+            <span className="ml-auto text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+              Muddat o'tgan — endi faqat admin qayta ochishi mumkin
+            </span>
+          )}
         </div>
       )}
 
@@ -806,23 +861,23 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
               <div className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.maxScoreLabel")}</label>
-                  <input type="number" min={0} max={1000} value={settings.testMaxScore}
+                  <input type="number" min={0} max={1000} value={settings.testMaxScore} disabled={deadlinePassed}
                     onChange={e => setSt("testMaxScore", Math.max(0, Number(e.target.value) || 0))}
-                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.durationLabel")}</label>
-                  <input type="number" min={0} max={300} value={settings.testDuration}
+                  <input type="number" min={0} max={300} value={settings.testDuration} disabled={deadlinePassed}
                     onChange={e => setSt("testDuration", Math.max(0, Number(e.target.value) || 0))}
-                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.attemptsLabel")}</label>
-                  <input type="number" min={0} max={10} value={settings.testAttempts}
+                  <input type="number" min={0} max={10} value={settings.testAttempts} disabled={deadlinePassed}
                     onChange={e => setSt("testAttempts", Math.max(0, Number(e.target.value) || 0))}
-                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -831,9 +886,9 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
                       extra: test?.questionCount ? t("fanResurslariOq.test.questionCountExtra", { n: test.questionCount }) : "",
                     })}
                   </label>
-                  <input type="number" min={0} max={test?.questionCount || 9999} value={settings.testDisplayCount}
+                  <input type="number" min={0} max={test?.questionCount || 9999} value={settings.testDisplayCount} disabled={deadlinePassed}
                     onChange={e => setSt("testDisplayCount", Math.max(0, Number(e.target.value) || 0))}
-                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
                 </div>
               </div>
@@ -847,7 +902,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
               </p>
               <div className="flex items-center gap-3 flex-wrap px-4 py-3 rounded-[10px]"
                 style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.12)" }}>
-                <button onClick={saveAllSettings} disabled={savingSettings}
+                <button onClick={saveAllSettings} disabled={savingSettings || deadlinePassed}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold text-white disabled:opacity-60"
                   style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                   {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -862,7 +917,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
                   <span className="text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{settingsErr}</span>
                 )}
                 <span className="text-xs ml-auto" style={labelStyle}>
-                  {t("fanResurslariOq.saveBar.hint")}
+                  {deadlinePassed ? "Mavzu muddati tugagan — parametrlar muzlatilgan" : t("fanResurslariOq.saveBar.hint")}
                 </span>
               </div>
               {showQuestions && (
@@ -1040,18 +1095,29 @@ export default function FanResurslariPage() {
   )
   const allItems = contentRes?.data ?? []
 
-  interface SidebarTopic { key: string; title: string; markerId: number | null }
+  interface SidebarTopic {
+    key: string
+    title: string
+    markerId: number | null
+    deadline: string | null
+    isReopened: boolean
+  }
 
   const topics = useMemo<SidebarTopic[]>(() => {
     const map = new Map<string, SidebarTopic>()
     allItems.forEach(item => {
       if (!item.topicKey) return
       if (!map.has(item.topicKey)) {
-        const markerId = (item.type === "mavzu" && item.kind === "topic") ? item.id : null
-        map.set(item.topicKey, { key: item.topicKey, title: item.title, markerId })
+        const isMarker = item.type === "mavzu" && item.kind === "topic"
+        map.set(item.topicKey, {
+          key: item.topicKey, title: item.title,
+          markerId: isMarker ? item.id : null,
+          deadline: isMarker ? item.deadline : null,
+          isReopened: isMarker ? item.isReopened : false,
+        })
       } else if (item.type === "mavzu" && item.kind === "topic") {
         const existing = map.get(item.topicKey)!
-        map.set(item.topicKey, { ...existing, markerId: item.id, title: item.title })
+        map.set(item.topicKey, { ...existing, markerId: item.id, title: item.title, deadline: item.deadline, isReopened: item.isReopened })
       }
     })
     return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
@@ -1059,9 +1125,11 @@ export default function FanResurslariPage() {
 
   const [addingTopic, setAddingTopic] = useState(false)
   const [newTopicTitle, setNewTopicTitle] = useState("")
+  const [newTopicDeadline, setNewTopicDeadline] = useState("")
   const [addTopicLoading, setAddTopicLoading] = useState(false)
   const [editTopicKey, setEditTopicKey] = useState<string | null>(null)
   const [editTopicTitle, setEditTopicTitle] = useState("")
+  const [editTopicDeadline, setEditTopicDeadline] = useState("")
   const [editTopicLoading, setEditTopicLoading] = useState(false)
   const [deleteTopicKey, setDeleteTopicKey] = useState<string | null>(null)
   const [deleteTopicLoading, setDeleteTopicLoading] = useState(false)
@@ -1081,8 +1149,10 @@ export default function FanResurslariPage() {
         topicKey: newKey,
         title: newTopicTitle.trim(),
         availableFrom: new Date().toISOString(),
+        deadline: newTopicDeadline ? new Date(newTopicDeadline).toISOString() : null,
       })
       setNewTopicTitle("")
+      setNewTopicDeadline("")
       setAddingTopic(false)
       await refetchTopics()
       setTopicKey(newKey)
@@ -1096,6 +1166,7 @@ export default function FanResurslariPage() {
   function startEditTopic(tp: SidebarTopic) {
     setEditTopicKey(tp.key)
     setEditTopicTitle(tp.title)
+    setEditTopicDeadline(tp.deadline ? tp.deadline.slice(0, 16) : "")
     setTopicOpError(null)
   }
 
@@ -1104,7 +1175,10 @@ export default function FanResurslariPage() {
     setEditTopicLoading(true)
     setTopicOpError(null)
     try {
-      await teachingApi.updateContent(tp.markerId, { title: editTopicTitle.trim() })
+      await teachingApi.updateContent(tp.markerId, {
+        title: editTopicTitle.trim(),
+        deadline: editTopicDeadline ? new Date(editTopicDeadline).toISOString() : null,
+      })
       setEditTopicKey(null)
       await refetchTopics()
     } catch (err) {
@@ -1334,6 +1408,16 @@ export default function FanResurslariPage() {
                   className="px-3 py-2 rounded-[5px] text-sm outline-none"
                   style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
                 />
+                <div className="flex flex-col gap-1">
+                  <label className="text-[11px] font-medium" style={labelStyle}>Muddat (deadline)</label>
+                  <input
+                    type="datetime-local"
+                    value={newTopicDeadline}
+                    onChange={e => setNewTopicDeadline(e.target.value)}
+                    className="px-3 py-2 rounded-[5px] text-sm outline-none"
+                    style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+                  />
+                </div>
                 <div className="flex items-center gap-2">
                   <button onClick={handleAddTopic} disabled={addTopicLoading}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium text-white disabled:opacity-60"
@@ -1341,7 +1425,7 @@ export default function FanResurslariPage() {
                     {addTopicLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                     {t("mavzularOq.add")}
                   </button>
-                  <button onClick={() => { setAddingTopic(false); setNewTopicTitle("") }}
+                  <button onClick={() => { setAddingTopic(false); setNewTopicTitle(""); setNewTopicDeadline("") }}
                     className="px-3 py-1.5 rounded-[6px] text-xs font-medium"
                     style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                     {t("mavzularOq.cancel")}
@@ -1368,23 +1452,41 @@ export default function FanResurslariPage() {
 
                 if (editTopicKey === tp.key) {
                   return (
-                    <div key={tp.key} className="px-4 py-3 flex items-center gap-2">
-                      <input
-                        value={editTopicTitle}
-                        onChange={e => setEditTopicTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") saveEditTopic(tp); if (e.key === "Escape") setEditTopicKey(null) }}
-                        autoFocus
-                        className="flex-1 px-2 py-1.5 rounded-[5px] text-sm outline-none"
-                        style={{ border: "1px solid rgba(1,41,112,0.35)", color: "#012970", fontFamily: "var(--font-poppins)" }}
-                      />
-                      <button onClick={() => saveEditTopic(tp)} disabled={editTopicLoading}
-                        className="flex items-center justify-center w-7 h-7 rounded-[6px] transition-colors hover:bg-green-50 disabled:opacity-60">
-                        {editTopicLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#16a34a" }} /> : <Check className="w-4 h-4" style={{ color: "#16a34a" }} />}
-                      </button>
-                      <button onClick={() => setEditTopicKey(null)}
-                        className="flex items-center justify-center w-7 h-7 rounded-[6px] transition-colors hover:bg-red-50">
-                        <X className="w-4 h-4" style={{ color: "#dc2626" }} />
-                      </button>
+                    <div key={tp.key} className="px-4 py-3 flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={editTopicTitle}
+                          onChange={e => setEditTopicTitle(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Escape") setEditTopicKey(null) }}
+                          autoFocus
+                          className="flex-1 px-2 py-1.5 rounded-[5px] text-sm outline-none"
+                          style={{ border: "1px solid rgba(1,41,112,0.35)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+                        />
+                        <button onClick={() => saveEditTopic(tp)} disabled={editTopicLoading}
+                          className="flex items-center justify-center w-7 h-7 rounded-[6px] transition-colors hover:bg-green-50 disabled:opacity-60">
+                          {editTopicLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#16a34a" }} /> : <Check className="w-4 h-4" style={{ color: "#16a34a" }} />}
+                        </button>
+                        <button onClick={() => setEditTopicKey(null)}
+                          className="flex items-center justify-center w-7 h-7 rounded-[6px] transition-colors hover:bg-red-50">
+                          <X className="w-4 h-4" style={{ color: "#dc2626" }} />
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] font-medium" style={labelStyle}>Muddat (deadline)</label>
+                        <input
+                          type="datetime-local"
+                          value={editTopicDeadline}
+                          onChange={e => setEditTopicDeadline(e.target.value)}
+                          disabled={tp.deadline !== null && new Date(tp.deadline).getTime() < Date.now()}
+                          className="px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
+                          style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+                        />
+                        {tp.deadline !== null && new Date(tp.deadline).getTime() < Date.now() && (
+                          <span className="text-[10px]" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                            Muddat o'tgan — endi o'zgartirib bo'lmaydi
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )
                 }
