@@ -163,6 +163,16 @@ function MeetingSection({
   const [err, setErr] = useState<string | null>(null)
   const [uploadingRec, setUploadingRec] = useState(false)
 
+  // Parallel dars — bir nechta guruhga birdan (masalan potok/oqim darsi) o'tkazish uchun
+  // joriy guruhdan tashqari o'qituvchining boshqa guruhlarini ham tanlash mumkin
+  const { data: allGroupsRes } = useApi(() => teachingApi.groups(), [])
+  const otherGroups = (allGroupsRes?.data ?? []).filter(g => g.id !== groupId)
+  const [extraGroupIds, setExtraGroupIds] = useState<number[]>([])
+
+  function toggleExtraGroup(id: number) {
+    setExtraGroupIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
   async function handleCreate() {
     setLoading(true)
     setErr(null)
@@ -174,7 +184,7 @@ function MeetingSection({
         subjectName,
         startTime,
         endTime,
-        groupIds: [groupId],
+        groupIds: [groupId, ...extraGroupIds],
       }
       const meetRes = await meetingsApi.create(meetReq)
       const meetId = meetRes.data.id
@@ -191,6 +201,7 @@ function MeetingSection({
         meetingLink: meetLink || meetId,
       })
       setCreating(false)
+      setExtraGroupIds([])
       onRefetch()
     } catch (e) {
       setErr(e instanceof Error ? e.message : t("fanResurslariOq.meeting.createError"))
@@ -316,6 +327,31 @@ function MeetingSection({
                 style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
             </div>
           </div>
+          {otherGroups.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={labelStyle}>
+                Parallel guruhlar (ixtiyoriy) — shu darsni birga o'tkazish
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {otherGroups.map(g => {
+                  const checked = extraGroupIds.includes(g.id)
+                  return (
+                    <button key={g.id} type="button" onClick={() => toggleExtraGroup(g.id)}
+                      className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
+                      style={{
+                        border: `1px solid ${checked ? "#0e58a8" : "rgba(1,41,112,0.2)"}`,
+                        backgroundColor: checked ? "#0e58a8" : "transparent",
+                        color: checked ? "#fff" : "#445b7a",
+                        fontFamily: "var(--font-poppins)",
+                      }}>
+                      {checked && <Check className="w-3 h-3" />}
+                      {g.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <button onClick={handleCreate} disabled={loading}
               className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-sm font-medium text-white disabled:opacity-60"
@@ -323,7 +359,7 @@ function MeetingSection({
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarDays className="w-4 h-4" />}
               {loading ? t("fanResurslariOq.meeting.creating") : t("fanResurslariOq.meeting.create")}
             </button>
-            <button onClick={() => { setCreating(false); setErr(null) }}
+            <button onClick={() => { setCreating(false); setErr(null); setExtraGroupIds([]) }}
               className="px-3 py-2 rounded-[6px] text-sm"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
               {t("fanResurslariOq.meeting.cancel")}
