@@ -139,7 +139,7 @@ function FileDropZone({
 
 /* ── Meeting section ────────────────────────────────────────────────── */
 function MeetingSection({
-  meetingItem, groupId, subjectName, topicKey, topicTitle, onRefetch,
+  meetingItem, groupId, subjectName, topicKey, topicTitle, onRefetch, bare = false,
 }: {
   meetingItem?: TeacherContent
   groupId: number
@@ -147,6 +147,9 @@ function MeetingSection({
   topicKey: string
   topicTitle: string
   onRefetch: () => void
+  /** Tab panel ichiga joylanganda — tashqi ramka/sarlavha bosilmaydi, chunki
+      panelning o'zi allaqachon ikonka+sarlavha+tavsifni ko'rsatgan bo'ladi. */
+  bare?: boolean
 }) {
   const { t } = useLanguage()
   const [creating, setCreating] = useState(false)
@@ -222,15 +225,16 @@ function MeetingSection({
     }
   }
 
-  return (
-    <div className="rounded-[10px] p-4 flex flex-col gap-3"
-      style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-      <div className="flex items-center gap-2">
-        <VideoIcon className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        <span className="text-sm font-semibold" style={titleStyle}>{t("fanResurslariOq.meeting.title")}</span>
-        {meetingItem && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
-      </div>
-      <p className="text-xs" style={labelStyle}>{t("fanResurslariOq.meeting.description")}</p>
+  const content = (
+    <>
+      {!bare && (
+        <div className="flex items-center gap-2">
+          <VideoIcon className="w-4 h-4" style={{ color: "#0e58a8" }} />
+          <span className="text-sm font-semibold" style={titleStyle}>{t("fanResurslariOq.meeting.title")}</span>
+          {meetingItem && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
+        </div>
+      )}
+      {!bare && <p className="text-xs" style={labelStyle}>{t("fanResurslariOq.meeting.description")}</p>}
 
       {err && (
         <p className="text-xs px-3 py-2 rounded-[6px]"
@@ -334,6 +338,13 @@ function MeetingSection({
           {t("fanResurslariOq.meeting.create")}
         </button>
       )}
+    </>
+  )
+
+  return (
+    <div className={bare ? "flex flex-col gap-3" : "rounded-[10px] p-4 flex flex-col gap-3"}
+      style={bare ? undefined : { border: "1px solid rgba(1,41,112,0.1)" }}>
+      {content}
     </div>
   )
 }
@@ -542,6 +553,7 @@ const RESOURCE_TABS = [
   { kind: "qollanma", contentType: "mavzu" as const, icon: Library, labelKey: "fanResurslariOq.guide.title", descKey: "fanResurslariOq.guide.description", accept: ".pdf,.doc,.docx,.zip,.rar" },
   { kind: "exam", contentType: "exam" as const, icon: HelpCircle, labelKey: "fanResurslariOq.test.title", descKey: "fanResurslariOq.test.description", accept: "" },
   { kind: "assignment", contentType: "assignment" as const, icon: ClipboardList, labelKey: "fanResurslariOq.assignment.title", descKey: "fanResurslariOq.assignment.description", accept: ".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar" },
+  { kind: "meeting", contentType: "mavzu" as const, icon: VideoIcon, labelKey: "fanResurslariOq.meeting.title", descKey: "fanResurslariOq.meeting.description", accept: "" },
 ] as const
 type TabKind = typeof RESOURCE_TABS[number]["kind"]
 
@@ -577,7 +589,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
   const meeting    = items.find(i => i.type === "mavzu" && i.kind === "meeting")
 
   const itemByTab: Record<TabKind, TeacherContent | undefined> = {
-    video_lesson: video, audio, theory, qollanma, exam: test, assignment,
+    video_lesson: video, audio, theory, qollanma, exam: test, assignment, meeting,
   }
   const activeMeta = RESOURCE_TABS.find(tb => tb.kind === activeTab)!
   const activeItem = itemByTab[activeTab]
@@ -753,7 +765,17 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
         </div>
         <p className="text-xs mb-4" style={labelStyle}>{t(activeMeta.descKey)}</p>
 
-        {activeTab === "exam" ? (
+        {activeTab === "meeting" ? (
+          <MeetingSection
+            bare
+            meetingItem={meeting}
+            groupId={sel.groupId}
+            subjectName={sel.subjectName}
+            topicKey={sel.topicKey}
+            topicTitle={sel.topicTitle}
+            onRefetch={refetch}
+          />
+        ) : activeTab === "exam" ? (
           examDisabled ? (
             <p className="text-xs px-3 py-2 rounded-[6px]"
               style={{ backgroundColor: "#fff7ed", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
@@ -903,16 +925,6 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
           </div>
         )}
       </div>
-
-      {/* Meeting */}
-      <MeetingSection
-        meetingItem={meeting}
-        groupId={sel.groupId}
-        subjectName={sel.subjectName}
-        topicKey={sel.topicKey}
-        topicTitle={sel.topicTitle}
-        onRefetch={refetch}
-      />
 
       {/* Yozuvlar */}
       <TeacherRecordingsSection subjectName={sel.subjectName} topicTitle={sel.topicTitle} />
