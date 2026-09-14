@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { GraduationCap, RefreshCw } from "lucide-react"
-import { hemisApi, adminApi } from "@/lib/api"
+import { hemisApi, adminApi, faceApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 type HemisRole = "student" | "employee" | "tutor" | "auto"
@@ -71,6 +71,25 @@ function OAuthCallbackContent() {
   useEffect(() => {
     let cancelled = false
 
+    // Admin bo'lsa /admin, talaba bo'lib Face ID hali ro'yxatdan
+    // o'tmagan bo'lsa /face-setup, aks holda /dashboard. Parol bilan
+    // kirishdagi mantiq bilan bir xil — bu tekshiruv avval shu OAuth
+    // yo'lida umuman yo'q edi, shuning uchun OAuth orqali kirgan
+    // talabalar Face ID'ni hech qachon so'ralmasdan o'tib ketayotgan edi.
+    async function redirectAfterLogin(role: string) {
+      try {
+        const adminCheck = await adminApi.check()
+        if (adminCheck.isAdmin) { router.replace("/admin"); return }
+      } catch { /* not admin */ }
+      if (role === "student") {
+        try {
+          const faceStatus = await faceApi.status()
+          if (!faceStatus.registered) { router.replace("/face-setup"); return }
+        } catch { /* Face ID tekshirishda xato bo'lsa dashboardga o'taveramiz */ }
+      }
+      router.replace("/dashboard")
+    }
+
     async function finishLogin() {
       const directToken = searchParams.get("token")
       const directRole = (searchParams.get("role") || "employee") as HemisRole
@@ -90,11 +109,7 @@ function OAuthCallbackContent() {
         sessionStorage.removeItem("hemis_oauth_state")
         sessionStorage.removeItem("hemis_oauth_role")
         sessionStorage.removeItem("hemis_oauth_redirect_uri")
-        try {
-          const adminCheck = await adminApi.check()
-          if (adminCheck.isAdmin) { router.replace("/admin"); return }
-        } catch { /* not admin */ }
-        router.replace("/dashboard")
+        await redirectAfterLogin(directRole)
         return
       }
 
@@ -129,12 +144,7 @@ function OAuthCallbackContent() {
         sessionStorage.removeItem("hemis_oauth_state")
         sessionStorage.removeItem("hemis_oauth_role")
         sessionStorage.removeItem("hemis_oauth_redirect_uri")
-        // Check if this user has admin access
-        try {
-          const adminCheck = await adminApi.check()
-          if (adminCheck.isAdmin) { router.replace("/admin"); return }
-        } catch { /* not admin, continue to dashboard */ }
-        router.replace("/dashboard")
+        await redirectAfterLogin(res.role || role)
       } catch (err: unknown) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "HEMIS OAuth orqali kirishda xatolik")
