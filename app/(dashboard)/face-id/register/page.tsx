@@ -33,16 +33,24 @@ const CVS_H         = 480
 // ko'rsatma amaldagi harakatga teskari chiqsa, faqat shu YAW_SIGN ni -1 ga
 // almashtirish kifoya.
 const YAW_SIGN       = 1
-const YAW_TURN_MIN   = 0.10  // |yaw| shundan katta bo'lsa — "burilgan" deb hisoblanadi
-const YAW_CENTER_MAX = 0.08  // |yaw| shundan kichik bo'lsa — "markazda" deb hisoblanadi
+const YAW_TURN_MIN   = 0.22  // |yaw| shundan katta bo'lsa — "burilgan" deb hisoblanadi
+const YAW_CENTER_MAX = 0.09  // |yaw| shundan kichik bo'lsa — "markazda" deb hisoblanadi
+// 0.09 va 0.22 orasi ataylab "o'lik zona" — bu oraliqda na markaz, na burilish
+// qabul qilinmaydi, shovqin/tasodifiy moslikning oldini olish uchun.
 type PoseStep = "right" | "left" | "center"
 const POSE_SEQUENCE: PoseStep[] = ["right", "left", "center"]
 
 function estimateYaw(landmarks: any): number {
   const jaw = landmarks.positions.slice(0, 17) as { x: number; y: number }[]
   const nose = landmarks.getNose() as { x: number; y: number }[]
-  if (jaw.length < 17 || !nose.length) return 0
-  const noseTip = nose[nose.length - 1]
+  // getNose() 9 ta nuqta qaytaradi: 0-3 — burun ko'prigi (tepadan pastga,
+  // oxirgisi — burun UCHI), 4-8 — burun qanotlari (nostril chizig'i,
+  // assimetrik). Oldin OXIRGI nuqta (qanot chekkasi, assimetrik) ishlatilgan
+  // edi — shu tabiiy nosimmetriklik hisobiga markazga qaraganda ham
+  // "burilgan" deb noto'g'ri hisoblanardi. To'g'ri, taxminan simmetrik
+  // "uch" nuqtasi — ko'prikning oxirgisi (index 3, ya'ni 30-nuqta).
+  if (jaw.length < 17 || nose.length < 4) return 0
+  const noseTip = nose[3]
   const rightEdge = jaw[0].x
   const leftEdge  = jaw[16].x
   const faceWidth = leftEdge - rightEdge
@@ -79,6 +87,7 @@ export default function FaceRegisterPage() {
   const [holdPct,      setHoldPct]      = useState(0)
   const [captured,     setCaptured]     = useState(false)
   const [poseOk,       setPoseOk]       = useState(false)
+  const [yawDebug,     setYawDebug]     = useState(0)
 
   /* ── Suppress face-api.js internal errors ──────────────────────── */
   useEffect(() => {
@@ -299,6 +308,7 @@ export default function FaceRegisterPage() {
     setConfidence(conf)
 
     const yaw = estimateYaw(result.landmarks)
+    setYawDebug(yaw)
     const targetPose = POSE_SEQUENCE[Math.min(curSample, POSE_SEQUENCE.length - 1)]
     const matches = poseMatches(targetPose, yaw)
     setPoseOk(matches)
@@ -570,6 +580,9 @@ export default function FaceRegisterPage() {
                   <PoseIcon className="w-5 h-5" style={{ color: poseOk ? "#22c55e" : "#0e58a8" }} />
                   <span className="text-sm font-semibold" style={{ color: poseOk ? "#22c55e" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                     {t(`faceRegister.pose.${pose}`)}
+                  </span>
+                  <span className="text-xs font-mono ml-2" style={{ color: "#94a3b8" }} title="Debug: hisoblangan yaw qiymati">
+                    yaw: {yawDebug.toFixed(2)}
                   </span>
                 </div>
               )

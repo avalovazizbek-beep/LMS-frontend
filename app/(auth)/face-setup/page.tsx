@@ -38,8 +38,8 @@ const CVS_H         = 480
 // uchun. Tafsilot: app/(dashboard)/face-id/register/page.tsx dagi izohga
 // qarang (bu yerda aynan bir xil mantiq takrorlangan).
 const YAW_SIGN       = 1
-const YAW_TURN_MIN   = 0.10
-const YAW_CENTER_MAX = 0.08
+const YAW_TURN_MIN   = 0.22
+const YAW_CENTER_MAX = 0.09
 type PoseStep = "right" | "left" | "center"
 const POSE_SEQUENCE: PoseStep[] = ["right", "left", "center"]
 const POSE_LABEL: Record<PoseStep, string> = {
@@ -49,8 +49,12 @@ const POSE_LABEL: Record<PoseStep, string> = {
 function estimateYaw(landmarks: any): number {
   const jaw = landmarks.positions.slice(0, 17) as { x: number; y: number }[]
   const nose = landmarks.getNose() as { x: number; y: number }[]
-  if (jaw.length < 17 || !nose.length) return 0
-  const noseTip = nose[nose.length - 1]
+  // getNose()[3] — burun ko'prigining pastki (UCH) nuqtasi, taxminan
+  // simmetrik. Oldin OXIRGI nuqta (burun qanoti chekkasi) ishlatilgan
+  // edi — u tabiiy ravishda assimetrik, shu sabab markazga qaraganda ham
+  // "burilgan" deb noto'g'ri hisoblanardi.
+  if (jaw.length < 17 || nose.length < 4) return 0
+  const noseTip = nose[3]
   const rightEdge = jaw[0].x
   const leftEdge  = jaw[16].x
   const faceWidth = leftEdge - rightEdge
@@ -86,6 +90,7 @@ export default function FaceSetupPage() {
   const [captured,     setCaptured]     = useState(false)
   const [submitError,  setSubmitError]  = useState<string | null>(null)
   const [poseOk,       setPoseOk]       = useState(false)
+  const [yawDebug,     setYawDebug]     = useState(0)
 
   /* ── Suppress face-api.js internal errors ── */
   useEffect(() => {
@@ -244,6 +249,7 @@ export default function FaceSetupPage() {
     setFaceDetected(true); setConfidence(conf)
 
     const yaw = estimateYaw(result.landmarks)
+    setYawDebug(yaw)
     const targetPose = POSE_SEQUENCE[Math.min(curSample, POSE_SEQUENCE.length - 1)]
     const matches = poseMatches(targetPose, yaw)
     setPoseOk(matches)
@@ -441,6 +447,9 @@ export default function FaceSetupPage() {
                       <PoseIcon className="w-5 h-5" style={{ color: poseOk ? "#22c55e" : "#0e58a8" }} />
                       <span className="text-sm font-semibold" style={{ color: poseOk ? "#22c55e" : "#0e58a8" }}>
                         {POSE_LABEL[pose]}
+                      </span>
+                      <span className="text-xs font-mono ml-2" style={{ color: "#94a3b8" }} title="Debug: hisoblangan yaw qiymati">
+                        yaw: {yawDebug.toFixed(2)}
                       </span>
                     </div>
                   )
