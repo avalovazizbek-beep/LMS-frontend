@@ -34,6 +34,27 @@ const nextConfig = {
       },
     ]
   },
+  // Google Search Console (va kelajakda Bing/Yandex kabi) sayt-tasdiqlash
+  // fayllari domen ILDIZIDA (masalan https://lms.sies.uz/google....html)
+  // bo'lishi SHART — basePath'dan (/lms-samisi) mustaqil. Fayl o'zi
+  // public/ ichida joylashadi (u yerda basePath bilan xizmat qiladi);
+  // bu qoida esa basePath'siz ildiz so'rovini o'sha faylga yo'naltiradi.
+  async rewrites() {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ""
+    return [
+      {
+        // basePath:false qo'llangan rewrite ICHKI (o'z ilovamiz ichidagi)
+        // manzilga yo'naltirilishi mumkin emas — Next.js buni majburlaydi
+        // ("outside of basePath" xatosi), shuning uchun destination TO'LIQ
+        // (https://) manzil bo'lishi kerak — bu yerda o'zining basePath
+        // ostidagi (allaqachon to'g'ri xizmat qiladigan) statik faylining
+        // o'ziga qaytadi.
+        source: "/google4a8de6346ea0f413.html",
+        destination: `https://lms.sies.uz${basePath}/google4a8de6346ea0f413.html`,
+        basePath: false,
+      },
+    ]
+  },
 }
 
 export default nextConfig
