@@ -166,7 +166,6 @@ const employeeSections: Section[] = [
     icon: Settings,
     items: [
       { label: "Profil", href: "/tizim/profil",   tKey: "sidebar.item.profile" },
-      { label: "Sozlamalar", href: "/xodim/tizim", tKey: "sidebar.item.settings" },
     ],
   },
 ]

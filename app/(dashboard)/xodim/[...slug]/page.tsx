@@ -1025,7 +1025,7 @@ function DavomatJurnaliSelector() {
           ) : (
             <div className="divide-y" style={{ borderColor: "rgba(1,41,112,0.06)" }}>
               {subjects.map(subject => (
-                <a
+                <Link
                   key={subject}
                   href={`/oqituvchi-kabineti/davomat-jurnali?group=${groupId}&subject=${encodeURIComponent(subject)}&groupName=${encodeURIComponent(selectedGroup?.name ?? "")}`}
                   className="flex items-center justify-between px-4 py-3 hover:bg-[#f6f9ff] transition-colors"
@@ -1034,7 +1034,7 @@ function DavomatJurnaliSelector() {
                   <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                     {t("xodimSlug.davomatSelector.open")}
                   </span>
-                </a>
+                </Link>
               ))}
             </div>
           )}

@@ -1358,7 +1358,7 @@ function LobbyStage({
                     key={meeting.id}
                     meeting={meeting}
                     onJoin={onJoin}
-                    onDelete={onDelete}
+                    onDelete={isTeacher ? onDelete : undefined}
                     joining={joiningId === meeting.id}
                     deleting={deletingId === meeting.id}
                   />
