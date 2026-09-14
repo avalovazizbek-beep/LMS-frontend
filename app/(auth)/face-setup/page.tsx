@@ -13,6 +13,9 @@ import {
   Loader2,
   RotateCcw,
   ScanFace,
+  ArrowRight,
+  ArrowLeft,
+  Target,
 } from "lucide-react"
 import { faceApi } from "@/lib/api"
 import { ensureFaceModels } from "@/lib/faceModelCache"
@@ -29,6 +32,38 @@ const HOLD_FRAMES   = 5
 const MIN_CONF      = 0.4
 const CVS_W         = 640
 const CVS_H         = 480
+
+// Liveness: har bir namuna belgilangan boshni burish holatida olinadi
+// (o'ng → chap → markaz) — statik fotosuratni "yuz" deb qabul qilmaslik
+// uchun. Tafsilot: app/(dashboard)/face-id/register/page.tsx dagi izohga
+// qarang (bu yerda aynan bir xil mantiq takrorlangan).
+const YAW_SIGN       = 1
+const YAW_TURN_MIN   = 0.10
+const YAW_CENTER_MAX = 0.08
+type PoseStep = "right" | "left" | "center"
+const POSE_SEQUENCE: PoseStep[] = ["right", "left", "center"]
+const POSE_LABEL: Record<PoseStep, string> = {
+  right: "O'ngga qarang", left: "Chapga qarang", center: "Markazga qarang",
+}
+
+function estimateYaw(landmarks: any): number {
+  const jaw = landmarks.positions.slice(0, 17) as { x: number; y: number }[]
+  const nose = landmarks.getNose() as { x: number; y: number }[]
+  if (jaw.length < 17 || !nose.length) return 0
+  const noseTip = nose[nose.length - 1]
+  const rightEdge = jaw[0].x
+  const leftEdge  = jaw[16].x
+  const faceWidth = leftEdge - rightEdge
+  if (Math.abs(faceWidth) < 1) return 0
+  const center = (rightEdge + leftEdge) / 2
+  return (YAW_SIGN * (noseTip.x - center)) / faceWidth
+}
+
+function poseMatches(step: PoseStep, yaw: number): boolean {
+  if (step === "center") return Math.abs(yaw) <= YAW_CENTER_MAX
+  if (step === "right")  return yaw >= YAW_TURN_MIN
+  return yaw <= -YAW_TURN_MIN
+}
 
 export default function FaceSetupPage() {
   const router        = useRouter()
@@ -50,6 +85,7 @@ export default function FaceSetupPage() {
   const [holdPct,      setHoldPct]      = useState(0)
   const [captured,     setCaptured]     = useState(false)
   const [submitError,  setSubmitError]  = useState<string | null>(null)
+  const [poseOk,       setPoseOk]       = useState(false)
 
   /* ── Suppress face-api.js internal errors ── */
   useEffect(() => {
@@ -190,6 +226,20 @@ export default function FaceSetupPage() {
     setFaceDetected(true); setConfidence(conf)
     if (ctx) drawFaceBox(ctx, result.detection.box, vid.videoWidth, vid.videoHeight, conf)
 
+    const yaw = estimateYaw(result.landmarks)
+    const targetPose = POSE_SEQUENCE[Math.min(curSample, POSE_SEQUENCE.length - 1)]
+    const matches = poseMatches(targetPose, yaw)
+    setPoseOk(matches)
+
+    if (!matches) {
+      holdFrameRef.current = 0
+      setHoldPct(0)
+      if (!capturingRef.current) {
+        rafRef.current = requestAnimationFrame(() => detect(curSample, curSamples))
+      }
+      return
+    }
+
     holdFrameRef.current++
     const pct = Math.min(100, Math.round((holdFrameRef.current / HOLD_FRAMES) * 100))
     setHoldPct(pct)
@@ -206,7 +256,7 @@ export default function FaceSetupPage() {
           if (ctx) ctx.clearRect(0, 0, CVS_W, CVS_H)
           setStep("confirm"); stopCamera(); return
         }
-        setHoldPct(0); setConfidence(0); setFaceDetected(false)
+        setHoldPct(0); setConfidence(0); setFaceDetected(false); setPoseOk(false)
         rafRef.current = requestAnimationFrame(() => detect(nextSample, newSamples))
       }, 900)
       return
@@ -217,7 +267,7 @@ export default function FaceSetupPage() {
 
   useEffect(() => {
     if (!cameraReady) return
-    holdFrameRef.current = 0; setHoldPct(0); setConfidence(0); setFaceDetected(false)
+    holdFrameRef.current = 0; setHoldPct(0); setConfidence(0); setFaceDetected(false); setPoseOk(false)
     const tid = setTimeout(() => {
       rafRef.current = requestAnimationFrame(() => detect(0, []))
     }, 400)
@@ -244,7 +294,7 @@ export default function FaceSetupPage() {
   }
 
   function startCamera() {
-    setSampleIdx(0); setSamples([])
+    setSampleIdx(0); setSamples([]); setPoseOk(false)
     holdFrameRef.current = 0; capturingRef.current = false
     setStep("liveness")
   }
@@ -252,7 +302,7 @@ export default function FaceSetupPage() {
   function retry() {
     setSamples([]); setSampleIdx(0); setSubmitError(null)
     setCameraReady(false); setFaceDetected(false); setConfidence(0)
-    setHoldPct(0); setCaptured(false); holdFrameRef.current = 0
+    setHoldPct(0); setCaptured(false); setPoseOk(false); holdFrameRef.current = 0
     capturingRef.current = false; setStep("intro")
   }
 
@@ -362,6 +412,21 @@ export default function FaceSetupPage() {
                   <span className="ml-auto text-xs font-bold" style={{ color: "#0e58a8" }}>{sampleIdx}/{TOTAL_SAMPLES}</span>
                 </div>
 
+                {/* Pose instruction banner — jonli yo'nalish ko'rsatmasi */}
+                {(() => {
+                  const pose = POSE_SEQUENCE[Math.min(sampleIdx, POSE_SEQUENCE.length - 1)]
+                  const PoseIcon = pose === "right" ? ArrowRight : pose === "left" ? ArrowLeft : Target
+                  return (
+                    <div className="flex items-center justify-center gap-2 py-2 rounded-[8px]"
+                      style={{ backgroundColor: poseOk ? "#f0fff4" : "#f0f5ff" }}>
+                      <PoseIcon className="w-5 h-5" style={{ color: poseOk ? "#22c55e" : "#0e58a8" }} />
+                      <span className="text-sm font-semibold" style={{ color: poseOk ? "#22c55e" : "#0e58a8" }}>
+                        {POSE_LABEL[pose]}
+                      </span>
+                    </div>
+                  )
+                })()}
+
                 {/* Camera view */}
                 <div className="relative flex justify-center rounded-[12px] overflow-hidden" style={{ backgroundColor: "#111", border: "2px solid rgba(14,88,168,0.3)" }}>
                   {!cameraReady && (
@@ -380,7 +445,13 @@ export default function FaceSetupPage() {
                 {/* Status */}
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-medium" style={{ color: "#012970" }}>
-                    {captured ? "✓ Surat qabul qilindi!" : faceDetected ? "Barqaror turing" : "Yuzingizni kameraga to'g'rilang"}
+                    {captured
+                      ? "✓ Surat qabul qilindi!"
+                      : !faceDetected
+                      ? "Yuzingizni kameraga to'g'rilang"
+                      : !poseOk
+                      ? POSE_LABEL[POSE_SEQUENCE[Math.min(sampleIdx, POSE_SEQUENCE.length - 1)]]
+                      : "Barqaror turing"}
                   </p>
                   <span className="shrink-0 text-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: faceDetected ? (confidence >= 70 ? "#dcfce7" : "#fff8e6") : "#f1f5f9", color: faceDetected ? confColor : "#94a3b8" }}>
                     {faceDetected ? `${confidence}%` : "—"}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Script from "next/script"
 import {
-  ArrowLeft, Camera, CheckCircle2, AlertCircle, Loader2, ScanFace, RotateCcw,
+  ArrowLeft, ArrowRight, Camera, CheckCircle2, AlertCircle, Loader2, ScanFace, RotateCcw, Target,
 } from "lucide-react"
 import { faceApi } from "@/lib/api"
 import { ensureFaceModels, areFaceModelsLoaded } from "@/lib/faceModelCache"
@@ -22,6 +22,40 @@ const HOLD_FRAMES   = 5
 const MIN_CONF      = 0.4
 const CVS_W         = 640
 const CVS_H         = 480
+
+// ── Liveness: statik fotosuratni "yuz" deb qabul qilmaslik uchun har bir
+// namuna OLDINDAN BELGILANGAN boshni burish holatida olinadi (o'ng → chap →
+// markaz). Yo'nalish 68 nuqtali yuz landmarklaridan taxminiy "yaw" (gorizontal
+// burilish) qiymati orqali hisoblanadi: burun uchining jag' chizig'ining ikki
+// chekka nuqtasiga (0 va 16) nisbatan qanchalik chetga siljiganini o'lchaydi.
+// ESLATMA: musbat/manfiy ishoraning "o'ng"/"chap"ka mosligi shu yerda test
+// qilinmagan (kamerasiz muhitda tekshirib bo'lmaydi) — agar ekrandagi
+// ko'rsatma amaldagi harakatga teskari chiqsa, faqat shu YAW_SIGN ni -1 ga
+// almashtirish kifoya.
+const YAW_SIGN       = 1
+const YAW_TURN_MIN   = 0.10  // |yaw| shundan katta bo'lsa — "burilgan" deb hisoblanadi
+const YAW_CENTER_MAX = 0.08  // |yaw| shundan kichik bo'lsa — "markazda" deb hisoblanadi
+type PoseStep = "right" | "left" | "center"
+const POSE_SEQUENCE: PoseStep[] = ["right", "left", "center"]
+
+function estimateYaw(landmarks: any): number {
+  const jaw = landmarks.positions.slice(0, 17) as { x: number; y: number }[]
+  const nose = landmarks.getNose() as { x: number; y: number }[]
+  if (jaw.length < 17 || !nose.length) return 0
+  const noseTip = nose[nose.length - 1]
+  const rightEdge = jaw[0].x
+  const leftEdge  = jaw[16].x
+  const faceWidth = leftEdge - rightEdge
+  if (Math.abs(faceWidth) < 1) return 0
+  const center = (rightEdge + leftEdge) / 2
+  return (YAW_SIGN * (noseTip.x - center)) / faceWidth
+}
+
+function poseMatches(step: PoseStep, yaw: number): boolean {
+  if (step === "center") return Math.abs(yaw) <= YAW_CENTER_MAX
+  if (step === "right")  return yaw >= YAW_TURN_MIN
+  return yaw <= -YAW_TURN_MIN
+}
 
 export default function FaceRegisterPage() {
   const { t }         = useLanguage()
@@ -44,6 +78,7 @@ export default function FaceRegisterPage() {
   const [faceDetected, setFaceDetected] = useState(false)
   const [holdPct,      setHoldPct]      = useState(0)
   const [captured,     setCaptured]     = useState(false)
+  const [poseOk,       setPoseOk]       = useState(false)
 
   /* ── Suppress face-api.js internal errors ──────────────────────── */
   useEffect(() => {
@@ -236,6 +271,22 @@ export default function FaceRegisterPage() {
     setConfidence(conf)
     if (ctx) drawFaceBox(ctx, result.detection.box, vid.videoWidth, vid.videoHeight, conf)
 
+    const yaw = estimateYaw(result.landmarks)
+    const targetPose = POSE_SEQUENCE[Math.min(curSample, POSE_SEQUENCE.length - 1)]
+    const matches = poseMatches(targetPose, yaw)
+    setPoseOk(matches)
+
+    if (!matches) {
+      // Kerakli tomonga burilmagan — barqarorlik hisoblagichini to'xtatib
+      // turamiz (statik surat yoki noto'g'ri burilish bilan namuna olinmasin).
+      holdFrameRef.current = 0
+      setHoldPct(0)
+      if (!capturingRef.current) {
+        rafRef.current = requestAnimationFrame(() => detect(curSample, curSamples))
+      }
+      return
+    }
+
     holdFrameRef.current++
     const frames = holdFrameRef.current
     const pct    = Math.min(100, Math.round((frames / HOLD_FRAMES) * 100))
@@ -266,6 +317,7 @@ export default function FaceRegisterPage() {
         setHoldPct(0)
         setConfidence(0)
         setFaceDetected(false)
+        setPoseOk(false)
         rafRef.current = requestAnimationFrame(() => detect(nextSample, newSamples))
       }, 900)
       return
@@ -283,6 +335,7 @@ export default function FaceRegisterPage() {
     setHoldPct(0)
     setConfidence(0)
     setFaceDetected(false)
+    setPoseOk(false)
     const tid = setTimeout(() => {
       rafRef.current = requestAnimationFrame(() => detect(0, []))
     }, 400)
@@ -319,6 +372,7 @@ export default function FaceRegisterPage() {
     setConfidence(0)
     setHoldPct(0)
     setCaptured(false)
+    setPoseOk(false)
     holdFrameRef.current = 0
     capturingRef.current = false
     setPhase("camera")
@@ -327,6 +381,7 @@ export default function FaceRegisterPage() {
   function startCamera() {
     setSampleIdx(0)
     setSamples([])
+    setPoseOk(false)
     holdFrameRef.current = 0
     capturingRef.current = false
     setPhase("liveness")
@@ -476,6 +531,21 @@ export default function FaceRegisterPage() {
               </span>
             </div>
 
+            {/* Pose instruction banner — jonli yo'nalish ko'rsatmasi */}
+            {(() => {
+              const pose = POSE_SEQUENCE[Math.min(sampleIdx, POSE_SEQUENCE.length - 1)]
+              const PoseIcon = pose === "right" ? ArrowRight : pose === "left" ? ArrowLeft : Target
+              return (
+                <div className="flex items-center justify-center gap-2 py-2.5"
+                  style={{ backgroundColor: poseOk ? "#f0fff4" : "#f0f5ff" }}>
+                  <PoseIcon className="w-5 h-5" style={{ color: poseOk ? "#22c55e" : "#0e58a8" }} />
+                  <span className="text-sm font-semibold" style={{ color: poseOk ? "#22c55e" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    {t(`faceRegister.pose.${pose}`)}
+                  </span>
+                </div>
+              )
+            })()}
+
             {/* Camera view */}
             <div className="relative flex justify-center" style={{ backgroundColor: "#111" }}>
               {!cameraReady && (
@@ -521,9 +591,11 @@ export default function FaceRegisterPage() {
                 <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                   {captured
                     ? t("faceRegister.photoAccepted")
-                    : faceDetected
-                    ? t("faceRegister.faceDetectedHold")
-                    : t("faceRegister.alignFace")}
+                    : !faceDetected
+                    ? t("faceRegister.alignFace")
+                    : !poseOk
+                    ? t(`faceRegister.pose.${POSE_SEQUENCE[Math.min(sampleIdx, POSE_SEQUENCE.length - 1)]}`)
+                    : t("faceRegister.faceDetectedHold")}
                 </p>
                 <span
                   className="shrink-0 text-base font-bold px-3 py-1 rounded-full"
