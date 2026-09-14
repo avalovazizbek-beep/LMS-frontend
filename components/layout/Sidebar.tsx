@@ -353,7 +353,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
                       style={{ overflow: "hidden" }}
                     >
                       <div className="flex flex-col ml-[37px]">
-                        {section.items.map((item, iIdx) => {
+                        {section.items
+                          .filter((item) => item.href !== "/face-id/requests" || isAdmin)
+                          .map((item, iIdx) => {
                           const active = isActive(item.href)
                           return (
                             <motion.div
