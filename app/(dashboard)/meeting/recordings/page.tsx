@@ -11,7 +11,7 @@ import { RecordingCard } from "@/components/meeting/RecordingCard"
 
 function readRole(): string {
   try {
-    const token = sessionStorage.getItem("lms_token") ?? ""
+    const token = localStorage.getItem("lms_token") ?? ""
     const part = token.split(".")[1]
     if (!part) return ""
     const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")))

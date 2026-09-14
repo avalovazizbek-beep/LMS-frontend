@@ -184,7 +184,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   })
 
   useEffect(() => {
-    const id = window.setTimeout(() => setRole(sessionStorage.getItem("lms_role")), 0)
+    const id = window.setTimeout(() => setRole(localStorage.getItem("lms_role")), 0)
     return () => window.clearTimeout(id)
   }, [])
 

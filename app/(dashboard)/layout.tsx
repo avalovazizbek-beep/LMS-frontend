@@ -21,9 +21,7 @@ export default function DashboardLayout({
   const isMeetingRoute = pathname === "/meeting"
 
   useEffect(() => {
-    const token = sessionStorage.getItem("lms_token")
-    localStorage.removeItem("lms_token")
-    localStorage.removeItem("lms_role")
+    const token = localStorage.getItem("lms_token")
 
     if (!token) {
       router.replace("/login")

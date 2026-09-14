@@ -54,7 +54,7 @@ import { translate } from "@/lib/i18n/translations"
 function readJwtPayload(): Record<string, unknown> {
   try {
     if (typeof window === "undefined") return {}
-    const token = sessionStorage.getItem("lms_token") ?? ""
+    const token = localStorage.getItem("lms_token") ?? ""
     const part = token.split(".")[1]
     if (!part) return {}
     return JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")))

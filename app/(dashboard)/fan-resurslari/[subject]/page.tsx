@@ -20,7 +20,7 @@ function getYoutubeEmbedUrl(url: string): string | null {
 
 function getToken() {
   if (typeof window === "undefined") return ""
-  return sessionStorage.getItem("lms_token") || ""
+  return localStorage.getItem("lms_token") || ""
 }
 
 function MeetingRecordingsSection({ subjectName, topicTitle }: { subjectName: string; topicTitle?: string }) {

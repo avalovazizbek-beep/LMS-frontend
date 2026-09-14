@@ -5,7 +5,7 @@ const MEETING_BASE =
 
 function getToken() {
   if (typeof window === "undefined") return null
-  return sessionStorage.getItem("lms_token")
+  return localStorage.getItem("lms_token")
 }
 
 // Bir nechta so'rov bir vaqtda 401 olsa ham, HEMIS'ga faqat bitta refresh
@@ -46,19 +46,17 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
 
   // Only attempt recovery on 401 if a session token already exists
   // (prevents this path from firing when wrong credentials are entered on the login page)
-  if (res.status === 401 && typeof window !== "undefined" && sessionStorage.getItem("lms_token")) {
+  if (res.status === 401 && typeof window !== "undefined" && localStorage.getItem("lms_token")) {
     // Token muddati tugagan bo'lishi mumkin — bazadagi saqlangan HEMIS
     // login-paroli bilan fon rejimida yangi token olishga urinamiz, shu
     // orqali foydalanuvchi qayta login-parol kiritmaydi.
     if (!isRetry && token) {
       const newToken = await refreshHemisToken(token)
       if (newToken) {
-        sessionStorage.setItem("lms_token", newToken)
+        localStorage.setItem("lms_token", newToken)
         return request<T>(path, options, true)
       }
     }
-    sessionStorage.removeItem("lms_token")
-    sessionStorage.removeItem("lms_role")
     localStorage.removeItem("lms_token")
     localStorage.removeItem("lms_role")
     window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/login`

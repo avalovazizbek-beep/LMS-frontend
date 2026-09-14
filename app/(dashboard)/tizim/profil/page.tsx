@@ -20,7 +20,7 @@ export default function TizimProfil() {
   const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
-    setRole(sessionStorage.getItem("lms_role") ?? "student")
+    setRole(localStorage.getItem("lms_role") ?? "student")
   }, [])
 
   const { data, loading, error, refetch } = useApi(

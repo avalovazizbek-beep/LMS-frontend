@@ -354,7 +354,7 @@ export default function DashboardPage() {
   const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
-    setRole(sessionStorage.getItem("lms_role") ?? "admin")
+    setRole(localStorage.getItem("lms_role") ?? "admin")
   }, [])
 
   if (role === null) return null

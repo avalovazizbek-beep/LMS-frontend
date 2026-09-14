@@ -102,10 +102,8 @@ function OAuthCallbackContent() {
       const redirectUri = sessionStorage.getItem("hemis_oauth_redirect_uri") || `${window.location.origin}/login/oauth/callback`
 
       if (directToken) {
-        localStorage.removeItem("lms_token")
-        localStorage.removeItem("lms_role")
-        sessionStorage.setItem("lms_token", directToken)
-        sessionStorage.setItem("lms_role", directRole)
+        localStorage.setItem("lms_token", directToken)
+        localStorage.setItem("lms_role", directRole)
         sessionStorage.removeItem("hemis_oauth_state")
         sessionStorage.removeItem("hemis_oauth_role")
         sessionStorage.removeItem("hemis_oauth_redirect_uri")
@@ -137,10 +135,8 @@ function OAuthCallbackContent() {
         const res = await hemisApi.oauthCallback(role, code, redirectUri, state)
         if (cancelled) return
 
-        localStorage.removeItem("lms_token")
-        localStorage.removeItem("lms_role")
-        sessionStorage.setItem("lms_token", res.token)
-        sessionStorage.setItem("lms_role", res.role || role)
+        localStorage.setItem("lms_token", res.token)
+        localStorage.setItem("lms_role", res.role || role)
         sessionStorage.removeItem("hemis_oauth_state")
         sessionStorage.removeItem("hemis_oauth_role")
         sessionStorage.removeItem("hemis_oauth_redirect_uri")

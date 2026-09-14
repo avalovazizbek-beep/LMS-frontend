@@ -48,8 +48,6 @@ export default function LoginPage() {
     setOauthLoading(true)
     setError(null)
     try {
-      sessionStorage.removeItem("lms_token")
-      sessionStorage.removeItem("lms_role")
       localStorage.removeItem("lms_token")
       localStorage.removeItem("lms_role")
       sessionStorage.removeItem("hemis_oauth_state")
@@ -73,13 +71,11 @@ export default function LoginPage() {
     setError(null)
     setRetrySecondsLeft(null)
     try {
-      sessionStorage.removeItem("lms_token")
-      sessionStorage.removeItem("lms_role")
       localStorage.removeItem("lms_token")
       localStorage.removeItem("lms_role")
       const res = await hemisApi.autoLogin(login.trim(), password.trim())
-      sessionStorage.setItem("lms_token", res.token)
-      sessionStorage.setItem("lms_role", res.role)
+      localStorage.setItem("lms_token", res.token)
+      localStorage.setItem("lms_role", res.role)
       if (res.role === "student") {
         try {
           const faceStatus = await faceApi.status()

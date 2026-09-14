@@ -56,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
-    const token = sessionStorage.getItem("lms_token")
+    const token = localStorage.getItem("lms_token")
     if (!token) { router.replace("/login"); return }
 
     adminApi.check()
@@ -86,8 +86,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   function logout() {
-    sessionStorage.removeItem("lms_token")
-    sessionStorage.removeItem("lms_role")
+    localStorage.removeItem("lms_token")
+    localStorage.removeItem("lms_role")
     router.replace("/login")
   }
 
