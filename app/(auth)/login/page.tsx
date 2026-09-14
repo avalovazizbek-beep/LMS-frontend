@@ -18,10 +18,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
+  const [oauthChoiceOpen, setOauthChoiceOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPwd, setShowPwd] = useState(false)
 
-  const startHemisOAuth = async () => {
+  // HEMIS talaba (student.sies.uz) va xodim (hemis.sies.uz) uchun
+  // ALOHIDA-ALOHIDA tizimlar — bitta OAuth so'rovi ikkalasini ham
+  // aniqlay olmaydi (talaba login-paroli hodim tizimida "topilmadi"
+  // deb rad etiladi). Shu sabab foydalanuvchi avval o'z rolini tanlaydi.
+  const startHemisOAuth = async (role: "student" | "employee") => {
     setOauthLoading(true)
     setError(null)
     try {
@@ -32,7 +37,7 @@ export default function LoginPage() {
       sessionStorage.removeItem("hemis_oauth_state")
       sessionStorage.removeItem("hemis_oauth_role")
       sessionStorage.removeItem("hemis_oauth_redirect_uri")
-      window.location.href = hemisApi.oauthStartUrl("auto")
+      window.location.href = hemisApi.oauthStartUrl(role)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "HEMIS orqali kirishda xatolik")
       setOauthLoading(false)
@@ -82,10 +87,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleHemisOAuth = async () => {
-    await startHemisOAuth()
   }
 
   return (
@@ -162,17 +163,56 @@ export default function LoginPage() {
               {loading ? "Tekshirilmoqda..." : "Kirish"}
             </button>
 
-            <button type="button" onClick={handleHemisOAuth} disabled={oauthLoading}
-              className="flex items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-              style={{
-                backgroundColor: "#f0f5ff",
-                color: "#0e58a8",
-                border: "1px solid rgba(14,88,168,0.18)",
-                fontFamily: "var(--font-poppins)",
-              }}>
-              <KeyRound className="h-5 w-5" />
-              {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "HEMIS orqali kirish"}
-            </button>
+            {!oauthChoiceOpen ? (
+              <button type="button" onClick={() => setOauthChoiceOpen(true)} disabled={oauthLoading}
+                className="flex items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                style={{
+                  backgroundColor: "#f0f5ff",
+                  color: "#0e58a8",
+                  border: "1px solid rgba(14,88,168,0.18)",
+                  fontFamily: "var(--font-poppins)",
+                }}>
+                <KeyRound className="h-5 w-5" />
+                HEMIS orqali kirish
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                  {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "Kim sifatida kirmoqchisiz?"}
+                </p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                    style={{
+                      backgroundColor: "#f0f5ff",
+                      color: "#0e58a8",
+                      border: "1px solid rgba(14,88,168,0.18)",
+                      fontFamily: "var(--font-poppins)",
+                    }}>
+                    <KeyRound className="h-5 w-5" />
+                    Talaba
+                  </button>
+                  <button type="button" onClick={() => startHemisOAuth("employee")} disabled={oauthLoading}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                    style={{
+                      backgroundColor: "#f0f5ff",
+                      color: "#0e58a8",
+                      border: "1px solid rgba(14,88,168,0.18)",
+                      fontFamily: "var(--font-poppins)",
+                    }}>
+                    <KeyRound className="h-5 w-5" />
+                    Xodim
+                  </button>
+                </div>
+                {!oauthLoading && (
+                  <button type="button" onClick={() => setOauthChoiceOpen(false)}
+                    className="text-center text-xs underline"
+                    style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    Bekor qilish
+                  </button>
+                )}
+              </div>
+            )}
 
           </form>
         </div>
