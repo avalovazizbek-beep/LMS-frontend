@@ -181,14 +181,13 @@ export default function LoginPage() {
                   {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "Kim sifatida kirmoqchisiz?"}
                 </p>
                 <div className="flex gap-2">
-                  <button type="button" disabled title="Talaba uchun HEMIS OAuth hozircha vaqtincha o'chirilgan — login/parol orqali kiring"
-                    className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold opacity-40"
+                  <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
                     style={{
                       backgroundColor: "var(--lms-soft)",
                       color: "var(--lms-button)",
                       border: "1px solid var(--lms-border)",
                       fontFamily: "var(--font-poppins)",
-                      cursor: "not-allowed",
                     }}>
                     <KeyRound className="h-5 w-5" />
                     Talaba
@@ -205,8 +204,8 @@ export default function LoginPage() {
                     Xodim
                   </button>
                 </div>
-                <p className="text-center text-xs" style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }}>
-                  Talaba uchun HEMIS OAuth vaqtincha ishlamayapti — login/parol orqali kiring.
+                <p className="text-center text-xs" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
+                  Talaba: baholar/jadval ba'zan yuklanmasligi mumkin, login-parol asosiy bloki tarqalgach to'liq tiklanadi.
                 </p>
                 {!oauthLoading && (
                   <button type="button" onClick={() => setOauthChoiceOpen(false)}
