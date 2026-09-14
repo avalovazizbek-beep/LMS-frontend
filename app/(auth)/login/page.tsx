@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, GraduationCap, KeyRound, Lock, User } from "lucide-react"
 import { hemisApi, faceApi } from "@/lib/api"
@@ -12,6 +12,12 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {}
 }
 
+function formatCountdown(totalSeconds: number): string {
+  const mins = Math.floor(totalSeconds / 60)
+  const secs = totalSeconds % 60
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [login, setLogin] = useState("")
@@ -20,8 +26,19 @@ export default function LoginPage() {
   const [oauthLoading, setOauthLoading] = useState(false)
   const [oauthChoiceOpen, setOauthChoiceOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [errorRateLimited, setErrorRateLimited] = useState(false)
+  // HEMIS ba'zida javobida aniq "Retry-After" (necha soniya kutish kerak)
+  // yuboradi — shunda foydalanuvchiga taxminiy "bir necha daqiqa" emas,
+  // jonli kamayib boradigan aniq vaqt (MM:SS) ko'rsatiladi.
+  const [retrySecondsLeft, setRetrySecondsLeft] = useState<number | null>(null)
   const [showPwd, setShowPwd] = useState(false)
+
+  useEffect(() => {
+    if (retrySecondsLeft === null || retrySecondsLeft <= 0) return
+    const timer = setInterval(() => {
+      setRetrySecondsLeft((prev) => (prev === null ? null : Math.max(0, prev - 1)))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [retrySecondsLeft])
 
   // HEMIS talaba (student.sies.uz) va xodim (hemis.sies.uz) uchun
   // ALOHIDA-ALOHIDA tizimlar — bitta OAuth so'rovi ikkalasini ham
@@ -54,7 +71,7 @@ export default function LoginPage() {
 
     setLoading(true)
     setError(null)
-    setErrorRateLimited(false)
+    setRetrySecondsLeft(null)
     try {
       sessionStorage.removeItem("lms_token")
       sessionStorage.removeItem("lms_role")
@@ -77,7 +94,9 @@ export default function LoginPage() {
       router.push("/dashboard")
     } catch (err: unknown) {
       const data = asRecord((err as { data?: unknown })?.data)
-      setErrorRateLimited(data.rateLimited === true)
+      if (data.rateLimited === true && typeof data.retryAfterSec === "number" && data.retryAfterSec > 0) {
+        setRetrySecondsLeft(data.retryAfterSec)
+      }
       if (data.oauthRequired) {
         setError(
           typeof data.message === "string"
@@ -113,21 +132,11 @@ export default function LoginPage() {
         <div className="rounded-[10px] bg-[var(--lms-cell)] p-8" style={{ boxShadow: "var(--lms-shadow)" }}>
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
             {error && (
-              <div className="flex flex-col gap-2 rounded-[5px] px-3 py-2.5 text-sm"
+              <div className="rounded-[5px] px-3 py-2.5 text-sm"
                 style={{ backgroundColor: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid #ef4444", fontFamily: "var(--font-poppins)" }}>
-                <span>{error}</span>
-                {errorRateLimited && (
-                  <>
-                    <span className="text-xs opacity-90">
-                      HEMIS ko&apos;p urinishdan band. O&apos;rniga HEMIS orqali kiring — bu limitga tegmaydi:
-                    </span>
-                    <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
-                      className="flex items-center justify-center gap-2 self-start rounded-[5px] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                      style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
-                      <KeyRound className="h-3.5 w-3.5" />
-                      HEMIS orqali kirish
-                    </button>
-                  </>
+                {error}
+                {retrySecondsLeft !== null && retrySecondsLeft > 0 && (
+                  <span className="ml-1 font-semibold">({formatCountdown(retrySecondsLeft)})</span>
                 )}
               </div>
             )}
