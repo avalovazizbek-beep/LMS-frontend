@@ -8,7 +8,31 @@ function getToken() {
   return sessionStorage.getItem("lms_token")
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Bir nechta so'rov bir vaqtda 401 olsa ham, HEMIS'ga faqat bitta refresh
+// so'rovi yuborilishi uchun (parallel chaqiruvlar shu promise'ni bo'lishadi).
+let refreshPromise: Promise<string | null> | null = null
+
+function refreshHemisToken(expiredToken: string): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${BASE}/api/hemis/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+      body: JSON.stringify({ token: expiredToken }),
+    })
+      .then(async (res) => {
+        if (!res.ok) return null
+        const data = await res.json()
+        return typeof data?.token === "string" ? data.token : null
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+  return refreshPromise
+}
+
+async function request<T>(path: string, options: RequestInit = {}, isRetry = false): Promise<T> {
   const token = getToken()
   const res = await fetch(`${BASE}${path}`, {
     ...options,
@@ -19,10 +43,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...(options.headers || {}),
     },
   })
-  const data = await res.json()
-  // Only redirect to login on 401 if a session token already exists
-  // (prevents redirect when wrong credentials are entered on login page)
+
+  // Only attempt recovery on 401 if a session token already exists
+  // (prevents this path from firing when wrong credentials are entered on the login page)
   if (res.status === 401 && typeof window !== "undefined" && sessionStorage.getItem("lms_token")) {
+    // Token muddati tugagan bo'lishi mumkin — bazadagi saqlangan HEMIS
+    // login-paroli bilan fon rejimida yangi token olishga urinamiz, shu
+    // orqali foydalanuvchi qayta login-parol kiritmaydi.
+    if (!isRetry && token) {
+      const newToken = await refreshHemisToken(token)
+      if (newToken) {
+        sessionStorage.setItem("lms_token", newToken)
+        return request<T>(path, options, true)
+      }
+    }
     sessionStorage.removeItem("lms_token")
     sessionStorage.removeItem("lms_role")
     localStorage.removeItem("lms_token")
@@ -30,6 +64,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/login`
     throw new Error("Sessiya tugadi")
   }
+
+  const data = await res.json()
   if (!res.ok) {
     const error = new Error(readApiMessage(data) || "Xatolik yuz berdi") as Error & {
       status?: number
@@ -920,7 +956,7 @@ export const hemisApi = {
     return hemisGet<{ success: boolean; url: string; state: string; redirectUri: string }>(`/api/hemis/oauth/url?${q}`)
   },
 
-  oauthStartUrl: (role: "student" | "employee" | "tutor", login?: string) => {
+  oauthStartUrl: (role: "student" | "employee" | "tutor" | "auto", login?: string) => {
     const q = login ? `?${new URLSearchParams({ login }).toString()}` : ""
     return `${BASE}/api/hemis/oauth/start/${role}${q}`
   },

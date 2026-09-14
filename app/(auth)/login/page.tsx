@@ -32,7 +32,7 @@ export default function LoginPage() {
       sessionStorage.removeItem("hemis_oauth_state")
       sessionStorage.removeItem("hemis_oauth_role")
       sessionStorage.removeItem("hemis_oauth_redirect_uri")
-      window.location.href = hemisApi.oauthStartUrl("employee")
+      window.location.href = hemisApi.oauthStartUrl("auto")
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "HEMIS orqali kirishda xatolik")
       setOauthLoading(false)
