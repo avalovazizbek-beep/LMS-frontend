@@ -18,13 +18,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
-  // HEMIS'ning parol-orqali-kirish endpointi ko'p urinishda vaqtincha
-  // bloklab qo'yishi mumkin (1000+ talaba bir vaqtda urinsa reallashadi).
-  // OAuth esa kirish ma'lumotlarini to'g'ridan-to'g'ri HEMIS'ning o'z
-  // sahifasida, har bir talabaning o'z brauzeridan (bizning umumiy server
-  // IP'imiz orqali EMAS) qabul qiladi — shu limitga tegmaydi. Shuning
-  // uchun OAuth ASOSIY, login-parol esa zaxira usul sifatida ko'rsatiladi.
-  const [passwordFormOpen, setPasswordFormOpen] = useState(false)
+  const [oauthChoiceOpen, setOauthChoiceOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [errorRateLimited, setErrorRateLimited] = useState(false)
   const [showPwd, setShowPwd] = useState(false)
@@ -112,128 +106,134 @@ export default function LoginPage() {
             Masofaviy Ta&apos;lim
           </h1>
           <p className="mt-1 text-center text-sm" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-            HEMIS orqali kirish tavsiya etiladi — tezroq va band bo&apos;lmaydi
+            Talaba login/paroli yoki HEMIS OAuth orqali kirish
           </p>
         </div>
 
         <div className="rounded-[10px] bg-[var(--lms-cell)] p-8" style={{ boxShadow: "var(--lms-shadow)" }}>
-          <div className="flex flex-col gap-2">
-            <p className="text-center text-sm font-medium" style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
-              {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "Kim sifatida kirmoqchisiz?"}
-            </p>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
-                className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
-                <KeyRound className="h-5 w-5" />
-                Talaba
-              </button>
-              <button type="button" onClick={() => startHemisOAuth("employee")} disabled={oauthLoading}
-                className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
-                <KeyRound className="h-5 w-5" />
-                Xodim
-              </button>
-            </div>
-            <p className="text-center text-xs" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-              HEMIS o&apos;z sahifasida login-parolni so&apos;raydi, LMS unga tegmaydi — shu sabab band bo&apos;lmaydi.
-            </p>
-          </div>
-
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1" style={{ backgroundColor: "var(--lms-border)" }} />
-            <span className="text-xs" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>yoki</span>
-            <div className="h-px flex-1" style={{ backgroundColor: "var(--lms-border)" }} />
-          </div>
-
-          {!passwordFormOpen ? (
-            <button type="button" onClick={() => setPasswordFormOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90"
-              style={{
-                backgroundColor: "var(--lms-soft)",
-                color: "var(--lms-button)",
-                border: "1px solid var(--lms-border)",
-                fontFamily: "var(--font-poppins)",
-              }}>
-              <User className="h-5 w-5" />
-              Login va parol bilan kirish
-            </button>
-          ) : (
-            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-              {error && (
-                <div className="flex flex-col gap-2 rounded-[5px] px-3 py-2.5 text-sm"
-                  style={{ backgroundColor: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid #ef4444", fontFamily: "var(--font-poppins)" }}>
-                  <span>{error}</span>
-                  {errorRateLimited && (
-                    <>
-                      <span className="text-xs opacity-90">
-                        HEMIS ko&apos;p urinishdan band. O&apos;rniga HEMIS orqali kiring — bu limitga tegmaydi:
-                      </span>
-                      <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
-                        className="flex items-center justify-center gap-2 self-start rounded-[5px] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                        style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
-                        <KeyRound className="h-3.5 w-3.5" />
-                        HEMIS orqali kirish
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
-                  HEMIS Login
-                </label>
-                <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
-                  style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)" }}>
-                  <User className="h-5 w-5 shrink-0" style={{ color: "var(--lms-muted)" }} />
-                  <input
-                    type="text"
-                    value={login}
-                    onChange={e => setLogin(e.target.value)}
-                    placeholder="Login kiriting"
-                    className="flex-1 bg-transparent text-sm outline-none"
-                    style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}
-                  />
-                </div>
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            {error && (
+              <div className="flex flex-col gap-2 rounded-[5px] px-3 py-2.5 text-sm"
+                style={{ backgroundColor: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid #ef4444", fontFamily: "var(--font-poppins)" }}>
+                <span>{error}</span>
+                {errorRateLimited && (
+                  <>
+                    <span className="text-xs opacity-90">
+                      HEMIS ko&apos;p urinishdan band. O&apos;rniga HEMIS orqali kiring — bu limitga tegmaydi:
+                    </span>
+                    <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
+                      className="flex items-center justify-center gap-2 self-start rounded-[5px] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                      style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
+                      <KeyRound className="h-3.5 w-3.5" />
+                      HEMIS orqali kirish
+                    </button>
+                  </>
+                )}
               </div>
+            )}
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
-                  Parol
-                </label>
-                <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
-                  style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)" }}>
-                  <Lock className="h-5 w-5 shrink-0" style={{ color: "var(--lms-muted)" }} />
-                  <input
-                    type={showPwd ? "text" : "password"}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Parol kiriting"
-                    className="flex-1 bg-transparent text-sm outline-none"
-                    style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}
-                  />
-                  <button type="button" onClick={() => setShowPwd(v => !v)} aria-label={showPwd ? "Parolni yashirish" : "Parolni ko'rsatish"}>
-                    {showPwd
-                      ? <EyeOff className="h-5 w-5" style={{ color: "var(--lms-muted)" }} />
-                      : <Eye className="h-5 w-5" style={{ color: "var(--lms-muted)" }} />}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
+                HEMIS Login
+              </label>
+              <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
+                style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)" }}>
+                <User className="h-5 w-5 shrink-0" style={{ color: "var(--lms-muted)" }} />
+                <input
+                  type="text"
+                  value={login}
+                  onChange={e => setLogin(e.target.value)}
+                  placeholder="Login kiriting"
+                  className="flex-1 bg-transparent text-sm outline-none"
+                  style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
+                Parol
+              </label>
+              <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
+                style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)" }}>
+                <Lock className="h-5 w-5 shrink-0" style={{ color: "var(--lms-muted)" }} />
+                <input
+                  type={showPwd ? "text" : "password"}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Parol kiriting"
+                  className="flex-1 bg-transparent text-sm outline-none"
+                  style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}
+                />
+                <button type="button" onClick={() => setShowPwd(v => !v)} aria-label={showPwd ? "Parolni yashirish" : "Parolni ko'rsatish"}>
+                  {showPwd
+                    ? <EyeOff className="h-5 w-5" style={{ color: "var(--lms-muted)" }} />
+                    : <Eye className="h-5 w-5" style={{ color: "var(--lms-muted)" }} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading}
+              className="mt-2 flex items-center justify-center rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
+              {loading ? "Tekshirilmoqda..." : "Kirish"}
+            </button>
+
+            {!oauthChoiceOpen ? (
+              <button type="button" onClick={() => setOauthChoiceOpen(true)} disabled={oauthLoading}
+                className="flex items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                style={{
+                  backgroundColor: "var(--lms-soft)",
+                  color: "var(--lms-button)",
+                  border: "1px solid var(--lms-border)",
+                  fontFamily: "var(--font-poppins)",
+                }}>
+                <KeyRound className="h-5 w-5" />
+                HEMIS orqali kirish
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="text-center text-sm" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
+                  {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "Kim sifatida kirmoqchisiz?"}
+                </p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                    style={{
+                      backgroundColor: "var(--lms-soft)",
+                      color: "var(--lms-button)",
+                      border: "1px solid var(--lms-border)",
+                      fontFamily: "var(--font-poppins)",
+                    }}>
+                    <KeyRound className="h-5 w-5" />
+                    Talaba
+                  </button>
+                  <button type="button" onClick={() => startHemisOAuth("employee")} disabled={oauthLoading}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                    style={{
+                      backgroundColor: "var(--lms-soft)",
+                      color: "var(--lms-button)",
+                      border: "1px solid var(--lms-border)",
+                      fontFamily: "var(--font-poppins)",
+                    }}>
+                    <KeyRound className="h-5 w-5" />
+                    Xodim
                   </button>
                 </div>
+                <p className="text-center text-xs" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
+                  Talaba: baholar/jadval ba'zan yuklanmasligi mumkin, login-parol asosiy bloki tarqalgach to'liq tiklanadi.
+                </p>
+                {!oauthLoading && (
+                  <button type="button" onClick={() => setOauthChoiceOpen(false)}
+                    className="text-center text-xs underline"
+                    style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
+                    Bekor qilish
+                  </button>
+                )}
               </div>
+            )}
 
-              <button type="submit" disabled={loading}
-                className="mt-2 flex items-center justify-center rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
-                {loading ? "Tekshirilmoqda..." : "Kirish"}
-              </button>
-
-              <button type="button" onClick={() => { setPasswordFormOpen(false); setError(null); setErrorRateLimited(false) }}
-                className="text-center text-xs underline"
-                style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-                Bekor qilish
-              </button>
-            </form>
-          )}
+          </form>
         </div>
       </div>
     </main>
