@@ -40,6 +40,10 @@ function getMonday(date: Date): Date {
   return d
 }
 
+function calendarDateKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+}
+
 type DayItem =
   | { kind: "hemis"; data: HemisSchedule; time: Date }
   | { kind: "meeting"; data: Meeting; time: Date }
@@ -62,9 +66,38 @@ export default function DarsJadvali() {
     return mon
   }, [weekOffset]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data: scheduleData, loading: scheduleLoading, error: scheduleError, refetch: scheduleRefetch } = useApi(
-    () => hemisApi.schedule({}),
+  const weekEnd = useMemo(() => {
+    const end = new Date(weekStart)
+    end.setDate(end.getDate() + 6)
+    return end
+  }, [weekStart])
+
+  const { data: semestersData, loading: semestersLoading } = useApi(
+    () => hemisApi.semesters(),
     []
+  )
+
+  // HEMIS schedule-list `_week` ISO hafta raqamini emas, semester ichidagi
+  // curriculumWeeks[].id qiymatini kutadi. Tanlangan kalendar haftasini shu
+  // haqiqiy HEMIS week ID bilan bog'laymiz.
+  const scheduleWeek = useMemo(() => {
+    const selectedStart = calendarDateKey(weekStart)
+    const selectedEnd = calendarDateKey(weekEnd)
+    for (const semester of semestersData?.data ?? []) {
+      for (const week of semester.curriculumWeeks ?? []) {
+        const start = calendarDateKey(new Date(week.start_date * 1000))
+        const end = calendarDateKey(new Date(week.end_date * 1000))
+        if (start === selectedStart && end === selectedEnd) {
+          return { id: String(week.id), semester: String(semester.code) }
+        }
+      }
+    }
+    return null
+  }, [semestersData, weekStart, weekEnd])
+
+  const { data: scheduleData, loading: scheduleLoading, error: scheduleError, refetch: scheduleRefetch } = useApi(
+    () => hemisApi.schedule(scheduleWeek ? { _week: scheduleWeek.id, _semester: scheduleWeek.semester } : {}),
+    [scheduleWeek?.id, scheduleWeek?.semester]
   )
   const hemisSchedule: HemisSchedule[] = scheduleData?.data ?? []
 
@@ -200,7 +233,7 @@ export default function DarsJadvali() {
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (scheduleLoading) return <Loading />
+  if (scheduleLoading || semestersLoading) return <Loading />
   if (scheduleError)   return <ApiError message={scheduleError} onRetry={scheduleRefetch} />
 
   return (

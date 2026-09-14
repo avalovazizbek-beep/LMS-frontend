@@ -1959,6 +1959,12 @@ export interface HemisSemester {
   code: number
   educationYear?: { id: number | string; name: string }
   current?: boolean
+  curriculumWeeks?: {
+    id: number | string
+    start_date: number
+    end_date: number
+    current?: boolean
+  }[]
 }
 
 export interface HemisResourceFile {
