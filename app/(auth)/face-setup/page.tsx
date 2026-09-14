@@ -168,34 +168,52 @@ export default function FaceSetupPage() {
     }
   }
 
-  function drawFaceBox(
+  /* ── Doiraviy yuz ko'rsatkichi (Apple Face ID uslubida) ── */
+  function drawFaceCircle(
     ctx: CanvasRenderingContext2D,
     box: { x: number; y: number; width: number; height: number },
-    vidW: number, vidH: number, conf: number,
+    vidW: number, vidH: number, conf: number, progressPct: number,
   ) {
     ctx.clearRect(0, 0, CVS_W, CVS_H)
     const sx = CVS_W / vidW; const sy = CVS_H / vidH
     const bw = box.width * sx; const bh = box.height * sy
     const bx = CVS_W - box.x * sx - bw; const by = box.y * sy
+    const cx = bx + bw / 2; const cy = by + bh / 2
+    const radius = Math.max(bw, bh) * 0.62
     const color = conf >= 70 ? "#22c55e" : "#fbbf24"
-    const cLen = Math.min(bw, bh) * 0.22
+    const fraction = Math.max(0, Math.min(1, progressPct / 100))
 
-    ctx.save(); ctx.fillStyle = "rgba(0,0,0,0.4)"
+    ctx.save(); ctx.fillStyle = "rgba(0,0,0,0.45)"
     ctx.beginPath(); ctx.rect(0, 0, CVS_W, CVS_H)
-    ctx.rect(bx - 6, by - 6, bw + 12, bh + 12)
+    ctx.moveTo(cx + radius, cy); ctx.arc(cx, cy, radius, 0, Math.PI * 2, true)
     ;(ctx as any).fill("evenodd"); ctx.restore()
 
-    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 2.5
-    ctx.shadowColor = color; ctx.shadowBlur = 14
-    ctx.strokeRect(bx, by, bw, bh); ctx.restore()
+    ctx.save(); ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 3
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.stroke(); ctx.restore()
 
-    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 4
-    ctx.lineCap = "square"; ctx.shadowColor = color; ctx.shadowBlur = 6
-    ctx.beginPath(); ctx.moveTo(bx, by + cLen); ctx.lineTo(bx, by); ctx.lineTo(bx + cLen, by); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(bx + bw - cLen, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + cLen); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(bx, by + bh - cLen); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + cLen, by + bh); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(bx + bw - cLen, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - cLen); ctx.stroke()
-    ctx.restore()
+    if (fraction > 0) {
+      ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.lineCap = "round"
+      ctx.shadowColor = color; ctx.shadowBlur = 10
+      const start = -Math.PI / 2
+      ctx.beginPath(); ctx.arc(cx, cy, radius, start, start + fraction * Math.PI * 2); ctx.stroke()
+      ctx.restore()
+    }
+
+    const TICKS = 32
+    for (let i = 0; i < TICKS; i++) {
+      const angle = (i / TICKS) * Math.PI * 2 - Math.PI / 2
+      const filled = i / TICKS <= fraction
+      const inner = radius + 6
+      const outer = radius + (filled ? 14 : 10)
+      const x1 = cx + Math.cos(angle) * inner, y1 = cy + Math.sin(angle) * inner
+      const x2 = cx + Math.cos(angle) * outer, y2 = cy + Math.sin(angle) * outer
+      ctx.save()
+      ctx.strokeStyle = filled ? color : "rgba(255,255,255,0.35)"
+      ctx.lineWidth = filled ? 3 : 2
+      if (filled) { ctx.shadowColor = color; ctx.shadowBlur = 6 }
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke()
+      ctx.restore()
+    }
   }
 
   /* ── Detection RAF loop ── */
@@ -224,7 +242,6 @@ export default function FaceSetupPage() {
 
     const conf = Math.round(result.detection.score * 100)
     setFaceDetected(true); setConfidence(conf)
-    if (ctx) drawFaceBox(ctx, result.detection.box, vid.videoWidth, vid.videoHeight, conf)
 
     const yaw = estimateYaw(result.landmarks)
     const targetPose = POSE_SEQUENCE[Math.min(curSample, POSE_SEQUENCE.length - 1)]
@@ -234,6 +251,7 @@ export default function FaceSetupPage() {
     if (!matches) {
       holdFrameRef.current = 0
       setHoldPct(0)
+      if (ctx) drawFaceCircle(ctx, result.detection.box, vid.videoWidth, vid.videoHeight, conf, 0)
       if (!capturingRef.current) {
         rafRef.current = requestAnimationFrame(() => detect(curSample, curSamples))
       }
@@ -243,6 +261,7 @@ export default function FaceSetupPage() {
     holdFrameRef.current++
     const pct = Math.min(100, Math.round((holdFrameRef.current / HOLD_FRAMES) * 100))
     setHoldPct(pct)
+    if (ctx) drawFaceCircle(ctx, result.detection.box, vid.videoWidth, vid.videoHeight, conf, pct)
 
     if (holdFrameRef.current >= HOLD_FRAMES && !capturingRef.current) {
       capturingRef.current = true; holdFrameRef.current = 0; setHoldPct(100); setCaptured(true)

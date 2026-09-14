@@ -172,13 +172,17 @@ export default function FaceRegisterPage() {
     }
   }
 
-  /* ── Draw dynamic bounding box ───────────────────────────────────── */
-  function drawFaceBox(
+  /* ── Draw circular face guide (Apple Face ID uslubida) ─────────────── */
+  // Yuz atrofida doira + radial chiziqchalar chiziladi; chiziqchalar soat 12
+  // dan boshlab soat mili yo'nalishida progress (holdPct) ga qarab yashil
+  // rangga bo'yaladi — TOTAL_SAMPLES ta pozaning har biri uchun alohida.
+  function drawFaceCircle(
     ctx: CanvasRenderingContext2D,
     box: { x: number; y: number; width: number; height: number },
     vidW: number,
     vidH: number,
     conf: number,
+    progressPct: number,
   ) {
     ctx.clearRect(0, 0, CVS_W, CVS_H)
 
@@ -190,44 +194,68 @@ export default function FaceRegisterPage() {
     const bh = box.height * sy
     const bx = CVS_W - box.x * sx - bw
     const by = box.y * sy
+    const cx = bx + bw / 2
+    const cy = by + bh / 2
+    const radius = Math.max(bw, bh) * 0.62
 
     const color = conf >= 70 ? "#22c55e" : "#fbbf24"
-    const cLen  = Math.min(bw, bh) * 0.22
+    const fraction = Math.max(0, Math.min(1, progressPct / 100))
 
-    // Dim vignette around face
+    // Dim vignette outside the circle
     ctx.save()
-    ctx.fillStyle = "rgba(0,0,0,0.4)"
+    ctx.fillStyle = "rgba(0,0,0,0.45)"
     ctx.beginPath()
     ctx.rect(0, 0, CVS_W, CVS_H)
-    ctx.rect(bx - 6, by - 6, bw + 12, bh + 12)
+    ctx.moveTo(cx + radius, cy)
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2, true)
     ;(ctx as any).fill("evenodd")
     ctx.restore()
 
-    // Box border with glow
+    // Base ring (xira)
     ctx.save()
-    ctx.strokeStyle = color
-    ctx.lineWidth = 2.5
-    ctx.shadowColor = color
-    ctx.shadowBlur = 14
-    ctx.strokeRect(bx, by, bw, bh)
+    ctx.strokeStyle = "rgba(255,255,255,0.28)"
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+    ctx.stroke()
     ctx.restore()
 
-    // Corner accents
-    ctx.save()
-    ctx.strokeStyle = color
-    ctx.lineWidth = 4
-    ctx.lineCap = "square"
-    ctx.shadowColor = color
-    ctx.shadowBlur = 6
-    // TL
-    ctx.beginPath(); ctx.moveTo(bx, by + cLen); ctx.lineTo(bx, by); ctx.lineTo(bx + cLen, by); ctx.stroke()
-    // TR
-    ctx.beginPath(); ctx.moveTo(bx + bw - cLen, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + cLen); ctx.stroke()
-    // BL
-    ctx.beginPath(); ctx.moveTo(bx, by + bh - cLen); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + cLen, by + bh); ctx.stroke()
-    // BR
-    ctx.beginPath(); ctx.moveTo(bx + bw - cLen, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - cLen); ctx.stroke()
-    ctx.restore()
+    // Progress yoyi — soat 12 dan boshlanadi
+    if (fraction > 0) {
+      ctx.save()
+      ctx.strokeStyle = color
+      ctx.lineWidth = 5
+      ctx.lineCap = "round"
+      ctx.shadowColor = color
+      ctx.shadowBlur = 10
+      const start = -Math.PI / 2
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, start, start + fraction * Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    // Radial chiziqchalar (Apple Face ID uslubidagi doira atrofidagi belgilar)
+    const TICKS = 32
+    for (let i = 0; i < TICKS; i++) {
+      const angle = (i / TICKS) * Math.PI * 2 - Math.PI / 2
+      const filled = i / TICKS <= fraction
+      const inner = radius + 6
+      const outer = radius + (filled ? 14 : 10)
+      const x1 = cx + Math.cos(angle) * inner
+      const y1 = cy + Math.sin(angle) * inner
+      const x2 = cx + Math.cos(angle) * outer
+      const y2 = cy + Math.sin(angle) * outer
+      ctx.save()
+      ctx.strokeStyle = filled ? color : "rgba(255,255,255,0.35)"
+      ctx.lineWidth = filled ? 3 : 2
+      if (filled) { ctx.shadowColor = color; ctx.shadowBlur = 6 }
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(x2, y2)
+      ctx.stroke()
+      ctx.restore()
+    }
   }
 
   /* ── Detection RAF loop ──────────────────────────────────────────── */
@@ -269,7 +297,6 @@ export default function FaceRegisterPage() {
     const conf = Math.round(result.detection.score * 100)
     setFaceDetected(true)
     setConfidence(conf)
-    if (ctx) drawFaceBox(ctx, result.detection.box, vid.videoWidth, vid.videoHeight, conf)
 
     const yaw = estimateYaw(result.landmarks)
     const targetPose = POSE_SEQUENCE[Math.min(curSample, POSE_SEQUENCE.length - 1)]
@@ -281,6 +308,7 @@ export default function FaceRegisterPage() {
       // turamiz (statik surat yoki noto'g'ri burilish bilan namuna olinmasin).
       holdFrameRef.current = 0
       setHoldPct(0)
+      if (ctx) drawFaceCircle(ctx, result.detection.box, vid.videoWidth, vid.videoHeight, conf, 0)
       if (!capturingRef.current) {
         rafRef.current = requestAnimationFrame(() => detect(curSample, curSamples))
       }
@@ -291,6 +319,7 @@ export default function FaceRegisterPage() {
     const frames = holdFrameRef.current
     const pct    = Math.min(100, Math.round((frames / HOLD_FRAMES) * 100))
     setHoldPct(pct)
+    if (ctx) drawFaceCircle(ctx, result.detection.box, vid.videoWidth, vid.videoHeight, conf, pct)
 
     if (frames >= HOLD_FRAMES && !capturingRef.current) {
       capturingRef.current = true
