@@ -32,7 +32,7 @@ const CVS_H         = 480
 // qilinmagan (kamerasiz muhitda tekshirib bo'lmaydi) — agar ekrandagi
 // ko'rsatma amaldagi harakatga teskari chiqsa, faqat shu YAW_SIGN ni -1 ga
 // almashtirish kifoya.
-const YAW_SIGN       = 1
+const YAW_SIGN       = -1
 const YAW_TURN_MIN   = 0.22  // |yaw| shundan katta bo'lsa — "burilgan" deb hisoblanadi
 const YAW_CENTER_MAX = 0.09  // |yaw| shundan kichik bo'lsa — "markazda" deb hisoblanadi
 // 0.09 va 0.22 orasi ataylab "o'lik zona" — bu oraliqda na markaz, na burilish

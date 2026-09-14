@@ -37,7 +37,7 @@ const CVS_H         = 480
 // (o'ng → chap → markaz) — statik fotosuratni "yuz" deb qabul qilmaslik
 // uchun. Tafsilot: app/(dashboard)/face-id/register/page.tsx dagi izohga
 // qarang (bu yerda aynan bir xil mantiq takrorlangan).
-const YAW_SIGN       = 1
+const YAW_SIGN       = -1
 const YAW_TURN_MIN   = 0.22
 const YAW_CENTER_MAX = 0.09
 type PoseStep = "right" | "left" | "center"
