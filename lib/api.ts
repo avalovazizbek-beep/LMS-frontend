@@ -2530,6 +2530,9 @@ export interface AdminAnnouncement extends Announcement {
 
 export const announcementsApi = {
   mine: () => get<ListRes<Announcement>>("/api/announcements/mine"),
+  // Yo'riqnoma sahifasi uchun — popup'da "X" bosib yopilgan bo'lsa ham
+  // ko'rinadigan, auditoriyaga mos barcha faol e'lonlar.
+  guide: () => get<ListRes<Announcement>>("/api/announcements/guide"),
   dismiss: (ids: number[]) => post<MsgRes>("/api/announcements/dismiss", { ids }),
   fileUrl: (id: number) => `${BASE}/api/announcements/${id}/file?token=${encodeURIComponent(getToken() ?? "")}`,
 }

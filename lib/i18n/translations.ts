@@ -30,6 +30,7 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "sidebar.dashboard":        { uz: "Boshqaruv paneli",           ru: "Панель управления",              en: "Dashboard",                 kaa: "Basqarıw paneli" },
   "sidebar.adminPanel":       { uz: "Admin panel",                ru: "Панель администратора",          en: "Admin Panel",               kaa: "Admin paneli" },
   "sidebar.meeting":          { uz: "Meeting",                    ru: "Meeting",                         en: "Meeting",                   kaa: "Meeting" },
+  "sidebar.yoriqnoma":        { uz: "Yo'riqnoma",                 ru: "Руководство",                     en: "Guide",                     kaa: "Qollanba" },
 
   "sidebar.section.studyPlan": { uz: "O'quv reja",                ru: "Учебный план",                    en: "Study Plan",                kaa: "Oqıw jobası" },
   "sidebar.item.studyPlan":    { uz: "O'quv reja",                ru: "Учебный план",                    en: "Study Plan",                kaa: "Oqıw jobası" },
@@ -848,6 +849,10 @@ export const dictionary: Record<string, Record<Lang, string>> = {
 
   // ── Xabarlar taxtasi (board) sahifasi ─────────────────────────────────
   "board.title":       { uz: "Xabarlar taxtasi",              ru: "Доска объявлений",                    en: "Announcement Board",              kaa: "Xabarlar taxtası" },
+
+  "yoriqnoma.title":    { uz: "Yo'riqnoma",                                        ru: "Руководство",                                      en: "Guide",                                        kaa: "Qollanba" },
+  "yoriqnoma.subtitle": { uz: "Tizimdan foydalanish bo'yicha video va materiallar", ru: "Видео и материалы по использованию системы",       en: "Videos and materials on using the system",     kaa: "Sistemadan paydalanıw boyınша video hám materiallar" },
+  "yoriqnoma.empty":    { uz: "Hozircha yo'riqnoma materiallari mavjud emas",       ru: "Пока нет материалов руководства",                  en: "No guide materials yet",                       kaa: "Házirshe qollanba materialları joq" },
   "board.addPost":     { uz: "E'lon qo'shish",                ru: "Добавить объявление",                 en: "Add announcement",                kaa: "Járiya qosıw" },
   "board.newPost":     { uz: "Yangi e'lon",                   ru: "Новое объявление",                    en: "New announcement",                kaa: "Jańa járiya" },
   "board.titlePlaceholder": { uz: "Sarlavha...",               ru: "Заголовок...",                        en: "Title...",                         kaa: "Sarlavha..." },

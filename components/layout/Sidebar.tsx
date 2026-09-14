@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   BookOpen, RefreshCw, Wallet, User, Video,
   Settings, Search, ChevronDown, GraduationCap, LayoutDashboard, ScanFace,
-  CalendarDays, ClipboardCheck, ClipboardList, UserCog, ShieldCheck,
+  CalendarDays, ClipboardCheck, ClipboardList, UserCog, ShieldCheck, HelpCircle,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -208,7 +208,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   // "prefix" tekshiruvi /qayta-o-qish kabi ota-havolani ham noto'g'ri faol
   // qilib qo'yardi, chunki u ham shu yo'l bilan boshlanadi.
   const allHrefs = useMemo(() => {
-    const list = ["/dashboard", "/meeting"]
+    const list = ["/dashboard", "/meeting", "/yoriqnoma"]
     if (isAdmin) list.push("/admin")
     sections.forEach(s => s.items.forEach(i => list.push(i.href)))
     return list
@@ -419,6 +419,28 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
               }}
             >
               {t("sidebar.meeting")}
+            </span>
+          </Link>
+
+          {/* Yo'riqnoma — standalone, eng pastda */}
+          <Link
+            href="/yoriqnoma"
+            onClick={onNavigate}
+            className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors mt-1 group"
+            style={{ backgroundColor: isActive("/yoriqnoma") ? "#f6f9ff" : "transparent" }}
+          >
+            <HelpCircle
+              className="w-[22px] h-[22px] shrink-0 transition-transform group-hover:scale-110"
+              style={{ color: isActive("/yoriqnoma") ? "#1cc2dc" : "#012970" }}
+            />
+            <span
+              className="text-[14px] font-medium"
+              style={{
+                color: isActive("/yoriqnoma") ? "#1cc2dc" : "#012970",
+                fontFamily: "var(--font-poppins)",
+              }}
+            >
+              {t("sidebar.yoriqnoma")}
             </span>
           </Link>
         </nav>
