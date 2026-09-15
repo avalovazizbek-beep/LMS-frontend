@@ -1,10 +1,10 @@
 export type Lang = "uz" | "ru" | "en" | "kaa"
 
-export const LANGUAGES: { code: Lang; label: string }[] = [
-  { code: "uz",  label: "O'zbekcha" },
-  { code: "ru",  label: "Русский" },
-  { code: "en",  label: "English" },
-  { code: "kaa", label: "Qaraqalpaqsha" },
+export const LANGUAGES: { code: Lang; label: string; short: string }[] = [
+  { code: "uz",  label: "O'zbekcha",       short: "UZ" },
+  { code: "ru",  label: "Русский",         short: "RU" },
+  { code: "en",  label: "English",         short: "EN" },
+  { code: "kaa", label: "Qaraqalpaqsha",   short: "QR" },
 ]
 
 export const DEFAULT_LANG: Lang = "uz"

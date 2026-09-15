@@ -261,12 +261,12 @@ export default function DarsJadvali() {
           <div className="relative">
             <button
               onClick={() => setShowWeekPicker(v => !v)}
-              className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm font-medium border transition-colors hover:bg-[#f0f5ff]"
-              style={{ borderColor: "rgba(14,88,168,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+              className="flex items-center justify-center gap-2 px-3 py-2 rounded-[8px] text-sm font-medium border transition-colors hover:bg-[#f0f5ff] whitespace-nowrap"
+              style={{ borderColor: "rgba(14,88,168,0.25)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 200 }}
             >
               <span className="font-semibold" style={{ color: "#0e58a8" }}>{weekNumber}.</span>
               {weekLabel}
-              <ChevronDown className="w-4 h-4" style={{ color: "#7293b9" }} />
+              <ChevronDown className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
             </button>
 
             <AnimatePresence>

@@ -28,7 +28,7 @@ export function LanguageSwitcher() {
         style={{ color: "var(--lms-primary, #012970)", fontFamily: "var(--font-poppins)", border: "1px solid rgba(1,41,112,0.15)" }}
       >
         <Languages className="w-3.5 h-3.5" />
-        {current.label}
+        {current.short}
         <ChevronDown className="w-3 h-3" />
       </button>
 
