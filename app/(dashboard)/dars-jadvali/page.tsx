@@ -249,11 +249,11 @@ export default function DarsJadvali() {
         </div>
 
         {/* Hafta navigatsiyasi */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 p-1.5 rounded-[14px]" style={{ backgroundColor: "#1b5a74" }}>
           <button
             onClick={() => setWeekOffset(w => w - 1)}
-            className="px-3 py-2 rounded-[8px] text-sm font-medium border transition-colors hover:bg-[#f0f5ff]"
-            style={{ borderColor: "rgba(1,41,112,0.15)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}
+            className="flex items-center gap-1 px-4 py-2.5 rounded-[10px] text-sm font-semibold bg-white transition-opacity hover:opacity-90"
+            style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
           >
             {t("darsJadvali.prev")}
           </button>
@@ -261,12 +261,12 @@ export default function DarsJadvali() {
           <div className="relative">
             <button
               onClick={() => setShowWeekPicker(v => !v)}
-              className="flex items-center justify-center gap-2 px-3 py-2 rounded-[8px] text-sm font-medium border transition-colors hover:bg-[#f0f5ff] whitespace-nowrap"
-              style={{ borderColor: "rgba(14,88,168,0.25)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 200 }}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-[10px] text-sm font-medium border transition-colors hover:bg-white/10 whitespace-nowrap"
+              style={{ borderColor: "rgba(255,255,255,0.55)", color: "#fff", fontFamily: "var(--font-poppins)", minWidth: 200 }}
             >
-              <span className="font-semibold" style={{ color: "#0e58a8" }}>{weekNumber}.</span>
+              <span className="font-bold">{weekNumber}.</span>
               {weekLabel}
-              <ChevronDown className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
+              <ChevronDown className="w-4 h-4 shrink-0" />
             </button>
 
             <AnimatePresence>
@@ -312,21 +312,20 @@ export default function DarsJadvali() {
           </div>
 
           <button
+            onClick={() => setWeekOffset(0)}
+            className="px-4 py-2.5 rounded-[10px] text-sm font-semibold transition-colors hover:bg-white/15"
+            style={{ backgroundColor: "rgba(255,255,255,0.14)", color: "#fff", fontFamily: "var(--font-poppins)" }}
+          >
+            {t("darsJadvali.today")}
+          </button>
+
+          <button
             onClick={() => setWeekOffset(w => w + 1)}
-            className="px-3 py-2 rounded-[8px] text-sm font-medium border transition-colors hover:bg-[#f0f5ff]"
-            style={{ borderColor: "rgba(1,41,112,0.15)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}
+            className="flex items-center gap-1 px-4 py-2.5 rounded-[10px] text-sm font-semibold bg-white transition-opacity hover:opacity-90"
+            style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
           >
             {t("darsJadvali.next")}
           </button>
-          {weekOffset !== 0 && (
-            <button
-              onClick={() => setWeekOffset(0)}
-              className="px-3 py-2 rounded-[8px] text-xs font-medium"
-              style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}
-            >
-              {t("darsJadvali.today")}
-            </button>
-          )}
         </div>
       </div>
 
