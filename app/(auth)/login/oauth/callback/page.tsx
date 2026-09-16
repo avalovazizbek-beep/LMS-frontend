@@ -11,9 +11,9 @@ type HemisRole = "student" | "employee" | "tutor" | "auto"
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ""
 
-// "Kirish imkoni yo'q" ekranidagi identifikatsiya-tekshiruv animatsiyasi
-// (public/security.lottie). @lottiefiles/dotlottie-web WASM orqali ishlaydi
-// — faqat brauzerda, shuning uchun dinamik import qilinadi.
+// "Kirish imkoni yo'q" ekranidagi qulf/karta animatsiyasi (public/lock-card.json).
+// @lottiefiles/dotlottie-web WASM orqali ishlaydi — faqat brauzerda,
+// shuning uchun dinamik import qilinadi.
 function SecurityAnimation() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -25,7 +25,7 @@ function SecurityAnimation() {
       if (cancelled || !canvasRef.current) return
       dotLottie = new DotLottie({
         canvas: canvasRef.current,
-        src: `${BASE_PATH}/security.lottie`,
+        src: `${BASE_PATH}/lock-card.json`,
         loop: true,
         autoplay: true,
       })
@@ -102,7 +102,8 @@ function NotMasofaviyScreen({ message }: { message: string }) {
     <div className="masofaviy-wrap">
       <main className="page">
         <div className="brand">
-          <div className="brand-icon" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`${BASE_PATH}/gradcap-brand.png`} alt="" className="brand-icon" />
           <div>
             <strong>SIES</strong>
             <span>Masofaviy ta&apos;lim</span>
@@ -177,21 +178,7 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         .brand-icon {
           width: 42px;
           height: 42px;
-          display: grid;
-          place-items: center;
-          color: white;
-          background: linear-gradient(145deg, #3b82f6, #1d4ed8);
-          clip-path: polygon(50% 0, 100% 25%, 50% 50%, 0 25%);
-          position: relative;
-        }
-        .brand-icon::after {
-          content: "";
-          position: absolute;
-          width: 5px;
-          height: 16px;
-          top: 20px;
-          background: #1d4ed8;
-          transform: rotate(30deg);
+          object-fit: contain;
         }
         .brand strong { display: block; font-size: 25px; line-height: 1; letter-spacing: .5px; }
         .brand span { display: block; margin-top: 5px; font-size: 14px; color: #58709f; }
@@ -243,8 +230,10 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         .security-canvas {
           position: relative;
           width: 100%;
-          max-width: 420px;
-          aspect-ratio: 1920 / 1700;
+          height: 100%;
+          max-width: 500px;
+          max-height: 500px;
+          aspect-ratio: 1 / 1;
         }
 
         .content { position: relative; z-index: 2; text-align: center; }
