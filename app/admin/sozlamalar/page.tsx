@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Settings, RefreshCw, Save, ShieldAlert, FileText, CheckCircle2, Video } from "lucide-react"
+import { Settings, RefreshCw, Save, ShieldAlert, FileText, CheckCircle2, Video, ClipboardCheck } from "lucide-react"
 import { adminApi } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -15,6 +15,7 @@ export default function AdminSozlamalar() {
   const [faceThreshold, setFaceThreshold] = useState("3")
   const [testAttempts, setTestAttempts] = useState("1")
   const [meetingMinutes, setMeetingMinutes] = useState("70")
+  const [attendanceMode, setAttendanceMode] = useState<"auto" | "manual">("auto")
 
   function load() {
     setLoading(true)
@@ -25,6 +26,7 @@ export default function AdminSozlamalar() {
         setFaceThreshold(d.face_block_threshold ?? "3")
         setTestAttempts(d.test_max_attempts ?? "1")
         setMeetingMinutes(d.meeting_attendance_minutes ?? "70")
+        setAttendanceMode(d.attendance_mode === "manual" ? "manual" : "auto")
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -40,6 +42,7 @@ export default function AdminSozlamalar() {
         face_block_threshold: faceThreshold,
         test_max_attempts: testAttempts,
         meeting_attendance_minutes: meetingMinutes,
+        attendance_mode: attendanceMode,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -192,6 +195,50 @@ export default function AdminSozlamalar() {
               <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                 {t("adminSozlamalar.rangeHint5to180")}
               </span>
+            </div>
+          </div>
+
+          {/* Meeting attendance mode */}
+          <div className="bg-white rounded-[12px] p-6" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0fdf4" }}>
+                <ClipboardCheck className="w-5 h-5" style={{ color: "#15803d" }} />
+              </div>
+              <div>
+                <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  {t("adminSozlamalar.attendanceModeTitle")}
+                </div>
+                <div className="text-xs mt-0.5 leading-5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                  {t("adminSozlamalar.attendanceModeDesc")}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              {([
+                { v: "auto" as const, label: t("adminSozlamalar.attendanceModeAuto"), desc: t("adminSozlamalar.attendanceModeAutoDesc") },
+                { v: "manual" as const, label: t("adminSozlamalar.attendanceModeManual"), desc: t("adminSozlamalar.attendanceModeManualDesc") },
+              ]).map(opt => {
+                const active = attendanceMode === opt.v
+                return (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setAttendanceMode(opt.v)}
+                    className="flex-1 text-left px-4 py-3 rounded-[10px] transition-colors"
+                    style={{
+                      border: active ? "2px solid #0e58a8" : "1px solid rgba(1,41,112,0.15)",
+                      backgroundColor: active ? "#eef4ff" : "#fff",
+                    }}>
+                    <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                      {opt.label}
+                    </div>
+                    <div className="text-xs mt-1 leading-5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                      {opt.desc}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 

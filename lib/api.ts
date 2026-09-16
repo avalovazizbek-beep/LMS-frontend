@@ -1426,7 +1426,7 @@ export const teachingApi = {
   groupsByYear: (year: string) => get<ListRes<TeacherGroup>>(`/api/teaching/groups-by-year?year=${encodeURIComponent(year)}`),
 
   examSettings: () =>
-    get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null } }>("/api/teaching/exam-settings"),
+    get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null; attendanceMode: "auto" | "manual" } }>("/api/teaching/exam-settings"),
 
   sync: () =>
     post<{ success: boolean; message: string; data: { groups: TeacherGroup[]; schedule: TeacherScheduleItem[] } }>(

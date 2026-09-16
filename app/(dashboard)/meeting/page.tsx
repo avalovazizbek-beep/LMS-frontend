@@ -17,6 +17,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Circle,
+  ClipboardCheck,
   Clock3,
   Loader2,
   Maximize2,
@@ -40,7 +41,11 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react"
-import { meetingsApi, hemisApi, teachingApi, type Meeting, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup } from "@/lib/api"
+import {
+  meetingsApi, hemisApi, teachingApi, attendanceApi,
+  type Meeting, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup,
+  type AttendanceRosterItem, type AttendanceStatus,
+} from "@/lib/api"
 import { MeetingMediaClient, type ProducerSummary } from "@/lib/meetingMediasoup"
 import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
@@ -153,6 +158,13 @@ type ViewState =
 
 
 const participantAccents = ["#0e58a8", "#1cc2dc", "#38bdf8", "#2563eb", "#14b8a6", "#f59e0b"]
+
+const ATTENDANCE_STATUS_OPTIONS: { value: AttendanceStatus; label: string; color: string; bg: string }[] = [
+  { value: "present", label: "Bor",     color: "#15803d", bg: "#f0fdf4" },
+  { value: "absent",  label: "Yo'q",    color: "#b91c1c", bg: "#fef2f2" },
+  { value: "excused", label: "Uzrli",   color: "#92400e", bg: "#fffbeb" },
+  { value: "late",    label: "Kechikdi", color: "#0e58a8", bg: "#eef4ff" },
+]
 
 function getInitials(name: string) {
   return name
@@ -1793,6 +1805,7 @@ function CallStage({
   chatInput,
   callSeconds,
   isTeacher,
+  attendanceModeManual,
   localUserName,
   localUserRole,
   localGroupId,
@@ -1832,6 +1845,7 @@ function CallStage({
   chatInput: string
   callSeconds: number
   isTeacher: boolean
+  attendanceModeManual: boolean
   localUserName: string
   localUserRole: string
   localGroupId: number | null
@@ -1863,6 +1877,80 @@ function CallStage({
   const openMobilePanel = (panel: CallPanel) => {
     onTogglePanel(panel)
     setMobilePanelOpen(true)
+  }
+
+  // Qo'lda davomat (admin "Sozlamalar"da "manual" rejimni tanlagan bo'lsa) —
+  // modal yopilganda holat (belgilangan bor/yo'q) YO'QOLMAYDI, faqat
+  // "Saqlash" bosilganda davomat jurnaliga (lms_attendance) yoziladi.
+  const meetingGroupIds = useMemo(
+    () => (meeting.groupIds ?? []).map(id => Number(id)).filter(id => Number.isFinite(id) && id > 0),
+    [meeting.groupIds]
+  )
+  const meetingDateStr = useMemo(() => {
+    const raw = meeting.startTime
+    const d = raw ? new Date(raw) : new Date()
+    if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 10)
+    return d.toISOString().slice(0, 10)
+  }, [meeting.startTime])
+  const [attendanceOpen, setAttendanceOpen] = useState(false)
+  const [attendanceGroupId, setAttendanceGroupId] = useState<number | null>(null)
+  const [attendanceRoster, setAttendanceRoster] = useState<AttendanceRosterItem[] | null>(null)
+  const [attendanceLoading, setAttendanceLoading] = useState(false)
+  const [attendanceError, setAttendanceError] = useState<string | null>(null)
+  const [attendanceSaving, setAttendanceSaving] = useState(false)
+  const [attendanceSaveMsg, setAttendanceSaveMsg] = useState<string | null>(null)
+
+  async function loadAttendanceRoster(groupId: number) {
+    setAttendanceLoading(true)
+    setAttendanceError(null)
+    setAttendanceSaveMsg(null)
+    try {
+      const res = await attendanceApi.roster(groupId, meeting.subjectName || meeting.subject, meetingDateStr)
+      setAttendanceRoster(res.data)
+      setAttendanceGroupId(groupId)
+    } catch (e) {
+      setAttendanceError(e instanceof Error ? e.message : "Ro'yxatni yuklashda xato")
+    } finally {
+      setAttendanceLoading(false)
+    }
+  }
+
+  function openAttendance() {
+    setAttendanceOpen(true)
+    // Faqat birinchi ochilishda yuklaydi — keyingi ochishlarda o'qituvchi
+    // qo'ygan belgilar xotirada saqlanib qolgani uchun qayta so'ralmaydi.
+    if (attendanceRoster === null && !attendanceLoading) {
+      const defaultGroupId = meetingGroupIds[0] ?? localGroupId
+      if (defaultGroupId) void loadAttendanceRoster(defaultGroupId)
+    }
+  }
+
+  function setAttendanceStatus(studentUserId: number, status: AttendanceStatus) {
+    setAttendanceRoster(prev => prev?.map(r => r.studentUserId === studentUserId ? { ...r, status } : r) ?? prev)
+  }
+
+  async function saveAttendance() {
+    if (!attendanceRoster || attendanceGroupId == null) return
+    setAttendanceSaving(true)
+    setAttendanceSaveMsg(null)
+    try {
+      await attendanceApi.save({
+        groupId: attendanceGroupId,
+        subjectName: meeting.subjectName || meeting.subject,
+        date: meetingDateStr,
+        records: attendanceRoster.map(r => ({
+          studentUserId: r.studentUserId,
+          fullName: r.fullName,
+          status: r.status ?? "absent",
+          comment: r.comment ?? undefined,
+        })),
+      })
+      setAttendanceSaveMsg("Davomat jurnaliga saqlandi")
+    } catch (e) {
+      setAttendanceSaveMsg(e instanceof Error ? e.message : "Saqlashda xato")
+    } finally {
+      setAttendanceSaving(false)
+    }
   }
   const handleFullscreen = () => {
     const el = videoSectionRef.current
@@ -2098,6 +2186,9 @@ function CallStage({
                       onClick={onToggleRecording}
                     />
                   )}
+                  {isTeacher && attendanceModeManual && (
+                    <CallControlButton label="Davomat" icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
+                  )}
                   <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} badge={unreadChatCount} onClick={() => openMobilePanel("chat")} />
                   <button type="button" aria-label="Yana" onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
                     className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20">
@@ -2115,6 +2206,9 @@ function CallStage({
               <div className="flex flex-wrap items-center justify-center gap-2 rounded-full bg-white px-3 py-2 shadow-[0_2px_12px_rgba(1,41,112,0.1)] border border-[#d8e6f7]">
                 <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
                 <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
+                {isTeacher && attendanceModeManual && (
+                  <CallControlButton label="Davomat" icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
+                )}
                 <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} badge={unreadChatCount} onClick={() => openMobilePanel("chat")} />
                 <button type="button" aria-label="Yana" onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
                   className="grid h-11 w-11 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475]">
@@ -2278,6 +2372,103 @@ function CallStage({
           </aside>
         </div>
       </div>
+
+      {attendanceModeManual && attendanceOpen && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(1,41,112,0.6)", backdropFilter: "blur(4px)" }}>
+          <div className="w-full max-w-2xl rounded-[14px] bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+              <div>
+                <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Davomat</h2>
+                <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                  {(meeting.subjectName || meeting.subject)} — {meetingDateStr}
+                </p>
+              </div>
+              <button onClick={() => setAttendanceOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#f0f5ff] transition-colors">
+                <X className="w-4 h-4" style={{ color: "#7293b9" }} />
+              </button>
+            </div>
+
+            {meetingGroupIds.length > 1 && (
+              <div className="px-5 py-3 flex items-center gap-1.5 flex-wrap" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                <span className="text-xs font-medium mr-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Guruh:</span>
+                {meetingGroupIds.map(gid => (
+                  <button key={gid} onClick={() => loadAttendanceRoster(gid)}
+                    className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
+                    style={{
+                      backgroundColor: attendanceGroupId === gid ? "#0e58a8" : "#eef4ff",
+                      color: attendanceGroupId === gid ? "#fff" : "#0e58a8",
+                      fontFamily: "var(--font-poppins)",
+                    }}>
+                    {groupIdToName.get(gid) ?? `Guruh #${gid}`}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="overflow-y-auto flex-1">
+              {attendanceError ? (
+                <div className="p-6 text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{attendanceError}</div>
+              ) : attendanceLoading || attendanceRoster === null ? (
+                <div className="flex items-center justify-center py-14">
+                  <RefreshCw className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} />
+                </div>
+              ) : attendanceRoster.length === 0 ? (
+                <div className="p-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                  Bu guruhda talaba topilmadi
+                </div>
+              ) : (
+                <table className="w-full">
+                  <tbody>
+                    {attendanceRoster.map(s => (
+                      <tr key={s.studentUserId} className="hover:bg-[#f6f9ff]/50 transition-colors" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                        <td className="px-5 py-3">
+                          <div className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{s.fullName}</div>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex flex-wrap gap-1.5 justify-end">
+                            {ATTENDANCE_STATUS_OPTIONS.map(opt => {
+                              const active = (s.status ?? "absent") === opt.value
+                              return (
+                                <button key={opt.value} onClick={() => setAttendanceStatus(s.studentUserId, opt.value)}
+                                  className="text-xs font-medium px-2.5 py-1 rounded-full transition-all"
+                                  style={{
+                                    backgroundColor: active ? opt.bg : "transparent",
+                                    color: active ? opt.color : "#7293b9",
+                                    border: active ? `1px solid ${opt.color}33` : "1px solid rgba(1,41,112,0.12)",
+                                    fontFamily: "var(--font-poppins)",
+                                  }}>
+                                  {opt.label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {attendanceRoster !== null && attendanceRoster.length > 0 && (
+              <div className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
+                {attendanceSaveMsg && (
+                  <span className="text-sm" style={{ color: attendanceSaveMsg.includes("saqland") ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                    {attendanceSaveMsg}
+                  </span>
+                )}
+                <button onClick={saveAttendance} disabled={attendanceSaving}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50 ml-auto"
+                  style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                  <ClipboardCheck className="w-4 h-4" />
+                  {attendanceSaving ? "Saqlanmoqda..." : "Saqlash"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </motion.div>
   )
 }
@@ -2285,6 +2476,11 @@ function CallStage({
 export default function MeetingPage() {
   const { data, loading, error, refetch } = useApi(() => meetingsApi.getStudentMeetings())
   const { data: groupsData } = useApi(() => teachingApi.groups(), [])
+  // Admin "Sozlamalar"dan tanlangan davomat rejimi — "manual" bo'lsa,
+  // o'qituvchiga meeting ichida "Davomat" tugmasi ko'rsatiladi (aks holda
+  // davomat Face ID orqali avtomatik hisoblanadi, tugma kerak emas).
+  const { data: examSettingsData } = useApi(() => teachingApi.examSettings(), [])
+  const attendanceModeManual = examSettingsData?.data?.attendanceMode === "manual"
   const { role, fullName: localFullName, groupId: localGroupId, groupIds: teacherGroupIds } = useCurrentUserRole()
   const isTeacher = role === "employee"
   const groupIdToName = useMemo(() => {
@@ -3051,6 +3247,7 @@ export default function MeetingPage() {
             chatInput={chatInput}
             callSeconds={callSeconds}
             isTeacher={isTeacher}
+            attendanceModeManual={attendanceModeManual}
             localUserName={localFullName}
             localUserRole={role}
             localGroupId={localGroupId}
