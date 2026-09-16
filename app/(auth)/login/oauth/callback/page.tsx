@@ -38,15 +38,7 @@ function SecurityAnimation() {
     }
   }, [])
 
-  // Manba animatsiyaning o'zida qulf belgisi 256x256 kompozitsiyaning
-  // kichik bir qismini egallaydi (atrofida bo'sh joy ko'p) — shu sabab
-  // canvas'ning o'zi kattalashtirilib (scale), atrofdagi bo'sh joy
-  // tashqi konteynerning overflow:hidden bilan kesib tashlanadi.
-  return (
-    <div className="security-canvas-wrap">
-      <canvas ref={canvasRef} className="security-canvas" />
-    </div>
-  )
+  return <canvas ref={canvasRef} className="security-canvas" />
 }
 
 function CallbackCard({ message, error }: { message: string; error?: string | null }) {
@@ -236,22 +228,13 @@ function NotMasofaviyScreen({ message }: { message: string }) {
           z-index: -2;
         }
 
-        .security-canvas-wrap {
+        .security-canvas {
           position: relative;
           width: 100%;
           height: 100%;
           max-width: 500px;
           max-height: 500px;
           aspect-ratio: 1 / 1;
-          overflow: hidden;
-        }
-        .security-canvas {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 100%;
-          height: 100%;
-          transform: translate(-50%, -50%) scale(3.5);
         }
 
         .content { position: relative; z-index: 2; text-align: center; }
