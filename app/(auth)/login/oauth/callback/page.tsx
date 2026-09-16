@@ -107,54 +107,37 @@ function CallbackCard({ message, error }: { message: string; error?: string | nu
   )
 }
 
-// Masofaviy-cheklov uchun alohida, illyustratsiyali ekran — foydalanuvchi
-// so'ragan aniq dizayn bo'yicha. Boshqa xato holatlaridan (sessiya
-// almashinuvi, umumiy OAuth xatosi) ataylab ajratilgan — chunki bu
-// haqiqiy "xato" emas, balki tizimning ataylab qilingan qarori.
+// Masofaviy-cheklov uchun alohida ekran — foydalanuvchi so'ragan bo'yicha
+// atrofidagi barcha dekorativ "ramka" (karta foni, soya, xira doiralar,
+// qalqon ikonkasi) olib tashlangan — faqat animatsiya va uning yonidagi
+// matn qoladi. Boshqa xato holatlaridan (sessiya almashinuvi, umumiy OAuth
+// xatosi) ataylab ajratilgan — chunki bu haqiqiy "xato" emas, balki
+// tizimning ataylab qilingan qarori.
 function NotMasofaviyScreen({ message }: { message: string }) {
   return (
     <div className="masofaviy-wrap">
-      <main className="page">
-        <div className="brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`${BASE_PATH}/gradcap-brand.png`} alt="" className="brand-icon" />
-          <div>
-            <strong>SIES</strong>
-            <span>Masofaviy ta&apos;lim</span>
-          </div>
+      <div className="brand">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${BASE_PATH}/gradcap-brand.png`} alt="" className="brand-icon" />
+        <div>
+          <strong>SIES</strong>
+          <span>Masofaviy ta&apos;lim</span>
+        </div>
+      </div>
+
+      <main className="row">
+        <div className="illustration">
+          <SecurityAnimation />
         </div>
 
-        <section className="card">
-          <div className="illustration">
-            <SecurityAnimation />
-          </div>
-
-          <div className="content">
-            <div className="shield">
-              <svg viewBox="0 0 100 100" fill="none">
-                <path d="M50 9L81 21V45C81 65 68 81 50 90C32 81 19 65 19 45V21L50 9Z" fill="#2563EB" />
-                <rect x="36" y="42" width="28" height="23" rx="5" fill="white" />
-                <path d="M42 42V35C42 30.6 45.6 27 50 27C54.4 27 58 30.6 58 35V42" stroke="white" strokeWidth={6} strokeLinecap="round" />
-                <circle cx="50" cy="52" r="3" fill="#2563EB" />
-                <path d="M50 55V59" stroke="#2563EB" strokeWidth={3} strokeLinecap="round" />
-              </svg>
-            </div>
-
-            <h1>Kirish imkoni <span>yo&apos;q</span></h1>
-
-            <p>{message}</p>
-
-            <Link href="/login" className="back-btn">
-              <span className="arrow" style={{ transform: "none" }}>&larr;</span>
-              <span>Login sahifasiga qaytish</span>
-            </Link>
-          </div>
-
-          <div className="footer">
-            <span className="book">&#9634;</span>
-            <span>Ta&apos;lim – kelajak kaliti</span>
-          </div>
-        </section>
+        <div className="content">
+          <h1>Kirish imkoni <span>yo&apos;q</span></h1>
+          <p>{message}</p>
+          <Link href="/login" className="back-btn">
+            <span>&larr;</span>
+            <span>Login sahifasiga qaytish</span>
+          </Link>
+        </div>
       </main>
 
       <style jsx>{`
@@ -162,171 +145,71 @@ function NotMasofaviyScreen({ message }: { message: string }) {
           --blue: #2563eb;
           --navy: #172554;
           --text: #294477;
-          --bg: #f3f7ff;
           min-height: 100vh;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
+          gap: 32px;
           padding: 32px;
-          overflow-x: hidden;
           font-family: Inter, "Segoe UI", Arial, sans-serif;
           color: var(--text);
-          background:
-            radial-gradient(circle at 5% 5%, #dce8ff 0 13%, transparent 13.2%),
-            radial-gradient(circle at 100% 100%, #dce8ff 0 16%, transparent 16.2%),
-            var(--bg);
+          background: #f3f7ff;
         }
         .masofaviy-wrap * { box-sizing: border-box; }
 
-        .page { width: min(1420px, 100%); position: relative; }
-
         .brand {
+          width: min(1100px, 100%);
           display: flex;
           align-items: center;
           justify-content: flex-end;
           gap: 12px;
-          margin: 0 20px 24px;
           color: var(--navy);
         }
-        .brand-icon {
-          width: 42px;
-          height: 42px;
-          object-fit: contain;
-        }
-        .brand strong { display: block; font-size: 25px; line-height: 1; letter-spacing: .5px; }
-        .brand span { display: block; margin-top: 5px; font-size: 14px; color: #58709f; }
+        .brand-icon { width: 36px; height: 36px; object-fit: contain; }
+        .brand strong { display: block; font-size: 20px; line-height: 1; letter-spacing: .5px; }
+        .brand span { display: block; margin-top: 3px; font-size: 13px; color: #58709f; }
 
-        .card {
-          min-height: 730px;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 45px;
-          align-items: center;
-          padding: 62px 75px 42px;
-          overflow: hidden;
-          border: 1px solid rgba(255,255,255,.9);
-          border-radius: 32px;
-          background: rgba(255,255,255,.88);
-          box-shadow: 0 25px 70px rgba(37, 99, 235, .12), inset 0 1px 0 rgba(255,255,255,.95);
-          backdrop-filter: blur(12px);
-          position: relative;
-        }
-        .card::before, .card::after {
-          content: "";
-          position: absolute;
-          border-radius: 50%;
-          pointer-events: none;
-          filter: blur(2px);
-        }
-        .card::before { width: 300px; height: 300px; left: -170px; top: -170px; background: #eaf1ff; }
-        .card::after { width: 240px; height: 240px; right: -120px; bottom: -120px; background: #edf3ff; }
-
-        .illustration {
-          min-height: 620px;
-          position: relative;
+        .row {
+          width: min(1100px, 100%);
           display: flex;
           align-items: center;
-          justify-content: center;
-          isolation: isolate;
+          gap: 48px;
         }
 
-        .security-canvas {
-          /* height:100% olib tashlandi — parent (.illustration) kengligi va
-             balandligi bir xil emas edi, shu sabab canvas kvadrat bo'lmay
-             chiqib, "cover" fit uni nomutanosib zumlab kesib yuborardi.
-             Faqat width + aspect-ratio bilan canvas har doim haqiqiy
-             kvadrat bo'lib qoladi. */
-          position: relative;
-          width: 100%;
-          max-width: 620px;
-          aspect-ratio: 1 / 1;
-        }
+        .illustration { flex: 1 1 320px; max-width: 460px; }
+        .security-canvas { display: block; width: 100%; aspect-ratio: 1 / 1; }
 
-        .content { position: relative; z-index: 2; text-align: center; }
-
-        .shield {
-          width: 108px;
-          height: 108px;
-          margin: 0 auto 28px;
-          display: grid;
-          place-items: center;
-          border-radius: 50%;
-          background: #f0f5ff;
-          animation: shieldPulse 3s ease-in-out infinite;
-        }
-        .shield svg { width: 66px; height: 66px; filter: drop-shadow(0 7px 5px rgba(37, 99, 235, .15)); }
+        .content { flex: 1 1 320px; }
 
         .content h1 {
-          margin: 0 0 25px;
+          margin: 0 0 20px;
           color: var(--navy);
-          font-size: clamp(35px, 4vw, 62px);
-          line-height: 1.08;
-          letter-spacing: -2px;
+          font-size: clamp(30px, 4vw, 52px);
+          line-height: 1.1;
           font-weight: 800;
         }
         .content h1 span { color: var(--blue); }
-        .content p { max-width: 570px; margin: 0 auto; color: #38558b; font-size: clamp(16px, 1.35vw, 21px); line-height: 1.8; }
+        .content p { max-width: 520px; margin: 0 0 28px; color: #38558b; font-size: 17px; line-height: 1.7; }
 
         .back-btn {
-          margin: 38px auto 0;
-          min-width: 350px;
-          border: 0;
-          border-radius: 15px;
-          padding: 20px 30px;
           display: inline-flex;
-          justify-content: center;
           align-items: center;
-          gap: 20px;
+          gap: 14px;
+          padding: 16px 28px;
+          border-radius: 12px;
           color: white;
           background: linear-gradient(100deg, #3b82f6, #2563eb);
-          box-shadow: 0 14px 25px rgba(37, 99, 235, .23);
-          font-size: 18px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: .25s ease;
-          text-decoration: none;
-        }
-        .back-btn:hover { transform: translateY(-4px); box-shadow: 0 18px 32px rgba(37, 99, 235, .3); }
-        .back-btn:active { transform: translateY(-1px) scale(.98); }
-        .back-btn .arrow { font-size: 25px; transition: transform .25s ease; }
-        .back-btn:hover .arrow { transform: translateX(-5px); }
-
-        .footer {
-          grid-column: 1 / -1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 25px;
-          margin-top: -5px;
-          color: #a6b9e5;
           font-size: 16px;
-          font-style: italic;
+          font-weight: 700;
+          text-decoration: none;
+          transition: transform .2s ease;
         }
-        .footer::before, .footer::after { content: ""; width: 130px; height: 1px; background: #d6e2fa; }
-        .book { font-size: 24px; font-style: normal; }
+        .back-btn:hover { transform: translateY(-2px); }
 
-        @keyframes shieldPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-
-        @media (max-width: 1050px) {
-          .card { grid-template-columns: 1fr; padding: 50px 35px 35px; }
-          .illustration { min-height: 480px; }
-          .footer { grid-column: auto; margin-top: 25px; }
-        }
-
-        @media (max-width: 560px) {
-          .masofaviy-wrap { padding: 14px; }
-          .brand { margin-bottom: 16px; }
-          .brand strong { font-size: 21px; }
-          .card { padding: 35px 15px 28px; border-radius: 24px; }
-          .illustration { min-height: 370px; transform: scale(.72); transform-origin: center; margin: -50px 0; }
-          .content h1 { letter-spacing: -1px; }
-          .content p { line-height: 1.65; }
-          .back-btn { width: 100%; min-width: 0; font-size: 16px; }
-          .footer::before, .footer::after { width: 45px; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .masofaviy-wrap * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+        @media (max-width: 720px) {
+          .row { flex-direction: column; text-align: center; }
+          .content p { margin-left: auto; margin-right: auto; }
         }
       `}</style>
     </div>
