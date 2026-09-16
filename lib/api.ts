@@ -2405,14 +2405,18 @@ export const adminApi = {
   /** So'nggi N oylik kirishlar soni, oy bo'yicha (YYYY-MM -> son) */
   loginTrendMonthly: (months = 6) => get<{ data: Record<string, number> }>(`/api/admin/login-trend?unit=month&months=${months}`),
 
-  /** HEMIS'dan (so'ragan adminning o'z departmenti bo'yicha) guruhlar + talaba soni */
-  hemisStudents: () => get<{
-    success: boolean
-    totalStudents: number
-    departmentId: string | null
-    universityWide: boolean
-    groups: { groupId: number; groupName: string; studentCount: number }[]
-  }>("/api/admin/hemis-students"),
+  /** Masofaviy ta'lim guruhlari (bakalavr+magistr) + talaba soni, ixtiyoriy kurs/daraja filtri va sahifalash bilan */
+  hemisStudents: (params?: { course?: string; degree?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams(buildParams(params ?? {})).toString()
+    return get<{
+      success: boolean
+      totalGroups: number
+      totalStudents: number
+      courses: { code: string; name: string }[]
+      degrees: { code: string; name: string }[]
+      groups: { groupId: number; groupName: string; studentCount: number }[]
+    }>(`/api/admin/hemis-students${q ? `?${q}` : ""}`)
+  },
 
   /** Bitta guruhdagi talabalar, har birining Face ID holati bilan */
   studentFaceRoster: (groupId: number) =>

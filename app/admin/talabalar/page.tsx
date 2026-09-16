@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Users, RefreshCw, GraduationCap, AlertTriangle, X, ScanFace, CheckCircle2, AlertCircle, Send } from "lucide-react"
+import { Users, RefreshCw, GraduationCap, ChevronLeft, ChevronRight, X, ScanFace, CheckCircle2, AlertCircle, Send } from "lucide-react"
 import { adminApi, type StudentFaceRow } from "@/lib/api"
+
+const PAGE_SIZE = 20
 
 interface GroupRow { groupId: number; groupName: string; studentCount: number }
 
@@ -107,29 +109,60 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
 
 export default function AdminTalabalar() {
   const [groups, setGroups] = useState<GroupRow[]>([])
-  const [total, setTotal] = useState(0)
-  const [departmentId, setDepartmentId] = useState<string | null>(null)
-  const [universityWide, setUniversityWide] = useState(false)
+  const [totalGroups, setTotalGroups] = useState(0)
+  const [totalStudents, setTotalStudents] = useState(0)
+  const [courses, setCourses] = useState<{ code: string; name: string }[]>([])
+  const [degrees, setDegrees] = useState<{ code: string; name: string }[]>([])
+  const [courseFilter, setCourseFilter] = useState("")
+  const [degreeFilter, setDegreeFilter] = useState("")
+  const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [selectedGroup, setSelectedGroup] = useState<GroupRow | null>(null)
 
-  function load() {
+  function load(courseArg?: string, degreeArg?: string, pageArg?: number) {
     setLoading(true)
     setError(null)
-    adminApi.hemisStudents()
+    const p = pageArg ?? page
+    adminApi.hemisStudents({
+      course: courseArg ?? courseFilter,
+      degree: degreeArg ?? degreeFilter,
+      limit: PAGE_SIZE,
+      offset: p * PAGE_SIZE,
+    })
       .then(res => {
         setGroups(res.groups ?? [])
-        setTotal(res.totalStudents ?? 0)
-        setDepartmentId(res.departmentId ?? null)
-        setUniversityWide(!!res.universityWide)
+        setTotalGroups(res.totalGroups ?? 0)
+        setTotalStudents(res.totalStudents ?? 0)
+        setCourses(res.courses ?? [])
+        setDegrees(res.degrees ?? [])
       })
       .catch(e => setError(e instanceof Error ? e.message : "Yuklashda xato"))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalPages = Math.max(1, Math.ceil(totalGroups / PAGE_SIZE))
+
+  function goToPage(p: number) {
+    const clamped = Math.min(Math.max(p, 0), totalPages - 1)
+    setPage(clamped)
+    load(courseFilter, degreeFilter, clamped)
+  }
+
+  function applyCourse(code: string) {
+    setCourseFilter(code)
+    setPage(0)
+    load(code, degreeFilter, 0)
+  }
+
+  function applyDegree(name: string) {
+    setDegreeFilter(name)
+    setPage(0)
+    load(courseFilter, name, 0)
+  }
 
   const filtered = groups.filter(g => g.groupName.toLowerCase().includes(search.trim().toLowerCase()))
 
@@ -141,10 +174,10 @@ export default function AdminTalabalar() {
             Talabalar ro'yxati
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            HEMIS'dan olingan guruhlar va talaba soni — Face ID holatini ko'rish uchun guruhni bosing
+            Masofaviy ta'lim guruhlari (bakalavr + magistr) — Face ID holatini ko'rish uchun guruhni bosing
           </p>
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
+        <button onClick={() => load(courseFilter, degreeFilter, page)} className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           Yangilash
@@ -159,33 +192,52 @@ export default function AdminTalabalar() {
         <div className="rounded-[12px] p-6 text-sm" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
           {error}
         </div>
-      ) : !departmentId && groups.length === 0 ? (
-        <div className="rounded-[12px] p-6 flex items-start gap-3" style={{ backgroundColor: "#fff7ed", border: "1px solid rgba(217,119,6,0.2)" }}>
-          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#92400e" }} />
-          <div className="text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-            Bu ma'lumotni ko'rsatish uchun sizning HEMIS profilingizda departament (fakultet/institut) aniqlanmagan.
-            Bu ro'yxat faqat HEMIS orqali (OAuth) kirgan, haqiqiy xodim profiliga ega admin hisobida ishlaydi.
-          </div>
-        </div>
       ) : (
         <>
-          {universityWide && (
-            <div className="rounded-[10px] px-4 py-2.5 text-xs flex items-center gap-2"
-              style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              Sizning HEMIS profilingiz aniq bir fakultetga bog'lanmagan (yoki fakultet ma'lumoti HEMIS'da yo'q) — shu sabab BUTUN institut bo'yicha ko'rsatilmoqda.
-            </div>
-          )}
           <div className="bg-white rounded-[12px] p-6 flex items-center gap-4 w-fit"
             style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
             <div className="w-12 h-12 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
               <Users className="w-6 h-6" style={{ color: "#0e58a8" }} />
             </div>
             <div>
-              <div className="text-3xl font-bold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{total}</div>
+              <div className="text-3xl font-bold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{totalStudents}</div>
               <div className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Jami talaba ({groups.length} guruhda)
+                Jami talaba ({totalGroups} guruhda)
               </div>
+            </div>
+          </div>
+
+          {/* Kurs va daraja filtrlari */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-medium mr-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Kurs:</span>
+              <button onClick={() => applyCourse("")}
+                className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
+                style={{ backgroundColor: courseFilter === "" ? "#0e58a8" : "#eef4ff", color: courseFilter === "" ? "#fff" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                Barchasi
+              </button>
+              {courses.map(c => (
+                <button key={c.code} onClick={() => applyCourse(c.code)}
+                  className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
+                  style={{ backgroundColor: courseFilter === c.code ? "#0e58a8" : "#eef4ff", color: courseFilter === c.code ? "#fff" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-medium mr-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Daraja:</span>
+              <button onClick={() => applyDegree("")}
+                className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
+                style={{ backgroundColor: degreeFilter === "" ? "#0e58a8" : "#eef4ff", color: degreeFilter === "" ? "#fff" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                Barchasi
+              </button>
+              {degrees.map(d => (
+                <button key={d.code} onClick={() => applyDegree(d.name)}
+                  className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
+                  style={{ backgroundColor: degreeFilter === d.name ? "#0e58a8" : "#eef4ff", color: degreeFilter === d.name ? "#fff" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {d.name}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -197,7 +249,7 @@ export default function AdminTalabalar() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Guruh nomi bo'yicha qidirish"
+                placeholder="Shu sahifadan qidirish"
                 className="px-3 py-2 rounded-[8px] text-sm outline-none w-56"
                 style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}
               />
@@ -225,7 +277,7 @@ export default function AdminTalabalar() {
                   ) : filtered.map((g, i) => (
                     <tr key={g.groupId} onClick={() => setSelectedGroup(g)}
                       className="hover:bg-[#f6f9ff]/50 transition-colors cursor-pointer" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-                      <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{page * PAGE_SIZE + i + 1}</td>
                       <td className="px-4 py-3 text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{g.groupName}</td>
                       <td className="px-4 py-3 text-sm font-semibold" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{g.studentCount}</td>
                       <td className="px-4 py-3 text-right">
@@ -239,6 +291,29 @@ export default function AdminTalabalar() {
               </table>
             </div>
           </div>
+
+          {totalGroups > 0 && (
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                {page * PAGE_SIZE + 1}–{Math.min(totalGroups, page * PAGE_SIZE + PAGE_SIZE)} / {totalGroups} guruh
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => goToPage(page - 1)} disabled={page <= 0}
+                  className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-[6px] disabled:opacity-40"
+                  style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  {page + 1} / {totalPages}
+                </span>
+                <button onClick={() => goToPage(page + 1)} disabled={page >= totalPages - 1}
+                  className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-[6px] disabled:opacity-40"
+                  style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
