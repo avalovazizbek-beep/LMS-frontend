@@ -3,13 +3,13 @@
 import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { GraduationCap, RefreshCw } from "lucide-react"
+import { GraduationCap, RefreshCw, ShieldAlert } from "lucide-react"
 import { hemisApi, adminApi, faceApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 type HemisRole = "student" | "employee" | "tutor" | "auto"
 
-function CallbackCard({ message, error }: { message: string; error?: string | null }) {
+function CallbackCard({ message, error, notMasofaviy }: { message: string; error?: string | null; notMasofaviy?: boolean }) {
   const isSessionMismatch = Boolean(error?.includes("HEMIS sessiyasida boshqa foydalanuvchi ochiq"))
   const expectedLogin = error?.match(/Kiritilgan login:\s*([^.\s]+)/)?.[1]
   const activeLogin = error?.match(/HEMISdan qaytgan foydalanuvchi:\s*([^.]*)\./)?.[1]
@@ -21,13 +21,18 @@ function CallbackCard({ message, error }: { message: string; error?: string | nu
       </div>
       <div className="w-full max-w-[420px] px-4">
         <div className="rounded-[10px] bg-[var(--lms-cell)] p-8 text-center" style={{ boxShadow: "var(--lms-shadow)" }}>
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ backgroundColor: "var(--lms-button)" }}>
-            {isSessionMismatch ? <RefreshCw className="h-7 w-7 text-white" /> : <GraduationCap className="h-8 w-8 text-white" />}
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: notMasofaviy ? "#fff8e6" : "var(--lms-button)" }}>
+            {isSessionMismatch
+              ? <RefreshCw className="h-7 w-7 text-white" />
+              : notMasofaviy
+                ? <ShieldAlert className="h-8 w-8" style={{ color: "#f59e0b" }} />
+                : <GraduationCap className="h-8 w-8 text-white" />}
           </div>
           <h1 className="text-[22px] font-semibold" style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
-            {isSessionMismatch ? "HEMIS akkauntini almashtiring" : "HEMIS Login"}
+            {isSessionMismatch ? "HEMIS akkauntini almashtiring" : notMasofaviy ? "Kirish imkoni yo'q" : "HEMIS Login"}
           </h1>
-          <p className="mt-2 text-sm leading-6" style={{ color: error ? "#ef4444" : "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
+          <p className="mt-2 text-sm leading-6" style={{ color: notMasofaviy ? "#92400e" : error ? "#ef4444" : "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
             {isSessionMismatch
               ? "Brauzeringizda HEMISda boshqa foydalanuvchi ochiq qolgan. Kerakli akkauntga qayta kirib, LMS loginni yana bosing."
               : error || message}
@@ -56,6 +61,15 @@ function CallbackCard({ message, error }: { message: string; error?: string | nu
               </Link>
             </div>
           )}
+          {notMasofaviy && (
+            <Link
+              href="/login"
+              className="mt-5 inline-block rounded-[5px] px-4 py-2.5 text-sm font-semibold"
+              style={{ color: "var(--lms-button)", border: "1px solid var(--lms-border)", fontFamily: "var(--font-poppins)" }}
+            >
+              Login sahifasiga qaytish
+            </Link>
+          )}
         </div>
       </div>
     </main>
@@ -67,6 +81,7 @@ function OAuthCallbackContent() {
   const searchParams = useSearchParams()
   const [message, setMessage] = useState("HEMIS javobi tekshirilmoqda...")
   const [error, setError] = useState<string | null>(null)
+  const [notMasofaviy, setNotMasofaviy] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -112,6 +127,15 @@ function OAuthCallbackContent() {
       }
 
       if (oauthError) {
+        // Masofaviy-cheklov — bu HEMIS'ning o'z sozlama xatosi emas, bizning
+        // ilovamizning ataylab qilingan qarori, shuning uchun umumiy "Client
+        // ID/callback URL mos emas" degan (bu holatda noto'g'ri va
+        // chalg'ituvchi) qo'shimcha matnsiz, o'z holicha ko'rsatiladi.
+        if (oauthError === "not_masofaviy") {
+          setNotMasofaviy(true)
+          setError(oauthDescription || "Bu platforma faqat Masofaviy ta'lim yo'nalishi talabalari uchun mo'ljallangan.")
+          return
+        }
         const description = oauthDescription ? ` - ${oauthDescription}` : ""
         const message = `HEMIS OAuth xatosi: ${oauthError}${description}`
         setError(
@@ -154,7 +178,7 @@ function OAuthCallbackContent() {
     }
   }, [router, searchParams])
 
-  return <CallbackCard message={message} error={error} />
+  return <CallbackCard message={message} error={error} notMasofaviy={notMasofaviy} />
 }
 
 export default function HemisOAuthCallbackPage() {
