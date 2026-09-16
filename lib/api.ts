@@ -861,6 +861,15 @@ export interface FaceStatus {
   registeredAt?: number
   hasPendingRequest?: boolean
   hasApprovedRequest?: boolean
+  adminRequestedReregister?: boolean
+}
+export interface StudentFaceRow {
+  hemisId: number
+  fullName: string
+  studentIdNumber: string | null
+  faceRegistered: boolean
+  faceRegisteredAt: string | null
+  adminRequestPending: boolean
 }
 export interface ReRegRequest {
   id: string
@@ -2403,6 +2412,14 @@ export const adminApi = {
     departmentId: string | null
     groups: { groupId: number; groupName: string; studentCount: number }[]
   }>("/api/admin/hemis-students"),
+
+  /** Bitta guruhdagi talabalar, har birining Face ID holati bilan */
+  studentFaceRoster: (groupId: number) =>
+    get<{ success: boolean; students: StudentFaceRow[] }>(`/api/admin/hemis-students/${groupId}/roster`),
+
+  /** Talabaga "Face ID'ingiz eskirgan/noto'g'ri bo'lishi mumkin, qayta ro'yxatdan o'ting" so'rovini yuboradi */
+  requestFaceReregister: (hemisId: number) =>
+    post<{ success: boolean; message: string }>(`/api/admin/hemis-students/${hemisId}/request-face-reregister`, {}),
 
   attendance: (params?: { groupId?: number; subject?: string; date?: string }) => {
     const q = new URLSearchParams(buildParams(params ?? {})).toString()

@@ -82,15 +82,27 @@ export default function FaceIdPage() {
           </div>
         )}
 
-        {/* Approved notice */}
+        {/* Approved notice — admin tomonidan "eskirgan/noto'g'ri" deb belgilangan
+            bo'lsa alohida (ogohlantiruvchi) xabar, aks holda o'ziga arizasi
+            tasdiqlangani haqidagi odatdagi (ijobiy) xabar */}
         {st.hasApprovedRequest && (
-          <div className="flex items-center gap-3 p-3 rounded-[8px] mb-4"
-            style={{ backgroundColor: "#f0fff4", border: "1px solid rgba(34,197,94,0.3)" }}>
-            <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: "#22c55e" }} />
-            <p className="text-sm" style={{ color: "#166534", fontFamily: "var(--font-poppins)" }}>
-              {t("faceId.approvedNotice")}
-            </p>
-          </div>
+          st.adminRequestedReregister ? (
+            <div className="flex items-center gap-3 p-3 rounded-[8px] mb-4"
+              style={{ backgroundColor: "#fff8e6", border: "1px solid rgba(245,158,11,0.3)" }}>
+              <AlertCircle className="w-5 h-5 shrink-0" style={{ color: "#f59e0b" }} />
+              <p className="text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                {t("faceId.adminFlagMessage")}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-3 rounded-[8px] mb-4"
+              style={{ backgroundColor: "#f0fff4", border: "1px solid rgba(34,197,94,0.3)" }}>
+              <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: "#22c55e" }} />
+              <p className="text-sm" style={{ color: "#166534", fontFamily: "var(--font-poppins)" }}>
+                {t("faceId.approvedNotice")}
+              </p>
+            </div>
+          )
         )}
 
         {/* Actions */}

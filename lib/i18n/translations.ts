@@ -742,6 +742,14 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "faceId.card.check.desc": { uz: "Har bir imtihon oldidan yuz tasdiqlanadigan bo'ladi.", ru: "Перед каждым экзаменом лицо будет подтверждаться.", en: "Your face will be verified before every exam.", kaa: "Hár bir emtihannan burın júz tastıyıqlanadı." },
   "faceId.card.requests.title": { uz: "Arizalar",                ru: "Заявки",                             en: "Applications",                     kaa: "Arizalar" },
   "faceId.card.requests.desc": { uz: "Qayta ro'yxatdan o'tish arizalarini boshqaring.", ru: "Управляйте заявками на повторную регистрацию.", en: "Manage re-registration applications.", kaa: "Qayta dizimnen ótiw arizalarını basqarıń." },
+  "faceId.adminFlagBadge": { uz: "Diqqat", ru: "Внимание", en: "Attention", kaa: "Itibar" },
+  "faceId.adminFlagMessage": {
+    uz: "Biz sizning Face ID ma'lumotingizni tasdiqlay olmadik. Bu eskirgan yoki noto'g'ri formatda bo'lishi mumkin. Bu muammo sizning imtihonlarda ishtirok eta olmasligingizga sabab bo'lishi mumkun. Iltimos, yuzingizni qayta ro'yxatdan o'tkazing.",
+    ru: "Мы не смогли подтвердить ваши данные Face ID. Возможно, они устарели или имеют неверный формат. Из-за этого вы можете не пройти проверку на экзаменах. Пожалуйста, зарегистрируйте лицо заново.",
+    en: "We couldn't verify your Face ID data. It may be outdated or in an incorrect format. This could prevent you from taking exams. Please register your face again.",
+    kaa: "Biz sizdiń Face ID maǵlıwmatıńızdı tastıyıqlay almadıq. Bul eskirgen yamasa nadurıs formatta bolıwı múmkin. Bul mashqala sizdiń emtihanlarǵa qatnasa almawıńızǵa sebep bolıwı múmkin. Ótinish, júzińizdi qayta dizimnen ótkeriń.",
+  },
+  "faceId.adminFlagButton": { uz: "Face ID'ni qayta ro'yxatdan o'tkazish", ru: "Зарегистрировать лицо заново", en: "Re-register Face ID", kaa: "Face ID'di qayta dizimnen ótkeriw" },
 
   // ── Face ID Arizalar sahifasi ─────────────────────────────────────────
   "faceRequests.title":    { uz: "Face ID Arizalar",            ru: "Заявки Face ID",                     en: "Face ID Applications",            kaa: "Face ID arizaları" },
