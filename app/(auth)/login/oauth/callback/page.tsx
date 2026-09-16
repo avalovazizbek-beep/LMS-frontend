@@ -216,7 +216,7 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         .card::after { width: 240px; height: 240px; right: -120px; bottom: -120px; background: #edf3ff; }
 
         .illustration {
-          min-height: 560px;
+          min-height: 620px;
           position: relative;
           display: flex;
           align-items: center;
@@ -225,11 +225,14 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         }
 
         .security-canvas {
+          /* height:100% olib tashlandi — parent (.illustration) kengligi va
+             balandligi bir xil emas edi, shu sabab canvas kvadrat bo'lmay
+             chiqib, "cover" fit uni nomutanosib zumlab kesib yuborardi.
+             Faqat width + aspect-ratio bilan canvas har doim haqiqiy
+             kvadrat bo'lib qoladi. */
           position: relative;
           width: 100%;
-          height: 100%;
           max-width: 620px;
-          max-height: 620px;
           aspect-ratio: 1 / 1;
         }
 
