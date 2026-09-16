@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { GraduationCap, RefreshCw } from "lucide-react"
@@ -8,6 +8,37 @@ import { hemisApi, adminApi, faceApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 type HemisRole = "student" | "employee" | "tutor" | "auto"
+
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ""
+
+// "Kirish imkoni yo'q" ekranidagi identifikatsiya-tekshiruv animatsiyasi
+// (public/security.lottie). @lottiefiles/dotlottie-web WASM orqali ishlaydi
+// — faqat brauzerda, shuning uchun dinamik import qilinadi.
+function SecurityAnimation() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    let dotLottie: import("@lottiefiles/dotlottie-web").DotLottie | null = null
+    let cancelled = false
+
+    import("@lottiefiles/dotlottie-web").then(({ DotLottie }) => {
+      if (cancelled || !canvasRef.current) return
+      dotLottie = new DotLottie({
+        canvas: canvasRef.current,
+        src: `${BASE_PATH}/security.lottie`,
+        loop: true,
+        autoplay: true,
+      })
+    })
+
+    return () => {
+      cancelled = true
+      dotLottie?.destroy()
+    }
+  }, [])
+
+  return <canvas ref={canvasRef} className="security-canvas" />
+}
 
 function CallbackCard({ message, error }: { message: string; error?: string | null }) {
   const isSessionMismatch = Boolean(error?.includes("HEMIS sessiyasida boshqa foydalanuvchi ochiq"))
@@ -81,49 +112,7 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         <section className="card">
           <div className="illustration">
             <div className="blob" />
-            <div className="question">?</div>
-
-            <div className="browser">
-              <div className="browser-top">
-                <i /><i /><i />
-              </div>
-              <div className="lock" />
-            </div>
-
-            <div className="person">
-              <div className="hair" />
-              <div className="head">
-                <div className="eyebrow left" />
-                <div className="eyebrow right" />
-                <div className="eye left" />
-                <div className="eye right" />
-                <div className="mouth" />
-              </div>
-
-              <div className="body">
-                <div className="hood" />
-                <div className="arm left" />
-                <div className="arm right" />
-              </div>
-
-              <div className="hand left" />
-              <div className="hand right" />
-
-              <div className="laptop">
-                <div className="laptop-screen" />
-                <div className="laptop-base" />
-              </div>
-
-              <div className="mug">SIES</div>
-
-              <div className="plant">
-                <div className="leaf" />
-                <div className="leaf" />
-                <div className="leaf" />
-                <div className="leaf" />
-                <div className="pot" />
-              </div>
-            </div>
+            <SecurityAnimation />
           </div>
 
           <div className="content">
@@ -251,204 +240,11 @@ function NotMasofaviyScreen({ message }: { message: string }) {
           z-index: -2;
         }
 
-        .browser {
-          position: absolute;
-          width: 390px;
-          height: 260px;
-          top: 30px;
-          left: 5px;
-          border-radius: 22px;
-          background: linear-gradient(145deg, #789bff, #426be5);
-          box-shadow: 0 25px 40px rgba(54, 94, 208, .2);
-          transform: rotate(7deg);
-          animation: browserFloat 5s ease-in-out infinite;
-          z-index: -1;
-        }
-        .browser::before {
-          content: "";
-          position: absolute;
-          inset: 48px 12px 12px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, #f9fbff, #dbe7ff);
-        }
-        .browser-top { position: absolute; top: 17px; left: 20px; display: flex; gap: 8px; }
-        .browser-top i { width: 14px; height: 14px; border-radius: 50%; background: #ff9b9b; }
-        .browser-top i:nth-child(2) { background: #ffd36b; }
-        .browser-top i:nth-child(3) { background: #8ce2c0; }
-
-        .lock {
-          position: absolute;
-          left: 50%;
-          top: 53%;
-          width: 94px;
-          height: 78px;
-          transform: translate(-50%, -50%);
-          border-radius: 17px;
-          background: linear-gradient(145deg, #6366d9, #414bb4);
-          box-shadow: 0 12px 20px rgba(49, 60, 161, .25);
-        }
-        .lock::before {
-          content: "";
-          position: absolute;
-          width: 43px;
-          height: 45px;
-          left: 25px;
-          top: -33px;
-          border: 11px solid #515ac7;
-          border-bottom: 0;
-          border-radius: 30px 30px 0 0;
-        }
-        .lock::after {
-          content: "×";
-          position: absolute;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          color: #ff7185;
-          font-size: 60px;
-          font-weight: 800;
-          line-height: 1;
-        }
-
-        .person { position: absolute; width: 330px; height: 330px; left: 50px; bottom: 15px; animation: personFloat 5s ease-in-out infinite; }
-
-        .head {
-          position: absolute;
-          width: 142px;
-          height: 155px;
-          left: 95px;
-          top: 15px;
-          border-radius: 48% 48% 45% 45%;
-          background: #ffc39f;
-          box-shadow: inset -12px -8px 0 rgba(226, 133, 96, .12);
-          z-index: 2;
-        }
-        .hair {
-          position: absolute;
-          width: 150px;
-          height: 105px;
-          left: 89px;
-          top: 3px;
-          border-radius: 60% 45% 30% 25%;
-          background: #3b292b;
-          transform: rotate(-5deg);
-          z-index: 3;
-        }
-        .hair::after {
-          content: "";
-          position: absolute;
-          width: 60px;
-          height: 100px;
-          left: -7px;
-          top: 35px;
-          border-radius: 50%;
-          background: #3b292b;
-          transform: rotate(25deg);
-        }
-        .eyebrow { position: absolute; top: 58px; width: 34px; height: 8px; border-radius: 10px; background: #432c2a; z-index: 4; }
-        .eyebrow.left { left: 22px; transform: rotate(-14deg); }
-        .eyebrow.right { right: 22px; transform: rotate(14deg); }
-        .eye { position: absolute; top: 78px; width: 19px; height: 24px; border-radius: 50%; background: #342422; z-index: 4; }
-        .eye::after { content: ""; position: absolute; width: 6px; height: 7px; left: 4px; top: 4px; border-radius: 50%; background: white; }
-        .eye.left { left: 31px; }
-        .eye.right { right: 31px; }
-        .mouth { position: absolute; left: 58px; top: 121px; width: 28px; height: 13px; border-top: 4px solid #9d4e4e; border-radius: 50%; z-index: 4; }
-
-        .body {
-          position: absolute;
-          left: 32px;
-          bottom: -20px;
-          width: 270px;
-          height: 210px;
-          border-radius: 110px 110px 25px 25px;
-          background: linear-gradient(145deg, #243b75, #172554);
-          z-index: 1;
-        }
-        .hood { position: absolute; width: 160px; height: 100px; left: 55px; top: -32px; border: 18px solid #20366d; border-bottom: 0; border-radius: 90px 90px 0 0; }
-        .arm { position: absolute; width: 55px; height: 155px; border-radius: 30px; background: #172554; top: 55px; z-index: 3; }
-        .arm.left { left: -15px; transform: rotate(17deg); }
-        .arm.right { right: -15px; transform: rotate(-17deg); }
-        .hand { position: absolute; width: 52px; height: 43px; border-radius: 50%; background: #ffc39f; z-index: 5; }
-        .hand.left { left: 88px; top: 132px; transform: rotate(-25deg); }
-        .hand.right { right: 60px; top: 115px; transform: rotate(-30deg); }
-
-        .laptop { position: absolute; width: 350px; height: 190px; left: 0; bottom: -5px; z-index: 6; }
-        .laptop-screen {
-          position: absolute;
-          width: 285px;
-          height: 170px;
-          left: 32px;
-          top: 0;
-          border: 10px solid #b5b8ca;
-          border-bottom-width: 14px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, #dce1ef, #9da5bd);
-          transform: perspective(600px) rotateX(-4deg);
-          box-shadow: 0 8px 15px rgba(0,0,0,.08);
-        }
-        .laptop-screen::after { content: "✦"; position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255,255,255,.25); font-size: 52px; }
-        .laptop-base { position: absolute; width: 350px; height: 20px; bottom: 0; border-radius: 5px 5px 25px 25px; background: #c5c9d8; box-shadow: 0 8px 12px rgba(0,0,0,.12); }
-
-        .mug {
-          position: absolute;
-          bottom: 2px;
-          left: -40px;
-          width: 80px;
-          height: 78px;
-          border-radius: 8px 8px 22px 22px;
-          background: #1e315e;
-          color: white;
-          font-weight: 800;
-          font-size: 17px;
-          display: grid;
-          place-items: center;
-          z-index: 7;
-        }
-        .mug::after {
-          content: "";
-          position: absolute;
-          width: 28px;
-          height: 34px;
-          right: -24px;
-          top: 18px;
-          border: 9px solid #1e315e;
-          border-left: 0;
-          border-radius: 0 20px 20px 0;
-        }
-
-        .plant { position: absolute; right: 5px; bottom: 0; width: 100px; height: 150px; z-index: 7; }
-        .pot { position: absolute; bottom: 0; width: 100px; height: 70px; border-radius: 8px 8px 28px 28px; background: linear-gradient(145deg, #ffffff, #d9deed); }
-        .leaf { position: absolute; width: 42px; height: 85px; bottom: 52px; left: 35px; border-radius: 100% 0 100% 0; background: linear-gradient(145deg, #9edc88, #3e9e65); transform-origin: bottom; }
-        .leaf:nth-child(2) { transform: rotate(-35deg); left: 5px; height: 70px; }
-        .leaf:nth-child(3) { transform: rotate(35deg); left: 60px; height: 75px; }
-        .leaf:nth-child(4) { transform: rotate(-65deg); left: 22px; height: 60px; }
-
-        .question {
-          position: absolute;
-          left: 0;
-          top: 5px;
-          width: 95px;
-          height: 95px;
-          border-radius: 50%;
-          display: grid;
-          place-items: center;
-          color: #2563eb;
-          background: white;
-          box-shadow: 0 12px 30px rgba(37, 99, 235, .13);
-          font-size: 58px;
-          font-weight: 800;
-          animation: questionFloat 4s ease-in-out infinite;
-        }
-        .question::after {
-          content: "";
-          position: absolute;
-          bottom: -10px;
-          right: 5px;
-          width: 28px;
-          height: 28px;
-          background: white;
-          clip-path: polygon(0 0, 100% 0, 100% 100%);
-          transform: rotate(20deg);
+        .security-canvas {
+          position: relative;
+          width: 100%;
+          max-width: 420px;
+          aspect-ratio: 1920 / 1700;
         }
 
         .content { position: relative; z-index: 2; text-align: center; }
@@ -515,9 +311,6 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         .book { font-size: 24px; font-style: normal; }
 
         @keyframes blobMove { 0%, 100% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(5deg) scale(1.04); } }
-        @keyframes browserFloat { 0%, 100% { transform: rotate(7deg) translateY(0); } 50% { transform: rotate(4deg) translateY(-10px); } }
-        @keyframes personFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-        @keyframes questionFloat { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-14px) rotate(5deg); } }
         @keyframes shieldPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 
         @media (max-width: 1050px) {
