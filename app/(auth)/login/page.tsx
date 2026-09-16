@@ -1,44 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Eye, EyeOff, GraduationCap, KeyRound, Lock, User } from "lucide-react"
-import { hemisApi, faceApi } from "@/lib/api"
+import { useState } from "react"
+import { GraduationCap, KeyRound } from "lucide-react"
+import { hemisApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
-}
-
-function formatCountdown(totalSeconds: number): string {
-  const mins = Math.floor(totalSeconds / 60)
-  const secs = totalSeconds % 60
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
-}
-
 export default function LoginPage() {
-  const router = useRouter()
-  const [login, setLogin] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
-  const [oauthChoiceOpen, setOauthChoiceOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // HEMIS ba'zida javobida aniq "Retry-After" (necha soniya kutish kerak)
-  // yuboradi — shunda foydalanuvchiga taxminiy "bir necha daqiqa" emas,
-  // jonli kamayib boradigan aniq vaqt (MM:SS) ko'rsatiladi.
-  const [retrySecondsLeft, setRetrySecondsLeft] = useState<number | null>(null)
-  const [showPwd, setShowPwd] = useState(false)
-
-  useEffect(() => {
-    if (retrySecondsLeft === null || retrySecondsLeft <= 0) return
-    const timer = setInterval(() => {
-      setRetrySecondsLeft((prev) => (prev === null ? null : Math.max(0, prev - 1)))
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [retrySecondsLeft])
 
   // HEMIS talaba (student.sies.uz) va xodim (hemis.sies.uz) uchun
   // ALOHIDA-ALOHIDA tizimlar — bitta OAuth so'rovi ikkalasini ham
@@ -60,53 +29,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!login.trim() || !password.trim()) {
-      setError("Talaba sifatida kirish uchun login va parolni kiriting")
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-    setRetrySecondsLeft(null)
-    try {
-      localStorage.removeItem("lms_token")
-      localStorage.removeItem("lms_role")
-      const res = await hemisApi.autoLogin(login.trim(), password.trim())
-      localStorage.setItem("lms_token", res.token)
-      localStorage.setItem("lms_role", res.role)
-      if (res.role === "student") {
-        try {
-          const faceStatus = await faceApi.status()
-          if (!faceStatus.registered) {
-            router.push("/face-setup")
-            return
-          }
-        } catch {
-          // Face ID tekshirishda xato bo'lsa dashboardga o'taveramiz
-        }
-      }
-      router.push("/dashboard")
-    } catch (err: unknown) {
-      const data = asRecord((err as { data?: unknown })?.data)
-      if (data.rateLimited === true && typeof data.retryAfterSec === "number" && data.retryAfterSec > 0) {
-        setRetrySecondsLeft(data.retryAfterSec)
-      }
-      if (data.oauthRequired) {
-        setError(
-          typeof data.message === "string"
-            ? data.message
-            : "O'qituvchi yoki xodim HEMIS orqali kirish tugmasi bilan kiradi"
-        )
-        return
-      }
-      setError(err instanceof Error ? err.message : "Login yoki parol noto'g'ri")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <main className="relative flex min-h-screen items-center justify-center" style={{ backgroundColor: "var(--lms-bg)" }}>
       <div className="absolute right-5 top-5">
@@ -121,124 +43,42 @@ export default function LoginPage() {
             Masofaviy Ta&apos;lim
           </h1>
           <p className="mt-1 text-center text-sm" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-            Talaba login/paroli yoki HEMIS OAuth orqali kirish
+            HEMIS orqali kiring
           </p>
         </div>
 
         <div className="rounded-[10px] bg-[var(--lms-cell)] p-8" style={{ boxShadow: "var(--lms-shadow)" }}>
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <div className="flex flex-col gap-4">
             {error && (
               <div className="rounded-[5px] px-3 py-2.5 text-sm"
                 style={{ backgroundColor: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid #ef4444", fontFamily: "var(--font-poppins)" }}>
                 {error}
-                {retrySecondsLeft !== null && retrySecondsLeft > 0 && (
-                  <span className="ml-1 font-semibold">({formatCountdown(retrySecondsLeft)})</span>
-                )}
               </div>
             )}
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium" style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
-                HEMIS Login
-              </label>
-              <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
-                style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)" }}>
-                <User className="h-5 w-5 shrink-0" style={{ color: "var(--lms-muted)" }} />
-                <input
-                  type="text"
-                  value={login}
-                  onChange={e => setLogin(e.target.value)}
-                  placeholder="Login kiriting"
-                  className="flex-1 bg-transparent text-sm outline-none"
-                  style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}
-                />
-              </div>
-            </div>
+            <p className="text-center text-sm" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
+              {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "Kim sifatida kirmoqchisiz?"}
+            </p>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium" style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
-                Parol
-              </label>
-              <div className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
-                style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)" }}>
-                <Lock className="h-5 w-5 shrink-0" style={{ color: "var(--lms-muted)" }} />
-                <input
-                  type={showPwd ? "text" : "password"}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Parol kiriting"
-                  className="flex-1 bg-transparent text-sm outline-none"
-                  style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}
-                />
-                <button type="button" onClick={() => setShowPwd(v => !v)} aria-label={showPwd ? "Parolni yashirish" : "Parolni ko'rsatish"}>
-                  {showPwd
-                    ? <EyeOff className="h-5 w-5" style={{ color: "var(--lms-muted)" }} />
-                    : <Eye className="h-5 w-5" style={{ color: "var(--lms-muted)" }} />}
-                </button>
-              </div>
-            </div>
-
-            <button type="submit" disabled={loading}
-              className="mt-2 flex items-center justify-center rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
+              className="flex items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
-              {loading ? "Tekshirilmoqda..." : "Kirish"}
+              <KeyRound className="h-5 w-5" />
+              HEMIS orqali talaba sifatida kirish
             </button>
 
-            {!oauthChoiceOpen ? (
-              <button type="button" onClick={() => setOauthChoiceOpen(true)} disabled={oauthLoading}
-                className="flex items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                style={{
-                  backgroundColor: "var(--lms-soft)",
-                  color: "var(--lms-button)",
-                  border: "1px solid var(--lms-border)",
-                  fontFamily: "var(--font-poppins)",
-                }}>
-                <KeyRound className="h-5 w-5" />
-                HEMIS orqali kirish
-              </button>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <p className="text-center text-sm" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-                  {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "Kim sifatida kirmoqchisiz?"}
-                </p>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                    style={{
-                      backgroundColor: "var(--lms-soft)",
-                      color: "var(--lms-button)",
-                      border: "1px solid var(--lms-border)",
-                      fontFamily: "var(--font-poppins)",
-                    }}>
-                    <KeyRound className="h-5 w-5" />
-                    Talaba
-                  </button>
-                  <button type="button" onClick={() => startHemisOAuth("employee")} disabled={oauthLoading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                    style={{
-                      backgroundColor: "var(--lms-soft)",
-                      color: "var(--lms-button)",
-                      border: "1px solid var(--lms-border)",
-                      fontFamily: "var(--font-poppins)",
-                    }}>
-                    <KeyRound className="h-5 w-5" />
-                    Xodim
-                  </button>
-                </div>
-                <p className="text-center text-xs" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-                  Talaba: baholar/jadval ba'zan yuklanmasligi mumkin, login-parol asosiy bloki tarqalgach to'liq tiklanadi.
-                </p>
-                {!oauthLoading && (
-                  <button type="button" onClick={() => setOauthChoiceOpen(false)}
-                    className="text-center text-xs underline"
-                    style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-                    Bekor qilish
-                  </button>
-                )}
-              </div>
-            )}
-
-          </form>
+            <button type="button" onClick={() => startHemisOAuth("employee")} disabled={oauthLoading}
+              className="flex items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{
+                backgroundColor: "var(--lms-soft)",
+                color: "var(--lms-button)",
+                border: "1px solid var(--lms-border)",
+                fontFamily: "var(--font-poppins)",
+              }}>
+              <KeyRound className="h-5 w-5" />
+              HEMIS orqali xodim sifatida kirish
+            </button>
+          </div>
         </div>
       </div>
     </main>
