@@ -21,11 +21,16 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
     return () => { cancelled = true }
   }, [group.groupId])
 
-  async function handleRequest(hemisId: number) {
+  async function handleRequest(hemisId: number, fullName: string, alreadyRegistered: boolean) {
+    const confirmMsg = alreadyRegistered
+      ? `${fullName} uchun mavjud Face ID ma'lumoti bazadan o'chiriladi va u qayta ro'yxatdan o'ta oladi. Davom etasizmi?`
+      : `${fullName} ga Face ID'ni ro'yxatdan o'tkazish so'rovi yuboriladi. Davom etasizmi?`
+    if (!window.confirm(confirmMsg)) return
+
     setSendingId(hemisId)
     try {
       await adminApi.requestFaceReregister(hemisId)
-      setStudents(prev => prev?.map(s => s.hemisId === hemisId ? { ...s, adminRequestPending: true } : s) ?? prev)
+      setStudents(prev => prev?.map(s => s.hemisId === hemisId ? { ...s, faceRegistered: false, adminRequestPending: false } : s) ?? prev)
     } catch {
       // jimgina — tugma yana bosiladigan holatga qaytadi, qayta urinish mumkin
     } finally {
@@ -88,11 +93,11 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
                       ) : sendingId === s.hemisId ? (
                         <RefreshCw className="w-4 h-4 animate-spin ml-auto" style={{ color: "#0e58a8" }} />
                       ) : (
-                        <button onClick={() => handleRequest(s.hemisId)}
+                        <button onClick={() => handleRequest(s.hemisId, s.fullName, s.faceRegistered)}
                           className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-opacity hover:opacity-90"
-                          style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                          style={{ backgroundColor: s.faceRegistered ? "#fef2f2" : "#eef4ff", color: s.faceRegistered ? "#b91c1c" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                           <Send className="w-3.5 h-3.5" />
-                          {s.faceRegistered ? "Qayta so'rash" : "So'rash"}
+                          {s.faceRegistered ? "Qayta ro'yxatdan o'tkazish" : "So'rash"}
                         </button>
                       )}
                     </td>

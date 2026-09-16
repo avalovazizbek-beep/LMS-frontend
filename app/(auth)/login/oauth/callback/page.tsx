@@ -113,7 +113,6 @@ function NotMasofaviyScreen({ message }: { message: string }) {
 
         <section className="card">
           <div className="illustration">
-            <div className="blob" />
             <SecurityAnimation />
           </div>
 
@@ -210,7 +209,7 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         .card::after { width: 240px; height: 240px; right: -120px; bottom: -120px; background: #edf3ff; }
 
         .illustration {
-          min-height: 500px;
+          min-height: 560px;
           position: relative;
           display: flex;
           align-items: center;
@@ -218,22 +217,12 @@ function NotMasofaviyScreen({ message }: { message: string }) {
           isolation: isolate;
         }
 
-        .blob {
-          position: absolute;
-          width: 460px;
-          height: 380px;
-          border-radius: 48% 52% 60% 40% / 48% 42% 58% 52%;
-          background: linear-gradient(145deg, #eef4ff, #dbe8ff);
-          animation: blobMove 8s ease-in-out infinite;
-          z-index: -2;
-        }
-
         .security-canvas {
           position: relative;
           width: 100%;
           height: 100%;
-          max-width: 500px;
-          max-height: 500px;
+          max-width: 620px;
+          max-height: 620px;
           aspect-ratio: 1 / 1;
         }
 
@@ -300,7 +289,6 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         .footer::before, .footer::after { content: ""; width: 130px; height: 1px; background: #d6e2fa; }
         .book { font-size: 24px; font-style: normal; }
 
-        @keyframes blobMove { 0%, 100% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(5deg) scale(1.04); } }
         @keyframes shieldPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 
         @media (max-width: 1050px) {
