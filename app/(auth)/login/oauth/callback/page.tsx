@@ -36,6 +36,12 @@ function SecurityAnimation() {
         // "cover" fit (uniform scale-to-fill, like CSS object-fit: cover)
         // rather than guessing at the artwork's bounding box ourselves.
         layout: { fit: "cover", align: [0.5, 0.5] },
+        // Without this, the canvas's internal render buffer is sized once
+        // at construction time and never kept in sync with its actual
+        // CSS-rendered size — "cover" then fits against that stale, much
+        // smaller buffer, which is why the icon rendered tiny and pinned
+        // to a corner instead of filling the visible box.
+        renderConfig: { autoResize: true },
       })
     })
 
