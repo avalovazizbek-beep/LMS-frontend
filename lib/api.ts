@@ -2172,6 +2172,8 @@ export interface AdminUser {
   lmsRole: string | null
   isAutoAdmin: boolean
   roleIsDefault: boolean
+  groupName: string | null
+  faceRegistered: boolean
   grantedBy: string | null
   grantedAt: string | null
   note: string | null
@@ -2425,6 +2427,16 @@ export const adminApi = {
   /** Talabaga "Face ID'ingiz eskirgan/noto'g'ri bo'lishi mumkin, qayta ro'yxatdan o'ting" so'rovini yuboradi */
   requestFaceReregister: (hemisId: number) =>
     post<{ success: boolean; message: string }>(`/api/admin/hemis-students/${hemisId}/request-face-reregister`, {}),
+
+  /** Face ID'dan hali o'tmagan masofaviy talabalar, guruhi bilan, 20 talik sahifalash */
+  notRegisteredFace: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams(buildParams(params ?? {})).toString()
+    return get<{
+      success: boolean
+      total: number
+      students: { hemisId: number; fullName: string; groupName: string | null; studentIdNumber: string | null; adminRequestPending: boolean }[]
+    }>(`/api/admin/face-id/not-registered${q ? `?${q}` : ""}`)
+  },
 
   attendance: (params?: { groupId?: number; subject?: string; date?: string }) => {
     const q = new URLSearchParams(buildParams(params ?? {})).toString()

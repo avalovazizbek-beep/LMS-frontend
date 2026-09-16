@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Search, ChevronDown, ChevronLeft, ChevronRight, UserCheck, Shield, ShieldHalf, BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon } from "lucide-react"
+import { Search, ChevronDown, ChevronLeft, ChevronRight, UserCheck, Shield, ShieldHalf, BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon, CheckCircle2, AlertCircle } from "lucide-react"
 import { adminApi, type AdminUser } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -227,6 +227,8 @@ export default function AdminFoydalanuvchilar() {
                     t("adminFoydalanuvchilar.colFullName"),
                     t("adminFoydalanuvchilar.colHemisRole"),
                     t("adminFoydalanuvchilar.colLmsRole"),
+                    t("adminFoydalanuvchilar.colGroup"),
+                    t("adminFoydalanuvchilar.colFaceId"),
                     t("adminFoydalanuvchilar.colContent"),
                     t("adminFoydalanuvchilar.colLastSeen"),
                     t("adminFoydalanuvchilar.colAction"),
@@ -241,7 +243,7 @@ export default function AdminFoydalanuvchilar() {
               <tbody>
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-14 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                    <td colSpan={9} className="px-4 py-14 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                       <div className="flex flex-col items-center gap-2">
                         <UsersIcon className="w-8 h-8" style={{ color: "#d8e6f7" }} />
                         {t("adminFoydalanuvchilar.noUsersFound")}
@@ -288,6 +290,24 @@ export default function AdminFoydalanuvchilar() {
                     </td>
                     <td className="px-4 py-3">
                       <RoleBadge role={u.lmsRole} auto={u.isAutoAdmin || u.roleIsDefault} />
+                    </td>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                      {u.groupName ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.hemisRole !== "student" ? (
+                        <span className="text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>—</span>
+                      ) : u.faceRegistered ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: "#f0fff4", color: "#166534", fontFamily: "var(--font-poppins)" }}>
+                          <CheckCircle2 className="w-3 h-3" /> O'tgan
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: "#fff8e6", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                          <AlertCircle className="w-3 h-3" /> O'tmagan
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-center" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                       {u.contentCount > 0 ? u.contentCount : "—"}

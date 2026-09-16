@@ -158,10 +158,14 @@ export default function AdminTalabalar() {
     load(code, degreeFilter, 0)
   }
 
+  // Daraja o'zgarganda kurs tanlovi ham tozalanadi — kurslar ro'yxati
+  // darajaga bog'liq (Bakalavr va Magistr har xil kurslarga ega), eski
+  // tanlov yangi darajada mavjud bo'lmasligi mumkin.
   function applyDegree(name: string) {
     setDegreeFilter(name)
+    setCourseFilter("")
     setPage(0)
-    load(courseFilter, name, 0)
+    load("", name, 0)
   }
 
   const filtered = groups.filter(g => g.groupName.toLowerCase().includes(search.trim().toLowerCase()))
@@ -207,38 +211,27 @@ export default function AdminTalabalar() {
             </div>
           </div>
 
-          {/* Kurs va daraja filtrlari */}
+          {/* Daraja avval tanlanadi, kurs ro'yxati shunga qarab o'zgaradi
+              (Bakalavr va Magistr'ning kurslari har xil) */}
           <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-medium mr-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Kurs:</span>
-              <button onClick={() => applyCourse("")}
-                className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
-                style={{ backgroundColor: courseFilter === "" ? "#0e58a8" : "#eef4ff", color: courseFilter === "" ? "#fff" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                Barchasi
-              </button>
-              {courses.map(c => (
-                <button key={c.code} onClick={() => applyCourse(c.code)}
-                  className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
-                  style={{ backgroundColor: courseFilter === c.code ? "#0e58a8" : "#eef4ff", color: courseFilter === c.code ? "#fff" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  {c.name}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-medium mr-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Daraja:</span>
-              <button onClick={() => applyDegree("")}
-                className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
-                style={{ backgroundColor: degreeFilter === "" ? "#0e58a8" : "#eef4ff", color: degreeFilter === "" ? "#fff" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                Barchasi
-              </button>
-              {degrees.map(d => (
-                <button key={d.code} onClick={() => applyDegree(d.name)}
-                  className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
-                  style={{ backgroundColor: degreeFilter === d.name ? "#0e58a8" : "#eef4ff", color: degreeFilter === d.name ? "#fff" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  {d.name}
-                </button>
-              ))}
-            </div>
+            <label className="flex items-center gap-2">
+              <span className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Daraja:</span>
+              <select value={degreeFilter} onChange={e => applyDegree(e.target.value)}
+                className="text-sm px-3 py-2 rounded-[8px] outline-none"
+                style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                <option value="">Barchasi</option>
+                {degrees.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Kurs:</span>
+              <select value={courseFilter} onChange={e => applyCourse(e.target.value)}
+                className="text-sm px-3 py-2 rounded-[8px] outline-none"
+                style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                <option value="">Barchasi</option>
+                {courses.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+              </select>
+            </label>
           </div>
 
           <div className="bg-white rounded-[12px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>

@@ -1984,6 +1984,8 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "adminFoydalanuvchilar.colFullName":         { uz: "To'liq ism",                             ru: "Полное имя",                                en: "Full name",                            kaa: "Tolıq atı" },
   "adminFoydalanuvchilar.colHemisRole":        { uz: "HEMIS roli",                             ru: "Роль HEMIS",                                en: "HEMIS role",                           kaa: "HEMIS roli" },
   "adminFoydalanuvchilar.colLmsRole":          { uz: "LMS roli",                               ru: "Роль LMS",                                  en: "LMS role",                             kaa: "LMS roli" },
+  "adminFoydalanuvchilar.colGroup":            { uz: "Guruh",                                  ru: "Группа",                                    en: "Group",                                kaa: "Gruppa" },
+  "adminFoydalanuvchilar.colFaceId":           { uz: "Face ID",                                ru: "Face ID",                                   en: "Face ID",                              kaa: "Face ID" },
   "adminFoydalanuvchilar.colContent":          { uz: "Kontent",                                ru: "Контент",                                   en: "Content",                              kaa: "Kontent" },
   "adminFoydalanuvchilar.colLastSeen":         { uz: "So'nggi kirish",                         ru: "Последний вход",                            en: "Last seen",                            kaa: "Aqırǵı kiriw" },
   "adminFoydalanuvchilar.colAction":           { uz: "Amal",                                   ru: "Действие",                                  en: "Action",                               kaa: "Ámel" },

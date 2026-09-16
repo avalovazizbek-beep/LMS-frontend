@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ShieldAlert, CheckCircle2, XCircle, Clock, RefreshCw, User } from "lucide-react"
+import { ShieldAlert, CheckCircle2, XCircle, Clock, RefreshCw, User, Send, ChevronLeft, ChevronRight, UserX } from "lucide-react"
 import { adminApi, type AdminFaceRequest } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+
+const PAGE_SIZE = 20
 
 const STATUS_CONFIG = {
   pending:  { labelKey: "adminFaceId.statusPending",  bg: "#fffbeb", color: "#92400e", icon: Clock },
@@ -11,15 +13,128 @@ const STATUS_CONFIG = {
   rejected: { labelKey: "adminFaceId.statusRejected", bg: "#fef2f2", color: "#b91c1c", icon: XCircle },
 }
 
+interface NotRegisteredStudent {
+  hemisId: number
+  fullName: string
+  groupName: string | null
+  studentIdNumber: string | null
+  adminRequestPending: boolean
+}
+
+function NotRegisteredTab() {
+  const [students, setStudents] = useState<NotRegisteredStudent[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [sendingId, setSendingId] = useState<number | null>(null)
+
+  const load = (p = page) => {
+    setLoading(true)
+    adminApi.notRegisteredFace({ limit: PAGE_SIZE, offset: p * PAGE_SIZE })
+      .then(res => { setStudents(res.students); setTotal(res.total) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  function goToPage(p: number) {
+    const clamped = Math.min(Math.max(p, 0), totalPages - 1)
+    setPage(clamped)
+    load(clamped)
+  }
+
+  async function handleRequest(hemisId: number) {
+    setSendingId(hemisId)
+    try {
+      await adminApi.requestFaceReregister(hemisId)
+      setStudents(prev => prev.map(s => s.hemisId === hemisId ? { ...s, adminRequestPending: true } : s))
+    } finally {
+      setSendingId(null)
+    }
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-[12px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <RefreshCw className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} />
+          </div>
+        ) : students.length === 0 ? (
+          <div className="p-12 text-center">
+            <ShieldAlert className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
+            <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              Hammasi ro'yxatdan o'tgan
+            </p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <tbody>
+              {students.map(s => (
+                <tr key={s.hemisId} className="hover:bg-[#f6f9ff]/50 transition-colors" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                  <td className="px-5 py-3">
+                    <div className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{s.fullName}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
+                      {s.groupName ?? "—"}{s.studentIdNumber ? ` · ${s.studentIdNumber}` : ""}
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {s.adminRequestPending ? (
+                      <span className="text-xs italic" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>So'rov yuborilgan</span>
+                    ) : sendingId === s.hemisId ? (
+                      <RefreshCw className="w-4 h-4 animate-spin ml-auto" style={{ color: "#0e58a8" }} />
+                    ) : (
+                      <button onClick={() => handleRequest(s.hemisId)}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-opacity hover:opacity-90"
+                        style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                        <Send className="w-3.5 h-3.5" /> So'rash
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {!loading && total > 0 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+            {page * PAGE_SIZE + 1}–{Math.min(total, page * PAGE_SIZE + PAGE_SIZE)} / {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => goToPage(page - 1)} disabled={page <= 0}
+              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-[6px] disabled:opacity-40"
+              style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-xs font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              {page + 1} / {totalPages}
+            </span>
+            <button onClick={() => goToPage(page + 1)} disabled={page >= totalPages - 1}
+              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-[6px] disabled:opacity-40"
+              style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function AdminFaceId() {
   const { t } = useLanguage()
   const [requests, setRequests] = useState<AdminFaceRequest[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusTab, setStatusTab] = useState<"pending" | "approved" | "rejected">("pending")
+  const [statusTab, setStatusTab] = useState<"pending" | "approved" | "rejected" | "not_registered">("pending")
   const [actionId, setActionId] = useState<string | null>(null)
   const [note, setNote] = useState("")
 
-  const load = (s = statusTab) => {
+  const load = (s: "pending" | "approved" | "rejected") => {
     setLoading(true)
     adminApi.faceRequests(s)
       .then(res => setRequests(res.data))
@@ -27,7 +142,9 @@ export default function AdminFaceId() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [statusTab]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (statusTab !== "not_registered") load(statusTab)
+  }, [statusTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleAction(id: string, action: "approve" | "reject") {
     setActionId(id)
@@ -78,13 +195,28 @@ export default function AdminFaceId() {
             </button>
           )
         })}
-        <button onClick={() => load()} className="ml-auto text-xs flex items-center gap-1.5 px-3 py-2 rounded-[8px]"
-          style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-          <RefreshCw className="w-3 h-3" /> {t("adminFaceId.refresh")}
+        <button
+          onClick={() => setStatusTab("not_registered")}
+          className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors"
+          style={{
+            backgroundColor: statusTab === "not_registered" ? "#0e58a8" : "#f0f5ff",
+            color: statusTab === "not_registered" ? "#fff" : "#0e58a8",
+            fontFamily: "var(--font-poppins)",
+          }}>
+          <UserX className="w-3.5 h-3.5" />
+          Ro'yxatdan o'tmaganlar
         </button>
+        {statusTab !== "not_registered" && (
+          <button onClick={() => load(statusTab)} className="ml-auto text-xs flex items-center gap-1.5 px-3 py-2 rounded-[8px]"
+            style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            <RefreshCw className="w-3 h-3" /> {t("adminFaceId.refresh")}
+          </button>
+        )}
       </div>
 
-      {loading ? (
+      {statusTab === "not_registered" ? (
+        <NotRegisteredTab />
+      ) : loading ? (
         <div className="flex items-center justify-center py-20">
           <RefreshCw className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} />
         </div>
