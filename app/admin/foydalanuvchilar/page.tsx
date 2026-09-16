@@ -137,7 +137,7 @@ export default function AdminFoydalanuvchilar() {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-8">
+    <div className="flex flex-col gap-5 p-4 sm:p-8">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
@@ -181,19 +181,19 @@ export default function AdminFoydalanuvchilar() {
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
-        <label className="flex items-center gap-2 px-3 py-2 rounded-[8px] bg-white"
+        <label className="flex items-center gap-2 px-3 py-2 rounded-[8px] bg-white w-full sm:w-auto"
           style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
           <Search className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={t("adminFoydalanuvchilar.searchPlaceholder")}
-            className="outline-none bg-transparent text-sm w-56"
+            className="outline-none bg-transparent text-sm w-full sm:w-56"
             style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
           />
         </label>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
           {["", "admin", "dean", "teacher", "student", "blocked", "pending"].map(r => (
             <button
               key={r || "all"}

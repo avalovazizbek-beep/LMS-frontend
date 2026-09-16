@@ -53,6 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checked, setChecked] = useState(false)
   const [adminName, setAdminName] = useState("")
   const [isAlsoEmployee, setIsAlsoEmployee] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
@@ -71,6 +72,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       })
       .catch(() => router.replace("/dashboard"))
   }, [router])
+
+  // Mobilda 240px sidebar ekranning aksariyat qismini yeb qo'yardi (jadval
+  // va statistika kartalari siqilib, o'qib bo'lmas holga kelardi) — talaba
+  // paneli (`(dashboard)/layout.tsx`)dagi bilan bir xil naqsh: mobilda
+  // yopiq boshlanadi, tugma bosilganda orqa fon bilan drawer sifatida ochiladi.
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)")
+    const apply = () => {
+      setIsMobile(mql.matches)
+      setSidebarOpen(!mql.matches)
+    }
+    apply()
+    mql.addEventListener("change", apply)
+    return () => mql.removeEventListener("change", apply)
+  }, [])
+
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false)
+  }, [pathname, isMobile])
 
   if (!checked) {
     return (
@@ -93,21 +113,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "#f0f5ff" }}>
-      {/* Sidebar */}
+      {/* Mobilda sidebar ochiq bo'lsa — orqa fon, bosilsa yopiladi */}
+      {isMobile && sidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Sidebar — desktopda kontentni suradi, mobilda ustidan qoplaydi (drawer) */}
       {sidebarOpen && (
-        <aside className="h-screen w-[240px] shrink-0 flex flex-col" style={{ backgroundColor: "#012970" }}>
+        <aside
+          className={`h-screen w-[240px] shrink-0 flex flex-col ${isMobile ? "fixed inset-y-0 left-0 z-50" : ""}`}
+          style={{ backgroundColor: "#012970" }}
+        >
           {/* Logo */}
           <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <Image src={`${BASE_PATH}/logo.png`} alt="SamISI" width={32} height={32} className="w-8 h-8 object-contain shrink-0" />
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-white" style={{ fontFamily: "var(--font-poppins)" }}>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-bold text-white truncate" style={{ fontFamily: "var(--font-poppins)" }}>
                   SamISI Admin
                 </span>
-                <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-poppins)" }}>Boshqaruv paneli</span>
+                <span className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-poppins)" }}>Boshqaruv paneli</span>
               </div>
             </div>
-            <button onClick={() => setSidebarOpen(false)} className="text-white/60 hover:text-white">
+            <button onClick={() => setSidebarOpen(false)} className="text-white/60 hover:text-white shrink-0">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -163,24 +191,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main */}
       <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden">
         {/* Topbar */}
-        <header className="shrink-0 flex items-center gap-3 px-6 py-3 bg-white"
+        <header className="shrink-0 flex items-center gap-2 px-3 py-3 bg-white sm:gap-3 sm:px-6"
           style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 1px 4px rgba(1,41,112,0.06)" }}>
           {!sidebarOpen && (
-            <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-[6px] hover:bg-[#f0f5ff] transition-colors">
+            <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-[6px] hover:bg-[#f0f5ff] transition-colors shrink-0">
               <Menu className="w-5 h-5" style={{ color: "#7293b9" }} />
             </button>
           )}
-          <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            <ShieldCheck className="w-4 h-4" style={{ color: "#0e58a8" }} />
-            {NAV.find(n => pathname.startsWith(n.href))?.label ?? "Admin Panel"}
+          <div className="flex items-center gap-2 text-sm font-semibold min-w-0 flex-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+            <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: "#0e58a8" }} />
+            <span className="truncate">{NAV.find(n => pathname.startsWith(n.href))?.label ?? "Admin Panel"}</span>
           </div>
-          <div className="ml-auto text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+          <div className="hidden sm:block ml-auto shrink-0 max-w-[220px] truncate text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             {adminName}
           </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
           {children}
         </main>
       </div>

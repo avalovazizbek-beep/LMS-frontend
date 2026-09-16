@@ -128,7 +128,7 @@ function JournalTable({ journal, subject }: { journal: JournalData; subject: str
       </div>
 
       {students.length === 0 ? (
-        <div className="bg-white rounded-[10px] p-8 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="bg-white rounded-[10px] p-4 sm:p-8 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <p className="text-sm" style={L}>{t("adminHisobot.noStudentData")}</p>
         </div>
       ) : (

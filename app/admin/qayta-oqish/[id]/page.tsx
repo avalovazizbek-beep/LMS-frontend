@@ -38,7 +38,7 @@ export default function ReeduGroupPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-8">
       <div className="flex items-center gap-3">
         <button onClick={() => router.push("/admin/qayta-oqish")} className="p-2 rounded-[8px] hover:bg-[#eef4ff]">
           <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />

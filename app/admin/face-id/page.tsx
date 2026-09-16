@@ -165,7 +165,7 @@ export default function AdminFaceId() {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-8">
+    <div className="flex flex-col gap-5 p-4 sm:p-8">
       <div>
         <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
           {t("adminFaceId.pageTitle")}

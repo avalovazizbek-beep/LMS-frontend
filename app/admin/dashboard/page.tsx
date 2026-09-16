@@ -163,7 +163,7 @@ export default function AdminDashboard() {
   const activeStudentShare = stats && stats.totalStudents > 0 ? (stats.activeStudents30d / stats.totalStudents) * 100 : 0
 
   return (
-    <motion.div initial="hidden" animate="visible" variants={pageVariants} className="flex flex-col gap-6 p-8">
+    <motion.div initial="hidden" animate="visible" variants={pageVariants} className="flex flex-col gap-6 p-4 sm:p-8">
       <div>
         <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
           {t("adminDashboard.pageTitle")}

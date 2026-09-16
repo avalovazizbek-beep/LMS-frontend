@@ -51,7 +51,7 @@ export default function AdminSozlamalar() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-8 max-w-[700px]">
+    <div className="flex flex-col gap-6 p-4 sm:p-8 max-w-[700px]">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>

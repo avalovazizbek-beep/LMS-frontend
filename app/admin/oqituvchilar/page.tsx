@@ -349,7 +349,7 @@ export default function AdminOqituvchilar() {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-8">
+    <div className="flex flex-col gap-5 p-4 sm:p-8">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>

@@ -130,7 +130,7 @@ export default function AdminQaytaUrinish() {
           <p className="text-sm font-medium" style={T}>O'qituvchi, fan va guruhni tanlang</p>
         </div>
       ) : lTopics ? (
-        <div className="rounded-[10px] bg-white p-8 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="rounded-[10px] bg-white p-4 sm:p-8 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <div className="w-7 h-7 border-2 border-[#0e58a8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm" style={L}>Yuklanmoqda…</p>
         </div>
