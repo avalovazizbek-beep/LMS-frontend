@@ -2410,6 +2410,7 @@ export const adminApi = {
     success: boolean
     totalStudents: number
     departmentId: string | null
+    universityWide: boolean
     groups: { groupId: number; groupName: string; studentCount: number }[]
   }>("/api/admin/hemis-students"),
 

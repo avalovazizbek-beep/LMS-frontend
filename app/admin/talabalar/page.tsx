@@ -109,6 +109,7 @@ export default function AdminTalabalar() {
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [total, setTotal] = useState(0)
   const [departmentId, setDepartmentId] = useState<string | null>(null)
+  const [universityWide, setUniversityWide] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
@@ -122,6 +123,7 @@ export default function AdminTalabalar() {
         setGroups(res.groups ?? [])
         setTotal(res.totalStudents ?? 0)
         setDepartmentId(res.departmentId ?? null)
+        setUniversityWide(!!res.universityWide)
       })
       .catch(e => setError(e instanceof Error ? e.message : "Yuklashda xato"))
       .finally(() => setLoading(false))
@@ -157,7 +159,7 @@ export default function AdminTalabalar() {
         <div className="rounded-[12px] p-6 text-sm" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
           {error}
         </div>
-      ) : !departmentId ? (
+      ) : !departmentId && groups.length === 0 ? (
         <div className="rounded-[12px] p-6 flex items-start gap-3" style={{ backgroundColor: "#fff7ed", border: "1px solid rgba(217,119,6,0.2)" }}>
           <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#92400e" }} />
           <div className="text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
@@ -167,6 +169,13 @@ export default function AdminTalabalar() {
         </div>
       ) : (
         <>
+          {universityWide && (
+            <div className="rounded-[10px] px-4 py-2.5 text-xs flex items-center gap-2"
+              style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              Sizning HEMIS profilingiz aniq bir fakultetga bog'lanmagan (yoki fakultet ma'lumoti HEMIS'da yo'q) — shu sabab BUTUN institut bo'yicha ko'rsatilmoqda.
+            </div>
+          )}
           <div className="bg-white rounded-[12px] p-6 flex items-center gap-4 w-fit"
             style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
             <div className="w-12 h-12 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
