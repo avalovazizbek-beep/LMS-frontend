@@ -204,7 +204,16 @@ export default function AdminFoydalanuvchilar() {
           {["", "admin", "dean", "teacher", "student", "blocked", "pending"].map(r => (
             <button
               key={r || "all"}
-              onClick={() => { setRoleFilter(r); setPage(0); load(search, r, 0, faceFilter) }}
+              onClick={() => {
+                setRoleFilter(r)
+                setPage(0)
+                // Face ID filtri faqat "Talaba" tanlanganda mantiqiy — boshqa
+                // rolga o'tilsa, eskirib qolgan filtr sukut-ostida qo'llanib
+                // "0 ta natija" chiqarib qo'ymasligi uchun tozalanadi.
+                const nextFace = r === "student" ? faceFilter : ""
+                setFaceFilter(nextFace)
+                load(search, r, 0, nextFace)
+              }}
               className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
               style={{
                 backgroundColor: roleFilter === r ? "#0e58a8" : "#eef4ff",
@@ -216,28 +225,23 @@ export default function AdminFoydalanuvchilar() {
           ))}
         </div>
 
-        {/* Face ID holati bo'yicha — faqat talabalarga tegishli, shuning
-            uchun boshqa rol filtri bilan birga ham ishlaydi */}
-        <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-xs px-1" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>Face ID:</span>
-          {[
-            { v: "", label: "Barchasi" },
-            { v: "registered", label: "O'tgan" },
-            { v: "not_registered", label: "O'tmagan" },
-          ].map(opt => (
-            <button
-              key={opt.v || "all"}
-              onClick={() => applyFaceFilter(opt.v)}
-              className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
-              style={{
-                backgroundColor: faceFilter === opt.v ? "#0e58a8" : "#eef4ff",
-                color: faceFilter === opt.v ? "#fff" : "#0e58a8",
-                fontFamily: "var(--font-poppins)",
-              }}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        {/* Face ID holati bo'yicha — faqat "Talaba" tanlanganda, yangi
+            qatorda select sifatida ko'rinadi (boshqa rollarda Face ID
+            tushunchasi yo'q, shuning uchun doimo ko'rinib turmasligi kerak) */}
+        {roleFilter === "student" && (
+          <label className="flex items-center gap-2 w-full">
+            <span className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Face ID:</span>
+            <select
+              value={faceFilter}
+              onChange={e => applyFaceFilter(e.target.value)}
+              className="text-sm px-3 py-2 rounded-[8px] outline-none"
+              style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              <option value="">Barchasi</option>
+              <option value="registered">O'tgan</option>
+              <option value="not_registered">O'tmagan</option>
+            </select>
+          </label>
+        )}
       </div>
 
       {/* Table */}
