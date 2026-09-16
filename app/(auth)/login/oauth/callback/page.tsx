@@ -29,6 +29,13 @@ function SecurityAnimation() {
         loop: true,
         autoplay: true,
         speed: 0.6,
+        // Original artwork has a lot of built-in padding around the icon
+        // (it doesn't fill its own 256x256 frame) — hand-editing the
+        // animation's internal transforms to compensate produced distorted,
+        // clipped frames instead, so this uses the player's own supported
+        // "cover" fit (uniform scale-to-fill, like CSS object-fit: cover)
+        // rather than guessing at the artwork's bounding box ourselves.
+        layout: { fit: "cover", align: [0.5, 0.5] },
       })
     })
 
