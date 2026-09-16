@@ -2162,6 +2162,7 @@ export interface AdminUser {
   hemisRoleCodes: string[]
   lmsRole: string | null
   isAutoAdmin: boolean
+  roleIsDefault: boolean
   grantedBy: string | null
   grantedAt: string | null
   note: string | null
@@ -2349,7 +2350,7 @@ export const adminApi = {
 
   users: (params?: { search?: string; lms_role?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams(buildParams(params ?? {})).toString()
-    return get<{ data: AdminUser[]; total: number }>(`/api/admin/users${q ? `?${q}` : ""}`)
+    return get<{ data: AdminUser[]; total: number; roleCounts: Record<string, number> }>(`/api/admin/users${q ? `?${q}` : ""}`)
   },
 
   setRole: (hemisId: string, lmsRole: string, note?: string) =>

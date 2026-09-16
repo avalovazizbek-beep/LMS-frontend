@@ -1,9 +1,11 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
-import { Search, ChevronDown, UserCheck, Shield, ShieldHalf, BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Search, ChevronDown, ChevronLeft, ChevronRight, UserCheck, Shield, ShieldHalf, BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon } from "lucide-react"
 import { adminApi, type AdminUser } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+
+const PAGE_SIZE = 20
 
 const ROLE_CONFIG: Record<string, { labelKey: string; bg: string; color: string; icon: React.ElementType }> = {
   admin:   { labelKey: "adminFoydalanuvchilar.roleAdmin",   bg: "#fef2f2", color: "#b91c1c", icon: Shield },
@@ -83,39 +85,39 @@ export default function AdminFoydalanuvchilar() {
   const { t } = useLanguage()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [total, setTotal] = useState(0)
+  const [roleCounts, setRoleCounts] = useState<Record<string, number>>({ admin: 0, dean: 0, teacher: 0, student: 0, blocked: 0, pending: 0 })
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
+  const [page, setPage] = useState(0)
   const [saving, setSaving] = useState<string | null>(null)
 
-  const load = (q?: string, role?: string) => {
+  const load = (q?: string, role?: string, pageArg?: number) => {
     setLoading(true)
-    adminApi.users({ search: q ?? search, lms_role: role ?? roleFilter, limit: 200 })
-      .then(res => { setUsers(res.data); setTotal(res.total) })
+    const p = pageArg ?? page
+    adminApi.users({ search: q ?? search, lms_role: role ?? roleFilter, limit: PAGE_SIZE, offset: p * PAGE_SIZE })
+      .then(res => { setUsers(res.data); setTotal(res.total); setRoleCounts(res.roleCounts) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return users
-    return users.filter(u =>
-      u.fullName?.toLowerCase().includes(q) ||
-      u.username?.toLowerCase().includes(q) ||
-      u.hemisId?.includes(q)
-    )
-  }, [users, search])
+  // Qidiruv matni o'zgarganda serverdan qayta so'raladi (0-sahifadan) —
+  // sahifalash kiritilgach, endi faqat ekrandagi 20 tani emas, BARCHA
+  // foydalanuvchilar orasidan qidirish kerak.
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(0); load(search, roleFilter, 0) }, 400)
+    return () => clearTimeout(timer)
+  }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const roleCounts = useMemo(() => {
-    const counts: Record<string, number> = { admin: 0, dean: 0, teacher: 0, student: 0, blocked: 0, pending: 0 }
-    for (const u of users) {
-      const role = u.isAutoAdmin ? "admin" : u.lmsRole
-      if (role && role in counts) counts[role] += 1
-    }
-    return counts
-  }, [users])
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  function goToPage(p: number) {
+    const clamped = Math.min(Math.max(p, 0), totalPages - 1)
+    setPage(clamped)
+    load(search, roleFilter, clamped)
+  }
 
   async function handleSetRole(user: AdminUser, role: string) {
     setSaving(user.hemisId)
@@ -145,7 +147,7 @@ export default function AdminFoydalanuvchilar() {
             {t("adminFoydalanuvchilar.totalUsers", { total })}
           </p>
         </div>
-        <button onClick={() => load()} className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
+        <button onClick={() => load(search, roleFilter, page)} className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <RefreshCw className="w-3.5 h-3.5" /> {t("adminFoydalanuvchilar.refresh")}
         </button>
@@ -195,7 +197,7 @@ export default function AdminFoydalanuvchilar() {
           {["", "admin", "dean", "teacher", "student", "blocked", "pending"].map(r => (
             <button
               key={r || "all"}
-              onClick={() => { setRoleFilter(r); load(search, r) }}
+              onClick={() => { setRoleFilter(r); setPage(0); load(search, r, 0) }}
               className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
               style={{
                 backgroundColor: roleFilter === r ? "#0e58a8" : "#eef4ff",
@@ -237,7 +239,7 @@ export default function AdminFoydalanuvchilar() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {users.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-14 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                       <div className="flex flex-col items-center gap-2">
@@ -246,14 +248,14 @@ export default function AdminFoydalanuvchilar() {
                       </div>
                     </td>
                   </tr>
-                ) : filtered.map((u, i) => {
+                ) : users.map((u, i) => {
                   const displayName = u.fullName || u.username || "—"
                   const initial = displayName.charAt(0).toUpperCase() || "?"
                   return (
                   <tr key={u.hemisId}
                     className="hover:bg-[#f6f9ff]/50 transition-colors"
                     style={{ borderBottom: "1px solid rgba(1,41,112,0.05)" }}>
-                    <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
+                    <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{page * PAGE_SIZE + i + 1}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold text-white"
@@ -285,7 +287,7 @@ export default function AdminFoydalanuvchilar() {
                       ))}
                     </td>
                     <td className="px-4 py-3">
-                      <RoleBadge role={u.lmsRole} auto={u.isAutoAdmin} />
+                      <RoleBadge role={u.lmsRole} auto={u.isAutoAdmin || u.roleIsDefault} />
                     </td>
                     <td className="px-4 py-3 text-sm text-center" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                       {u.contentCount > 0 ? u.contentCount : "—"}
@@ -312,6 +314,29 @@ export default function AdminFoydalanuvchilar() {
           </div>
         )}
       </div>
+
+      {!loading && total > 0 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+            {page * PAGE_SIZE + 1}–{Math.min(total, page * PAGE_SIZE + PAGE_SIZE)} / {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => goToPage(page - 1)} disabled={page <= 0}
+              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-[6px] disabled:opacity-40"
+              style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-xs font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              {page + 1} / {totalPages}
+            </span>
+            <button onClick={() => goToPage(page + 1)} disabled={page >= totalPages - 1}
+              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-[6px] disabled:opacity-40"
+              style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
