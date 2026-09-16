@@ -89,13 +89,14 @@ export default function AdminFoydalanuvchilar() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
+  const [faceFilter, setFaceFilter] = useState("")
   const [page, setPage] = useState(0)
   const [saving, setSaving] = useState<string | null>(null)
 
-  const load = (q?: string, role?: string, pageArg?: number) => {
+  const load = (q?: string, role?: string, pageArg?: number, face?: string) => {
     setLoading(true)
     const p = pageArg ?? page
-    adminApi.users({ search: q ?? search, lms_role: role ?? roleFilter, limit: PAGE_SIZE, offset: p * PAGE_SIZE })
+    adminApi.users({ search: q ?? search, lms_role: role ?? roleFilter, face_id: face ?? faceFilter, limit: PAGE_SIZE, offset: p * PAGE_SIZE })
       .then(res => { setUsers(res.data); setTotal(res.total); setRoleCounts(res.roleCounts) })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -107,7 +108,7 @@ export default function AdminFoydalanuvchilar() {
   // sahifalash kiritilgach, endi faqat ekrandagi 20 tani emas, BARCHA
   // foydalanuvchilar orasidan qidirish kerak.
   useEffect(() => {
-    const timer = setTimeout(() => { setPage(0); load(search, roleFilter, 0) }, 400)
+    const timer = setTimeout(() => { setPage(0); load(search, roleFilter, 0, faceFilter) }, 400)
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -116,7 +117,13 @@ export default function AdminFoydalanuvchilar() {
   function goToPage(p: number) {
     const clamped = Math.min(Math.max(p, 0), totalPages - 1)
     setPage(clamped)
-    load(search, roleFilter, clamped)
+    load(search, roleFilter, clamped, faceFilter)
+  }
+
+  function applyFaceFilter(f: string) {
+    setFaceFilter(f)
+    setPage(0)
+    load(search, roleFilter, 0, f)
   }
 
   async function handleSetRole(user: AdminUser, role: string) {
@@ -197,7 +204,7 @@ export default function AdminFoydalanuvchilar() {
           {["", "admin", "dean", "teacher", "student", "blocked", "pending"].map(r => (
             <button
               key={r || "all"}
-              onClick={() => { setRoleFilter(r); setPage(0); load(search, r, 0) }}
+              onClick={() => { setRoleFilter(r); setPage(0); load(search, r, 0, faceFilter) }}
               className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
               style={{
                 backgroundColor: roleFilter === r ? "#0e58a8" : "#eef4ff",
@@ -205,6 +212,29 @@ export default function AdminFoydalanuvchilar() {
                 fontFamily: "var(--font-poppins)",
               }}>
               {r ? (ROLE_CONFIG[r] ? t(ROLE_CONFIG[r].labelKey) : r) : t("adminFoydalanuvchilar.filterAll")}
+            </button>
+          ))}
+        </div>
+
+        {/* Face ID holati bo'yicha — faqat talabalarga tegishli, shuning
+            uchun boshqa rol filtri bilan birga ham ishlaydi */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-xs px-1" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>Face ID:</span>
+          {[
+            { v: "", label: "Barchasi" },
+            { v: "registered", label: "O'tgan" },
+            { v: "not_registered", label: "O'tmagan" },
+          ].map(opt => (
+            <button
+              key={opt.v || "all"}
+              onClick={() => applyFaceFilter(opt.v)}
+              className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
+              style={{
+                backgroundColor: faceFilter === opt.v ? "#0e58a8" : "#eef4ff",
+                color: faceFilter === opt.v ? "#fff" : "#0e58a8",
+                fontFamily: "var(--font-poppins)",
+              }}>
+              {opt.label}
             </button>
           ))}
         </div>

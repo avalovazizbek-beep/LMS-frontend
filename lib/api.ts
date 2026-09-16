@@ -2359,7 +2359,7 @@ export interface AdminTopicRow {
 export const adminApi = {
   check: () => get<{ isAdmin: boolean; name: string; role: string; hemisRoles: string[]; lmsRole: string }>("/api/admin/check"),
 
-  users: (params?: { search?: string; lms_role?: string; limit?: number; offset?: number }) => {
+  users: (params?: { search?: string; lms_role?: string; face_id?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams(buildParams(params ?? {})).toString()
     return get<{ data: AdminUser[]; total: number; roleCounts: Record<string, number> }>(`/api/admin/users${q ? `?${q}` : ""}`)
   },
