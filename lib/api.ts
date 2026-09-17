@@ -2682,3 +2682,76 @@ export const reeduApi = {
 
   me: () => get<{ data: (ReeduEnrollment & { groupName: string; teacherFullName: string | null; schedule: ReeduScheduleSlot[]; grades: ReeduGradeRow[] })[] }>("/api/reedu/me"),
 }
+
+/* ── Murojaatlar (talaba -> o'qituvchi/dekanat/admin, 1:1 suhbat) ────── */
+export type SupportRecipientType = "teacher" | "dean" | "admin"
+
+export interface SupportTeacherOption {
+  userId: number
+  fullName: string
+}
+
+export interface ConversationListItem {
+  id: number
+  subject: string
+  recipientType: SupportRecipientType
+  recipientName: string | null
+  studentName: string
+  studentGroupName: string | null
+  status: "open" | "closed"
+  createdAt: string
+  lastMessageAt: string
+  closedByName: string | null
+  hasUnread: boolean
+}
+
+export interface ConversationMessage {
+  id: number
+  senderRole: "student" | SupportRecipientType
+  senderName: string
+  body: string | null
+  attachment: { url: string; name: string; mime: string; size: number } | null
+  createdAt: string
+  isMine: boolean
+}
+
+export interface ConversationDetail {
+  id: number
+  subject: string
+  recipientType: SupportRecipientType
+  recipientName: string | null
+  status: "open" | "closed"
+  createdAt: string
+  closedAt: string | null
+  closedByName: string | null
+  canClose: boolean
+  canReply: boolean
+  student: { fullName: string; groupName: string | null; phone: string | null; studentIdNumber: string | null }
+  messages: ConversationMessage[]
+}
+
+export const supportApi = {
+  teachers: () => get<ListRes<SupportTeacherOption>>("/api/support/teachers"),
+
+  create: (body: { recipientType: SupportRecipientType; recipientUserId?: number; subject: string; message: string }) =>
+    post<ItemRes<{ id: number }>>("/api/support/conversations", body),
+
+  list: () => get<ListRes<ConversationListItem>>("/api/support/conversations"),
+
+  detail: (id: number) => get<ItemRes<ConversationDetail>>(`/api/support/conversations/${id}`),
+
+  sendMessage: (id: number, body: string) =>
+    post<MsgRes>(`/api/support/conversations/${id}/messages`, { body }),
+
+  sendAttachment: (id: number, file: File, caption?: string) => {
+    const q = new URLSearchParams({ filename: file.name, ...(caption ? { body: caption } : {}) }).toString()
+    return rawUpload<MsgRes>(`/api/support/conversations/${id}/attachment?${q}`, file)
+  },
+
+  close: (id: number) => post<MsgRes>(`/api/support/conversations/${id}/close`, {}),
+
+  attachmentUrl: (relativeUrl: string) => {
+    const token = getToken()
+    return `${BASE}${relativeUrl}${token ? `?token=${encodeURIComponent(token)}` : ""}`
+  },
+}

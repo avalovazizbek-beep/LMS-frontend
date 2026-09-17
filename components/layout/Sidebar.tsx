@@ -9,6 +9,7 @@ import {
   BookOpen, RefreshCw, Wallet, User, Video,
   Settings, Search, ChevronDown, GraduationCap, LayoutDashboard, ScanFace,
   CalendarDays, ClipboardCheck, ClipboardList, UserCog, ShieldCheck, HelpCircle,
+  MessageSquareText,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -176,6 +177,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const [role, setRole] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const sections = role === "employee" ? employeeSections : studentSections
+  const murojaatlarHref = role === "employee" ? "/oqituvchi-kabineti/murojaatlar" : "/murojaatlar"
 
   const [openSection, setOpenSection] = useState<string | null>(() => {
     const allSections = [...studentSections, ...employeeSections]
@@ -400,6 +402,28 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
               </div>
             )
           })}
+
+          {/* Murojaatlar — standalone */}
+          <Link
+            href={murojaatlarHref}
+            onClick={onNavigate}
+            className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors mt-1 group"
+            style={{ backgroundColor: isActive(murojaatlarHref) ? "#f6f9ff" : "transparent" }}
+          >
+            <MessageSquareText
+              className="w-[22px] h-[22px] shrink-0 transition-transform group-hover:scale-110"
+              style={{ color: isActive(murojaatlarHref) ? "#1cc2dc" : "#012970" }}
+            />
+            <span
+              className="text-[14px] font-medium"
+              style={{
+                color: isActive(murojaatlarHref) ? "#1cc2dc" : "#012970",
+                fontFamily: "var(--font-poppins)",
+              }}
+            >
+              Murojaatlar
+            </span>
+          </Link>
 
           {/* Meeting — standalone */}
           <Link
