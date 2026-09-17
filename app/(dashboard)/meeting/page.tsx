@@ -42,9 +42,9 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import {
-  meetingsApi, hemisApi, teachingApi, attendanceApi,
+  meetingsApi, hemisApi, teachingApi, attendanceApi, zoomApi,
   type Meeting, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup,
-  type AttendanceRosterItem, type AttendanceStatus,
+  type AttendanceRosterItem, type AttendanceStatus, type ZoomConnectionStatus,
 } from "@/lib/api"
 import { MeetingMediaClient, type ProducerSummary } from "@/lib/meetingMediasoup"
 import { useApi } from "@/hooks/useApi"
@@ -448,14 +448,33 @@ function MeetingCard({
   onDelete,
   joining,
   deleting,
+  isTeacher,
+  onRefresh,
 }: {
   meeting: Meeting
   onJoin: (meetingId: string) => void
   onDelete?: (meetingId: string) => void
   joining?: boolean
   deleting?: boolean
+  isTeacher?: boolean
+  onRefresh?: () => void
 }) {
   const { t, lang } = useLanguage()
+  const [retrying, setRetrying] = useState(false)
+
+  async function handleRetryZoom() {
+    setRetrying(true)
+    try {
+      await meetingsApi.retryZoom(meeting.id)
+    } catch {
+      // xato natijasi ham lms_meeting_zoom'da saqlanadi — kartadagi
+      // "muvaffaqiyatsiz" holat allaqachon shu orqali ko'rinadi
+    } finally {
+      setRetrying(false)
+      onRefresh?.()
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -494,6 +513,41 @@ function MeetingCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {meeting.zoom?.status === "created" && meeting.zoom.joinUrl && (
+            <a
+              href={meeting.zoom.joinUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#2563eb] bg-white px-4 py-2.5 text-sm font-medium text-[#2563eb] transition-colors hover:bg-[#eef4ff]"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              <Video className="h-4 w-4" /> Zoomga kirish
+            </a>
+          )}
+          {isTeacher && meeting.zoom?.status === "created" && meeting.zoom.startUrl && (
+            <a
+              href={meeting.zoom.startUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-[5px] bg-[#2563eb] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#1d4ed8]"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              <Video className="h-4 w-4" /> Zoom meetingni boshlash
+            </a>
+          )}
+          {isTeacher && meeting.zoom?.status === "failed" && (
+            <button
+              type="button"
+              onClick={handleRetryZoom}
+              disabled={retrying}
+              title={meeting.zoom.errorMessage || undefined}
+              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-60"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+              {retrying ? "Urinilmoqda..." : "Zoom yaratilmadi — qayta urinish"}
+            </button>
+          )}
           {meeting.link !== "#" && (
             <a
               href={meeting.link}
@@ -874,6 +928,14 @@ function CreateMeetingModal({
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([])
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState<string | null>(null)
+  const [wantsZoom, setWantsZoom]   = useState(false)
+  const [zoomStatus, setZoomStatus] = useState<ZoomConnectionStatus | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setWantsZoom(false)
+    zoomApi.status().then(res => setZoomStatus(res.data)).catch(() => setZoomStatus(null))
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -915,6 +977,10 @@ function CreateMeetingModal({
     if (!date) { setError("Sana majburiy"); return }
     if (!startTime || !endTime) { setError("Vaqt majburiy"); return }
     if (ids.length === 0) { setError("Kamida 1 ta guruh ID kerak"); return }
+    if (wantsZoom && zoomStatus?.status !== "active") {
+      setError("Zoom account ulanmagan. Avval profilingizdan Zoom account'ni ulang.")
+      return
+    }
 
     const startISO = new Date(`${date}T${startTime}:00`).toISOString()
     const endISO   = new Date(`${date}T${endTime}:00`).toISOString()
@@ -931,6 +997,7 @@ function CreateMeetingModal({
         startTime: startISO,
         endTime: endISO,
         groupIds: ids,
+        createZoomMeeting: wantsZoom,
       }
       await meetingsApi.create(body)
       setTitle(""); setSubjectName(""); setDescription(""); setDate(today)
@@ -1103,6 +1170,24 @@ function CreateMeetingModal({
             {!groupsLoading && groupOptions.length > 0 && (
               <p className="text-[11px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
                 Tanlandi: {selectedGroupIds.length ? groupOptions.filter(g => selectedGroupIds.includes(g.id)).map(g => g.name).join(", ") : "—"}
+              </p>
+            )}
+          </div>
+
+          {/* Zoom meeting */}
+          <div className="flex flex-col gap-1.5 rounded-[8px] border border-[#d8e6f7] px-3 py-3">
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm" style={{ fontFamily: "var(--font-poppins)" }}>
+              <input
+                type="checkbox"
+                checked={wantsZoom}
+                onChange={e => setWantsZoom(e.target.checked)}
+                className="h-4 w-4 rounded border-[#d8e6f7] text-[#0e58a8] focus:ring-[#0e58a8]"
+              />
+              <span className="font-medium text-[#012970]">Zoom meeting ham yaratilsin</span>
+            </label>
+            {wantsZoom && zoomStatus?.status !== "active" && (
+              <p className="text-[11px] text-red-500 pl-6" style={{ fontFamily: "var(--font-poppins)" }}>
+                Zoom account ulanmagan. Avval profilingizdan (Tizim → Profil) Zoom account&apos;ni ulang.
               </p>
             )}
           </div>
@@ -1373,6 +1458,8 @@ function LobbyStage({
                     onDelete={isTeacher ? onDelete : undefined}
                     joining={joiningId === meeting.id}
                     deleting={deletingId === meeting.id}
+                    isTeacher={isTeacher}
+                    onRefresh={onRefresh}
                   />
                 ))
               ) : (

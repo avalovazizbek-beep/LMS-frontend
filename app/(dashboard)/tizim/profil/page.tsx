@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Key, Shield, User } from "lucide-react"
-import { hemisApi, type HemisEmployee, type HemisStudent } from "@/lib/api"
+import { Key, Shield, User, Video, CheckCircle2, AlertTriangle, Circle, ExternalLink } from "lucide-react"
+import { hemisApi, zoomApi, type HemisEmployee, type HemisStudent, type ZoomConnectionStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -12,6 +12,132 @@ type ProfileData = HemisStudent | HemisEmployee | null
 function nestedName(value?: { name?: string } | string) {
   if (!value) return undefined
   return typeof value === "string" ? value : value.name
+}
+
+/** Faqat o'qituvchi profilida ko'rinadi — "Integratsiyalar" bo'limi.
+ *  Bitta umumiy Zoom hisobi emas: HAR BIR o'qituvchi shu yerdan o'z Zoom
+ *  hisobini OAuth orqali ulaydi, keyin meeting yaratganda ANIQ shu
+ *  o'qituvchining hisobi nomidan Zoom meeting ochiladi. */
+function ZoomIntegrationCard() {
+  const { data, loading, error, refetch } = useApi(() => zoomApi.status(), [])
+  const [connecting, setConnecting] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  // OAuth callback shu sahifaga ?zoom=connected yoki ?zoom=error&message=...
+  // bilan qaytaradi (backend redirect qiladi, brauzer to'g'ridan-to'g'ri
+  // Zoom'dan qaytgani uchun bu holatni faqat URL orqali bilib olamiz).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const zoom = params.get("zoom")
+    if (!zoom) return
+    if (zoom === "connected") {
+      setBanner({ type: "success", text: "Zoom account muvaffaqiyatli ulandi" })
+      refetch()
+    } else if (zoom === "error") {
+      setBanner({ type: "error", text: params.get("message") || "Zoom account ulanmadi" })
+    }
+    params.delete("zoom")
+    params.delete("message")
+    const qs = params.toString()
+    window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function handleConnect() {
+    setConnecting(true)
+    setBanner(null)
+    try {
+      const res = await zoomApi.connect()
+      window.location.href = res.data.url
+    } catch (e) {
+      setBanner({ type: "error", text: e instanceof Error ? e.message : "Ulanishda xato" })
+      setConnecting(false)
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!window.confirm("Zoom account'ni uzasizmi? Eski yaratilgan meetinglarning havolalari saqlanib qoladi.")) return
+    setDisconnecting(true)
+    try {
+      await zoomApi.disconnect()
+      await refetch()
+    } catch (e) {
+      setBanner({ type: "error", text: e instanceof Error ? e.message : "Uzishda xato" })
+    } finally {
+      setDisconnecting(false)
+    }
+  }
+
+  const status: ZoomConnectionStatus | undefined = data?.data
+
+  return (
+    <div className="bg-white rounded-[10px] p-5" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+      <div className="flex items-center gap-2 mb-4">
+        <Video className="w-5 h-5" style={{ color: "#0e58a8" }} />
+        <h3 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+          Integratsiyalar
+        </h3>
+      </div>
+
+      {banner && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-[8px] text-xs"
+          style={{
+            backgroundColor: banner.type === "success" ? "#f0fdf4" : "#fef2f2",
+            color: banner.type === "success" ? "#15803d" : "#b91c1c",
+            fontFamily: "var(--font-poppins)",
+          }}>
+          {banner.type === "success" ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
+          {banner.text}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="py-4 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Yuklanmoqda…</div>
+      ) : error ? (
+        <ApiError message={error} onRetry={refetch} />
+      ) : (
+        <div className="flex items-center justify-between py-3 flex-wrap gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Zoom:</span>
+            {status?.status === "active" ? (
+              <span className="flex items-center gap-1.5 text-sm" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                <CheckCircle2 className="w-4 h-4" /> Ulangan {status.email ? `(${status.email})` : ""}
+              </span>
+            ) : status?.status === "needs_reconnect" ? (
+              <span className="flex items-center gap-1.5 text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                <AlertTriangle className="w-4 h-4" /> Qayta ulash kerak
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                <Circle className="w-4 h-4" /> Ulanmagan
+              </span>
+            )}
+          </div>
+
+          {status?.status === "active" ? (
+            <button onClick={handleDisconnect} disabled={disconnecting}
+              className="text-xs font-medium px-3.5 py-2 rounded-[6px] disabled:opacity-60"
+              style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+              {disconnecting ? "Uzilmoqda…" : "Zoomni uzish"}
+            </button>
+          ) : (
+            <button onClick={handleConnect} disabled={connecting || !status?.configured}
+              className="flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-[6px] disabled:opacity-60"
+              style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+              <ExternalLink className="w-3.5 h-3.5" />
+              {connecting ? "O'tilmoqda…" : status?.status === "needs_reconnect" ? "Zoomni qayta ulash" : "Zoom account'ni ulash"}
+            </button>
+          )}
+        </div>
+      )}
+      {!loading && !error && status && !status.configured && (
+        <p className="text-xs mt-1" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+          Zoom integratsiyasi hali serverda sozlanmagan (admin bilan bog'laning)
+        </p>
+      )}
+    </div>
+  )
 }
 
 export default function TizimProfil() {
@@ -135,6 +261,8 @@ export default function TizimProfil() {
               </span>
             </div>
           </div>
+
+          {isEmployee && <ZoomIntegrationCard />}
         </div>
       </div>
     </div>

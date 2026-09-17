@@ -382,6 +382,17 @@ function normalizeMeeting(value: unknown, index = 0): Meeting {
     permissions,
     canJoinNow: Boolean(raw.canJoinNow),
     rawStatus,
+    zoom: raw.zoom && typeof raw.zoom === "object" ? (() => {
+      const z = asRecord(raw.zoom)
+      return {
+        status: (textValue(z.status) || "pending") as ZoomMeetingInfo["status"],
+        meetingId: textValue(z.meetingId) || null,
+        joinUrl: textValue(z.joinUrl) || null,
+        startUrl: textValue(z.startUrl) || null,
+        password: textValue(z.password) || null,
+        errorMessage: textValue(z.errorMessage) || null,
+      }
+    })() : null,
   }
 }
 
@@ -597,6 +608,8 @@ export const meetingsApi = {
     const res = await meetingPost<unknown>(`/api/meetings/${id}/end`)
     return meetingItemResponse(res)
   },
+  retryZoom: (id: string) =>
+    meetingPost<{ success: boolean; message: string; data: ZoomMeetingInfo }>(`/api/meetings/${id}/zoom/retry`),
   studentJoinToken: getMeetingJoinToken,
   joinToken: getMeetingJoinToken,
   facePing: (id: string, body: { visible: boolean; intervalSeconds: number }) =>
@@ -721,6 +734,14 @@ export interface Doc {
   date: string
   downloads: number
 }
+export interface ZoomMeetingInfo {
+  status: "pending" | "created" | "failed"
+  meetingId: string | null
+  joinUrl: string | null
+  startUrl: string | null
+  password: string | null
+  errorMessage: string | null
+}
 export interface Meeting {
   id: string
   title: string
@@ -742,6 +763,7 @@ export interface Meeting {
   permissions?: Record<string, unknown>
   canJoinNow?: boolean
   rawStatus?: string
+  zoom?: ZoomMeetingInfo | null
 }
 export interface MeetingSettings {
   allowCamera?: boolean
@@ -758,6 +780,7 @@ export interface CreateMeetingRequest {
   endTime: string
   groupIds: Array<number | string>
   settings?: MeetingSettings
+  createZoomMeeting?: boolean
   [key: string]: unknown
 }
 export interface MeetingRecording {
@@ -2754,4 +2777,20 @@ export const supportApi = {
     const token = getToken()
     return `${BASE}${relativeUrl}${token ? `?token=${encodeURIComponent(token)}` : ""}`
   },
+}
+
+/* ── Zoom integratsiyasi (har bir o'qituvchi o'z hisobini ulaydi) ────── */
+export interface ZoomConnectionStatus {
+  connected: boolean
+  email: string | null
+  status: "active" | "needs_reconnect" | "not_connected"
+  configured: boolean
+}
+
+export const zoomApi = {
+  status: () => get<ItemRes<ZoomConnectionStatus>>("/api/integrations/zoom/status"),
+
+  connect: () => get<ItemRes<{ url: string }>>("/api/integrations/zoom/connect"),
+
+  disconnect: () => post<MsgRes>("/api/integrations/zoom/disconnect", {}),
 }
