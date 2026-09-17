@@ -154,7 +154,7 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         </section>
       </main>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style jsx>{`
         .masofaviy-wrap {
           --blue: #2563eb;
           --navy: #172554;
@@ -541,7 +541,7 @@ function NotMasofaviyScreen({ message }: { message: string }) {
         @media (prefers-reduced-motion: reduce) {
           .masofaviy-wrap * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
         }
-      ` }} />
+      `}</style>
     </div>
   )
 }
