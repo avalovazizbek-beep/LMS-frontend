@@ -2712,7 +2712,7 @@ export interface ConversationMessage {
   body: string | null
   attachment: { url: string; name: string; mime: string; size: number } | null
   createdAt: string
-  isMine: boolean
+  isStudent: boolean
 }
 
 export interface ConversationDetail {

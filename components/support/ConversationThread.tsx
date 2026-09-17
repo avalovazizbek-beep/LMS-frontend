@@ -179,20 +179,25 @@ export default function ConversationThread({
 
       {/* Xabarlar */}
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3" style={{ minHeight: 280 }}>
-        {detail.messages.map(m => (
-          <div key={m.id} className={`flex flex-col ${m.isMine ? "items-end" : "items-start"}`}>
+        {detail.messages.map(m => {
+          // Tomonlar QAT'IY: talaba har doim chapda, murojaat qabul qiluvchi
+          // (o'qituvchi/dekanat/admin) har doim o'ngda — kim ko'rayotganidan
+          // qat'i nazar (tarix sifatida hamma uchun bir xil ko'rinishi kerak).
+          const staffSide = !m.isStudent
+          return (
+          <div key={m.id} className={`flex flex-col ${staffSide ? "items-end" : "items-start"}`}>
             <div className="max-w-[80%] rounded-[12px] px-3.5 py-2.5"
               style={{
-                backgroundColor: m.isMine ? "#0e58a8" : "#f0f5ff",
-                color: m.isMine ? "#fff" : "#012970",
+                backgroundColor: staffSide ? "#0e58a8" : "#f0f5ff",
+                color: staffSide ? "#fff" : "#012970",
                 fontFamily: "var(--font-poppins)",
               }}>
-              {!m.isMine && <div className="text-[11px] font-semibold mb-0.5 opacity-70">{m.senderName}</div>}
+              <div className="text-[11px] font-semibold mb-0.5 opacity-70">{m.senderName}</div>
               {m.body && <div className="text-sm whitespace-pre-wrap break-words">{m.body}</div>}
               {m.attachment && (
                 <a href={supportApi.attachmentUrl(m.attachment.url)} target="_blank" rel="noreferrer"
                   className="flex items-center gap-2 mt-1.5 text-xs px-2.5 py-1.5 rounded-[8px]"
-                  style={{ backgroundColor: m.isMine ? "rgba(255,255,255,0.15)" : "rgba(1,41,112,0.06)" }}>
+                  style={{ backgroundColor: staffSide ? "rgba(255,255,255,0.15)" : "rgba(1,41,112,0.06)" }}>
                   <FileText className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">{m.attachment.name}</span>
                   <span className="opacity-70 shrink-0">{fmtSize(m.attachment.size)}</span>
@@ -201,7 +206,8 @@ export default function ConversationThread({
             </div>
             <span className="text-[10px] mt-1" style={L}>{fmtTime(m.createdAt)}</span>
           </div>
-        ))}
+          )
+        })}
         <div ref={bottomRef} />
       </div>
 
