@@ -1216,6 +1216,7 @@ export interface TeacherContent {
   title: string
   description: string | null
   kind: string | null
+  trainingType: string | null      // Mashg'ulot turi (Ma'ruza / Amaliyot / Mustaqil ish)
   controlType: string | null       // Nazorat turi (kurs-topshiriq uchun)
   resourceType: string | null      // Resurs turi (Video material, Hujjat, Audio meeting...)
   file: TeachingFile | null        // backward compat: docFile ?? videoFile
@@ -1485,6 +1486,7 @@ export const teachingApi = {
     title: string
     description?: string
     kind?: string
+    trainingType?: string
     controlType?: string
     resourceType?: string
     availableFrom: string
@@ -1515,6 +1517,7 @@ export const teachingApi = {
       title: input.title,
       description: input.description,
       kind: input.kind,
+      trainingType: input.trainingType,
       controlType: input.controlType,
       resourceType: input.resourceType,
       availableFrom: input.availableFrom,
@@ -1569,6 +1572,7 @@ export const teachingApi = {
       description: string | null
       subjectName: string
       kind: string | null
+      trainingType: string | null
       controlType: string | null
       availableFrom: string
       deadline: string | null

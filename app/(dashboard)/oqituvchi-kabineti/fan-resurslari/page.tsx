@@ -593,8 +593,34 @@ const RESOURCE_TABS = [
 ] as const
 type TabKind = typeof RESOURCE_TABS[number]["kind"]
 
+/* ── Mashg'ulot turi (ma'ruza/amaliyot/mustaqil ish) — resurs qaysi mashg'ulot
+   uchun ekanini belgilash, resurs formatidan (video/hujjat/...) mustaqil ── */
+const TRAINING_TYPE_OPTIONS = [
+  { value: "Ma'ruza", labelKey: "fanResurslariOq.trainingType.lecture" },
+  { value: "Amaliyot", labelKey: "fanResurslariOq.trainingType.practice" },
+  { value: "Mustaqil ish", labelKey: "fanResurslariOq.trainingType.independentStudy" },
+] as const
+
+/* Boshqa (qo'shimcha) guruhda shu nomdagi mavzu bo'lmasa yaratadi, bo'lsa
+   uning topicKey'ini qaytaradi — parallel guruhlarga resurs nusxalash uchun. */
+async function ensureTopicKeyForGroup(
+  groupId: number, subjectName: string, topicTitle: string, deadline: string | null
+): Promise<string> {
+  const res = await teachingApi.content({ group: groupId, subject: subjectName })
+  const items = res.data ?? []
+  const normalized = topicTitle.trim().toLowerCase()
+  const match = items.find(i => i.type === "mavzu" && i.kind === "topic" && i.title.trim().toLowerCase() === normalized)
+  if (match?.topicKey) return match.topicKey
+  const newKey = `${subjectName}__${groupId}__${Date.now()}`
+  await teachingApi.createContent({
+    type: "mavzu", kind: "topic", groupId, subjectName, topicKey: newKey,
+    title: topicTitle, availableFrom: new Date().toISOString(), deadline,
+  })
+  return newKey
+}
+
 /* ── Resurslar panel ─────────────────────────────────────────────────── */
-function ResourcesPanel({ sel }: { sel: Selection }) {
+function ResourcesPanel({ sel, extraGroupIds }: { sel: Selection; extraGroupIds: number[] }) {
   const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(
     () => teachingApi.contentByTopic({ topicKey: sel.topicKey, groupId: sel.groupId }),
@@ -613,6 +639,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
   const [settingsOk, setSettingsOk] = useState(false)
   const [titleDraft, setTitleDraft] = useState(sel.topicTitle)
   const [descDraft, setDescDraft] = useState("")
+  const [trainingTypeDraft, setTrainingTypeDraft] = useState("")
   const [metaSaving, setMetaSaving] = useState(false)
   const [metaSaved, setMetaSaved] = useState(false)
 
@@ -656,6 +683,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
   useEffect(() => {
     setTitleDraft(activeItem?.title ?? sel.topicTitle)
     setDescDraft(activeItem?.description ?? "")
+    setTrainingTypeDraft(activeItem?.trainingType ?? "")
     setMetaSaved(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, activeItem?.id, sel.topicTitle])
@@ -665,7 +693,7 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
     setMetaSaving(true)
     setMetaSaved(false)
     try {
-      await teachingApi.updateContent(activeItem.id, { title: titleDraft, description: descDraft })
+      await teachingApi.updateContent(activeItem.id, { title: titleDraft, description: descDraft, trainingType: trainingTypeDraft || null })
       await refetch()
       setMetaSaved(true)
     } catch (err) {
@@ -726,9 +754,25 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
       await teachingApi.createContent({
         type, groupId: sel.groupId, subjectName: sel.subjectName,
         topicKey: sel.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
+        trainingType: trainingTypeDraft || undefined,
         availableFrom: now(), deadline: topicDeadline, docFile: file,
         onUploadProgress: file ? setUploadProgress : undefined,
       })
+      // Imtihon (savollari alohida qo'shiladi) bundan mustasno — boshqa
+      // resurslar (video/audio/taqdimot/qo'llanma/topshiriq) tanlangan
+      // qo'shimcha guruhlarga ham xuddi shunday nusxalanadi (kerak bo'lsa
+      // o'sha guruhda shu nomdagi mavzu ham avtomatik yaratiladi).
+      if (type !== "exam" && extraGroupIds.length) {
+        for (const gid of extraGroupIds) {
+          const groupTopicKey = await ensureTopicKeyForGroup(gid, sel.subjectName, sel.topicTitle, topicDeadline)
+          await teachingApi.createContent({
+            type, groupId: gid, subjectName: sel.subjectName,
+            topicKey: groupTopicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
+            trainingType: trainingTypeDraft || undefined,
+            availableFrom: now(), deadline: topicDeadline, docFile: file,
+          })
+        }
+      }
       await refetch()
     } catch (err) {
       setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.uploadError"))
@@ -974,6 +1018,18 @@ function ResourcesPanel({ sel }: { sel: Selection }) {
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.trainingTypeLabel")}</label>
+              <select value={trainingTypeDraft} onChange={e => setTrainingTypeDraft(e.target.value)}
+                className="px-3 py-2 rounded-[8px] text-sm outline-none"
+                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                <option value="">{t("fanResurslariOq.form.trainingTypeUnset")}</option>
+                {TRAINING_TYPE_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.descriptionLabel")}</label>
               <RichTextEditor value={descDraft} onChange={setDescDraft} placeholder={t("fanResurslariOq.form.descriptionPlaceholder")} />
             </div>
@@ -1080,6 +1136,12 @@ export default function FanResurslariPage() {
   const [academicYear, setAcademicYear] = useState("")
   const [subjectName, setSubjectName] = useState("")
   const [topicKey, setTopicKey] = useState("")
+  // Qo'shimcha guruhlar — shu yerga qo'shiladigan mavzu/resurslar avtomatik
+  // ularga ham nusxalanadi (bir nechta guruhga bir vaqtda yuklash uchun).
+  const [extraGroupIds, setExtraGroupIds] = useState<number[]>([])
+  function toggleExtraGroup(id: number) {
+    setExtraGroupIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
 
   // Faqat aniq bir yil tanlanganda HEMIS'dan so'raladi (join sahifa
   // yuklanishida emas) — o'sha yilda o'qituvchi dars bergan guruhlar,
@@ -1177,6 +1239,7 @@ export default function FanResurslariPage() {
     setAddTopicLoading(true)
     try {
       const newKey = `${subjectName}__${activeGroupId}__${Date.now()}`
+      const deadlineIso = newTopicDeadline ? new Date(newTopicDeadline).toISOString() : null
       await teachingApi.createContent({
         type: "mavzu",
         kind: "topic",
@@ -1185,8 +1248,21 @@ export default function FanResurslariPage() {
         topicKey: newKey,
         title: newTopicTitle.trim(),
         availableFrom: new Date().toISOString(),
-        deadline: newTopicDeadline ? new Date(newTopicDeadline).toISOString() : null,
+        deadline: deadlineIso,
       })
+      // Tanlangan qo'shimcha guruhlarda ham xuddi shu nomdagi mavzu yaratiladi
+      for (const gid of extraGroupIds) {
+        await teachingApi.createContent({
+          type: "mavzu",
+          kind: "topic",
+          groupId: gid,
+          subjectName,
+          topicKey: `${subjectName}__${gid}__${Date.now()}`,
+          title: newTopicTitle.trim(),
+          availableFrom: new Date().toISOString(),
+          deadline: deadlineIso,
+        })
+      }
       setNewTopicTitle("")
       setNewTopicDeadline("")
       setAddingTopic(false)
@@ -1257,12 +1333,14 @@ export default function FanResurslariPage() {
     setGroupId("")
     setSubjectName("")
     setTopicKey("")
+    setExtraGroupIds([])
   }
 
   function handleGroupChange(val: string) {
     setGroupId(val === "" ? "" : Number(val))
     setSubjectName("")
     setTopicKey("")
+    setExtraGroupIds([])
   }
 
   function handleSubjectChange(val: string) {
@@ -1322,6 +1400,30 @@ export default function FanResurslariPage() {
             </div>
           </div>
         </div>
+
+        {/* Qo'shimcha guruhlar — shu yerdan yuklangan mavzu/resurslar tanlangan
+            guruhlarga ham avtomatik nusxalanadi (bir nechta guruhga birdan yuklash) */}
+        {activeGroupId && displayGroups.filter(g => g.id !== activeGroupId).length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <span className="text-xs font-medium shrink-0" style={labelStyle}>{t("fanResurslariOq.extraGroups.label")}</span>
+            {displayGroups.filter(g => g.id !== activeGroupId).map(g => {
+              const checked = extraGroupIds.includes(g.id)
+              return (
+                <button key={g.id} type="button" onClick={() => toggleExtraGroup(g.id)}
+                  className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
+                  style={{
+                    border: `1px solid ${checked ? "#0e58a8" : "rgba(1,41,112,0.2)"}`,
+                    backgroundColor: checked ? "#0e58a8" : "transparent",
+                    color: checked ? "#fff" : "#445b7a",
+                    fontFamily: "var(--font-poppins)",
+                  }}>
+                  {checked && <Check className="w-3 h-3" />}
+                  {g.name}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Two-panel body ── */}
@@ -1386,7 +1488,7 @@ export default function FanResurslariPage() {
                     )}
                   </div>
                 </div>
-                <ResourcesPanel sel={selection} />
+                <ResourcesPanel sel={selection} extraGroupIds={extraGroupIds} />
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-4 py-24">
