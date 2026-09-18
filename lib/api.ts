@@ -1355,11 +1355,16 @@ export interface StudentTopicSectionWithLock extends StudentTopicSection {
   sectionLocked?: boolean
 }
 
+/** Backend'dagi NO_TRAINING_TYPE bilan bir xil — mashg'ulot turi
+    belgilanmagan (eski) mavzu/resurslarni ajratib olish uchun. */
+export const NO_TRAINING_TYPE = "__none__"
+
 export interface StudentTopic {
   topicKey: string
   title: string
   locked: boolean
   completed: boolean
+  trainingType: string | null
   sections: {
     video: StudentTopicSectionWithLock | null
     audio: StudentTopicSectionWithLock | null
@@ -1683,10 +1688,20 @@ export const teachingApi = {
   runPlagiarismCheck: (contentId: number | string) =>
     post<ListRes<PlagiarismResult>>(`/api/plagiarism/content/${contentId}/check`, {}),
 
-  /** Talaba: bitta fan bo'yicha mavzular ro'yxati (ketma-ket qulflash holati bilan) */
-  studentTopics: (subject: string) => {
-    const q = new URLSearchParams(buildParams({ subject })).toString()
+  /** Talaba: bitta fan bo'yicha mavzular ro'yxati (ketma-ket qulflash holati bilan).
+      trainingType berilsa, faqat o'sha mashg'ulot turidagi (ma'ruza/amaliyot/
+      mustaqil ish) mavzular qaytadi — aralashib ketmaydi. NO_TRAINING_TYPE
+      qiymati esa faqat turi belgilanmagan (eski) mavzularni qaytaradi. */
+  studentTopics: (subject: string, trainingType?: string) => {
+    const q = new URLSearchParams(buildParams({ subject, trainingType })).toString()
     return get<ListRes<StudentTopic>>(`/api/teaching/content/topics?${q}`)
+  },
+
+  /** Talaba: fan bo'yicha mavjud mashg'ulot turlari va har birida nechta
+      mavzu bor — "Ma'ruza / Amaliyot / Mustaqil ish" tanlash ekrani uchun. */
+  studentTopicSummary: (subject: string) => {
+    const q = new URLSearchParams(buildParams({ subject })).toString()
+    return get<ListRes<{ trainingType: string | null; topicCount: number }>>(`/api/teaching/content/topic-summary?${q}`)
   },
 
   /** Talaba: video/audio/hujjat ko'rish progresini olish */

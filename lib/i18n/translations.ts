@@ -267,6 +267,8 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "fanResurslari.noTopicsYet": { uz: "Bu fan uchun hozircha mavzular yuklanmagan", ru: "Для этого предмета темы ещё не загружены", en: "No topics uploaded for this subject yet", kaa: "Bul pán ushın temalar áli júklenbegen" },
   "fanResurslari.topicLocked": { uz: "Mavzu qulflangan",        ru: "Тема заблокирована",                en: "Topic locked",                 kaa: "Tema qulıplanǵan" },
   "fanResurslari.topicsHeading": { uz: "Mavzular",              ru: "Темы",                               en: "Topics",                        kaa: "Temalar" },
+  "fanResurslari.pickTrainingType": { uz: "Mashg'ulot turini tanlang", ru: "Выберите тип занятия",        en: "Choose the training type",     kaa: "Sabaq túrin tańlań" },
+  "fanResurslari.otherMaterials": { uz: "Boshqa materiallar",    ru: "Другие материалы",                  en: "Other materials",              kaa: "Basqa materiallar" },
   "fanResurslari.guide":    { uz: "Qo'llanma (Adabiyotlar)",    ru: "Пособие (Литература)",              en: "Guide (References)",           kaa: "Qollanba (Ádebiyatlar)" },
   "fanResurslari.guideDownloaded": { uz: "✓ Yuklab olindi — keyingi bo'lim ochildi", ru: "✓ Скачано — следующий раздел открыт", en: "✓ Downloaded — next section unlocked", kaa: "✓ Júklep alındı — keyingi bólim ashıldı" },
   "fanResurslari.guideDownloadPrompt": { uz: "Faylni yuklab oling — keyingi bo'lim avtomatik ochiladi", ru: "Скачайте файл — следующий раздел откроется автоматически", en: "Download the file — the next section unlocks automatically", kaa: "Fayldı júklep alıń — keyingi bólim avtomatik ashıladı" },

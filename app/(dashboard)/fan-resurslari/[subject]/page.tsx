@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, BookOpen, CheckCircle2, ClipboardList, HelpCircle, Lock, Circle, Library, ExternalLink, Video, Play, Clapperboard } from "lucide-react"
-import { teachingApi, hemisApi, meetingsApi, type StudentTopic, type StudentTopicSectionWithLock, type LocalResource, type SubjectRecording } from "@/lib/api"
+import { ArrowLeft, BookOpen, CheckCircle2, ClipboardList, HelpCircle, Lock, Circle, Library, ExternalLink, Video, Play, Clapperboard, FolderOpen, ChevronRight } from "lucide-react"
+import { teachingApi, hemisApi, meetingsApi, NO_TRAINING_TYPE, type StudentTopic, type StudentTopicSectionWithLock, type LocalResource, type SubjectRecording } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { StudentContentCard } from "@/components/teaching/StudentContentCard"
@@ -91,13 +91,102 @@ function MeetingRecordingsSection({ subjectName, topicTitle }: { subjectName: st
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 
+/* Mashg'ulot turlari — talaba fanni tanlagach shulardan birini tanlaydi,
+   har biri o'z alohida mavzu ro'yxatiga ega (ma'ruza/amaliyot/mustaqil ish
+   aralashib ko'rinmaydi). */
+const TRAINING_TYPE_PICKS = [
+  { value: "Ma'ruza", labelKey: "fanResurslariOq.trainingType.lecture", icon: BookOpen },
+  { value: "Amaliyot", labelKey: "fanResurslariOq.trainingType.practice", icon: ClipboardList },
+  { value: "Mustaqil ish", labelKey: "fanResurslariOq.trainingType.independentStudy", icon: Library },
+] as const
+
+/* ── Mashg'ulot turini tanlash ekrani (fan tanlangandan keyin) ────────── */
+function TrainingTypePicker({
+  subjectName, buckets, onSelect, onBack,
+}: {
+  subjectName: string
+  buckets: { trainingType: string | null; topicCount: number }[]
+  onSelect: (value: string) => void
+  onBack: () => void
+}) {
+  const { t } = useLanguage()
+  const countFor = (value: string | null) => buckets.find(b => b.trainingType === value)?.topicCount ?? 0
+  const legacyCount = countFor(null)
+
+  return (
+    <div className="flex flex-col gap-6 p-[30px]">
+      <div className="flex items-start gap-4">
+        <button onClick={onBack}
+          className="flex items-center justify-center w-9 h-9 rounded-[8px] transition-colors hover:bg-[#f0f5ff] shrink-0 mt-1"
+          style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
+          <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
+        </button>
+        <div>
+          <h1 className="text-[24px] font-semibold leading-snug" style={titleStyle}>{subjectName}</h1>
+          <p className="text-sm mt-0.5" style={labelStyle}>{t("fanResurslari.pickTrainingType")}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {TRAINING_TYPE_PICKS.filter(p => countFor(p.value) > 0).map(p => {
+          const Icon = p.icon
+          return (
+            <button key={p.value} onClick={() => onSelect(p.value)}
+              className="group flex flex-col gap-3 p-5 rounded-[12px] bg-white text-left transition-all hover:-translate-y-0.5"
+              style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
+              <div className="flex items-center justify-between">
+                <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
+                  <Icon className="w-5 h-5 transition-transform group-hover:scale-110" style={{ color: "#0e58a8" }} />
+                </div>
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" style={{ color: "#b0c2d8" }} />
+              </div>
+              <span className="text-base font-semibold" style={titleStyle}>{t(p.labelKey)}</span>
+              <span className="text-xs" style={labelStyle}>{t("fanResurslari.topicCount", { n: countFor(p.value) })}</span>
+            </button>
+          )
+        })}
+
+        {legacyCount > 0 && (
+          <button onClick={() => onSelect(NO_TRAINING_TYPE)}
+            className="group flex flex-col gap-3 p-5 rounded-[12px] bg-white text-left transition-all hover:-translate-y-0.5"
+            style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
+            <div className="flex items-center justify-between">
+              <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f1f5f9" }}>
+                <FolderOpen className="w-5 h-5 transition-transform group-hover:scale-110" style={{ color: "#64748b" }} />
+              </div>
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" style={{ color: "#b0c2d8" }} />
+            </div>
+            <span className="text-base font-semibold" style={titleStyle}>{t("fanResurslari.otherMaterials")}</span>
+            <span className="text-xs" style={labelStyle}>{t("fanResurslari.topicCount", { n: legacyCount })}</span>
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function FanResurslariDetail() {
   const { t } = useLanguage()
   const params = useParams()
   const router = useRouter()
   const subjectName = decodeURIComponent(String(params.subject ?? ""))
 
-  const { data, loading, error, refetch } = useApi(() => teachingApi.studentTopics(subjectName), [subjectName])
+  const { data: summaryData, loading: lSummary } = useApi(() => teachingApi.studentTopicSummary(subjectName), [subjectName])
+  const buckets = summaryData?.data ?? []
+  const hasTypedBuckets = buckets.some(b => b.trainingType !== null && b.topicCount > 0)
+
+  // null = hali tanlanmagan (bo'lim tanlash ekrani ko'rsatiladi, agar turlar bo'lsa).
+  // Turlar umuman yo'q bo'lsa (hammasi eski/tegsiz), avtomatik "hammasi" ko'rsatiladi.
+  const [selectedType, setSelectedType] = useState<string | null>(null)
+  useEffect(() => {
+    if (!lSummary && !hasTypedBuckets) setSelectedType(NO_TRAINING_TYPE)
+  }, [lSummary, hasTypedBuckets])
+
+  const shouldFetchTopics = selectedType !== null
+  const { data, loading, error, refetch } = useApi(
+    () => shouldFetchTopics ? teachingApi.studentTopics(subjectName, selectedType!) : Promise.resolve({ success: true, data: [] }),
+    [subjectName, selectedType]
+  )
   const topics: StudentTopic[] = data?.data ?? []
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
@@ -110,13 +199,22 @@ export default function FanResurslariDetail() {
 
   const selected = useMemo(() => topics.find(t => t.topicKey === selectedKey) ?? null, [topics, selectedKey])
 
+  if (lSummary) return <Loading />
+
+  if (hasTypedBuckets && selectedType === null) {
+    return <TrainingTypePicker subjectName={subjectName} buckets={buckets} onSelect={setSelectedType} onBack={() => router.back()} />
+  }
+
   if (loading) return <Loading />
   if (error)   return <ApiError message={error} onRetry={refetch} />
+
+  const typePick = TRAINING_TYPE_PICKS.find(p => p.value === selectedType)
+  const backToPicker = () => { setSelectedType(null); setSelectedKey(null) }
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div className="flex items-start gap-4">
-        <button onClick={() => router.back()}
+        <button onClick={hasTypedBuckets ? backToPicker : () => router.back()}
           className="flex items-center justify-center w-9 h-9 rounded-[8px] transition-colors hover:bg-[#f0f5ff] shrink-0 mt-1"
           style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
           <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
@@ -124,6 +222,12 @@ export default function FanResurslariDetail() {
         <div>
           <h1 className="text-[24px] font-semibold leading-snug" style={titleStyle}>
             {subjectName}
+            {typePick && (
+              <span className="ml-2 align-middle text-xs font-medium px-2 py-1 rounded-full"
+                style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                {t(typePick.labelKey)}
+              </span>
+            )}
           </h1>
           <p className="text-sm mt-0.5" style={labelStyle}>
             {t("fanResurslari.topicCount", { n: topics.length })}

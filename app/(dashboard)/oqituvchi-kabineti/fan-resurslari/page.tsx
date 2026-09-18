@@ -664,20 +664,26 @@ const TRAINING_TYPE_OPTIONS = [
   { value: "Mustaqil ish", labelKey: "fanResurslariOq.trainingType.independentStudy" },
 ] as const
 
-/* Boshqa (qo'shimcha) guruhda shu nomdagi mavzu bo'lmasa yaratadi, bo'lsa
-   uning topicKey'ini qaytaradi — parallel guruhlarga resurs nusxalash uchun. */
+/* Boshqa (qo'shimcha) guruhda shu nomdagi VA shu mashg'ulot turidagi mavzu
+   bo'lmasa yaratadi, bo'lsa uning topicKey'ini qaytaradi — parallel
+   guruhlarga resurs nusxalash uchun (ma'ruza/amaliyot/mustaqil ish
+   aralashib ketmasligi uchun turi ham solishtiriladi). */
 async function ensureTopicKeyForGroup(
-  groupId: number, subjectName: string, topicTitle: string, deadline: string | null
+  groupId: number, subjectName: string, topicTitle: string, deadline: string | null, trainingType: string
 ): Promise<string> {
   const res = await teachingApi.content({ group: groupId, subject: subjectName })
   const items = res.data ?? []
   const normalized = topicTitle.trim().toLowerCase()
-  const match = items.find(i => i.type === "mavzu" && i.kind === "topic" && i.title.trim().toLowerCase() === normalized)
+  const match = items.find(i =>
+    i.type === "mavzu" && i.kind === "topic" &&
+    i.title.trim().toLowerCase() === normalized &&
+    (i.trainingType ?? "") === trainingType
+  )
   if (match?.topicKey) return match.topicKey
   const newKey = `${subjectName}__${groupId}__${Date.now()}`
   await teachingApi.createContent({
     type: "mavzu", kind: "topic", groupId, subjectName, topicKey: newKey,
-    title: topicTitle, availableFrom: new Date().toISOString(), deadline,
+    title: topicTitle, trainingType: trainingType || undefined, availableFrom: new Date().toISOString(), deadline,
   })
   return newKey
 }
@@ -825,7 +831,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
       // o'sha guruhda shu nomdagi mavzu ham avtomatik yaratiladi).
       if (type !== "exam" && extraGroupIds.length) {
         for (const gid of extraGroupIds) {
-          const groupTopicKey = await ensureTopicKeyForGroup(gid, sel.subjectName, sel.topicTitle, topicDeadline)
+          const groupTopicKey = await ensureTopicKeyForGroup(gid, sel.subjectName, sel.topicTitle, topicDeadline, trainingType)
           await teachingApi.createContent({
             type, groupId: gid, subjectName: sel.subjectName,
             topicKey: groupTopicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
@@ -1249,8 +1255,13 @@ export default function FanResurslariPage() {
     markerId: number | null
     deadline: string | null
     isReopened: boolean
+    trainingType: string | null
   }
 
+  // Mashg'ulot turi tanlangan bo'lsa, faqat o'sha turdagi mavzularni
+  // ko'rsatamiz — ma'ruza/amaliyot/mustaqil ish aralashib ketmasligi uchun.
+  // Hech narsa tanlanmagan bo'lsa ("Tanlanmagan"), eski (turi belgilanmagan)
+  // mavzular ham ko'rinishda qolishi uchun HAMMASI ko'rsatiladi.
   const topics = useMemo<SidebarTopic[]>(() => {
     const map = new Map<string, SidebarTopic>()
     allItems.forEach(item => {
@@ -1262,14 +1273,16 @@ export default function FanResurslariPage() {
           markerId: isMarker ? item.id : null,
           deadline: isMarker ? item.deadline : null,
           isReopened: isMarker ? item.isReopened : false,
+          trainingType: isMarker ? item.trainingType : null,
         })
       } else if (item.type === "mavzu" && item.kind === "topic") {
         const existing = map.get(item.topicKey)!
-        map.set(item.topicKey, { ...existing, markerId: item.id, title: item.title, deadline: item.deadline, isReopened: item.isReopened })
+        map.set(item.topicKey, { ...existing, markerId: item.id, title: item.title, deadline: item.deadline, isReopened: item.isReopened, trainingType: item.trainingType })
       }
     })
-    return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
-  }, [allItems])
+    const all = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
+    return trainingType ? all.filter(tp => tp.trainingType === trainingType) : all
+  }, [allItems, trainingType])
 
   const [addingTopic, setAddingTopic] = useState(false)
   const [newTopicTitle, setNewTopicTitle] = useState("")
@@ -1297,10 +1310,11 @@ export default function FanResurslariPage() {
         subjectName,
         topicKey: newKey,
         title: newTopicTitle.trim(),
+        trainingType: trainingType || undefined,
         availableFrom: new Date().toISOString(),
         deadline: deadlineIso,
       })
-      // Tanlangan qo'shimcha guruhlarda ham xuddi shu nomdagi mavzu yaratiladi
+      // Tanlangan qo'shimcha guruhlarda ham xuddi shu nomdagi va turdagi mavzu yaratiladi
       for (const gid of extraGroupIds) {
         await teachingApi.createContent({
           type: "mavzu",
@@ -1309,6 +1323,7 @@ export default function FanResurslariPage() {
           subjectName,
           topicKey: `${subjectName}__${gid}__${Date.now()}`,
           title: newTopicTitle.trim(),
+          trainingType: trainingType || undefined,
           availableFrom: new Date().toISOString(),
           deadline: deadlineIso,
         })
