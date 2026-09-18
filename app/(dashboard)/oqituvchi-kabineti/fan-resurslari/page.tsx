@@ -5,7 +5,7 @@ import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
   BookMarked, CalendarDays, VideoIcon, Save, BarChart3,
-  Check, X, RefreshCw, Users, ChevronLeft, Pencil, Plus, Clock,
+  Check, X, RefreshCw, Users, ChevronLeft, ChevronDown, Pencil, Plus, Clock,
 } from "lucide-react"
 import {
   teachingApi, meetingsApi,
@@ -36,6 +36,69 @@ interface Selection {
   subjectName: string
   topicKey: string
   topicTitle: string
+}
+
+/* ── Bir nechta guruhni bitta select ichida tanlash (checkbox ro'yxati) ──
+   Birinchi belgilangan guruh "asosiy" (mavzular shu guruh bo'yicha
+   ko'rsatiladi), qolganlari "qo'shimcha" (shu yerga yuklangan resurslar
+   ularga ham nusxalanadi). */
+function GroupMultiSelect({
+  groups, selectedIds, onChange, placeholder,
+}: {
+  groups: TeacherGroup[]
+  selectedIds: number[]
+  onChange: (ids: number[]) => void
+  placeholder: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", onDocClick)
+    return () => document.removeEventListener("mousedown", onDocClick)
+  }, [])
+
+  function toggle(id: number) {
+    onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id])
+  }
+
+  const selectedNames = groups.filter(g => selectedIds.includes(g.id)).map(g => g.name)
+  const label = selectedNames.length ? selectedNames.join(", ") : placeholder
+
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(o => !o)} title={selectedNames.join(", ")}
+        className="flex items-center justify-between gap-2 px-3 py-2 rounded-[6px] text-sm text-left"
+        style={{ border: "1px solid rgba(1,41,112,0.2)", color: selectedNames.length ? "#012970" : "#7293b9", fontFamily: "var(--font-poppins)", minWidth: 180, maxWidth: 260, backgroundColor: "white" }}>
+        <span className="truncate">{label}</span>
+        <ChevronDown className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 py-1 rounded-[8px] bg-white overflow-y-auto"
+          style={{ border: "1px solid rgba(1,41,112,0.15)", boxShadow: "0 8px 24px rgba(1,41,112,0.15)", minWidth: 220, maxHeight: 260 }}>
+          {groups.length === 0 ? (
+            <div className="px-3 py-2 text-sm" style={labelStyle}>—</div>
+          ) : groups.map(g => {
+            const checked = selectedIds.includes(g.id)
+            return (
+              <button key={g.id} type="button" onClick={() => toggle(g.id)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-[#f6f9ff] transition-colors"
+                style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                <span className="w-4 h-4 rounded-[4px] flex items-center justify-center shrink-0"
+                  style={{ border: `1px solid ${checked ? "#0e58a8" : "rgba(1,41,112,0.3)"}`, backgroundColor: checked ? "#0e58a8" : "white" }}>
+                  {checked && <Check className="w-3 h-3" style={{ color: "white" }} />}
+                </span>
+                <span className="truncate">{g.name}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /* ── FileDropZone — fayl yuklash/almashtirish/o'chirish (drag & drop) ── */
@@ -620,7 +683,7 @@ async function ensureTopicKeyForGroup(
 }
 
 /* ── Resurslar panel ─────────────────────────────────────────────────── */
-function ResourcesPanel({ sel, extraGroupIds }: { sel: Selection; extraGroupIds: number[] }) {
+function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; extraGroupIds: number[]; trainingType: string }) {
   const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(
     () => teachingApi.contentByTopic({ topicKey: sel.topicKey, groupId: sel.groupId }),
@@ -639,7 +702,6 @@ function ResourcesPanel({ sel, extraGroupIds }: { sel: Selection; extraGroupIds:
   const [settingsOk, setSettingsOk] = useState(false)
   const [titleDraft, setTitleDraft] = useState(sel.topicTitle)
   const [descDraft, setDescDraft] = useState("")
-  const [trainingTypeDraft, setTrainingTypeDraft] = useState("")
   const [metaSaving, setMetaSaving] = useState(false)
   const [metaSaved, setMetaSaved] = useState(false)
 
@@ -683,7 +745,6 @@ function ResourcesPanel({ sel, extraGroupIds }: { sel: Selection; extraGroupIds:
   useEffect(() => {
     setTitleDraft(activeItem?.title ?? sel.topicTitle)
     setDescDraft(activeItem?.description ?? "")
-    setTrainingTypeDraft(activeItem?.trainingType ?? "")
     setMetaSaved(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, activeItem?.id, sel.topicTitle])
@@ -693,7 +754,7 @@ function ResourcesPanel({ sel, extraGroupIds }: { sel: Selection; extraGroupIds:
     setMetaSaving(true)
     setMetaSaved(false)
     try {
-      await teachingApi.updateContent(activeItem.id, { title: titleDraft, description: descDraft, trainingType: trainingTypeDraft || null })
+      await teachingApi.updateContent(activeItem.id, { title: titleDraft, description: descDraft })
       await refetch()
       setMetaSaved(true)
     } catch (err) {
@@ -754,7 +815,7 @@ function ResourcesPanel({ sel, extraGroupIds }: { sel: Selection; extraGroupIds:
       await teachingApi.createContent({
         type, groupId: sel.groupId, subjectName: sel.subjectName,
         topicKey: sel.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
-        trainingType: trainingTypeDraft || undefined,
+        trainingType: trainingType || undefined,
         availableFrom: now(), deadline: topicDeadline, docFile: file,
         onUploadProgress: file ? setUploadProgress : undefined,
       })
@@ -768,7 +829,7 @@ function ResourcesPanel({ sel, extraGroupIds }: { sel: Selection; extraGroupIds:
           await teachingApi.createContent({
             type, groupId: gid, subjectName: sel.subjectName,
             topicKey: groupTopicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
-            trainingType: trainingTypeDraft || undefined,
+            trainingType: trainingType || undefined,
             availableFrom: now(), deadline: topicDeadline, docFile: file,
           })
         }
@@ -1018,18 +1079,6 @@ function ResourcesPanel({ sel, extraGroupIds }: { sel: Selection; extraGroupIds:
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.trainingTypeLabel")}</label>
-              <select value={trainingTypeDraft} onChange={e => setTrainingTypeDraft(e.target.value)}
-                className="px-3 py-2 rounded-[8px] text-sm outline-none"
-                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                <option value="">{t("fanResurslariOq.form.trainingTypeUnset")}</option>
-                {TRAINING_TYPE_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.descriptionLabel")}</label>
               <RichTextEditor value={descDraft} onChange={setDescDraft} placeholder={t("fanResurslariOq.form.descriptionPlaceholder")} />
             </div>
@@ -1132,16 +1181,16 @@ export default function FanResurslariPage() {
 
   const groups = groupsRes?.data ?? []
 
-  const [groupId, setGroupId] = useState<number | "">("")
+  // Bir nechta guruh tanlanishi mumkin — birinchisi "asosiy" (mavzular shu
+  // guruh bo'yicha ko'rsatiladi), qolganlari "qo'shimcha" (shu yerga
+  // yuklangan mavzu/resurslar ularga ham avtomatik nusxalanadi).
+  const [groupIds, setGroupIds] = useState<number[]>([])
   const [academicYear, setAcademicYear] = useState("")
   const [subjectName, setSubjectName] = useState("")
   const [topicKey, setTopicKey] = useState("")
-  // Qo'shimcha guruhlar — shu yerga qo'shiladigan mavzu/resurslar avtomatik
-  // ularga ham nusxalanadi (bir nechta guruhga bir vaqtda yuklash uchun).
-  const [extraGroupIds, setExtraGroupIds] = useState<number[]>([])
-  function toggleExtraGroup(id: number) {
-    setExtraGroupIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  }
+  // Mashg'ulot turi — fan tanlangach belgilanadi, shu yerda yuklanadigan
+  // har bir resursga (video/audio/taqdimot/qo'llanma/topshiriq) qo'llanadi.
+  const [trainingType, setTrainingType] = useState("")
 
   // Faqat aniq bir yil tanlanganda HEMIS'dan so'raladi (join sahifa
   // yuklanishida emas) — o'sha yilda o'qituvchi dars bergan guruhlar,
@@ -1167,7 +1216,8 @@ export default function FanResurslariPage() {
     return () => mql.removeEventListener("change", apply)
   }, [])
 
-  const activeGroupId = groupId !== "" ? groupId : null
+  const activeGroupId = groupIds[0] ?? null
+  const extraGroupIds = groupIds.slice(1)
 
   const { data: subjectsRes } = useApi(
     () => activeGroupId ? teachingApi.mySubjects(activeGroupId as number) : Promise.resolve(null),
@@ -1330,22 +1380,29 @@ export default function FanResurslariPage() {
 
   function handleYearChange(val: string) {
     setAcademicYear(val)
-    setGroupId("")
+    setGroupIds([])
     setSubjectName("")
     setTopicKey("")
-    setExtraGroupIds([])
+    setTrainingType("")
   }
 
-  function handleGroupChange(val: string) {
-    setGroupId(val === "" ? "" : Number(val))
-    setSubjectName("")
-    setTopicKey("")
-    setExtraGroupIds([])
+  // Faqat "asosiy" guruh (birinchisi) o'zgarganda fan/mavzu/turni tozalaymiz
+  // — qo'shimcha guruh qo'shish/olib tashlash tanlangan fan/mavzuni
+  // buzmasligi kerak.
+  function handleGroupIdsChange(ids: number[]) {
+    const newPrimary = ids[0] ?? null
+    if (newPrimary !== activeGroupId) {
+      setSubjectName("")
+      setTopicKey("")
+      setTrainingType("")
+    }
+    setGroupIds(ids)
   }
 
   function handleSubjectChange(val: string) {
     setSubjectName(val)
     setTopicKey("")
+    setTrainingType("")
   }
 
   if (lGroups) return <Loading />
@@ -1381,12 +1438,8 @@ export default function FanResurslariPage() {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.group")}</label>
-              <select value={groupId} onChange={e => handleGroupChange(e.target.value)}
-                className="px-3 py-2 rounded-[6px] text-sm outline-none"
-                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 140, backgroundColor: "white" }}>
-                <option value="">{t("fanResurslariOq.selectPlaceholder")}</option>
-                {displayGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              <GroupMultiSelect groups={displayGroups} selectedIds={groupIds} onChange={handleGroupIdsChange}
+                placeholder={t("fanResurslariOq.selectPlaceholder")} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.subjectName")}</label>
@@ -1398,32 +1451,20 @@ export default function FanResurslariPage() {
                 {subjects.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.trainingTypeLabel")}</label>
+              <select value={trainingType} onChange={e => setTrainingType(e.target.value)}
+                disabled={!subjectName}
+                className="px-3 py-2 rounded-[6px] text-sm outline-none disabled:opacity-50"
+                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 160, backgroundColor: "white" }}>
+                <option value="">{t("fanResurslariOq.form.trainingTypeUnset")}</option>
+                {TRAINING_TYPE_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-
-        {/* Qo'shimcha guruhlar — shu yerdan yuklangan mavzu/resurslar tanlangan
-            guruhlarga ham avtomatik nusxalanadi (bir nechta guruhga birdan yuklash) */}
-        {activeGroupId && displayGroups.filter(g => g.id !== activeGroupId).length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 mt-3">
-            <span className="text-xs font-medium shrink-0" style={labelStyle}>{t("fanResurslariOq.extraGroups.label")}</span>
-            {displayGroups.filter(g => g.id !== activeGroupId).map(g => {
-              const checked = extraGroupIds.includes(g.id)
-              return (
-                <button key={g.id} type="button" onClick={() => toggleExtraGroup(g.id)}
-                  className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
-                  style={{
-                    border: `1px solid ${checked ? "#0e58a8" : "rgba(1,41,112,0.2)"}`,
-                    backgroundColor: checked ? "#0e58a8" : "transparent",
-                    color: checked ? "#fff" : "#445b7a",
-                    fontFamily: "var(--font-poppins)",
-                  }}>
-                  {checked && <Check className="w-3 h-3" />}
-                  {g.name}
-                </button>
-              )
-            })}
-          </div>
-        )}
       </div>
 
       {/* ── Two-panel body ── */}
@@ -1488,7 +1529,7 @@ export default function FanResurslariPage() {
                     )}
                   </div>
                 </div>
-                <ResourcesPanel sel={selection} extraGroupIds={extraGroupIds} />
+                <ResourcesPanel sel={selection} extraGroupIds={extraGroupIds} trainingType={trainingType} />
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-4 py-24">
