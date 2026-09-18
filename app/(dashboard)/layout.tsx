@@ -8,8 +8,21 @@ import { Header } from "@/components/layout/Header"
 import { MeetingReminder } from "@/components/layout/MeetingReminder"
 import { AnnouncementModal } from "@/components/layout/AnnouncementModal"
 import { FaceReregisterModal } from "@/components/layout/FaceReregisterModal"
+import { MeetingCallProvider, useMeetingCall } from "@/components/layout/MeetingCallContext"
 
 export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <MeetingCallProvider>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </MeetingCallProvider>
+  )
+}
+
+function DashboardLayoutInner({
   children,
 }: {
   children: React.ReactNode
@@ -19,7 +32,10 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [checkedAuth, setCheckedAuth] = useState(false)
   const pathname = usePathname()
-  const isMeetingRoute = pathname === "/meeting"
+  const { inCall } = useMeetingCall()
+  // Meeting sahifasida sidebar/header faqat HAQIQIY qo'ng'iroq (Call bosqichi)
+  // paytida yashiriladi — lobby/prejoin bosqichlarida odatdagidek ko'rinadi.
+  const isMeetingRoute = pathname === "/meeting" && inCall
 
   useEffect(() => {
     const token = localStorage.getItem("lms_token")

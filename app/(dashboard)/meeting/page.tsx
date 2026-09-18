@@ -50,6 +50,7 @@ import { MeetingMediaClient, type ProducerSummary } from "@/lib/meetingMediasoup
 import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
 import MeetingFaceAttendanceTracker from "@/components/meeting/MeetingFaceAttendanceTracker"
+import { useMeetingCall } from "@/components/layout/MeetingCallContext"
 import { RecordingCard } from "@/components/meeting/RecordingCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import type { Lang } from "@/lib/i18n/translations"
@@ -2578,6 +2579,13 @@ export default function MeetingPage() {
   }, [groupsData])
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [viewState, setViewState] = useState<ViewState>({ stage: "lobby" })
+  // Sidebar/header faqat haqiqiy Call bosqichida yashirilishi uchun dashboard
+  // layout'ga xabar beramiz — lobby/prejoin'da ular odatdagidek ko'rinadi.
+  const { setInCall } = useMeetingCall()
+  useEffect(() => {
+    setInCall(viewState.stage === "call")
+    return () => setInCall(false)
+  }, [viewState.stage, setInCall])
   const [micEnabled, setMicEnabled] = useState(true)
   const [cameraEnabled, setCameraEnabled] = useState(true)
   const [joiningId, setJoiningId]   = useState<string | null>(null)
