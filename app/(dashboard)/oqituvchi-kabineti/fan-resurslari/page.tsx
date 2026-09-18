@@ -1297,7 +1297,7 @@ export default function FanResurslariPage() {
   const [topicOpError, setTopicOpError] = useState<string | null>(null)
 
   async function handleAddTopic() {
-    if (!newTopicTitle.trim() || !activeGroupId || !subjectName) return
+    if (!newTopicTitle.trim() || !activeGroupId || !subjectName || !trainingType) return
     setTopicOpError(null)
     setAddTopicLoading(true)
     try {
@@ -1483,7 +1483,7 @@ export default function FanResurslariPage() {
       </div>
 
       {/* ── Two-panel body ── */}
-      {!activeGroupId || !subjectName ? (
+      {!activeGroupId || !subjectName || !trainingType ? (
         <div className="flex flex-col items-center justify-center flex-1 gap-4 py-24">
           <div className="w-16 h-16 rounded-full flex items-center justify-center"
             style={{ backgroundColor: "#eef4ff" }}>
@@ -1491,7 +1491,9 @@ export default function FanResurslariPage() {
           </div>
           <div className="text-center">
             <p className="text-base font-semibold" style={titleStyle}>
-              {!activeGroupId ? t("fanResurslariOq.selectGroupPrompt") : t("fanResurslariOq.selectSubjectPrompt")}
+              {!activeGroupId ? t("fanResurslariOq.selectGroupPrompt")
+                : !subjectName ? t("fanResurslariOq.selectSubjectPrompt")
+                : t("fanResurslariOq.selectTrainingTypePrompt")}
             </p>
             <p className="text-sm mt-1" style={labelStyle}>{t("fanResurslariOq.selectFromFiltersAbove")}</p>
           </div>
