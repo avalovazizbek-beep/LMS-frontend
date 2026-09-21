@@ -37,6 +37,9 @@
   const logEl = document.getElementById("log")
   function log(...args) {
     logEl.textContent += args.join(" ") + "\n"
+    // Puppeteer faqat brauzer KONSOLIGA yozilgan xabarlarni ushlab oladi —
+    // sahifa ichidagi matnni emas, shuning uchun ikkalasiga ham yozamiz.
+    console.log(...args)
   }
 
   window.__loadtestResult = { status: "connecting" }
@@ -57,6 +60,8 @@
     reconnection: false,
   })
 
+  socket.on("connect", () => log("socket connected, id=" + socket.id + ", waiting for meeting:joined..."))
+  socket.on("disconnect", (reason) => log("socket disconnected:", reason))
   socket.on("connect_error", (err) => {
     window.__loadtestResult = { status: "error", error: "connect_error: " + err.message }
     log("connect_error:", err.message)
