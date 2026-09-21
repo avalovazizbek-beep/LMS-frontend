@@ -483,8 +483,8 @@ function MeetingCard({
       transition={{ duration: 0.2 }}
       className="rounded-[8px] border border-[#d8e6f7] bg-white p-5 shadow-[0_2px_12px_rgba(1,41,112,0.06)]"
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-1 items-start gap-4">
+      <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 items-start gap-4">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[8px] bg-[#e8fbff]">
             <Video className="h-5 w-5 text-[#1cc2dc]" />
           </div>
@@ -513,8 +513,8 @@ function MeetingCard({
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-1.5">
-          <div className="flex flex-wrap justify-end gap-1.5">
+        <div className="flex flex-col gap-1.5 border-t border-[#eef2f9] pt-4">
+          <div className="flex flex-wrap gap-1.5">
             {meeting.googleMeet?.status === "created" && meeting.googleMeet.meetingUri && (
               <a
                 href={meeting.googleMeet.meetingUri}
