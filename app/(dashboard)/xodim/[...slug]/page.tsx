@@ -765,40 +765,23 @@ function DarsJadvaliCalendar() {
     }), [weekStart]
   )
 
-  const pairs = useMemo(() => {
-    const map = new Map<string, { name: string; start_time?: string; end_time?: string; sortKey: number }>()
-    allItems.forEach(item => {
-      const p = item.lessonPair
-      if (!p) return
-      if (!map.has(p.name)) {
-        // HEMIS'ning o'zi lessonPair.id'ni juftlik vaqti bo'yicha ketma-ket
-        // bermaydi (bazaviy ID, tartib emas) — shu sabab qatorlar soat
-        // bo'yicha emas, tasodifiy tartibda chiqib qolardi. start_time'dan
-        // (masalan "13:00") daqiqa hisobini olib, ANIQ shu bo'yicha
-        // saralaymiz; vaqt bo'lmasa ID'ga tushamiz.
-        const [h, m] = (p.start_time ?? "").split(":").map(Number)
-        const minutesFromStart = Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
-        map.set(p.name, {
-          name: p.name,
-          start_time: p.start_time,
-          end_time: p.end_time,
-          sortKey: minutesFromStart ?? (typeof p.id === "number" ? p.id : (parseInt(String(p.id ?? "")) || map.size + 1)),
-        })
-      }
-    })
-    return Array.from(map.values()).sort((a, b) => a.sortKey - b.sortKey)
-  }, [allItems])
+  // HEMIS'ning o'zidagi "Dars jadvali" ko'rinishi bilan bir xil: qatorlar
+  // (juftlik "II"/"III"...) emas, kunlar ustun bo'lib, har bir kun ichida
+  // darslar vaqt bo'yicha tartiblangan holda pastga qarab joylashadi.
+  function pairMinutes(p?: { start_time?: string; id?: string | number }) {
+    const [h, m] = (p?.start_time ?? "").split(":").map(Number)
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
+  }
 
-  const grid = useMemo(() => {
-    const map = new Map<string, HemisSchedule[]>()
+  const dayItems = useMemo(() => {
+    const map = new Map<number, HemisSchedule[]>()
     items.forEach(item => {
       const d = new Date(item.lesson_date * 1000)
       const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1
-      const pairName = item.lessonPair?.name ?? ""
-      const key = `${dayIdx}:${pairName}`
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(item)
+      if (!map.has(dayIdx)) map.set(dayIdx, [])
+      map.get(dayIdx)!.push(item)
     })
+    map.forEach(list => list.sort((a, b) => (pairMinutes(a.lessonPair) ?? 0) - (pairMinutes(b.lessonPair) ?? 0)))
     return map
   }, [items])
 
@@ -879,96 +862,61 @@ function DarsJadvaliCalendar() {
         <ApiError message={error} onRetry={refetch} />
       ) : (
         <div className="rounded-[10px] bg-white overflow-x-auto" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
-          <table className="w-full border-collapse" style={{ minWidth: 820 }}>
-            <thead>
-              <tr>
-                <th
-                  className="w-[110px] border-b border-r p-2 text-left text-xs font-semibold"
-                  style={{ borderColor: "rgba(1,41,112,0.1)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#f6f9ff" }}
-                >
-                  {t("xodimSlug.calendar.timeCol")}
-                </th>
-                {weekDates.map((d, i) => {
-                  const isToday = d.toDateString() === today.toDateString()
-                  return (
-                    <th
-                      key={i}
-                      className="border-b border-r p-2 text-center text-xs font-semibold"
-                      style={{ borderColor: "rgba(1,41,112,0.1)", color: isToday ? "#0e58a8" : "#012970", fontFamily: "var(--font-poppins)", backgroundColor: isToday ? "#e8f4ff" : "#f6f9ff", minWidth: 120 }}
-                    >
-                      <div>{t(DAY_KEYS[i])}</div>
-                      <div className="mt-0.5 font-normal" style={{ color: isToday ? "#0e58a8" : "#7293b9" }}>
-                        {d.getDate()} {t(MONTH_SHORT_KEYS[d.getMonth()])}
-                      </div>
-                    </th>
-                  )
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {pairs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    {t("xodimSlug.calendar.noLessons")}
-                  </td>
-                </tr>
-              ) : (
-                pairs.map(pair => (
-                  <tr key={pair.name}>
-                    <td
-                      className="border-b border-r p-2 align-top"
-                      style={{ borderColor: "rgba(1,41,112,0.08)", backgroundColor: "#fafbff", verticalAlign: "top" }}
-                    >
-                      <div className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>{pair.name}</div>
-                      {pair.start_time && (
-                        <div className="mt-0.5 text-[10px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-                          {pair.start_time}{pair.end_time ? ` — ${pair.end_time}` : ""}
-                        </div>
-                      )}
-                    </td>
-                    {weekDates.map((d, dayIdx) => {
-                      const key = `${dayIdx}:${pair.name}`
-                      const cell = grid.get(key) ?? []
-                      const isToday = d.toDateString() === today.toDateString()
+          <div className="flex" style={{ minWidth: 820 }}>
+            {weekDates.map((d, dayIdx) => {
+              const isToday = d.toDateString() === today.toDateString()
+              const dayLessons = dayItems.get(dayIdx) ?? []
+              return (
+                <div key={dayIdx} className="flex-1" style={{ minWidth: 130, borderRight: dayIdx < weekDates.length - 1 ? "1px solid rgba(1,41,112,0.08)" : undefined }}>
+                  <div
+                    className="p-2 text-center text-xs font-semibold"
+                    style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", color: isToday ? "#0e58a8" : "#012970", fontFamily: "var(--font-poppins)", backgroundColor: isToday ? "#e8f4ff" : "#f6f9ff" }}
+                  >
+                    <div>{t(DAY_KEYS[dayIdx])}</div>
+                    <div className="mt-0.5 font-normal" style={{ color: isToday ? "#0e58a8" : "#7293b9" }}>
+                      {d.getDate()} {t(MONTH_SHORT_KEYS[d.getMonth()])}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5 p-1.5" style={{ backgroundColor: isToday ? "#f8fbff" : "transparent", minHeight: 80 }}>
+                    {dayLessons.map((item, idx) => {
+                      const colors = lessonTypeColors(item.trainingType?.name ?? "")
+                      const p = item.lessonPair
                       return (
-                        <td
-                          key={dayIdx}
-                          className="border-b border-r p-1.5"
-                          style={{ borderColor: "rgba(1,41,112,0.08)", backgroundColor: isToday ? "#f8fbff" : "transparent", verticalAlign: "top" }}
-                        >
-                          <div className="flex flex-col gap-1">
-                            {cell.map((item, idx) => {
-                              const colors = lessonTypeColors(item.trainingType?.name ?? "")
-                              return (
-                                <div key={idx} style={{ backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 5, padding: "4px 6px" }}>
-                                  <div className="text-xs font-semibold leading-tight" style={{ color: colors.text, fontFamily: "var(--font-poppins)" }}>
-                                    {item.subject?.name ?? "—"}
-                                  </div>
-                                  <div className="mt-0.5 text-[10px]" style={{ color: colors.text, opacity: 0.85, fontFamily: "var(--font-poppins)" }}>
-                                    {item.group?.name ?? ""}
-                                  </div>
-                                  {item.trainingType?.name && (
-                                    <span className="mt-0.5 inline-block rounded px-1 py-0.5 text-[9px] font-medium" style={{ backgroundColor: colors.badge, color: colors.text, fontFamily: "var(--font-poppins)" }}>
-                                      {item.trainingType.name}
-                                    </span>
-                                  )}
-                                  {item.auditorium?.name && (
-                                    <div className="mt-0.5 text-[9px]" style={{ color: colors.text, opacity: 0.7, fontFamily: "var(--font-poppins)" }}>
-                                      {item.auditorium.name}
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
+                        <div key={idx} style={{ backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: 5, padding: "5px 7px" }}>
+                          {p?.start_time && (
+                            <div className="text-[10px] font-medium" style={{ color: colors.text, opacity: 0.85, fontFamily: "var(--font-poppins)" }}>
+                              {p.start_time}{p.end_time ? ` — ${p.end_time}` : ""}
+                            </div>
+                          )}
+                          <div className="text-xs font-semibold leading-tight" style={{ color: colors.text, fontFamily: "var(--font-poppins)" }}>
+                            {item.subject?.name ?? "—"}
                           </div>
-                        </td>
+                          <div className="mt-0.5 text-[10px]" style={{ color: colors.text, opacity: 0.85, fontFamily: "var(--font-poppins)" }}>
+                            {item.group?.name ?? ""}
+                          </div>
+                          {item.trainingType?.name && (
+                            <span className="mt-0.5 inline-block rounded px-1 py-0.5 text-[9px] font-medium" style={{ backgroundColor: colors.badge, color: colors.text, fontFamily: "var(--font-poppins)" }}>
+                              {item.trainingType.name}
+                            </span>
+                          )}
+                          {item.auditorium?.name && (
+                            <div className="mt-0.5 text-[9px]" style={{ color: colors.text, opacity: 0.7, fontFamily: "var(--font-poppins)" }}>
+                              {item.auditorium.name}
+                            </div>
+                          )}
+                        </div>
                       )
                     })}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {allItems.length === 0 && (
+            <div className="p-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {t("xodimSlug.calendar.noLessons")}
+            </div>
+          )}
         </div>
       )}
     </div>
