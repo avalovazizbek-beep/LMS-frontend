@@ -1801,6 +1801,7 @@ export interface AttendanceRosterItem {
 export interface AttendanceHistoryEntry {
   lessonDate: string
   subjectName: string
+  trainingType: string | null
   records: {
     studentUserId: number
     studentFullName: string
@@ -1819,13 +1820,14 @@ export interface StudentAttendanceEntry {
 export const attendanceApi = {
   roster: (groupId: number | string, subject: string, date: string) => {
     const q = new URLSearchParams(buildParams({ groupId, subject, date })).toString()
-    return get<ListRes<AttendanceRosterItem>>(`/api/teaching/attendance/roster?${q}`)
+    return get<ListRes<AttendanceRosterItem> & { trainingType: string | null }>(`/api/teaching/attendance/roster?${q}`)
   },
 
   save: (body: {
     groupId: number | string
     subjectName: string
     date: string
+    trainingType?: string | null
     records: { studentUserId: number; fullName: string; status: AttendanceStatus; comment?: string }[]
   }) => post<MsgRes>("/api/teaching/attendance", body),
 

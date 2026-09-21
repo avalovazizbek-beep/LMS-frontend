@@ -42,7 +42,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import {
-  meetingsApi, hemisApi, teachingApi, attendanceApi, zoomApi, googleMeetApi,
+  meetingsApi, teachingApi, attendanceApi, zoomApi, googleMeetApi,
   type Meeting, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup,
   type AttendanceRosterItem, type AttendanceStatus, type ZoomConnectionStatus, type GoogleMeetConnectionStatus,
 } from "@/lib/api"
@@ -95,21 +95,6 @@ function cleanName(name: string): string {
 }
 
 type TeacherGroupOption = { id: number; name: string }
-
-function extractTeacherGroups(items: unknown[]): TeacherGroupOption[] {
-  const map = new Map<number, string>()
-  items.forEach((item) => {
-    const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {}
-    const group = record.group && typeof record.group === "object" ? (record.group as Record<string, unknown>) : {}
-    const idValue = group.id ?? group.group_id ?? group.code
-    const id = typeof idValue === "number" ? idValue : Number(idValue)
-    const name = typeof group.name === "string" ? group.name.trim() : ""
-    if (Number.isFinite(id) && id > 0 && name && !map.has(id)) map.set(id, name)
-  })
-  return Array.from(map.entries())
-    .map(([id, name]) => ({ id, name }))
-    .sort((a, b) => a.name.localeCompare(b.name))
-}
 
 function roleLabel(role: string, groupId?: number | null, groupName?: string | null): string {
   if (role === "admin")   return "Admin"
@@ -599,6 +584,15 @@ function MeetingCard({
               <ArrowUpRight className="h-4 w-4" />
             </a>
           )}
+          {isTeacher && meeting.subjectName && meeting.groupIds && meeting.groupIds.length > 0 && (
+            <Link
+              href={`/oqituvchi-kabineti/davomat?group=${meeting.groupIds[0]}&subject=${encodeURIComponent(meeting.subjectName)}${meeting.startTime ? `&date=${meeting.startTime.slice(0, 10)}` : ""}`}
+              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-white px-4 py-2.5 text-sm font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              <ClipboardCheck className="h-4 w-4" /> Davomat olish
+            </Link>
+          )}
           {onDelete && (
             <button
               type="button"
@@ -985,10 +979,11 @@ function CreateMeetingModal({
     setSelectedGroupIds([])
     setGroupsError(null)
     setGroupsLoading(true)
-    hemisApi.employeeData("attendance-journal")
+    teachingApi.groups()
       .then((res) => {
-        const items = Array.isArray(res?.data) ? res.data : []
-        const options = extractTeacherGroups(items)
+        const options: TeacherGroupOption[] = Array.isArray(res?.data)
+          ? res.data.map((g) => ({ id: g.id, name: g.name }))
+          : []
         setGroupOptions(options)
         if (!options.length && defaultGroupIds.length) {
           setGroupOptions(defaultGroupIds.map((id) => ({ id, name: `Guruh ${id}` })))

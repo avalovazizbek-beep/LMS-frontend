@@ -66,7 +66,7 @@ export default function DavomatJurnaliPage() {
   const numericGroupId = groupId ? Number(groupId) : null
 
   const { data: rosterRes, loading: lRoster, error: eRoster, refetch: rRoster } = useApi(
-    () => (numericGroupId !== null && subjectName ? attendanceApi.roster(numericGroupId, subjectName, todayStr()) : Promise.resolve({ success: true, data: [] })),
+    () => (numericGroupId !== null && subjectName ? attendanceApi.roster(numericGroupId, subjectName, todayStr()) : Promise.resolve({ success: true, data: [], trainingType: null })),
     [numericGroupId, subjectName]
   )
 

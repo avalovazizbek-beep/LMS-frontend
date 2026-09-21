@@ -1130,6 +1130,8 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "oqDavomat.status.absent": { uz: "Kelmadi",                        ru: "Не пришёл",                            en: "Absent",                            kaa: "Kelmedi" },
   "oqDavomat.status.excused": { uz: "Sababli",                       ru: "Уважительная",                        en: "Excused",                           kaa: "Sebepli" },
   "oqDavomat.status.late":  { uz: "Kech qoldi",                      ru: "Опоздал",                              en: "Late",                              kaa: "Keship qaldı" },
+  "oqDavomat.trainingType": { uz: "Mashg'ulot turi",                 ru: "Тип занятия",                          en: "Lesson type",                       kaa: "Sabaq túri" },
+  "oqDavomat.trainingTypePlaceholder": { uz: "Tanlanmagan",          ru: "Не выбрано",                           en: "Not selected",                      kaa: "Tańlanbaǵan" },
 
   // ── Mavzular (o'qituvchi) sahifasi ─────────────────────────────────────
   "mavzularOq.title":       { uz: "Fan mavzulari",                  ru: "Темы предмета",                       en: "Subject Topics",                   kaa: "Pán temaları" },

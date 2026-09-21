@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { ChevronDown, Save, History, Users, RefreshCw } from "lucide-react"
 import {
@@ -29,6 +29,14 @@ function fmtDate(value: string) {
   return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
+const TRAINING_TYPE_OPTIONS = [
+  { value: "Ma'ruza", labelKey: "xodimFanResurslariYaratish.trainingType.lecture" },
+  { value: "Amaliy", labelKey: "xodimFanResurslariYaratish.trainingType.practice" },
+  { value: "Laboratoriya", labelKey: "xodimFanResurslariYaratish.trainingType.laboratory" },
+  { value: "Seminar", labelKey: "xodimFanResurslariYaratish.trainingType.seminar" },
+  { value: "Mustaqil ta'lim", labelKey: "xodimFanResurslariYaratish.trainingType.independentStudy" },
+] as const
+
 export default function OqituvchiDavomat() {
   const { t } = useLanguage()
   const STATUS_OPTIONS: { value: AttendanceStatus; label: string; color: string; bg: string }[] = [
@@ -41,6 +49,7 @@ export default function OqituvchiDavomat() {
   const searchParams = useSearchParams()
   const initialGroup = searchParams.get("group")
   const initialSubject = searchParams.get("subject") ?? ""
+  const initialDate = searchParams.get("date") || todayStr()
 
   const { data: groupsRes, loading: lGroups, error: eGroups, refetch: rGroups } = useApi(() => teachingApi.groups(), [])
 
@@ -48,7 +57,8 @@ export default function OqituvchiDavomat() {
 
   const [groupId, setGroupId] = useState<number | "">(initialGroup ? Number(initialGroup) : "")
   const [subjectName, setSubjectName] = useState(initialSubject)
-  const [date, setDate] = useState(todayStr())
+  const [date, setDate] = useState(initialDate)
+  const [trainingType, setTrainingType] = useState("")
 
   const { data: subjectsRes } = useApi(
     () => groupId !== "" ? teachingApi.mySubjects(groupId as number) : Promise.resolve(null),
@@ -84,6 +94,7 @@ export default function OqituvchiDavomat() {
     try {
       const res = await attendanceApi.roster(groupId, subjectName, date)
       setRoster(res.data)
+      setTrainingType(res.trainingType || "")
       setLoadedOnce(true)
     } catch (e) {
       setRosterError(e instanceof Error ? e.message : t("oqBaholash.error"))
@@ -91,6 +102,13 @@ export default function OqituvchiDavomat() {
       setLoadingRoster(false)
     }
   }
+
+  // Meeting kartasidagi "Davomat olish" havolasidan guruh+fan tayyor holda
+  // kelganda ro'yxatni qo'lda "Yuklash" bosmasdan darhol ochib beradi.
+  useEffect(() => {
+    if (initialGroup && initialSubject) loadRoster()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function setStatus(studentUserId: number, status: AttendanceStatus) {
     setRoster((prev) => prev.map((r) => (r.studentUserId === studentUserId ? { ...r, status } : r)))
@@ -109,6 +127,7 @@ export default function OqituvchiDavomat() {
         groupId,
         subjectName,
         date,
+        trainingType: trainingType || undefined,
         records: roster.map((r) => ({
           studentUserId: r.studentUserId,
           fullName: r.fullName,
@@ -142,7 +161,7 @@ export default function OqituvchiDavomat() {
       {/* Filtrlar */}
       <div className="bg-white rounded-[10px] p-4 flex flex-col gap-4"
         style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
             <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqBaholash.group")}</label>
             <div className="relative">
@@ -193,6 +212,21 @@ export default function OqituvchiDavomat() {
               className={inputCls}
               style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
             />
+          </div>
+
+          <div>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqDavomat.trainingType")}</label>
+            <div className="relative">
+              <select
+                value={trainingType}
+                onChange={(e) => setTrainingType(e.target.value)}
+                className={`${inputCls} appearance-none pr-8`}
+                style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                <option value="">{t("oqDavomat.trainingTypePlaceholder")}</option>
+                {TRAINING_TYPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "#7293b9" }} />
+            </div>
           </div>
         </div>
 
@@ -331,6 +365,11 @@ export default function OqituvchiDavomat() {
                     <span className="text-sm font-medium w-28 shrink-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                       {fmtDate(h.lessonDate)}
                     </span>
+                    {h.trainingType && (
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                        {h.trainingType}
+                      </span>
+                    )}
                     <div className="flex flex-wrap gap-1.5">
                       {STATUS_OPTIONS.map((opt) => counts[opt.value] > 0 && (
                         <span key={opt.value} className="text-xs font-medium px-2.5 py-1 rounded-full"
