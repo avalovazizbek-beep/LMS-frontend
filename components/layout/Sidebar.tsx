@@ -148,6 +148,7 @@ const employeeSections: Section[] = [
     icon: CalendarDays,
     items: [
       { label: "Dars jadvali",    href: "/xodim/dars-jadvali",     tKey: "sidebar.item.schedule" },
+      { label: "Dars o'tish",     href: "/xodim/dars-otish",       tKey: "dashboard.lessonList" },
       { label: "Davomat jurnali", href: "/xodim/davomat-jurnali",  tKey: "dashboard.attendanceJournal" },
     ],
   },
