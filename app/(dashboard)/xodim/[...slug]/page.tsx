@@ -708,6 +708,12 @@ function getMonday(date: Date): Date {
   return d
 }
 
+// LMS faqat Masofaviy ta'lim uchun — guruh nomida "-M-" yoki "(M)" bo'lsa
+// masofaviy (IK-M-124, MI(M)-125), bo'lmasa oddiy (IK-223, MI-225) hisoblanadi.
+function isMasofaviyGroupName(name: string): boolean {
+  return /-M-|\(M\)/i.test(name)
+}
+
 function lessonTypeColors(name: string) {
   const n = (name ?? "").toLowerCase()
   if (n.includes("ma'ruza") || n.includes("maruza") || n.includes("lecture"))
@@ -755,7 +761,10 @@ function DarsJadvaliCalendar() {
   )
 
   const allItems = useMemo(() => normalizeItems(data?.data) as HemisSchedule[], [data?.data])
-  const items = allItems
+  const items = useMemo(
+    () => allItems.filter((item) => isMasofaviyGroupName(item.group?.name ?? "")),
+    [allItems]
+  )
 
   const weekDates = useMemo(() =>
     Array.from({ length: 6 }, (_, i) => {
@@ -912,7 +921,7 @@ function DarsJadvaliCalendar() {
               )
             })}
           </div>
-          {allItems.length === 0 && (
+          {items.length === 0 && (
             <div className="p-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
               {t("xodimSlug.calendar.noLessons")}
             </div>
