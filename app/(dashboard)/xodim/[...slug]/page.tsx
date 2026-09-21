@@ -771,11 +771,18 @@ function DarsJadvaliCalendar() {
       const p = item.lessonPair
       if (!p) return
       if (!map.has(p.name)) {
+        // HEMIS'ning o'zi lessonPair.id'ni juftlik vaqti bo'yicha ketma-ket
+        // bermaydi (bazaviy ID, tartib emas) — shu sabab qatorlar soat
+        // bo'yicha emas, tasodifiy tartibda chiqib qolardi. start_time'dan
+        // (masalan "13:00") daqiqa hisobini olib, ANIQ shu bo'yicha
+        // saralaymiz; vaqt bo'lmasa ID'ga tushamiz.
+        const [h, m] = (p.start_time ?? "").split(":").map(Number)
+        const minutesFromStart = Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
         map.set(p.name, {
           name: p.name,
           start_time: p.start_time,
           end_time: p.end_time,
-          sortKey: typeof p.id === "number" ? p.id : (parseInt(String(p.id ?? "")) || map.size + 1),
+          sortKey: minutesFromStart ?? (typeof p.id === "number" ? p.id : (parseInt(String(p.id ?? "")) || map.size + 1)),
         })
       }
     })
