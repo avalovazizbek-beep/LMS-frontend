@@ -1,16 +1,32 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, Lock } from "lucide-react"
-import { teachingApi, attendanceApi, authApi, hemisApi } from "@/lib/api"
+import { ChevronLeft, ChevronDown, ChevronRight, Save, History, Users, RefreshCw, Eye } from "lucide-react"
+import {
+  teachingApi,
+  attendanceApi,
+  type AttendanceStatus,
+  type AttendanceRosterItem,
+} from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+const inputCls =
+  "w-full px-3 py-2.5 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none transition-colors"
+const labelCls = "text-xs font-medium mb-1.5 block"
+
 function todayStr() {
   const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function addDays(dateStr: string, days: number) {
+  const d = new Date(`${dateStr}T00:00:00`)
+  d.setDate(d.getDate() + days)
   const pad = (n: number) => String(n).padStart(2, "0")
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
@@ -21,104 +37,131 @@ function fmtDate(value: string) {
   return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
-const borderCls = "border border-[#d8e6f7]"
-
-// HEMIS /v1/data/attendance-list dan kelgan, normallashtirilgan davomat yozuvi
-interface HemisAttendanceRecord {
-  studentUserId: number
-  studentName: string
-  lessonDate: string
-  lessonPairName: string | null
-  startTime: string | null
-  endTime: string | null
-  absentOn: number
-  absentOff: number
-}
-
-interface DateColumn {
-  key: string
-  date: string
-  pairName: string | null
-  startTime: string | null
-  endTime: string | null
-}
-
-function timeRangeLabel(col: DateColumn) {
-  if (!col.startTime || !col.endTime) return null
-  return col.pairName ? `${col.pairName}. ${col.startTime}-${col.endTime}` : `${col.startTime}-${col.endTime}`
-}
+const TRAINING_TYPE_OPTIONS = [
+  { value: "Ma'ruza", labelKey: "xodimFanResurslariYaratish.trainingType.lecture" },
+  { value: "Amaliy", labelKey: "xodimFanResurslariYaratish.trainingType.practice" },
+  { value: "Laboratoriya", labelKey: "xodimFanResurslariYaratish.trainingType.laboratory" },
+  { value: "Seminar", labelKey: "xodimFanResurslariYaratish.trainingType.seminar" },
+  { value: "Mustaqil ta'lim", labelKey: "xodimFanResurslariYaratish.trainingType.independentStudy" },
+] as const
 
 export default function DavomatJurnaliPage() {
   const { t } = useLanguage()
+  const STATUS_OPTIONS: { value: AttendanceStatus; label: string; color: string; bg: string }[] = [
+    { value: "present", label: t("oqDavomat.status.present"), color: "#15803d", bg: "#f0fdf4" },
+    { value: "absent",  label: t("oqDavomat.status.absent"),  color: "#b91c1c", bg: "#fef2f2" },
+    { value: "excused", label: t("oqDavomat.status.excused"), color: "#92400e", bg: "#fffbeb" },
+    { value: "late",    label: t("oqDavomat.status.late"),    color: "#0e58a8", bg: "#eef4ff" },
+  ]
+  const STATUS_MAP = Object.fromEntries(STATUS_OPTIONS.map((s) => [s.value, s])) as Record<AttendanceStatus, typeof STATUS_OPTIONS[number]>
+
   const searchParams = useSearchParams()
-  const groupId = searchParams.get("group")
-  const subjectName = searchParams.get("subject") ?? ""
-  const groupName = searchParams.get("groupName") ?? ""
-  const trainingType = searchParams.get("training") ?? ""
+  const today = todayStr()
+  const initialGroup = searchParams.get("group")
+  const initialSubject = searchParams.get("subject") ?? ""
+  const initialTraining = searchParams.get("training") ?? ""
+  const initialDate = (() => {
+    const d = searchParams.get("date")
+    return d && d <= today ? d : today
+  })()
 
   const { data: groupsRes, loading: lGroups, error: eGroups, refetch: rGroups } = useApi(() => teachingApi.groups(), [])
-  const { data: meRes } = useApi(() => authApi.me(), [])
-
   const groups = groupsRes?.data ?? []
-  const group = groups.find((g) => String(g.id) === groupId)
-  const resolvedGroupName = groupName || group?.name || "-"
 
-  const numericGroupId = groupId ? Number(groupId) : null
+  const [groupId, setGroupId] = useState<number | "">(initialGroup ? Number(initialGroup) : "")
+  const [subjectName, setSubjectName] = useState(initialSubject)
+  const [trainingType, setTrainingType] = useState(initialTraining)
+  const [date, setDate] = useState(initialDate)
+  const isToday = date === today
+  const isFuture = date > today
 
-  const { data: rosterRes, loading: lRoster, error: eRoster, refetch: rRoster } = useApi(
-    () => (numericGroupId !== null && subjectName ? attendanceApi.roster(numericGroupId, subjectName, todayStr()) : Promise.resolve({ success: true, data: [], trainingType: null })),
-    [numericGroupId, subjectName]
+  const { data: subjectsRes } = useApi(
+    () => groupId !== "" ? teachingApi.mySubjects(groupId as number) : Promise.resolve(null),
+    [groupId]
   )
+  const subjects = useMemo(() => {
+    const list = subjectsRes?.data?.map(s => s.subjectName) ?? []
+    return [...new Set(list)].sort()
+  }, [subjectsRes])
 
-  // HEMIS'ning o'zidagi davomat yozuvlari (faqat o'qish — har bir dars sanasi + jufti)
-  const { data: hemisAttendanceRes, loading: lHemisAtt, error: eHemisAtt, refetch: rHemisAtt } = useApi(
-    () => (numericGroupId !== null && subjectName
-      ? hemisApi.employeeData("attendance-records", { group: String(numericGroupId), subject: subjectName })
-      : Promise.resolve({ success: true, data: [] as HemisAttendanceRecord[] })),
-    [numericGroupId, subjectName]
+  const [roster, setRoster] = useState<AttendanceRosterItem[]>([])
+  const [loadingRoster, setLoadingRoster] = useState(false)
+  const [rosterError, setRosterError] = useState<string | null>(null)
+  const [loadedOnce, setLoadedOnce] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+
+  const { data: historyRes, loading: lHistory, refetch: refetchHistory } = useApi(
+    () =>
+      groupId !== "" && subjectName
+        ? attendanceApi.history({ groupId, subject: subjectName })
+        : Promise.resolve({ success: true, data: [] }),
+    [groupId, subjectName]
   )
+  const history = historyRes?.data ?? []
 
-  const roster = rosterRes?.data ?? []
-  const hemisRecords = (hemisAttendanceRes?.data ?? []) as HemisAttendanceRecord[]
-
-  const dateColumns = useMemo<DateColumn[]>(() => {
-    const map = new Map<string, DateColumn>()
-    hemisRecords.forEach((r) => {
-      const key = `${r.lessonDate}__${r.lessonPairName ?? ""}`
-      if (!map.has(key)) {
-        map.set(key, { key, date: r.lessonDate, pairName: r.lessonPairName, startTime: r.startTime, endTime: r.endTime })
-      }
-    })
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.date !== b.date) return a.date < b.date ? -1 : 1
-      return (a.startTime ?? "").localeCompare(b.startTime ?? "")
-    })
-  }, [hemisRecords])
-
-  const hemisCellMap = useMemo(() => {
-    const map = new Map<string, { absentOn: number; absentOff: number }>()
-    hemisRecords.forEach((r) => {
-      map.set(`${r.studentUserId}|${r.lessonDate}__${r.lessonPairName ?? ""}`, { absentOn: r.absentOn, absentOff: r.absentOff })
-    })
-    return map
-  }, [hemisRecords])
-
-  function getCell(studentUserId: number, col: DateColumn) {
-    const hemisCell = hemisCellMap.get(`${studentUserId}|${col.key}`)
-    if (hemisCell?.absentOff) {
-      return { text: String(hemisCell.absentOff), color: "#dc2626", bg: "#fef2f2", absentOff: hemisCell.absentOff, absentOn: 0 }
+  async function loadRoster() {
+    if (groupId === "" || !subjectName || !date || isFuture) return
+    setLoadingRoster(true)
+    setRosterError(null)
+    setSaveMsg(null)
+    try {
+      const res = await attendanceApi.roster(groupId, subjectName, date)
+      setRoster(res.data)
+      if (!trainingType) setTrainingType(res.trainingType || "")
+      setLoadedOnce(true)
+    } catch (e) {
+      setRosterError(e instanceof Error ? e.message : t("oqBaholash.error"))
+    } finally {
+      setLoadingRoster(false)
     }
-    if (hemisCell?.absentOn) {
-      return { text: String(hemisCell.absentOn), color: "#15803d", bg: "#f0fdf4", absentOff: 0, absentOn: hemisCell.absentOn }
+  }
+
+  // Guruh/fan/sana tayyor holda (masalan meeting kartasidan yoki jurnal
+  // ro'yxatidan) kelganda ro'yxatni darhol ochib beradi.
+  useEffect(() => {
+    if (initialGroup && initialSubject) loadRoster()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function setStatus(studentUserId: number, status: AttendanceStatus) {
+    if (!isToday) return
+    setRoster((prev) => prev.map((r) => (r.studentUserId === studentUserId ? { ...r, status } : r)))
+  }
+
+  function setComment(studentUserId: number, comment: string) {
+    if (!isToday) return
+    setRoster((prev) => prev.map((r) => (r.studentUserId === studentUserId ? { ...r, comment } : r)))
+  }
+
+  async function handleSave() {
+    if (groupId === "" || !subjectName || !date || !isToday) return
+    setSaving(true)
+    setSaveMsg(null)
+    try {
+      await attendanceApi.save({
+        groupId,
+        subjectName,
+        date,
+        trainingType: trainingType || undefined,
+        records: roster.map((r) => ({
+          studentUserId: r.studentUserId,
+          fullName: r.fullName,
+          status: r.status ?? "absent",
+          comment: r.comment ?? undefined,
+        })),
+      })
+      setSaveMsg(t("oqDavomat.attendanceSaved"))
+      refetchHistory()
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : t("oqBaholash.error"))
+    } finally {
+      setSaving(false)
     }
-    return { text: "", color: "#104475", bg: "transparent", absentOff: 0, absentOn: 0 }
   }
 
   if (lGroups) return <Loading />
   if (eGroups) return <ApiError message={eGroups} onRetry={rGroups} />
-
-  const loading = lRoster || lHemisAtt
-  const error = eRoster || eHemisAtt
 
   return (
     <div className="flex flex-col gap-5 p-[30px]">
@@ -134,121 +177,281 @@ export default function DavomatJurnaliPage() {
           {t("davomatJurnaliOq.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {resolvedGroupName} — {subjectName || "-"}
+          {t("oqDavomat.subtitle")}
         </p>
       </div>
 
-      <div className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-xs" style={{ backgroundColor: "#f0f7ff", color: "#0e58a8", border: "1px solid rgba(14,88,168,0.15)", fontFamily: "var(--font-poppins)" }}>
-        <Lock className="w-3.5 h-3.5 shrink-0" />
-        {t("davomatJurnaliOq.autoNotice")}
-      </div>
+      {/* Filtrlar */}
+      <div className="bg-white rounded-[10px] p-4 flex flex-col gap-4"
+        style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqBaholash.group")}</label>
+            <div className="relative">
+              <select
+                value={groupId}
+                onChange={(e) => { setGroupId(e.target.value ? Number(e.target.value) : ""); setSubjectName(""); setRoster([]); setLoadedOnce(false) }}
+                className={`${inputCls} appearance-none pr-8`}
+                style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                <option value="">{t("oqBaholash.selectGroup")}</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "#7293b9" }} />
+            </div>
+          </div>
 
-      <div className="flex flex-col lg:flex-row gap-5">
-        <div className="flex-1 min-w-0 rounded-[10px] bg-white" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
-          {loading ? <Loading /> : error ? <ApiError message={error} onRetry={() => { rRoster(); rHemisAtt() }} /> : (
-            <div className="overflow-x-auto p-3">
-              <table className="w-full border-collapse" style={{ tableLayout: "auto" }}>
-                <thead>
-                  <tr style={{ backgroundColor: "#eef4ff" }}>
-                    <th className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[50px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>#</th>
-                    <th className={`${borderCls} px-4 py-2 text-left text-xs font-semibold whitespace-nowrap w-full`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.studentFullName")}</th>
-                    <th className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[50px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>S</th>
-                    <th className={`${borderCls} px-3 py-2 text-xs font-semibold whitespace-nowrap w-[50px]`} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>SZ</th>
-                    {dateColumns.map((col) => {
-                      const timeLabel = timeRangeLabel(col)
-                      return (
-                        <th key={col.key} className={`${borderCls} px-2 py-1.5 text-center whitespace-nowrap min-w-[110px]`}>
-                          <span className="inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-[11px] font-medium" style={{ backgroundColor: "#16a34a", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-                            {fmtDate(col.date)}
-                          </span>
-                          {timeLabel && (
-                            <div className="mt-1 text-[10px] italic" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                              {timeLabel}
-                            </div>
-                          )}
-                        </th>
-                      )
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {roster.length ? (
-                    roster.map((student, index) => {
-                      let absentTotal = 0
-                      let excusedTotal = 0
-                      dateColumns.forEach((col) => {
-                        const cell = getCell(student.studentUserId, col)
-                        absentTotal += cell.absentOff
-                        excusedTotal += cell.absentOn
-                      })
-                      return (
-                        <tr key={student.studentUserId} className="hover:bg-[#f6f9ff]">
-                          <td className={`${borderCls} px-3 py-2 text-sm text-center`} style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{index + 1}</td>
-                          <td className={`${borderCls} px-4 py-2 text-sm font-medium whitespace-nowrap`} style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>
-                            {student.fullName}
-                          </td>
-                          <td className={`${borderCls} px-3 py-2 text-sm text-center font-medium`} style={{ color: absentTotal ? "#dc2626" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                            {absentTotal || ""}
-                          </td>
-                          <td className={`${borderCls} px-3 py-2 text-sm text-center font-medium`} style={{ color: excusedTotal ? "#15803d" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                            {excusedTotal || ""}
-                          </td>
-                          {dateColumns.map((col) => {
-                            const style = getCell(student.studentUserId, col)
-                            return (
-                              <td
-                                key={col.key}
-                                className={`${borderCls} px-1 py-1 text-sm text-center font-medium select-none`}
-                                style={{ color: style.color, backgroundColor: style.bg, fontFamily: "var(--font-poppins)" }}
-                              >
-                                <span className="block w-full px-2 py-1">{style.text}</span>
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      )
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={4 + dateColumns.length} className={`${borderCls} px-4 py-12 text-center text-sm`} style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                        {t("davomatJurnaliOq.noStudents")}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <p className="text-xs mt-2.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                <span style={{ color: "#dc2626" }}>{t("davomatJurnaliOq.legendUnexcused")}</span>{" "}
-                <span style={{ color: "#15803d" }}>SZ</span> — {t("davomatJurnaliOq.legendExcused")}
-              </p>
-            </div>
-          )}
-        </div>
+          <div>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqBaholash.subject")}</label>
+            {subjects.length > 0 ? (
+              <div className="relative">
+                <select
+                  value={subjectName}
+                  onChange={(e) => { setSubjectName(e.target.value); setRoster([]); setLoadedOnce(false) }}
+                  className={`${inputCls} appearance-none pr-8`}
+                  style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  <option value="">{t("oqBaholash.selectSubject")}</option>
+                  {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "#7293b9" }} />
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={subjectName}
+                onChange={(e) => { setSubjectName(e.target.value); setRoster([]); setLoadedOnce(false) }}
+                placeholder={t("oqBaholash.subjectPlaceholder")}
+                className={inputCls}
+                style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+              />
+            )}
+          </div>
 
-        <div className="w-full lg:w-[300px] shrink-0 rounded-[10px] bg-white p-4 self-start" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
-          <h2 className="text-sm font-semibold mb-3" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {t("davomatJurnaliOq.info")}
-          </h2>
-          <div className="flex flex-col gap-2.5 text-sm">
-            <div className="flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", paddingBottom: 8 }}>
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.group")}</span>
-              <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{resolvedGroupName}</span>
+          <div>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqDavomat.trainingType")}</label>
+            <div className="relative">
+              <select
+                value={trainingType}
+                onChange={(e) => setTrainingType(e.target.value)}
+                className={`${inputCls} appearance-none pr-8`}
+                style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                <option value="">{t("oqDavomat.trainingTypePlaceholder")}</option>
+                {TRAINING_TYPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "#7293b9" }} />
             </div>
-            <div className="flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", paddingBottom: 8 }}>
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.subjects")}</span>
-              <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{subjectName || "-"}</span>
-            </div>
-            <div className="flex items-start justify-between gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", paddingBottom: 8 }}>
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.lesson")}</span>
-              <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{trainingType || "-"}</span>
-            </div>
-            <div className="flex items-start justify-between gap-3">
-              <span style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatJurnaliOq.staff")}</span>
-              <span className="text-right font-medium" style={{ color: "#104475", fontFamily: "var(--font-poppins)" }}>{meRes?.user?.fullName ?? "-"}</span>
+          </div>
+
+          <div>
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqBaholash.date")}</label>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => { setDate((d) => addDays(d, -1)); setRoster([]); setLoadedOnce(false) }}
+                className="shrink-0 rounded-[8px] border border-[#d8e6f7] p-2.5 hover:bg-[#f6f9ff]"
+                title={t("davomatJurnaliOq.prevDay")}>
+                <ChevronLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
+              </button>
+              <input
+                type="date"
+                value={date}
+                max={today}
+                onChange={(e) => { const v = e.target.value || today; setDate(v > today ? today : v); setRoster([]); setLoadedOnce(false) }}
+                className={inputCls}
+                style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+              />
+              <button
+                type="button"
+                onClick={() => { if (!isToday) { setDate((d) => addDays(d, 1)); setRoster([]); setLoadedOnce(false) } }}
+                disabled={isToday}
+                className="shrink-0 rounded-[8px] border border-[#d8e6f7] p-2.5 hover:bg-[#f6f9ff] disabled:opacity-40 disabled:cursor-not-allowed"
+                title={t("davomatJurnaliOq.nextDay")}>
+                <ChevronRight className="w-4 h-4" style={{ color: "#0e58a8" }} />
+              </button>
             </div>
           </div>
         </div>
+
+        {!isToday && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-xs" style={{ backgroundColor: "#f0f7ff", color: "#0e58a8", border: "1px solid rgba(14,88,168,0.15)", fontFamily: "var(--font-poppins)" }}>
+            <Eye className="w-3.5 h-3.5 shrink-0" />
+            {t("davomatJurnaliOq.pastReadOnlyNotice")}
+          </div>
+        )}
+
+        <div>
+          <button
+            onClick={loadRoster}
+            disabled={groupId === "" || !subjectName || !date || loadingRoster}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50"
+            style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+            <Users className="w-4 h-4" />
+            {loadingRoster ? t("oqBaholash.loading") : t("oqBaholash.loadRoster")}
+          </button>
+        </div>
       </div>
+
+      {/* Ro'yxat */}
+      {rosterError && <ApiError message={rosterError} onRetry={loadRoster} />}
+
+      {!rosterError && loadedOnce && (
+        <div className="bg-white rounded-[10px] overflow-hidden"
+          style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px]">
+              <thead>
+                <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f6f9ff" }}>
+                  {[t("oqBaholash.col.hash"), t("oqBaholash.col.fullName"), t("oqDavomat.col.status"), t("oqBaholash.col.comment")].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
+                      style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {roster.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-14 text-center text-sm"
+                      style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                      {t("oqBaholash.noStudents")}
+                    </td>
+                  </tr>
+                ) : roster.map((s, i) => (
+                  <tr key={s.studentUserId} className="hover:bg-[#f6f9ff]/50 transition-colors"
+                    style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                    <td className="px-4 py-3 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
+                    <td className="px-4 py-3 text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                      {s.fullName}
+                      {s.studentIdNumber && (
+                        <div className="text-xs font-normal" style={{ color: "#7293b9" }}>{s.studentIdNumber}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {isToday ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {STATUS_OPTIONS.map((opt) => {
+                            const active = (s.status ?? "absent") === opt.value
+                            return (
+                              <button
+                                key={opt.value}
+                                onClick={() => setStatus(s.studentUserId, opt.value)}
+                                className="text-xs font-medium px-2.5 py-1 rounded-full transition-all"
+                                style={{
+                                  backgroundColor: active ? opt.bg : "transparent",
+                                  color: active ? opt.color : "#7293b9",
+                                  border: active ? `1px solid ${opt.color}33` : "1px solid rgba(1,41,112,0.12)",
+                                  fontFamily: "var(--font-poppins)",
+                                }}>
+                                {opt.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{
+                          backgroundColor: s.status ? STATUS_MAP[s.status].bg : "transparent",
+                          color: s.status ? STATUS_MAP[s.status].color : "#7293b9",
+                          border: s.status ? `1px solid ${STATUS_MAP[s.status].color}33` : "1px solid rgba(1,41,112,0.12)",
+                          fontFamily: "var(--font-poppins)",
+                        }}>
+                          {s.status ? STATUS_MAP[s.status].label : t("davomatJurnaliOq.noMark")}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {isToday ? (
+                        <input
+                          type="text"
+                          value={s.comment ?? ""}
+                          onChange={(e) => setComment(s.studentUserId, e.target.value)}
+                          placeholder={t("oqBaholash.commentPlaceholder")}
+                          className="w-full px-2.5 py-1.5 rounded-[6px] text-xs border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none"
+                          style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+                        />
+                      ) : (
+                        <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{s.comment || "-"}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {roster.length > 0 && isToday && (
+            <div className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap"
+              style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
+              {saveMsg && (
+                <span className="text-sm" style={{ color: saveMsg === t("oqDavomat.attendanceSaved") ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                  {saveMsg}
+                </span>
+              )}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50 ml-auto"
+                style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                <Save className="w-4 h-4" />
+                {saving ? t("oqBaholash.saving") : t("oqBaholash.save")}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tarix */}
+      {groupId !== "" && subjectName && (
+        <div className="bg-white rounded-[10px] overflow-hidden"
+          style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
+          <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+            <History className="w-4 h-4" style={{ color: "#0e58a8" }} />
+            <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              {t("oqBaholash.previousDates")}
+            </span>
+            <button onClick={() => refetchHistory()} className="ml-auto" title={t("oqBaholash.refresh")}>
+              <RefreshCw className="w-4 h-4" style={{ color: "#7293b9" }} />
+            </button>
+          </div>
+          {lHistory ? (
+            <div className="px-5 py-6"><Loading /></div>
+          ) : history.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {t("oqBaholash.noRecordsYet")}
+            </div>
+          ) : (
+            <div className="divide-y" style={{ borderColor: "rgba(1,41,112,0.06)" }}>
+              {history.map((h) => {
+                const counts: Record<AttendanceStatus, number> = { present: 0, absent: 0, excused: 0, late: 0 }
+                h.records.forEach((r) => { counts[r.status]++ })
+                return (
+                  <button
+                    key={`${h.lessonDate}-${h.subjectName}`}
+                    onClick={() => { setDate(h.lessonDate); setRoster([]); setLoadedOnce(false) }}
+                    className="w-full text-left px-5 py-3 flex items-center gap-3 flex-wrap hover:bg-[#f6f9ff]/50 transition-colors"
+                  >
+                    <span className="text-sm font-medium w-28 shrink-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                      {fmtDate(h.lessonDate)}
+                    </span>
+                    {h.trainingType && (
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                        {h.trainingType}
+                      </span>
+                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {STATUS_OPTIONS.map((opt) => counts[opt.value] > 0 && (
+                        <span key={opt.value} className="text-xs font-medium px-2.5 py-1 rounded-full"
+                          style={{ backgroundColor: opt.bg, color: opt.color, fontFamily: "var(--font-poppins)" }}>
+                          {STATUS_MAP[opt.value].label}: {counts[opt.value]}
+                        </span>
+                      ))}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -512,103 +512,113 @@ function MeetingCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {meeting.googleMeet?.status === "created" && meeting.googleMeet.meetingUri && (
-            <a
-              href={meeting.googleMeet.meetingUri}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-[5px] bg-[#1a73e8] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#1558b0]"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              <Video className="h-4 w-4" /> Google Meet'ga kirish
-            </a>
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex flex-wrap justify-end gap-1.5">
+            {meeting.googleMeet?.status === "created" && meeting.googleMeet.meetingUri && (
+              <a
+                href={meeting.googleMeet.meetingUri}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] bg-[#1a73e8] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#1558b0]"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                <Video className="h-3.5 w-3.5" /> Google Meet'ga kirish
+              </a>
+            )}
+            {isTeacher && meeting.googleMeet?.status === "failed" && (
+              <button
+                type="button"
+                onClick={handleRetryGoogleMeet}
+                disabled={retryingGoogle}
+                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-60"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                {retryingGoogle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5" />}
+                {retryingGoogle ? "Urinilmoqda..." : "Google Meet — qayta urinish"}
+              </button>
+            )}
+            {meeting.zoom?.status === "created" && meeting.zoom.joinUrl && (
+              <a
+                href={meeting.zoom.joinUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-[#2563eb] bg-white px-3 py-2 text-xs font-medium text-[#2563eb] transition-colors hover:bg-[#eef4ff]"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                <Video className="h-3.5 w-3.5" /> Zoomga kirish
+              </a>
+            )}
+            {isTeacher && meeting.zoom?.status === "created" && meeting.zoom.startUrl && (
+              <a
+                href={meeting.zoom.startUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] bg-[#2563eb] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#1d4ed8]"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                <Video className="h-3.5 w-3.5" /> Zoom'ni boshlash
+              </a>
+            )}
+            {isTeacher && meeting.zoom?.status === "failed" && (
+              <button
+                type="button"
+                onClick={handleRetryZoom}
+                disabled={retrying}
+                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-60"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5" />}
+                {retrying ? "Urinilmoqda..." : "Zoom — qayta urinish"}
+              </button>
+            )}
+            {meeting.link !== "#" && (
+              <a
+                href={meeting.link}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-xs font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                {t("meetingPage.link")}
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+            )}
+            {isTeacher && meeting.subjectName && meeting.groupIds && meeting.groupIds.length > 0 && (
+              <Link
+                href={`/oqituvchi-kabineti/davomat-jurnali?group=${meeting.groupIds[0]}&subject=${encodeURIComponent(meeting.subjectName)}${meeting.startTime ? `&date=${meeting.startTime.slice(0, 10)}` : ""}`}
+                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-xs font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                <ClipboardCheck className="h-3.5 w-3.5" /> Davomat olish
+              </Link>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(meeting.id)}
+                disabled={deleting}
+                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-red-200 bg-white px-2.5 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
+                style={{ fontFamily: "var(--font-poppins)" }}
+                title={t("meetingPage.deleteMeeting")}
+              >
+                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
+            )}
+            <PrimaryButton onClick={() => onJoin(meeting.id)} loading={joining}>
+              {!joining ? <Play className="h-4 w-4 fill-current" /> : null}
+              {t("meetingPage.join")}
+            </PrimaryButton>
+          </div>
+          {isTeacher && meeting.googleMeet?.status === "failed" && meeting.googleMeet.errorMessage && (
+            <p className="max-w-[320px] text-right text-xs text-amber-700" style={{ fontFamily: "var(--font-poppins)" }}>
+              {meeting.googleMeet.errorMessage}
+            </p>
           )}
-          {isTeacher && meeting.googleMeet?.status === "failed" && (
-            <button
-              type="button"
-              onClick={handleRetryGoogleMeet}
-              disabled={retryingGoogle}
-              title={meeting.googleMeet.errorMessage || undefined}
-              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-60"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              {retryingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-              {retryingGoogle ? "Urinilmoqda..." : "Google Meet yaratilmadi — qayta urinish"}
-            </button>
+          {isTeacher && meeting.zoom?.status === "failed" && meeting.zoom.errorMessage && (
+            <p className="max-w-[320px] text-right text-xs text-amber-700" style={{ fontFamily: "var(--font-poppins)" }}>
+              {meeting.zoom.errorMessage}
+            </p>
           )}
-          {meeting.zoom?.status === "created" && meeting.zoom.joinUrl && (
-            <a
-              href={meeting.zoom.joinUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#2563eb] bg-white px-4 py-2.5 text-sm font-medium text-[#2563eb] transition-colors hover:bg-[#eef4ff]"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              <Video className="h-4 w-4" /> Zoomga kirish
-            </a>
-          )}
-          {isTeacher && meeting.zoom?.status === "created" && meeting.zoom.startUrl && (
-            <a
-              href={meeting.zoom.startUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-[5px] bg-[#2563eb] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#1d4ed8]"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              <Video className="h-4 w-4" /> Zoom meetingni boshlash
-            </a>
-          )}
-          {isTeacher && meeting.zoom?.status === "failed" && (
-            <button
-              type="button"
-              onClick={handleRetryZoom}
-              disabled={retrying}
-              title={meeting.zoom.errorMessage || undefined}
-              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-60"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-              {retrying ? "Urinilmoqda..." : "Zoom yaratilmadi — qayta urinish"}
-            </button>
-          )}
-          {meeting.link !== "#" && (
-            <a
-              href={meeting.link}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-white px-4 py-2.5 text-sm font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              {t("meetingPage.link")}
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
-          )}
-          {isTeacher && meeting.subjectName && meeting.groupIds && meeting.groupIds.length > 0 && (
-            <Link
-              href={`/oqituvchi-kabineti/davomat?group=${meeting.groupIds[0]}&subject=${encodeURIComponent(meeting.subjectName)}${meeting.startTime ? `&date=${meeting.startTime.slice(0, 10)}` : ""}`}
-              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-white px-4 py-2.5 text-sm font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              <ClipboardCheck className="h-4 w-4" /> Davomat olish
-            </Link>
-          )}
-          {onDelete && (
-            <button
-              type="button"
-              onClick={() => onDelete(meeting.id)}
-              disabled={deleting}
-              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-red-200 bg-white px-3 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
-              style={{ fontFamily: "var(--font-poppins)" }}
-              title={t("meetingPage.deleteMeeting")}
-            >
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            </button>
-          )}
-          <PrimaryButton onClick={() => onJoin(meeting.id)} loading={joining}>
-            {!joining ? <Play className="h-4 w-4 fill-current" /> : null}
-            {t("meetingPage.join")}
-          </PrimaryButton>
         </div>
       </div>
     </motion.div>

@@ -1001,6 +1001,10 @@ export const dictionary: Record<string, Record<Lang, string>> = {
   "davomatJurnaliOq.subjects":   { uz: "Fanlar",                   ru: "Предметы",                            en: "Subjects",                          kaa: "Pánler" },
   "davomatJurnaliOq.lesson":     { uz: "Mashg'ulot",               ru: "Занятие",                             en: "Lesson",                            kaa: "Sabaq" },
   "davomatJurnaliOq.staff":      { uz: "Xodim",                    ru: "Сотрудник",                           en: "Staff",                             kaa: "Qızmetker" },
+  "davomatJurnaliOq.prevDay":    { uz: "Oldingi kun",              ru: "Предыдущий день",                     en: "Previous day",                     kaa: "Aldıńǵı kún" },
+  "davomatJurnaliOq.nextDay":    { uz: "Keyingi kun",              ru: "Следующий день",                      en: "Next day",                         kaa: "Kelesi kún" },
+  "davomatJurnaliOq.pastReadOnlyNotice": { uz: "O'tgan kun uchun davomat faqat ko'rish uchun — o'zgartirib bo'lmaydi. Belgilash faqat bugungi kun uchun mumkin.", ru: "Посещаемость за прошедший день доступна только для просмотра — изменить нельзя. Отметить можно только за сегодня.", en: "Attendance for a past day is view-only — it cannot be changed. Marking is only possible for today.", kaa: "Ótken kún ushın qatnasıw tek kóriw ushın — ózgertip bolmaydı. Belgilew tek bügingi kún ushın múmkin." },
+  "davomatJurnaliOq.noMark":     { uz: "Belgilanmagan",            ru: "Не отмечено",                          en: "Not marked",                       kaa: "Belgilenbegen" },
 
   // ── Kurs topshiriqlari detail (o'qituvchi) sahifasi ────────────────────
   "kursTopshDetail.semesterSuffix": { uz: "{n}-semestr",           ru: "{n}-й семестр",                       en: "Semester {n}",                     kaa: "{n}-semestr" },
