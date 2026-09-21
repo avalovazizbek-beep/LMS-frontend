@@ -19,9 +19,15 @@
   Natija window.__loadtestResult'ga yoziladi — Puppeteer shundan o'qiydi.
 -->
 <pre id="log" style="font: 11px monospace"></pre>
-<script type="module">
-  import { io } from "https://cdn.jsdelivr.net/npm/socket.io-client@4.8.3/+esm"
-  import { Device } from "https://cdn.jsdelivr.net/npm/mediasoup-client@3.22.0/+esm"
+<!-- CDN (jsdelivr +esm) mediasoup-client'ning ba'zi ichki bog'liqliklarini
+     ("events-alias@npm:events@^3.3.0" kabi npm-alias'larni) to'g'ri hal
+     qila olmay 404 bilan yiqilib qolgani uchun endi loyihaning o'z
+     node_modules'idan oldindan paketlangan (bundle) lokal faylni
+     ishlatamiz — hech qanday tashqi tarmoqqa bog'liqlik yo'q. -->
+<script src="loadtest-vendor.bundle.js"></script>
+<script>
+  const { io } = window
+  const { Device } = window.mediasoupClient
 
   const params = new URLSearchParams(location.search)
   const token = params.get("token")
