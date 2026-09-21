@@ -393,6 +393,15 @@ function normalizeMeeting(value: unknown, index = 0): Meeting {
         errorMessage: textValue(z.errorMessage) || null,
       }
     })() : null,
+    googleMeet: raw.googleMeet && typeof raw.googleMeet === "object" ? (() => {
+      const g = asRecord(raw.googleMeet)
+      return {
+        status: (textValue(g.status) || "pending") as GoogleMeetInfo["status"],
+        meetingUri: textValue(g.meetingUri) || null,
+        meetingCode: textValue(g.meetingCode) || null,
+        errorMessage: textValue(g.errorMessage) || null,
+      }
+    })() : null,
   }
 }
 
@@ -610,6 +619,8 @@ export const meetingsApi = {
   },
   retryZoom: (id: string) =>
     meetingPost<{ success: boolean; message: string; data: ZoomMeetingInfo }>(`/api/meetings/${id}/zoom/retry`),
+  retryGoogleMeet: (id: string) =>
+    meetingPost<{ success: boolean; message: string; data: GoogleMeetInfo }>(`/api/meetings/${id}/google-meet/retry`),
   studentJoinToken: getMeetingJoinToken,
   joinToken: getMeetingJoinToken,
   facePing: (id: string, body: { visible: boolean; intervalSeconds: number }) =>
@@ -742,6 +753,12 @@ export interface ZoomMeetingInfo {
   password: string | null
   errorMessage: string | null
 }
+export interface GoogleMeetInfo {
+  status: "pending" | "created" | "failed"
+  meetingUri: string | null
+  meetingCode: string | null
+  errorMessage: string | null
+}
 export interface Meeting {
   id: string
   title: string
@@ -764,6 +781,7 @@ export interface Meeting {
   canJoinNow?: boolean
   rawStatus?: string
   zoom?: ZoomMeetingInfo | null
+  googleMeet?: GoogleMeetInfo | null
 }
 export interface MeetingSettings {
   allowCamera?: boolean
@@ -781,6 +799,7 @@ export interface CreateMeetingRequest {
   groupIds: Array<number | string>
   settings?: MeetingSettings
   createZoomMeeting?: boolean
+  createGoogleMeetMeeting?: boolean
   [key: string]: unknown
 }
 export interface MeetingRecording {
@@ -2812,4 +2831,20 @@ export const zoomApi = {
   connect: () => get<ItemRes<{ url: string }>>("/api/integrations/zoom/connect"),
 
   disconnect: () => post<MsgRes>("/api/integrations/zoom/disconnect", {}),
+}
+
+/* ── Google Meet integratsiyasi (har bir o'qituvchi o'z hisobini ulaydi) ── */
+export interface GoogleMeetConnectionStatus {
+  connected: boolean
+  email: string | null
+  status: "active" | "needs_reconnect" | "not_connected"
+  configured: boolean
+}
+
+export const googleMeetApi = {
+  status: () => get<ItemRes<GoogleMeetConnectionStatus>>("/api/integrations/google/status"),
+
+  connect: () => get<ItemRes<{ url: string }>>("/api/integrations/google/connect"),
+
+  disconnect: () => post<MsgRes>("/api/integrations/google/disconnect", {}),
 }

@@ -42,9 +42,9 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import {
-  meetingsApi, hemisApi, teachingApi, attendanceApi, zoomApi,
+  meetingsApi, hemisApi, teachingApi, attendanceApi, zoomApi, googleMeetApi,
   type Meeting, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup,
-  type AttendanceRosterItem, type AttendanceStatus, type ZoomConnectionStatus,
+  type AttendanceRosterItem, type AttendanceStatus, type ZoomConnectionStatus, type GoogleMeetConnectionStatus,
 } from "@/lib/api"
 import { MeetingMediaClient, type ProducerSummary } from "@/lib/meetingMediasoup"
 import { useApi } from "@/hooks/useApi"
@@ -462,6 +462,7 @@ function MeetingCard({
 }) {
   const { t, lang } = useLanguage()
   const [retrying, setRetrying] = useState(false)
+  const [retryingGoogle, setRetryingGoogle] = useState(false)
 
   async function handleRetryZoom() {
     setRetrying(true)
@@ -472,6 +473,19 @@ function MeetingCard({
       // "muvaffaqiyatsiz" holat allaqachon shu orqali ko'rinadi
     } finally {
       setRetrying(false)
+      onRefresh?.()
+    }
+  }
+
+  async function handleRetryGoogleMeet() {
+    setRetryingGoogle(true)
+    try {
+      await meetingsApi.retryGoogleMeet(meeting.id)
+    } catch {
+      // xato natijasi ham lms_meeting_google_meet'da saqlanadi — kartadagi
+      // "muvaffaqiyatsiz" holat allaqachon shu orqali ko'rinadi
+    } finally {
+      setRetryingGoogle(false)
       onRefresh?.()
     }
   }
@@ -514,6 +528,30 @@ function MeetingCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {meeting.googleMeet?.status === "created" && meeting.googleMeet.meetingUri && (
+            <a
+              href={meeting.googleMeet.meetingUri}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-[5px] bg-[#1a73e8] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#1558b0]"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              <Video className="h-4 w-4" /> Google Meet'ga kirish
+            </a>
+          )}
+          {isTeacher && meeting.googleMeet?.status === "failed" && (
+            <button
+              type="button"
+              onClick={handleRetryGoogleMeet}
+              disabled={retryingGoogle}
+              title={meeting.googleMeet.errorMessage || undefined}
+              className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-60"
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              {retryingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+              {retryingGoogle ? "Urinilmoqda..." : "Google Meet yaratilmadi — qayta urinish"}
+            </button>
+          )}
           {meeting.zoom?.status === "created" && meeting.zoom.joinUrl && (
             <a
               href={meeting.zoom.joinUrl}
@@ -931,11 +969,15 @@ function CreateMeetingModal({
   const [error, setError]           = useState<string | null>(null)
   const [wantsZoom, setWantsZoom]   = useState(false)
   const [zoomStatus, setZoomStatus] = useState<ZoomConnectionStatus | null>(null)
+  const [wantsGoogleMeet, setWantsGoogleMeet]   = useState(false)
+  const [googleMeetStatus, setGoogleMeetStatus] = useState<GoogleMeetConnectionStatus | null>(null)
 
   useEffect(() => {
     if (!open) return
     setWantsZoom(false)
+    setWantsGoogleMeet(false)
     zoomApi.status().then(res => setZoomStatus(res.data)).catch(() => setZoomStatus(null))
+    googleMeetApi.status().then(res => setGoogleMeetStatus(res.data)).catch(() => setGoogleMeetStatus(null))
   }, [open])
 
   useEffect(() => {
@@ -982,6 +1024,10 @@ function CreateMeetingModal({
       setError("Zoom account ulanmagan. Avval profilingizdan Zoom account'ni ulang.")
       return
     }
+    if (wantsGoogleMeet && googleMeetStatus?.status !== "active") {
+      setError("Google account ulanmagan. Avval profilingizdan Google account'ni ulang.")
+      return
+    }
 
     const startISO = new Date(`${date}T${startTime}:00`).toISOString()
     const endISO   = new Date(`${date}T${endTime}:00`).toISOString()
@@ -999,6 +1045,7 @@ function CreateMeetingModal({
         endTime: endISO,
         groupIds: ids,
         createZoomMeeting: wantsZoom,
+        createGoogleMeetMeeting: wantsGoogleMeet,
       }
       await meetingsApi.create(body)
       setTitle(""); setSubjectName(""); setDescription(""); setDate(today)
@@ -1171,6 +1218,27 @@ function CreateMeetingModal({
             {!groupsLoading && groupOptions.length > 0 && (
               <p className="text-[11px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
                 Tanlandi: {selectedGroupIds.length ? groupOptions.filter(g => selectedGroupIds.includes(g.id)).map(g => g.name).join(", ") : "—"}
+              </p>
+            )}
+          </div>
+
+          {/* Google Meet */}
+          <div className="flex flex-col gap-1.5 rounded-[8px] border border-[#d2e3fc] bg-[#f8fafe] px-3 py-3">
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm" style={{ fontFamily: "var(--font-poppins)" }}>
+              <input
+                type="checkbox"
+                checked={wantsGoogleMeet}
+                onChange={e => setWantsGoogleMeet(e.target.checked)}
+                className="h-4 w-4 rounded border-[#d2e3fc] text-[#1a73e8] focus:ring-[#1a73e8]"
+              />
+              <span className="font-medium text-[#012970]">Google Meet meeting ham yaratilsin</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#e8f0fe", color: "#1a73e8" }}>
+                TAVSIYA ETILADI
+              </span>
+            </label>
+            {wantsGoogleMeet && googleMeetStatus?.status !== "active" && (
+              <p className="text-[11px] text-red-500 pl-6" style={{ fontFamily: "var(--font-poppins)" }}>
+                Google account ulanmagan. Avval profilingizdan (Tizim → Profil) Google account&apos;ni ulang.
               </p>
             )}
           </div>
