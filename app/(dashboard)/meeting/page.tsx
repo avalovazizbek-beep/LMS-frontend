@@ -11,6 +11,7 @@ import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
 import { io, type Socket } from "socket.io-client"
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowUpRight,
   BookOpen,
@@ -610,14 +611,23 @@ function MeetingCard({
             </PrimaryButton>
           </div>
           {isTeacher && meeting.googleMeet?.status === "failed" && meeting.googleMeet.errorMessage && (
-            <p className="max-w-[320px] text-right text-xs text-amber-700" style={{ fontFamily: "var(--font-poppins)" }}>
-              {meeting.googleMeet.errorMessage}
-            </p>
+            <div className="flex max-w-[360px] flex-col gap-1 rounded-[6px] border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800"
+              style={{ fontFamily: "var(--font-poppins)" }}>
+              <div className="flex items-start gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-[1px]" />
+                <span>Google Meet: {meeting.googleMeet.errorMessage}</span>
+              </div>
+              <Link href="/tizim/profil" className="self-end font-medium underline underline-offset-2 hover:text-amber-900">
+                Profildan Google akkauntni qayta ulash →
+              </Link>
+            </div>
           )}
           {isTeacher && meeting.zoom?.status === "failed" && meeting.zoom.errorMessage && (
-            <p className="max-w-[320px] text-right text-xs text-amber-700" style={{ fontFamily: "var(--font-poppins)" }}>
-              {meeting.zoom.errorMessage}
-            </p>
+            <div className="flex max-w-[360px] items-start gap-1.5 rounded-[6px] border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800"
+              style={{ fontFamily: "var(--font-poppins)" }}>
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-[1px]" />
+              <span>Zoom: {meeting.zoom.errorMessage}</span>
+            </div>
           )}
         </div>
       </div>
