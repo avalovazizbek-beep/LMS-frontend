@@ -1024,13 +1024,19 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
   )
 
   const rows = useMemo(() => {
-    const items = normalizeItems(data?.data)
+    let items = normalizeItems(data?.data)
+    // LMS faqat Masofaviy ta'lim uchun — dars jadvali/ro'yxati resurslarida
+    // o'qituvchining boshqa (kunduzgi/sirtqi) yuklamasidagi darslari
+    // chiqmasligi kerak (xuddi Dars jadvali kalendarida qilingani kabi).
+    if (config.resource === "lesson-schedule" || config.resource === "lesson-list") {
+      items = items.filter((item) => isMasofaviyGroupName(String(asRecord(asRecord(item).group).name ?? "")))
+    }
     const query = search.trim().toLowerCase()
     if (!query) return items
     return items.filter((item) =>
       config.fields.some((field) => itemValue(item, field.keys, t).toLowerCase().includes(query))
     )
-  }, [config.fields, data?.data, search, t])
+  }, [config.fields, config.resource, data?.data, search, t])
 
   if (loading) return <Loading />
   if (error) return <ApiError message={error} onRetry={refetch} />
