@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8" />
+<title>Loadtest client</title>
+</head>
+<body>
+<!--
+  Bu sahifa faqat backend/scripts/loadtest-meeting.ts (Puppeteer orqali)
+  ishlatishi uchun — haqiqiy foydalanuvchilar bu sahifaga hech qachon
+  kelmaydi, hech qanday menyu/havoladan bog'lanmagan. Bir marta ishlatib
+  bo'lgach, xohlasangiz o'chirib tashlashingiz mumkin.
+
+  URL parametrlari:
+    ?token=<join-token JWT>
+    &socketUrl=<masalan http://localhost:5000>
+    &produce=1  (agar shu ishtirokchi video/audio yuborishi kerak bo'lsa)
+
+  Natija window.__loadtestResult'ga yoziladi — Puppeteer shundan o'qiydi.
+-->
+<pre id="log" style="font: 11px monospace"></pre>
+<script type="module">
+  import { io } from "https://cdn.jsdelivr.net/npm/socket.io-client@4.8.3/+esm"
+  import { Device } from "https://cdn.jsdelivr.net/npm/mediasoup-client@3.22.0/+esm"
+
+  const params = new URLSearchParams(location.search)
+  const token = params.get("token")
+  const socketUrl = params.get("socketUrl") || location.origin
+  const shouldProduce = params.get("produce") === "1"
+
+  const logEl = document.getElementById("log")
+  function log(...args) {
+    logEl.textContent += args.join(" ") + "\n"
+  }
+
+  window.__loadtestResult = { status: "connecting" }
+
+  function emitAck(socket, event, payload) {
+    return new Promise((resolve, reject) => {
+      socket.emit(event, payload, (res) => {
+        if (res && res.success) resolve(res.data)
+        else reject(new Error((res && res.error) || `${event} failed`))
+      })
+    })
+  }
+
+  const startedAt = Date.now()
+  const socket = io(socketUrl, {
+    auth: { joinToken: token, token },
+    transports: ["websocket"],
+    reconnection: false,
+  })
+
+  socket.on("connect_error", (err) => {
+    window.__loadtestResult = { status: "error", error: "connect_error: " + err.message }
+    log("connect_error:", err.message)
+  })
+
+  socket.on("meeting:joined", async (payload) => {
+    try {
+      const device = new Device()
+      await device.load({ routerRtpCapabilities: payload.rtpCapabilities })
+
+      const recvParams = await emitAck(socket, "mediasoup:createTransport", { direction: "recv" })
+      const recvTransport = device.createRecvTransport(recvParams)
+      recvTransport.on("connect", ({ dtlsParameters }, cb, eb) => {
+        emitAck(socket, "mediasoup:connectTransport", { transportId: recvTransport.id, dtlsParameters }).then(cb).catch(eb)
+      })
+
+      const consumeOne = async (producer) => {
+        try {
+          const data = await emitAck(socket, "mediasoup:consume", {
+            transportId: recvTransport.id,
+            producerId: producer.producerId,
+            rtpCapabilities: device.rtpCapabilities,
+          })
+          await recvTransport.consume({ id: data.id, producerId: data.producerId, kind: data.kind, rtpParameters: data.rtpParameters })
+          await emitAck(socket, "mediasoup:resumeConsumer", { consumerId: data.id })
+        } catch (e) {
+          log("consume failed:", e.message)
+        }
+      }
+      for (const p of payload.producers || []) await consumeOne(p)
+      socket.on("mediasoup:newProducer", consumeOne)
+
+      if (shouldProduce) {
+        // Chrome --use-fake-device-for-media-stream bilan ishga tushirilgani
+        // uchun bu haqiqiy kamera/mikrofon so'ramaydi — sintetik test rasm
+        // (rangli chiziqlar) va ohang beradi.
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 320, height: 240 } })
+        const sendParams = await emitAck(socket, "mediasoup:createTransport", { direction: "send" })
+        const sendTransport = device.createSendTransport(sendParams)
+        sendTransport.on("connect", ({ dtlsParameters }, cb, eb) => {
+          emitAck(socket, "mediasoup:connectTransport", { transportId: sendTransport.id, dtlsParameters }).then(cb).catch(eb)
+        })
+        sendTransport.on("produce", ({ kind, rtpParameters, appData }, cb, eb) => {
+          emitAck(socket, "mediasoup:produce", { transportId: sendTransport.id, kind, rtpParameters, source: appData?.source })
+            .then(({ id }) => cb({ id }))
+            .catch(eb)
+        })
+        const audioTrack = stream.getAudioTracks()[0]
+        const videoTrack = stream.getVideoTracks()[0]
+        if (audioTrack) await sendTransport.produce({ track: audioTrack, appData: { source: "mic" } })
+        if (videoTrack) await sendTransport.produce({ track: videoTrack, appData: { source: "camera" } })
+      }
+
+      window.__loadtestResult = { status: "ok", joinMs: Date.now() - startedAt }
+      log("joined ok in", Date.now() - startedAt, "ms")
+    } catch (err) {
+      window.__loadtestResult = { status: "error", error: err.message }
+      log("error:", err.message)
+    }
+  })
+</script>
+</body>
+</html>
