@@ -26,6 +26,7 @@ const RESOURCE_TYPE_OPTIONS = [
   { value: "Taqdimot", labelKey: "xodimFanResurslariYaratish.resourceType.presentation" },
   { value: "Havola", labelKey: "xodimFanResurslariYaratish.resourceType.link" },
   { value: "Audio meeting", labelKey: "xodimFanResurslariYaratish.resourceType.audioMeeting" },
+  { value: "Uchrashuvlar", labelKey: "xodimFanResurslariYaratish.resourceType.meetings" },
 ]
 const LANGUAGE_OPTIONS = [
   { value: "O'zbek", labelKey: "xodimFanResurslariYaratish.language.uzbek" },
@@ -46,7 +47,7 @@ export default function FanResurslariYaratishPage() {
   const [language, setLanguage] = useState(LANGUAGE_OPTIONS[0].value)
   const [resourceType, setResourceType] = useState(RESOURCE_TYPE_OPTIONS[0].value)
   const [comment, setComment] = useState("")
-  const [url, setUrl] = useState("")
+  const [urls, setUrls] = useState<string[]>([""])
   const [files, setFiles] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -62,21 +63,45 @@ export default function FanResurslariYaratishPage() {
     setSaving(true)
     setFormError(null)
     try {
+      const linkList = urls.map((u) => u.trim()).filter(Boolean)
       const [firstFile, ...restFiles] = files
+
+      // "Uchrashuvlar" — bir nechta havola (Zoom, Google Meet va h.k.)
+      // berilgan bo'lsa, har biri o'z alohida resurs sifatida saqlanadi
+      // (fayl bittadan ortiq bo'lsa ham xuddi shunday ishlaydi — mavjud
+      // "qo'shimcha fayllar" naqshiga o'xshab), sarlavhaga tartib raqami
+      // qo'shiladi toki ular ro'yxatda farqlansin.
+      const linksForFirst = linkList.length ? [linkList[0]] : [undefined]
+      const extraLinks = linkList.slice(1)
+
       const created = await teachingApi.createContent({
         type: "lesson",
         groupId,
         subjectName: subjectName.trim(),
-        title: title.trim(),
+        title: extraLinks.length ? `${title.trim()} 1` : title.trim(),
         description: comment.trim() || undefined,
         kind: trainingType,
         resourceType,
         availableFrom: new Date().toISOString(),
-        meetingLink: url.trim() || undefined,
+        meetingLink: linksForFirst[0],
         docFile: firstFile ?? null,
       })
       for (const extraFile of restFiles) {
         await teachingApi.addContentFile(created.data.id, extraFile)
+      }
+      for (const [index, link] of extraLinks.entries()) {
+        await teachingApi.createContent({
+          type: "lesson",
+          groupId,
+          subjectName: subjectName.trim(),
+          title: `${title.trim()} ${index + 2}`,
+          description: comment.trim() || undefined,
+          kind: trainingType,
+          resourceType,
+          availableFrom: new Date().toISOString(),
+          meetingLink: link,
+          docFile: null,
+        })
       }
       router.push("/xodim/fan-resurslari")
     } catch (err) {
@@ -172,10 +197,33 @@ export default function FanResurslariYaratishPage() {
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xodimFanResurslariYaratish.labelUrl")}</label>
-            <input className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
-              value={url} onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://..." />
+            <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              {resourceType === "Uchrashuvlar" ? t("xodimFanResurslariYaratish.labelMeetingLinks") : t("xodimFanResurslariYaratish.labelUrl")}
+            </label>
+            <div className="flex flex-col gap-2">
+              {urls.map((value, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
+                    value={value}
+                    onChange={(e) => setUrls((current) => current.map((u, i) => (i === index ? e.target.value : u)))}
+                    placeholder="https://..." />
+                  {urls.length > 1 && (
+                    <button type="button" onClick={() => setUrls((current) => current.filter((_, i) => i !== index))}
+                      className="shrink-0 text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                      {t("xodimFanResurslariYaratish.removeFile")}
+                    </button>
+                  )}
+                </div>
+              ))}
+              {resourceType === "Uchrashuvlar" && (
+                <button type="button" onClick={() => setUrls((current) => [...current, ""])}
+                  className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-[#f6f9ff] px-3 py-2 text-sm text-[#104475]"
+                  style={{ fontFamily: "var(--font-poppins)" }}>
+                  <Plus className="h-4 w-4" />
+                  {t("xodimFanResurslariYaratish.addMeetingLink")}
+                </button>
+              )}
+            </div>
           </div>
 
           <div>
