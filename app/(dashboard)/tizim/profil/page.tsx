@@ -152,6 +152,7 @@ function ZoomIntegrationCard() {
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [ageConfirmed, setAgeConfirmed] = useState(false)
 
   // OAuth callback shu sahifaga ?zoom=connected yoki ?zoom=error&message=...
   // bilan qaytaradi (backend redirect qiladi, brauzer to'g'ridan-to'g'ri
@@ -251,7 +252,7 @@ function ZoomIntegrationCard() {
               {disconnecting ? "Uzilmoqda…" : "Zoomni uzish"}
             </button>
           ) : (
-            <button onClick={handleConnect} disabled={connecting || !status?.configured}
+            <button onClick={handleConnect} disabled={connecting || !status?.configured || !ageConfirmed}
               className="flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-[6px] disabled:opacity-60"
               style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -259,6 +260,13 @@ function ZoomIntegrationCard() {
             </button>
           )}
         </div>
+      )}
+      {!loading && !error && status?.status !== "active" && (
+        <label className="flex items-start gap-2 mt-3 text-xs cursor-pointer" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+          <input type="checkbox" checked={ageConfirmed} onChange={(e) => setAgeConfirmed(e.target.checked)}
+            className="mt-0.5 shrink-0" />
+          <span>Men 18 yoshdan katta va ushbu muassasaning HEMIS orqali tasdiqlangan o'qituvchi/xodim hisobi egasi ekanligimni tasdiqlayman. Talabalar ushbu integratsiyani ulay olmaydi.</span>
+        </label>
       )}
       {!loading && !error && status && !status.configured && (
         <p className="text-xs mt-1" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
