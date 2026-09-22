@@ -653,7 +653,6 @@ const RESOURCE_TABS = [
   { kind: "exam", contentType: "exam" as const, icon: HelpCircle, labelKey: "fanResurslariOq.test.title", descKey: "fanResurslariOq.test.description", accept: "" },
   { kind: "assignment", contentType: "assignment" as const, icon: ClipboardList, labelKey: "fanResurslariOq.assignment.title", descKey: "fanResurslariOq.assignment.description", accept: ".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar" },
   { kind: "meeting", contentType: "mavzu" as const, icon: VideoIcon, labelKey: "fanResurslariOq.meeting.title", descKey: "fanResurslariOq.meeting.description", accept: "" },
-  { kind: "uchrashuv", contentType: "mavzu" as const, icon: Link2, labelKey: "fanResurslariOq.meetingLinks.title", descKey: "fanResurslariOq.meetingLinks.description", accept: "" },
 ] as const
 type TabKind = typeof RESOURCE_TABS[number]["kind"]
 
@@ -743,7 +742,6 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
 
   const itemByTab: Record<TabKind, TeacherContent | undefined> = {
     video_lesson: video, audio, theory, qollanma, exam: test, assignment, meeting,
-    uchrashuv: meetingLinks[0],
   }
   const activeMeta = RESOURCE_TABS.find(tb => tb.kind === activeTab)!
   const activeItem = itemByTab[activeTab]
@@ -971,26 +969,29 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
         <p className="text-xs mb-4" style={labelStyle}>{t(activeMeta.descKey)}</p>
 
         {activeTab === "meeting" ? (
-          <MeetingSection
-            bare
-            meetingItem={meeting}
-            groupId={sel.groupId}
-            subjectName={sel.subjectName}
-            topicKey={sel.topicKey}
-            topicTitle={sel.topicTitle}
-            onRefetch={refetch}
-          />
-        ) : activeTab === "uchrashuv" ? (
-          <MeetingLinksSection
-            items={meetingLinks}
-            groupId={sel.groupId}
-            subjectName={sel.subjectName}
-            topicKey={sel.topicKey}
-            topicTitle={sel.topicTitle}
-            trainingType={trainingType}
-            topicDeadline={topicDeadline}
-            onRefetch={refetch}
-          />
+          <div className="flex flex-col gap-5">
+            <MeetingSection
+              bare
+              meetingItem={meeting}
+              groupId={sel.groupId}
+              subjectName={sel.subjectName}
+              topicKey={sel.topicKey}
+              topicTitle={sel.topicTitle}
+              onRefetch={refetch}
+            />
+            <div className="pt-4" style={{ borderTop: "1px solid rgba(1,41,112,0.1)" }}>
+              <MeetingLinksSection
+                items={meetingLinks}
+                groupId={sel.groupId}
+                subjectName={sel.subjectName}
+                topicKey={sel.topicKey}
+                topicTitle={sel.topicTitle}
+                trainingType={trainingType}
+                topicDeadline={topicDeadline}
+                onRefetch={refetch}
+              />
+            </div>
+          </div>
         ) : activeTab === "exam" ? (
           examDisabled ? (
             <p className="text-xs px-3 py-2 rounded-[6px]"
