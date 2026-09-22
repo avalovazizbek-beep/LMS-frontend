@@ -1,13 +1,38 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { GraduationCap, KeyRound } from "lucide-react"
 import { hemisApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function LoginPage() {
+  const router = useRouter()
   const [oauthLoading, setOauthLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Faqat Zoom Marketplace ko'rib chiqish (va shunga o'xshash tashqi test)
+  // uchun — HEMIS'ga bog'liq bo'lmagan, oldindan yaratilgan demo login/parol
+  // hisoblari (backend/scripts/seed-demo.ts). Har qanday boshqa login/parol
+  // bilan urinish shunchaki oddiy HEMIS login sifatida rad etiladi.
+  const [showDemoForm, setShowDemoForm] = useState(false)
+  const [demoLogin, setDemoLogin] = useState("")
+  const [demoPassword, setDemoPassword] = useState("")
+  const [demoLoading, setDemoLoading] = useState(false)
+
+  const handleDemoLogin = async () => {
+    setDemoLoading(true)
+    setError(null)
+    try {
+      const res = await hemisApi.autoLogin(demoLogin.trim(), demoPassword)
+      localStorage.setItem("lms_token", res.token)
+      localStorage.setItem("lms_role", res.role)
+      router.push("/dashboard")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Kirishda xatolik")
+      setDemoLoading(false)
+    }
+  }
 
   // HEMIS talaba (student.sies.uz) va xodim (hemis.sies.uz) uchun
   // ALOHIDA-ALOHIDA tizimlar — bitta OAuth so'rovi ikkalasini ham
@@ -78,6 +103,31 @@ export default function LoginPage() {
               <KeyRound className="h-5 w-5" />
               HEMIS orqali xodim sifatida kirish
             </button>
+
+            {!showDemoForm ? (
+              <button type="button" onClick={() => setShowDemoForm(true)}
+                className="text-center text-xs underline decoration-dotted"
+                style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
+                Demo bilan kirish
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2.5 border-t pt-4" style={{ borderColor: "var(--lms-border)" }}>
+                <input type="text" value={demoLogin} onChange={(e) => setDemoLogin(e.target.value)}
+                  placeholder="Login" autoComplete="username"
+                  className="rounded-[5px] px-3 py-2.5 text-sm outline-none"
+                  style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)", color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }} />
+                <input type="password" value={demoPassword} onChange={(e) => setDemoPassword(e.target.value)}
+                  placeholder="Parol" autoComplete="current-password"
+                  onKeyDown={(e) => { if (e.key === "Enter" && demoLogin && demoPassword && !demoLoading) handleDemoLogin() }}
+                  className="rounded-[5px] px-3 py-2.5 text-sm outline-none"
+                  style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)", color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }} />
+                <button type="button" onClick={handleDemoLogin} disabled={demoLoading || !demoLogin || !demoPassword}
+                  className="rounded-[5px] py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
+                  {demoLoading ? "Kirilmoqda..." : "Kirish"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
