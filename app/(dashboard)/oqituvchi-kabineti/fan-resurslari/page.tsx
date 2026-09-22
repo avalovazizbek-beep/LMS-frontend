@@ -5,7 +5,7 @@ import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
   BookMarked, CalendarDays, VideoIcon, Save, BarChart3,
-  Check, X, RefreshCw, Users, ChevronLeft, ChevronDown, Pencil, Plus, Clock,
+  Check, X, RefreshCw, Users, ChevronLeft, ChevronDown, Pencil, Plus, Clock, Link2,
 } from "lucide-react"
 import {
   teachingApi, meetingsApi,
@@ -653,6 +653,7 @@ const RESOURCE_TABS = [
   { kind: "exam", contentType: "exam" as const, icon: HelpCircle, labelKey: "fanResurslariOq.test.title", descKey: "fanResurslariOq.test.description", accept: "" },
   { kind: "assignment", contentType: "assignment" as const, icon: ClipboardList, labelKey: "fanResurslariOq.assignment.title", descKey: "fanResurslariOq.assignment.description", accept: ".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar" },
   { kind: "meeting", contentType: "mavzu" as const, icon: VideoIcon, labelKey: "fanResurslariOq.meeting.title", descKey: "fanResurslariOq.meeting.description", accept: "" },
+  { kind: "uchrashuv", contentType: "mavzu" as const, icon: Link2, labelKey: "fanResurslariOq.meetingLinks.title", descKey: "fanResurslariOq.meetingLinks.description", accept: "" },
 ] as const
 type TabKind = typeof RESOURCE_TABS[number]["kind"]
 
@@ -718,6 +719,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
   const test       = items.find(i => i.type === "exam")
   const assignment = items.find(i => i.type === "assignment")
   const meeting    = items.find(i => i.type === "mavzu" && i.kind === "meeting")
+  const meetingLinks = items.filter(i => i.type === "mavzu" && i.kind === "uchrashuv")
   const topicMarker = items.find(i => i.type === "mavzu" && i.kind === "topic")
   const topicDeadline = topicMarker?.deadline ?? null
   const deadlinePassed = topicDeadline !== null && new Date(topicDeadline).getTime() < Date.now()
@@ -741,6 +743,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
 
   const itemByTab: Record<TabKind, TeacherContent | undefined> = {
     video_lesson: video, audio, theory, qollanma, exam: test, assignment, meeting,
+    uchrashuv: meetingLinks[0],
   }
   const activeMeta = RESOURCE_TABS.find(tb => tb.kind === activeTab)!
   const activeItem = itemByTab[activeTab]
@@ -977,6 +980,17 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
             topicTitle={sel.topicTitle}
             onRefetch={refetch}
           />
+        ) : activeTab === "uchrashuv" ? (
+          <MeetingLinksSection
+            items={meetingLinks}
+            groupId={sel.groupId}
+            subjectName={sel.subjectName}
+            topicKey={sel.topicKey}
+            topicTitle={sel.topicTitle}
+            trainingType={trainingType}
+            topicDeadline={topicDeadline}
+            onRefetch={refetch}
+          />
         ) : activeTab === "exam" ? (
           examDisabled ? (
             <p className="text-xs px-3 py-2 rounded-[6px]"
@@ -1130,6 +1144,112 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
 
       {/* Yozuvlar */}
       <TeacherRecordingsSection subjectName={sel.subjectName} topicTitle={sel.topicTitle} />
+    </div>
+  )
+}
+
+/* ── Uchrashuvlar — Zoom/Google Meet va h.k. tashqi havolalar ─────────
+   "Meeting (Online dars)" tabidan farqli — u LMS'ning o'z ichki meeting
+   tizimini boshqaradi, bu esa shunchaki tashqi ilova havolalarini
+   (bitta yoki bir nechtasini) saqlab, talabalarga ko'rsatadi. ── */
+function MeetingLinksSection({
+  items, groupId, subjectName, topicKey, topicTitle, trainingType, topicDeadline, onRefetch,
+}: {
+  items: TeacherContent[]
+  groupId: number
+  subjectName: string
+  topicKey: string
+  topicTitle: string
+  trainingType: string
+  topicDeadline: string | null
+  onRefetch: () => void | Promise<unknown>
+}) {
+  const { t } = useLanguage()
+  const [label, setLabel] = useState("")
+  const [url, setUrl] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function addLink() {
+    if (!url.trim()) return
+    setSaving(true)
+    setErr(null)
+    try {
+      await teachingApi.createContent({
+        type: "mavzu",
+        groupId,
+        subjectName,
+        topicKey,
+        title: label.trim() || `${topicTitle} — ${t("fanResurslariOq.meetingLinks.defaultTitle", { n: items.length + 1 })}`,
+        kind: "uchrashuv",
+        trainingType: trainingType || undefined,
+        availableFrom: new Date().toISOString(),
+        deadline: topicDeadline,
+        docFile: null,
+        meetingLink: url.trim(),
+      })
+      setLabel("")
+      setUrl("")
+      await onRefetch()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t("fanResurslariOq.errors.uploadError"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function removeLink(id: number) {
+    await teachingApi.removeContent(id)
+    await onRefetch()
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {items.length === 0 ? (
+        <p className="text-xs" style={labelStyle}>{t("fanResurslariOq.meetingLinks.empty")}</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {items.map((item) => (
+            <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 rounded-[8px]"
+              style={{ backgroundColor: "#f8fbff", border: "1px solid rgba(1,41,112,0.07)" }}>
+              <Link2 className="w-4 h-4 shrink-0" style={{ color: "#0e58a8" }} />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate" style={titleStyle}>{item.title}</div>
+                {item.meetingLink && <div className="text-xs truncate" style={labelStyle}>{item.meetingLink}</div>}
+              </div>
+              {item.meetingLink && (
+                <a href={item.meetingLink} target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold shrink-0 text-white"
+                  style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  <ExternalLink className="w-3.5 h-3.5" /> {t("fanResurslariOq.recordings.view")}
+                </a>
+              )}
+              <button onClick={() => removeLink(item.id)} className="shrink-0 text-xs"
+                style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                {t("fanResurslariOq.meetingLinks.remove")}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 p-3 rounded-[10px]" style={{ border: "1px dashed rgba(1,41,112,0.2)" }}>
+        <input value={label} onChange={(e) => setLabel(e.target.value)}
+          placeholder={t("fanResurslariOq.meetingLinks.labelPlaceholder")}
+          className="px-3 py-2 rounded-[8px] text-sm outline-none"
+          style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+        <input value={url} onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://zoom.us/... yoki https://meet.google.com/..."
+          className="px-3 py-2 rounded-[8px] text-sm outline-none"
+          style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+        <button onClick={addLink} disabled={saving || !url.trim()}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium w-fit disabled:opacity-60"
+          style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          {t("fanResurslariOq.meetingLinks.add")}
+        </button>
+        {err && <span className="text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{err}</span>}
+      </div>
     </div>
   )
 }
