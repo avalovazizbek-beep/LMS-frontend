@@ -166,6 +166,51 @@ function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: stri
   )
 }
 
+/* Bir mavzu o'qituvchining har guruhida alohida yozuv (topicKey) — admin
+   uchun fan + tur + nom bo'yicha bitta qatorga birlashtiriladi (aks holda 4
+   guruhli mavzu "4 ta bir xil mavzu" bo'lib ko'rinardi). */
+interface MergedTopic {
+  id: string
+  title: string
+  subjectName: string | null
+  trainingType: string | null
+  instances: AdminTeacherTopic[]
+  has: Record<"video" | "audio" | "theory" | "qollanma" | "youtube" | "test" | "assignment", boolean>
+}
+
+const TRAINING_TYPE_KEYS: Record<string, string> = {
+  "Ma'ruza": "fanResurslariOq.trainingType.lecture",
+  "Amaliyot": "fanResurslariOq.trainingType.practice",
+  "Mustaqil ish": "fanResurslariOq.trainingType.independentStudy",
+}
+
+function mergeAdminTopics(topics: AdminTeacherTopic[]): MergedTopic[] {
+  const map = new Map<string, MergedTopic>()
+  for (const tp of topics) {
+    const id = `${tp.subjectName ?? ""}|${tp.trainingType ?? ""}|${tp.title.trim().toLowerCase()}`
+    let m = map.get(id)
+    if (!m) {
+      m = {
+        id, title: tp.title, subjectName: tp.subjectName, trainingType: tp.trainingType, instances: [],
+        has: { video: false, audio: false, theory: false, qollanma: false, youtube: false, test: false, assignment: false },
+      }
+      map.set(id, m)
+    }
+    m.instances.push(tp)
+    m.has.video ||= tp.hasVideo
+    m.has.audio ||= tp.hasAudio
+    m.has.theory ||= tp.hasTheory
+    m.has.qollanma ||= tp.hasQollanma
+    m.has.youtube ||= tp.hasYoutube
+    m.has.test ||= tp.hasTest
+    m.has.assignment ||= tp.hasAssignment
+  }
+  for (const m of map.values()) {
+    m.instances.sort((a, b) => (a.groupName ?? "").localeCompare(b.groupName ?? "", undefined, { numeric: true }))
+  }
+  return Array.from(map.values())
+}
+
 function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
   teacherHemisId: string
   state: RowState
@@ -176,7 +221,7 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null)
 
   const filtered = useMemo(() =>
-    topics.filter(tp => !topicSearch.trim() || tp.title.toLowerCase().includes(topicSearch.toLowerCase())),
+    mergeAdminTopics(topics).filter(tp => !topicSearch.trim() || tp.title.toLowerCase().includes(topicSearch.toLowerCase())),
     [topics, topicSearch]
   )
 
@@ -217,12 +262,13 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
           </thead>
           <tbody>
             {filtered.map((tp, i) => {
-              const isOpen = expandedTopic === tp.topicKey
+              const isOpen = expandedTopic === tp.id
+              const typeKey = tp.trainingType ? TRAINING_TYPE_KEYS[tp.trainingType] : undefined
               return (
-                <React.Fragment key={tp.topicKey}>
+                <React.Fragment key={tp.id}>
                   <tr className="hover:bg-white/70 transition-colors cursor-pointer"
                     style={{ borderBottom: isOpen ? "none" : "1px solid rgba(1,41,112,0.04)" }}
-                    onClick={() => setExpandedTopic(isOpen ? null : tp.topicKey)}>
+                    onClick={() => setExpandedTopic(isOpen ? null : tp.id)}>
                     <td className="px-4 py-3 text-xs w-10" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -230,27 +276,52 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
                           <BookOpen className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
                         </div>
                         <span className="text-sm font-medium" style={T}>{tp.title}</span>
-                        {isOpen ? <ChevronUp className="w-3.5 h-3.5" style={L} /> : <ChevronDown className="w-3.5 h-3.5" style={L} />}
+                        {tp.trainingType && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+                            style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                            {typeKey ? t(typeKey) : tp.trainingType}
+                          </span>
+                        )}
+                        {isOpen ? <ChevronUp className="w-3.5 h-3.5 shrink-0" style={L} /> : <ChevronDown className="w-3.5 h-3.5 shrink-0" style={L} />}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm" style={L}>{tp.subjectName ?? "—"}</td>
-                    <td className="px-4 py-3 text-sm" style={L}>{tp.groupName ?? (tp.groupId ? `#${tp.groupId}` : "—")}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        <ContentBadge active={tp.hasVideo} icon={Video} label={t("adminOqituvchilar.contentKindVideo")} color="#ea580c" />
-                        <ContentBadge active={tp.hasAudio} icon={Music} label={t("adminOqituvchilar.contentKindAudio")} color="#15803d" />
-                        <ContentBadge active={tp.hasTheory} icon={FileText} label={t("adminOqituvchilar.contentKindTheory")} color="#7c3aed" />
-                        <ContentBadge active={tp.hasQollanma} icon={Layers} label={t("adminOqituvchilar.contentKindQollanma")} color="#0891b2" />
-                        <ContentBadge active={tp.hasYoutube} icon={Clapperboard} label={t("adminOqituvchilar.contentKindYoutube")} color="#dc2626" />
-                        <ContentBadge active={tp.hasTest} icon={CheckCircle2} label={t("adminOqituvchilar.itemTypeTest")} color="#b91c1c" />
-                        <ContentBadge active={tp.hasAssignment} icon={ClipboardList} label={t("adminOqituvchilar.itemTypeAssignment")} color="#d97706" />
+                        {tp.instances.map(inst => (
+                          <span key={inst.topicKey} className="text-[11px] font-medium px-1.5 py-0.5 rounded-[5px]"
+                            style={{ backgroundColor: "#f6f9ff", color: "#445b7a", border: "1px solid rgba(1,41,112,0.1)", fontFamily: "var(--font-poppins)" }}>
+                            {inst.groupName ?? (inst.groupId ? `#${inst.groupId}` : "—")}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        <ContentBadge active={tp.has.video} icon={Video} label={t("adminOqituvchilar.contentKindVideo")} color="#ea580c" />
+                        <ContentBadge active={tp.has.audio} icon={Music} label={t("adminOqituvchilar.contentKindAudio")} color="#15803d" />
+                        <ContentBadge active={tp.has.theory} icon={FileText} label={t("adminOqituvchilar.contentKindTheory")} color="#7c3aed" />
+                        <ContentBadge active={tp.has.qollanma} icon={Layers} label={t("adminOqituvchilar.contentKindQollanma")} color="#0891b2" />
+                        <ContentBadge active={tp.has.youtube} icon={Clapperboard} label={t("adminOqituvchilar.contentKindYoutube")} color="#dc2626" />
+                        <ContentBadge active={tp.has.test} icon={CheckCircle2} label={t("adminOqituvchilar.itemTypeTest")} color="#b91c1c" />
+                        <ContentBadge active={tp.has.assignment} icon={ClipboardList} label={t("adminOqituvchilar.itemTypeAssignment")} color="#d97706" />
                       </div>
                     </td>
                   </tr>
                   {isOpen && (
                     <tr>
                       <td colSpan={5} style={{ backgroundColor: "#f8fbff" }}>
-                        <TopicContentDetail teacherHemisId={teacherHemisId} topicKey={tp.topicKey} />
+                        {/* Har bir guruhdagi nusxaning materiallari alohida */}
+                        {tp.instances.map(inst => (
+                          <div key={inst.topicKey} style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                            {tp.instances.length > 1 && (
+                              <p className="px-5 pt-3 text-xs font-semibold" style={T}>
+                                {inst.groupName ?? (inst.groupId ? `#${inst.groupId}` : "—")}
+                              </p>
+                            )}
+                            <TopicContentDetail teacherHemisId={teacherHemisId} topicKey={inst.topicKey} />
+                          </div>
+                        ))}
                       </td>
                     </tr>
                   )}

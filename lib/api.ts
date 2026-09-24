@@ -2308,6 +2308,8 @@ export interface AdminTeacherStat {
 export interface AdminTeacherTopic {
   topicKey: string
   title: string
+  /** Ma'ruza / Amaliyot / Mustaqil ish (eski mavzularda null) */
+  trainingType: string | null
   subjectName: string | null
   groupId: number | null
   groupName: string | null
