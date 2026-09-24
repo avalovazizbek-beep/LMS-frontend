@@ -8,9 +8,10 @@ import {
   Check, X, Users, ChevronLeft, ChevronDown, Pencil, Plus, Clock, Link2, FolderOpen, ArrowRightLeft,
 } from "lucide-react"
 import {
-  teachingApi, meetingsApi,
+  teachingApi, meetingsApi, zoomApi, googleMeetApi,
   type TeacherContent, type CreateMeetingRequest, type SubjectRecording,
   type TeachingSubmission, type ExamQuestion, type TeacherGroup,
+  type ZoomConnectionStatus, type GoogleMeetConnectionStatus,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -247,6 +248,46 @@ function MeetingSection({
   const [err, setErr] = useState<string | null>(null)
   const [uploadingRec, setUploadingRec] = useState(false)
 
+  // Google Meet / Zoom — Meeting sahifasidagi kabi shu dars bilan birga
+  // yaratiladi (backend: createGoogleMeetMeeting/createZoomMeeting); talabalar
+  // havolani o'z "Meeting" sahifasida ko'radi.
+  const [wantsGoogleMeet, setWantsGoogleMeet] = useState(false)
+  const [wantsZoom, setWantsZoom] = useState(false)
+  const [googleMeetStatus, setGoogleMeetStatus] = useState<GoogleMeetConnectionStatus | null>(null)
+  const [zoomStatus, setZoomStatus] = useState<ZoomConnectionStatus | null>(null)
+  const [providerBusy, setProviderBusy] = useState<"google" | "zoom" | null>(null)
+  useEffect(() => {
+    if (!creating) return
+    setWantsGoogleMeet(false)
+    setWantsZoom(false)
+    googleMeetApi.status().then(r => setGoogleMeetStatus(r.data)).catch(() => setGoogleMeetStatus(null))
+    zoomApi.status().then(r => setZoomStatus(r.data)).catch(() => setZoomStatus(null))
+  }, [creating])
+
+  // Mavzudagi meeting qatori LMS meeting ID'sini saqlaydi (eski yozuvlarda
+  // "#" yoki havola bo'lishi mumkin — ularda Meet/Zoom holati ko'rsatilmaydi).
+  const lmsMeetingId = meetingItem?.meetingLink && /^\d+$/.test(meetingItem.meetingLink) ? meetingItem.meetingLink : null
+  const { data: meetingInfoRes, refetch: refetchMeetingInfo } = useApi(
+    () => lmsMeetingId ? meetingsApi.getOne(lmsMeetingId) : Promise.resolve(null),
+    [lmsMeetingId]
+  )
+  const meetingInfo = meetingInfoRes?.data ?? null
+
+  async function addProvider(kind: "google" | "zoom") {
+    if (!lmsMeetingId) return
+    setProviderBusy(kind)
+    setErr(null)
+    try {
+      const res = kind === "google" ? await meetingsApi.retryGoogleMeet(lmsMeetingId) : await meetingsApi.retryZoom(lmsMeetingId)
+      if (!res.success) setErr(res.message)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t("fanResurslariOq.meeting.createError"))
+    } finally {
+      await refetchMeetingInfo()
+      setProviderBusy(null)
+    }
+  }
+
   // Parallel dars — bir nechta guruhga birdan (masalan potok/oqim darsi) o'tkazish uchun
   // joriy guruhdan tashqari o'qituvchining boshqa guruhlarini ham tanlash mumkin
   const { data: allGroupsRes } = useApi(() => teachingApi.groups(), [])
@@ -261,21 +302,25 @@ function MeetingSection({
   }
 
   async function handleCreate() {
-    setLoading(true)
     setErr(null)
+    if (wantsGoogleMeet && googleMeetStatus?.status !== "active") { setErr(t("fanResurslariOq.meeting.googleNotConnected")); return }
+    if (wantsZoom && zoomStatus?.status !== "active") { setErr(t("fanResurslariOq.meeting.zoomNotConnected")); return }
+    setLoading(true)
     try {
-      const startTime = `${form.date}T${form.startTime}:00`
-      const endTime = `${form.date}T${form.endTime}:00`
+      // Meeting sahifasidagi kabi brauzer vaqtidan ISO (UTC) — server vaqt
+      // mintaqasiga bog'liq bo'lmasin
+      const startTime = new Date(`${form.date}T${form.startTime}:00`).toISOString()
+      const endTime = new Date(`${form.date}T${form.endTime}:00`).toISOString()
       const meetReq: CreateMeetingRequest = {
         title: form.title || topicTitle,
         subjectName,
         startTime,
         endTime,
         groupIds: [groupId, ...extraGroupIds],
+        createGoogleMeetMeeting: wantsGoogleMeet,
+        createZoomMeeting: wantsZoom,
       }
       const meetRes = await meetingsApi.create(meetReq)
-      const meetId = meetRes.data.id
-      const meetLink = meetRes.data.link || ""
 
       const input = {
         type: "mavzu" as const,
@@ -285,7 +330,9 @@ function MeetingSection({
         trainingType: trainingType || undefined,
         availableFrom: startTime,
         deadline: topicDeadline,
-        meetingLink: meetLink || meetId,
+        // LMS meeting ID — yozuv yuklash va Meet/Zoom holati shu orqali olinadi
+        // (avval `link || id` yozilardi; javobda link yo'q bo'lgani uchun "#" tushardi)
+        meetingLink: meetRes.data.id,
       }
       await teachingApi.createContent({ ...input, groupId, topicKey })
       // Yuqorida tanlangan guruhlarda mavzu ichida ham ko'rinsin
@@ -358,8 +405,8 @@ function MeetingSection({
               <span className="text-sm truncate min-w-0" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 {meetingItem.title}
               </span>
-              {meetingItem.meetingLink && (
-                <a href={meetingItem.meetingLink.startsWith("http") ? meetingItem.meetingLink : `#`}
+              {meetingItem.meetingLink?.startsWith("http") && (
+                <a href={meetingItem.meetingLink}
                   target="_blank" rel="noreferrer" className="p-1 rounded hover:bg-white transition-colors shrink-0">
                   <ExternalLink className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
                 </a>
@@ -370,6 +417,57 @@ function MeetingSection({
               <Trash2 className="w-4 h-4" style={{ color: "#dc2626" }} />
             </button>
           </div>
+
+          {/* Google Meet / Zoom — havolalar yoki keyin qo'shish */}
+          {meetingInfo && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                {meetingInfo.googleMeet?.status === "created" && meetingInfo.googleMeet.meetingUri ? (
+                  <a href={meetingInfo.googleMeet.meetingUri} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold"
+                    style={{ backgroundColor: "#e8f0fe", color: "#1a73e8", fontFamily: "var(--font-poppins)" }}>
+                    <VideoIcon className="w-3.5 h-3.5" /> {t("fanResurslariOq.meeting.joinGoogleMeet")}
+                  </a>
+                ) : (
+                  <button onClick={() => addProvider("google")} disabled={providerBusy !== null}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium disabled:opacity-60"
+                    style={{ border: "1px dashed rgba(26,115,232,0.45)", color: "#1a73e8", fontFamily: "var(--font-poppins)" }}>
+                    {providerBusy === "google" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    {meetingInfo.googleMeet?.status === "failed" ? t("fanResurslariOq.meeting.retryGoogleMeet") : t("fanResurslariOq.meeting.addGoogleMeet")}
+                  </button>
+                )}
+                {meetingInfo.zoom?.status === "created" && meetingInfo.zoom.joinUrl ? (
+                  <>
+                    <a href={meetingInfo.zoom.joinUrl} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold"
+                      style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                      <VideoIcon className="w-3.5 h-3.5" /> {t("fanResurslariOq.meeting.joinZoom")}
+                    </a>
+                    {meetingInfo.zoom.startUrl && (
+                      <a href={meetingInfo.zoom.startUrl} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold text-white"
+                        style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                        <VideoIcon className="w-3.5 h-3.5" /> {t("fanResurslariOq.meeting.startZoom")}
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <button onClick={() => addProvider("zoom")} disabled={providerBusy !== null}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium disabled:opacity-60"
+                    style={{ border: "1px dashed rgba(14,88,168,0.4)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    {providerBusy === "zoom" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    {meetingInfo.zoom?.status === "failed" ? t("fanResurslariOq.meeting.retryZoom") : t("fanResurslariOq.meeting.addZoom")}
+                  </button>
+                )}
+              </div>
+              {meetingInfo.googleMeet?.status === "failed" && meetingInfo.googleMeet.errorMessage && (
+                <p className="text-[11px]" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>Google Meet: {meetingInfo.googleMeet.errorMessage}</p>
+              )}
+              {meetingInfo.zoom?.status === "failed" && meetingInfo.zoom.errorMessage && (
+                <p className="text-[11px]" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>Zoom: {meetingInfo.zoom.errorMessage}</p>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col gap-1">
             <p className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.meeting.recording")}</p>
@@ -448,6 +546,28 @@ function MeetingSection({
               </div>
             </div>
           )}
+          <div className="flex flex-col gap-2">
+            {([
+              { key: "google", checked: wantsGoogleMeet, set: setWantsGoogleMeet, label: t("fanResurslariOq.meeting.alsoGoogleMeet"),
+                notConnected: wantsGoogleMeet && googleMeetStatus?.status !== "active", warn: t("fanResurslariOq.meeting.googleNotConnected"),
+                color: "#1a73e8", border: "#d2e3fc", bg: "#f8fafe" },
+              { key: "zoom", checked: wantsZoom, set: setWantsZoom, label: t("fanResurslariOq.meeting.alsoZoom"),
+                notConnected: wantsZoom && zoomStatus?.status !== "active", warn: t("fanResurslariOq.meeting.zoomNotConnected"),
+                color: "#0e58a8", border: "#d8e6f7", bg: "white" },
+            ] as const).map(opt => (
+              <div key={opt.key} className="flex flex-col gap-1 px-3 py-2.5 rounded-[8px]"
+                style={{ border: `1px solid ${opt.border}`, backgroundColor: opt.bg }}>
+                <label className="flex items-center gap-2.5 text-sm cursor-pointer" style={{ fontFamily: "var(--font-poppins)" }}>
+                  <input type="checkbox" checked={opt.checked} onChange={e => opt.set(e.target.checked)}
+                    className="w-4 h-4 rounded" style={{ accentColor: opt.color }} />
+                  <span className="font-medium" style={{ color: "#012970" }}>{opt.label}</span>
+                </label>
+                {opt.notConnected && (
+                  <p className="text-[11px] pl-6" style={{ color: "#dc2626", fontFamily: "var(--font-poppins)" }}>{opt.warn}</p>
+                )}
+              </div>
+            ))}
+          </div>
           <div className="flex items-center gap-2">
             <button onClick={handleCreate} disabled={loading}
               className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-sm font-medium text-white disabled:opacity-60"
@@ -1525,13 +1645,95 @@ function TeacherRecordingsSection({ subjectName, topicTitle }: { subjectName: st
 }
 
 /* ── Mavzular gridi (kataklar) ──────────────────────────────────────── */
-interface TopicInfo {
+/* Bitta guruhdagi mavzu (topicKey) */
+interface TopicInstance {
+  groupId: number
   key: string
   title: string
   markerId: number | null
   deadline: string | null
   isReopened: boolean
   trainingType: string | null
+  ownerId: number
+  /** Mavzuning resurslari (marker qatorisiz) */
+  items: TeacherContent[]
+  firstId: number
+}
+
+/* Grid katagi — tanlangan guruhlardagi bir xil nom + turdagi mavzular birlashmasi.
+   Asosiy nusxa (base) — birinchi tanlangan guruhdagisi, u yo'q bo'lsa keyingisi;
+   ochish/ko'rsatish shu orqali, tahrirlash/o'chirish esa hamma nusxada. */
+interface TopicInfo {
+  id: string
+  key: string
+  title: string
+  markerId: number | null
+  deadline: string | null
+  isReopened: boolean
+  trainingType: string | null
+  ownerId: number
+  base: TopicInstance
+  instances: TopicInstance[]
+}
+
+type GroupState = "ok" | "partial" | "missing"
+
+const slotOf = (i: TeacherContent) =>
+  i.type === "exam" || i.type === "assignment" ? i.type : `${i.type}:${i.kind ?? ""}:${i.kind === "uchrashuv" ? i.meetingLink ?? "" : ""}`
+
+function buildTopicInstances(items: TeacherContent[]): TopicInstance[] {
+  const map = new Map<string, TopicInstance>()
+  items.forEach(item => {
+    if (!item.topicKey) return
+    const isMarker = item.type === "mavzu" && item.kind === "topic"
+    let inst = map.get(item.topicKey)
+    if (!inst) {
+      inst = {
+        groupId: item.groupId, key: item.topicKey, title: item.title, markerId: null, deadline: item.deadline,
+        isReopened: false, trainingType: item.trainingType ?? null, ownerId: item.teacherUserId, items: [], firstId: item.id,
+      }
+      map.set(item.topicKey, inst)
+    }
+    inst.firstId = Math.min(inst.firstId, item.id)
+    if (isMarker) {
+      // Mavzu turi/nomi/muddati marker'dan (backend'dagi topicTrainingType bilan bir xil)
+      Object.assign(inst, { markerId: item.id, title: item.title, deadline: item.deadline, isReopened: item.isReopened, trainingType: item.trainingType ?? null })
+    } else {
+      inst.items.push(item)
+      if (inst.markerId === null && !inst.trainingType && item.trainingType) inst.trainingType = item.trainingType
+    }
+  })
+  return Array.from(map.values())
+}
+
+function mergeTopics(instances: TopicInstance[], groupOrder: number[]): TopicInfo[] {
+  const map = new Map<string, TopicInstance[]>()
+  for (const inst of instances) {
+    const id = `${inst.ownerId}|${inst.trainingType ?? ""}|${inst.title.trim().toLowerCase()}`
+    if (!map.has(id)) map.set(id, [])
+    map.get(id)!.push(inst)
+  }
+  return Array.from(map.entries())
+    .map(([id, list]) => {
+      list.sort((a, b) => groupOrder.indexOf(a.groupId) - groupOrder.indexOf(b.groupId))
+      const base = list[0]
+      return {
+        id, key: base.key, title: base.title, markerId: base.markerId, deadline: base.deadline,
+        isReopened: base.isReopened, trainingType: base.trainingType, ownerId: base.ownerId, base, instances: list,
+      }
+    })
+    .sort((a, b) => Math.min(...a.instances.map(i => i.firstId)) - Math.min(...b.instances.map(i => i.firstId)))
+}
+
+/* Har bir tanlangan guruhda mavzu bormi va barcha resurslari to'liqmi */
+function topicGroupStates(tp: TopicInfo, groupIds: number[]): { groupId: number; state: GroupState }[] {
+  const allSlots = new Set(tp.instances.flatMap(i => i.items.map(slotOf)))
+  return groupIds.map(groupId => {
+    const inst = tp.instances.find(i => i.groupId === groupId)
+    if (!inst) return { groupId, state: "missing" as const }
+    const have = new Set(inst.items.map(slotOf))
+    return { groupId, state: [...allSlots].every(s => have.has(s)) ? "ok" as const : "partial" as const }
+  })
 }
 
 const inputStyle = { border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" } as const
@@ -1602,15 +1804,27 @@ function TopicForm({
 }
 
 /* Bitta mavzu katagi — bosilganda mavzu resurslari ochiladi */
-function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer }: {
+const GROUP_STATE_STYLE: Record<GroupState, { bg: string; color: string; border: string; titleKey: string }> = {
+  ok:      { bg: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.25)", titleKey: "fanResurslariOq.grid.inGroup" },
+  partial: { bg: "#fffbeb", color: "#b45309", border: "1px solid rgba(180,83,9,0.3)",   titleKey: "fanResurslariOq.grid.partialInGroup" },
+  missing: { bg: "white",   color: "#b91c1c", border: "1px dashed rgba(185,28,28,0.45)", titleKey: "fanResurslariOq.grid.missingInGroup" },
+}
+
+function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, groups, onSync, syncing, ownerName }: {
   index: number
   topic: TopicInfo
   /** Mavzuning resurslari (marker qatorisiz) */
   items: TeacherContent[]
-  onOpen: () => void
-  onEdit: () => void
-  onDelete: () => void
+  onOpen?: () => void
+  onEdit?: () => void
+  onDelete?: () => void
   footer?: React.ReactNode
+  /** Bir nechta guruh tanlanganda — har birida mavzu bor/to'liq/yo'q */
+  groups?: { name: string; state: GroupState }[]
+  onSync?: () => void
+  syncing?: boolean
+  /** Boshqa o'qituvchining mavzusi — faqat ko'rish uchun */
+  ownerName?: string
 }) {
   const { t } = useLanguage()
   const count = items.length
@@ -1618,12 +1832,14 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer }: {
   const icons = MATERIAL_ICONS.filter(m => items.some(m.match))
   const deadlineColor = topic.isReopened ? "#15803d" : passed ? "#c2410c" : "#445b7a"
   const deadlineBg = topic.isReopened ? "#f0fdf4" : passed ? "#fff7ed" : "#f6f9ff"
+  const readOnly = !onOpen
+  const needsSync = !!groups?.some(g => g.state !== "ok")
 
   return (
-    <div role="button" tabIndex={0} onClick={onOpen}
-      onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen() } }}
-      className="group flex flex-col gap-3 p-4 rounded-[12px] bg-white text-left cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md outline-none focus-visible:ring-2 focus-visible:ring-[#0e58a8]"
-      style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)", minHeight: CARD_MIN_HEIGHT }}>
+    <div role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0} onClick={onOpen}
+      onKeyDown={e => { if (onOpen && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen() } }}
+      className={`group flex flex-col gap-3 p-4 rounded-[12px] bg-white text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#0e58a8] ${readOnly ? "" : "cursor-pointer hover:-translate-y-0.5 hover:shadow-md"}`}
+      style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)", minHeight: CARD_MIN_HEIGHT, opacity: readOnly ? 0.9 : 1 }}>
       <div className="flex items-start justify-between gap-2">
         <span className="w-9 h-9 rounded-[10px] flex items-center justify-center text-sm font-bold shrink-0"
           style={{
@@ -1633,21 +1849,45 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer }: {
           }}>
           {index}
         </span>
-        <div className="flex items-center gap-0.5 shrink-0">
-          <button onClick={e => { e.stopPropagation(); onEdit() }} title={t("mavzularOq.edit")}
-            className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-[#f0f5ff]">
-            <Pencil className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
-          </button>
-          <button onClick={e => { e.stopPropagation(); onDelete() }} title={t("mavzularOq.delete")}
-            className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-red-50">
-            <Trash2 className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button onClick={e => { e.stopPropagation(); onEdit?.() }} title={t("mavzularOq.edit")}
+              className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-[#f0f5ff]">
+              <Pencil className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
+            </button>
+            <button onClick={e => { e.stopPropagation(); onDelete?.() }} title={t("mavzularOq.delete")}
+              className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-red-50">
+              <Trash2 className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
+            </button>
+          </div>
+        )}
       </div>
 
-      <p className="flex-1 text-sm font-semibold leading-snug line-clamp-3 break-words" style={titleStyle} title={topic.title}>
-        {topic.title}
-      </p>
+      <div className="flex-1 flex flex-col gap-1">
+        <p className="text-sm font-semibold leading-snug line-clamp-3 break-words" style={titleStyle} title={topic.title}>
+          {topic.title}
+        </p>
+        {ownerName && (
+          <p className="text-[11px] flex items-center gap-1" style={labelStyle}>
+            <Users className="w-3 h-3 shrink-0" /> {ownerName}
+          </p>
+        )}
+      </div>
+
+      {groups && groups.length > 1 && (
+        <div className="flex flex-wrap gap-1">
+          {groups.map(g => {
+            const st = GROUP_STATE_STYLE[g.state]
+            return (
+              <span key={g.name} title={t(st.titleKey)}
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-[5px]"
+                style={{ backgroundColor: st.bg, color: st.color, border: st.border, fontFamily: "var(--font-poppins)" }}>
+                {g.name}
+              </span>
+            )
+          })}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs" style={{ color: count > 0 ? "#15803d" : "#b0c2d8", fontFamily: "var(--font-poppins)" }}>
@@ -1670,6 +1910,15 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer }: {
         </span>
         {topic.isReopened && <span className="ml-auto shrink-0 font-semibold">{t("fanResurslariOq.reopen.badge")}</span>}
       </div>
+
+      {needsSync && onSync && (
+        <button onClick={e => { e.stopPropagation(); onSync() }} disabled={syncing}
+          className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-[8px] text-xs font-semibold transition-opacity disabled:opacity-60"
+          style={{ backgroundColor: "#fffbeb", color: "#b45309", border: "1px solid rgba(180,83,9,0.3)", fontFamily: "var(--font-poppins)" }}>
+          {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
+          {t("fanResurslariOq.grid.syncAll")}
+        </button>
+      )}
 
       {footer}
     </div>
@@ -1711,7 +1960,6 @@ export default function FanResurslariPage() {
   }, [academicYear, groups, yearGroups])
 
   const activeGroupId = groupIds[0] ?? null
-  const extraGroupIds = groupIds.slice(1)
 
   const { data: subjectsRes } = useApi(
     () => activeGroupId ? teachingApi.mySubjects(activeGroupId as number) : Promise.resolve(null),
@@ -1729,58 +1977,42 @@ export default function FanResurslariPage() {
     return [...new Set([...fromContent, ...fromHemis])].sort()
   }, [subjectsRes, academicYear, yearGroups, activeGroupId])
 
+  // Tanlangan HAMMA guruhlardagi shu fan kontenti (boshqa o'qituvchilarniki ham) —
+  // avval faqat asosiy (birinchi) guruhniki olinar edi: boshqa guruhlarda bor,
+  // asosiyda yo'q mavzular o'qituvchiga umuman ko'rinmas, talabalarda esa bor edi.
+  const groupKey = groupIds.join(",")
   const { data: contentRes, loading: lTopics, refetch: refetchTopics } = useApi(
-    () => activeGroupId && subjectName
-      ? teachingApi.content({ group: activeGroupId, subject: subjectName })
-      : Promise.resolve({ success: true, data: [] }),
-    [activeGroupId, subjectName]
+    () => groupIds.length && subjectName
+      ? teachingApi.groupContent(groupIds, subjectName)
+      : Promise.resolve({ success: true, data: [] as TeacherContent[], owners: {} as Record<number, string>, me: 0 }),
+    [groupKey, subjectName]
   )
-  const allItems = contentRes?.data ?? []
+  const allItems = useMemo(() => contentRes?.data ?? [], [contentRes])
+  const owners = contentRes?.owners ?? {}
+  const me = contentRes?.me ?? 0
 
-  // Mavzuning turi marker (kind='topic') qatoridan olinadi; marker bo'lmasa —
-  // turi belgilangan birinchi qismdan (backend'dagi topicTrainingType bilan bir xil).
-  const allTopics = useMemo<TopicInfo[]>(() => {
-    const map = new Map<string, TopicInfo>()
-    allItems.forEach(item => {
-      if (!item.topicKey) return
-      const isMarker = item.type === "mavzu" && item.kind === "topic"
-      const existing = map.get(item.topicKey)
-      if (!existing) {
-        map.set(item.topicKey, {
-          key: item.topicKey, title: item.title,
-          markerId: isMarker ? item.id : null,
-          deadline: item.deadline,
-          isReopened: isMarker ? item.isReopened : false,
-          trainingType: item.trainingType ?? null,
-        })
-      } else if (isMarker) {
-        map.set(item.topicKey, {
-          ...existing, markerId: item.id, title: item.title, deadline: item.deadline,
-          isReopened: item.isReopened, trainingType: item.trainingType ?? null,
-        })
-      } else if (existing.markerId === null && !existing.trainingType && item.trainingType) {
-        map.set(item.topicKey, { ...existing, trainingType: item.trainingType })
-      }
-    })
-    return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
-  }, [allItems])
-
+  const topicInstances = useMemo(() => buildTopicInstances(allItems), [allItems])
+  // O'qituvchining o'z mavzulari — guruhlar bo'yicha birlashtirilgan (nomi + turi)
+  const ownTopics = useMemo(
+    () => mergeTopics(topicInstances.filter(i => i.ownerId === me), groupIds),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [topicInstances, me, groupKey]
+  )
   // Tanlangan turdagi mavzular — ma'ruza/amaliyot/mustaqil ish aralashmaydi.
-  const typedTopics = useMemo(() => allTopics.filter(tp => tp.trainingType === trainingType), [allTopics, trainingType])
-  // Turi belgilanmagan (eski) mavzular — avval o'qituvchida umuman ko'rinmas,
-  // talabada esa "Boshqa materiallar"da va o'zlashtirishda chiqib turardi.
-  // Endi alohida bo'limda: turga o'tkazish yoki o'chirish mumkin.
-  const legacyTopics = useMemo(() => allTopics.filter(tp => !tp.trainingType), [allTopics])
+  const typedTopics = useMemo(() => ownTopics.filter(tp => tp.trainingType === trainingType), [ownTopics, trainingType])
+  // Turi belgilanmagan (eski) mavzular — talabada "Boshqa materiallar"da chiqadi;
+  // alohida bo'limda: turga o'tkazish yoki o'chirish mumkin.
+  const legacyTopics = useMemo(() => ownTopics.filter(tp => !tp.trainingType), [ownTopics])
+  // Boshqa o'qituvchilarning shu guruhlardagi mavzulari — talabalar ko'radi,
+  // o'qituvchiga faqat ko'rish uchun (tahrirlashni faqat muallif qila oladi).
+  const otherTopics = useMemo(
+    () => mergeTopics(topicInstances.filter(i => i.ownerId !== me), groupIds)
+      .filter(tp => !tp.trainingType || tp.trainingType === trainingType),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [topicInstances, me, groupKey, trainingType]
+  )
 
-  const itemsByTopic = useMemo(() => {
-    const map = new Map<string, TeacherContent[]>()
-    allItems.forEach(item => {
-      if (!item.topicKey || item.kind === "topic") return
-      if (!map.has(item.topicKey)) map.set(item.topicKey, [])
-      map.get(item.topicKey)!.push(item)
-    })
-    return map
-  }, [allItems])
+  const groupNameOf = (id: number) => displayGroups.find(g => g.id === id)?.name ?? String(id)
 
   const [addingTopic, setAddingTopic] = useState(false)
   const [newTopicTitle, setNewTopicTitle] = useState("")
@@ -1793,7 +2025,9 @@ export default function FanResurslariPage() {
   const [deleteTopicKey, setDeleteTopicKey] = useState<string | null>(null)
   const [deleteTopicLoading, setDeleteTopicLoading] = useState(false)
   const [assigningKey, setAssigningKey] = useState<string | null>(null)
+  const [syncingKey, setSyncingKey] = useState<string | null>(null)
   const [topicOpError, setTopicOpError] = useState<string | null>(null)
+  const [topicOpInfo, setTopicOpInfo] = useState<string | null>(null)
 
   function resetTopicUi() {
     setTopicKey("")
@@ -1801,6 +2035,7 @@ export default function FanResurslariPage() {
     setEditTopicKey(null)
     setDeleteTopicKey(null)
     setTopicOpError(null)
+    setTopicOpInfo(null)
   }
 
   function scrollToTop() {
@@ -1820,37 +2055,16 @@ export default function FanResurslariPage() {
     setNewTopicDeadline("")
   }
 
+  // Tanlangan HAMMA guruhda yaratiladi; guruhda shu nomli va turdagi mavzu
+  // allaqachon bo'lsa, qayta yaratilmaydi (dublikat bo'lmasin).
   async function handleAddTopic() {
-    if (!newTopicTitle.trim() || !activeGroupId || !subjectName || !trainingType) return
+    if (!newTopicTitle.trim() || !groupIds.length || !subjectName || !trainingType) return
     setTopicOpError(null)
     setAddTopicLoading(true)
     try {
-      const newKey = `${subjectName}__${activeGroupId}__${Date.now()}`
       const deadlineIso = newTopicDeadline ? new Date(newTopicDeadline).toISOString() : null
-      await teachingApi.createContent({
-        type: "mavzu",
-        kind: "topic",
-        groupId: activeGroupId,
-        subjectName,
-        topicKey: newKey,
-        title: newTopicTitle.trim(),
-        trainingType: trainingType || undefined,
-        availableFrom: new Date().toISOString(),
-        deadline: deadlineIso,
-      })
-      // Tanlangan qo'shimcha guruhlarda ham xuddi shu nomdagi va turdagi mavzu yaratiladi
-      for (const gid of extraGroupIds) {
-        await teachingApi.createContent({
-          type: "mavzu",
-          kind: "topic",
-          groupId: gid,
-          subjectName,
-          topicKey: `${subjectName}__${gid}__${Date.now()}`,
-          title: newTopicTitle.trim(),
-          trainingType: trainingType || undefined,
-          availableFrom: new Date().toISOString(),
-          deadline: deadlineIso,
-        })
+      for (const gid of groupIds) {
+        await ensureTopicKeyForGroup(gid, subjectName, newTopicTitle.trim(), deadlineIso, trainingType)
       }
       cancelAddTopic()
       await refetchTopics()
@@ -1870,7 +2084,7 @@ export default function FanResurslariPage() {
   }
 
   // Muddat o'tgan bo'lsa ham o'qituvchi o'zi o'zgartira oladi. Nom va muddat
-  // tanlangan parallel guruhlardagi shu nomli mavzuga ham qo'llanadi.
+  // mavzuning tanlangan guruhlardagi hamma nusxasiga qo'llanadi.
   async function saveEditTopic(tp: TopicInfo) {
     if (!editTopicTitle.trim()) return
     setEditTopicLoading(true)
@@ -1880,11 +2094,7 @@ export default function FanResurslariPage() {
         title: editTopicTitle.trim(),
         deadline: editTopicDeadline ? new Date(editTopicDeadline).toISOString() : null,
       }
-      await teachingApi.updateTopic(tp.key, body)
-      for (const gid of extraGroupIds) {
-        const key = await findTopicKeyInGroup(gid, subjectName, tp.title, tp.trainingType ?? "")
-        if (key) await teachingApi.updateTopic(key, body)
-      }
+      for (const inst of tp.instances) await teachingApi.updateTopic(inst.key, body)
       setEditTopicKey(null)
       await refetchTopics()
     } catch (err) {
@@ -1894,20 +2104,15 @@ export default function FanResurslariPage() {
     }
   }
 
-  // Mavzu serverda barcha qismlari bilan bir yo'la o'chiriladi; tanlangan
-  // parallel guruhlarga nusxalangan shu nomli mavzu ham o'chiriladi —
-  // aks holda o'sha guruh talabalarida (va o'zlashtirishda) qolib ketardi.
+  // Mavzu tanlangan hamma guruhdagi nusxalari bilan (serverda, barcha qismlari
+  // bilan) o'chiriladi — aks holda o'sha guruh talabalarida qolib ketardi.
   async function handleDeleteTopic(tp: TopicInfo) {
     setDeleteTopicLoading(true)
     setTopicOpError(null)
     try {
-      await teachingApi.deleteTopic(tp.key)
-      for (const gid of extraGroupIds) {
-        const key = await findTopicKeyInGroup(gid, subjectName, tp.title, tp.trainingType ?? "")
-        if (key) await teachingApi.deleteTopic(key)
-      }
+      for (const inst of tp.instances) await teachingApi.deleteTopic(inst.key)
       setDeleteTopicKey(null)
-      if (topicKey === tp.key) setTopicKey("")
+      if (tp.instances.some(i => i.key === topicKey)) setTopicKey("")
       await refetchTopics()
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.deleteError"))
@@ -1921,7 +2126,7 @@ export default function FanResurslariPage() {
     setAssigningKey(tp.key)
     setTopicOpError(null)
     try {
-      await teachingApi.updateTopic(tp.key, { trainingType })
+      for (const inst of tp.instances) await teachingApi.updateTopic(inst.key, { trainingType })
       await refetchTopics()
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.editError"))
@@ -1930,9 +2135,33 @@ export default function FanResurslariPage() {
     }
   }
 
-  const selectedTopic = allTopics.find(tp => tp.key === topicKey)
-  const groupName = displayGroups.find(g => g.id === activeGroupId)?.name ?? ""
-  const extraGroupNames = displayGroups.filter(g => extraGroupIds.includes(g.id)).map(g => g.name).join(", ")
+  // Yetishmayotgan guruhlarga mavzu va resurslarni (fayllari, test savollari
+  // bilan) serverda nusxalaydi. Eng to'liq nusxadan boshlab har bir nusxa
+  // qolganlarga moslanadi — qaysi guruhda nima bo'lsa, hammasiga tarqaladi.
+  async function syncTopicToGroups(tp: TopicInfo) {
+    setSyncingKey(tp.key)
+    setTopicOpError(null)
+    setTopicOpInfo(null)
+    try {
+      let topicsCreated = 0
+      let itemsCopied = 0
+      const sources = [...tp.instances].sort((a, b) => b.items.length - a.items.length)
+      for (const source of sources) {
+        const res = await teachingApi.syncTopic(source.key, groupIds.filter(g => g !== source.groupId))
+        topicsCreated += res.data.topicsCreated
+        itemsCopied += res.data.itemsCopied
+      }
+      setTopicOpInfo(t("fanResurslariOq.grid.syncResult", { topics: topicsCreated, items: itemsCopied }))
+      await refetchTopics()
+    } catch (err) {
+      setTopicOpError(err instanceof Error ? err.message : t("fanResurslariOq.errors.saveError"))
+    } finally {
+      setSyncingKey(null)
+    }
+  }
+
+  const selectedTopic = ownTopics.find(tp => tp.instances.some(i => i.key === topicKey))
+  const selectedInstance = selectedTopic?.instances.find(i => i.key === topicKey)
   const trainingTypeOption = TRAINING_TYPE_OPTIONS.find(o => o.value === trainingType)
   const trainingTypeLabel = trainingTypeOption ? t(trainingTypeOption.labelKey) : trainingType
 
@@ -1971,9 +2200,12 @@ export default function FanResurslariPage() {
   if (lGroups) return <Loading />
   if (eGroups) return <div className="p-[30px]"><ApiError message={eGroups} onRetry={() => {}} /></div>
 
-  const selection: Selection | null = activeGroupId && subjectName && trainingType && selectedTopic
-    ? { groupId: activeGroupId, groupName, subjectName, topicKey, topicTitle: selectedTopic.title }
+  // Ochilgan mavzu qaysi guruhdagi nusxa bo'lsa, panel o'sha guruhda ishlaydi;
+  // qolgan tanlangan guruhlar — "parallel" (o'zgarishlar ularga ham tarqaladi).
+  const selection: Selection | null = selectedInstance && subjectName && trainingType
+    ? { groupId: selectedInstance.groupId, groupName: groupNameOf(selectedInstance.groupId), subjectName, topicKey, topicTitle: selectedInstance.title }
     : null
+  const panelExtraGroupIds = selection ? groupIds.filter(g => g !== selection.groupId) : []
 
   function renderTopicCell(tp: TopicInfo, index: number, footer?: React.ReactNode) {
     if (editTopicKey === tp.key) {
@@ -1997,9 +2229,9 @@ export default function FanResurslariPage() {
           <p className="flex-1 text-sm font-medium break-words" style={titleStyle}>
             {t("mavzularOq.deleteConfirm", { title: tp.title })}
           </p>
-          {extraGroupNames && (
+          {tp.instances.length > 1 && (
             <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-              {t("fanResurslariOq.deleteAlsoGroups", { groups: extraGroupNames })}
+              {t("fanResurslariOq.deleteAlsoGroups", { groups: tp.instances.slice(1).map(i => groupNameOf(i.groupId)).join(", ") })}
             </p>
           )}
           <div className="flex items-center gap-2">
@@ -2019,10 +2251,12 @@ export default function FanResurslariPage() {
       )
     }
     return (
-      <TopicCard key={tp.key} index={index} topic={tp} items={itemsByTopic.get(tp.key) ?? []}
+      <TopicCard key={tp.key} index={index} topic={tp} items={tp.base.items}
         onOpen={() => openTopic(tp.key)}
         onEdit={() => startEditTopic(tp)}
         onDelete={() => { setEditTopicKey(null); setDeleteTopicKey(tp.key); setTopicOpError(null) }}
+        groups={topicGroupStates(tp, groupIds).map(g => ({ name: groupNameOf(g.groupId), state: g.state }))}
+        onSync={() => syncTopicToGroups(tp)} syncing={syncingKey === tp.key}
         footer={footer} />
     )
   }
@@ -2121,7 +2355,7 @@ export default function FanResurslariPage() {
             <p className="text-sm mt-1" style={labelStyle}>{t("fanResurslariOq.selectFromFiltersAbove")}</p>
           </div>
         </div>
-      ) : selection && selectedTopic ? (
+      ) : selection && selectedTopic && selectedInstance ? (
         /* ── Tanlangan mavzu resurslari ── */
         <div className="flex-1 px-4 sm:px-8 py-5 sm:py-6">
           <div className="max-w-[1100px] mx-auto flex flex-col gap-4">
@@ -2152,7 +2386,7 @@ export default function FanResurslariPage() {
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {MATERIAL_ICONS.map(({ match, icon: Icon }, i) => {
-                  const has = (itemsByTopic.get(selection.topicKey) ?? []).some(match)
+                  const has = selectedInstance.items.some(match)
                   return (
                     <div key={i} className="w-7 h-7 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: has ? "rgba(34,197,94,0.12)" : "rgba(1,41,112,0.06)", color: has ? "#15803d" : "#b0c2d8" }}>
@@ -2163,7 +2397,7 @@ export default function FanResurslariPage() {
               </div>
             </div>
 
-            <ResourcesPanel key={selection.topicKey} sel={selection} extraGroupIds={extraGroupIds}
+            <ResourcesPanel key={selection.topicKey} sel={selection} extraGroupIds={panelExtraGroupIds}
               trainingType={selectedTopic.trainingType ?? ""} onChanged={refetchTopics} />
           </div>
         </div>
@@ -2178,7 +2412,7 @@ export default function FanResurslariPage() {
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={chipStyle}>{subjectName}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={chipStyle}>{trainingTypeLabel}</span>
                   <span className="text-xs" style={labelStyle}>
-                    {[groupName, extraGroupNames].filter(Boolean).join(", ")} · {t("fanResurslariOq.grid.count", { n: typedTopics.length })}
+                    {groupIds.map(groupNameOf).join(", ")} · {t("fanResurslariOq.grid.count", { n: typedTopics.length })}
                   </span>
                   {lTopics && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#7293b9" }} />}
                 </div>
@@ -2188,6 +2422,11 @@ export default function FanResurslariPage() {
             {topicOpError && (
               <div className="px-4 py-2.5 rounded-[8px] text-sm" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                 {topicOpError}
+              </div>
+            )}
+            {topicOpInfo && (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                <CheckCircle2 className="w-4 h-4 shrink-0" /> {topicOpInfo}
               </div>
             )}
 
@@ -2225,6 +2464,28 @@ export default function FanResurslariPage() {
                       {t("fanResurslariOq.legacy.assign", { type: trainingTypeLabel })}
                     </button>
                   )))}
+                </div>
+              </section>
+            )}
+
+            {otherTopics.length > 0 && (
+              <section className="flex flex-col gap-3 pt-2">
+                <div className="flex items-start gap-3 px-4 py-3 rounded-[10px]"
+                  style={{ backgroundColor: "#f8fafc", border: "1px dashed rgba(1,41,112,0.2)" }}>
+                  <Users className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#64748b" }} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold" style={titleStyle}>
+                      {t("fanResurslariOq.others.title")} ({otherTopics.length})
+                    </p>
+                    <p className="text-xs mt-0.5" style={labelStyle}>{t("fanResurslariOq.others.hint")}</p>
+                  </div>
+                </div>
+                <div className="grid gap-4" style={gridStyle}>
+                  {otherTopics.map((tp, idx) => (
+                    <TopicCard key={tp.id} index={idx + 1} topic={tp} items={tp.base.items}
+                      ownerName={owners[tp.ownerId] ?? t("fanResurslariOq.others.unknown")}
+                      groups={topicGroupStates(tp, groupIds).map(g => ({ name: groupNameOf(g.groupId), state: g.state }))} />
+                  ))}
                 </div>
               </section>
             )}

@@ -1507,6 +1507,17 @@ export const teachingApi = {
     patch<ListRes<TeacherContent>>(`/api/teaching/topics/${encodeURIComponent(topicKey)}`, body),
   /** O'qituvchi: mavzuni barcha qismlari bilan o'chirish (serverda bir yo'la) */
   deleteTopic: (topicKey: string) => del<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}`),
+  /** O'qituvchi: tanlangan guruhlardagi shu fanning barcha kontenti (boshqa
+      o'qituvchilarniki ham — `owners` ularning ismi, `me` o'zining ID'si) */
+  groupContent: (groupIds: number[], subject: string) =>
+    get<{ success: boolean; data: TeacherContent[]; owners: Record<number, string>; me: number }>(
+      `/api/teaching/group-content?groups=${groupIds.join(",")}&subject=${encodeURIComponent(subject)}`
+    ),
+  /** O'qituvchi: mavzuni (fayllari, test savollari bilan) boshqa guruhlarga moslash */
+  syncTopic: (topicKey: string, groupIds: number[]) =>
+    post<{ success: boolean; data: { topicsCreated: number; itemsCopied: number } }>(
+      `/api/teaching/topics/${encodeURIComponent(topicKey)}/sync`, { groupIds }
+    ),
 
   createContent: (input: {
     type: TeachingContentType
