@@ -101,11 +101,16 @@ const TRAINING_TYPE_PICKS = [
 ] as const
 
 /* ── Mashg'ulot turini tanlash ekrani (fan tanlangandan keyin) ────────── */
+/* Fan ichidagi "Video yozuvlar" ko'rinishi — mavzu nomiga bog'lanmagan, shu
+   fanning (talaba guruhi qatnashgan) barcha online dars yozuvlari */
+const RECORDINGS_VIEW = "__recordings__"
+
 function TrainingTypePicker({
-  subjectName, buckets, onSelect, onBack,
+  subjectName, buckets, recordingCount, onSelect, onBack,
 }: {
   subjectName: string
   buckets: { trainingType: string | null; topicCount: number }[]
+  recordingCount: number
   onSelect: (value: string) => void
   onBack: () => void
 }) {
@@ -160,6 +165,21 @@ function TrainingTypePicker({
             <span className="text-xs" style={labelStyle}>{t("fanResurslari.topicCount", { n: legacyCount })}</span>
           </button>
         )}
+
+        {recordingCount > 0 && (
+          <button onClick={() => onSelect(RECORDINGS_VIEW)}
+            className="group flex flex-col gap-3 p-5 rounded-[12px] bg-white text-left transition-all hover:-translate-y-0.5"
+            style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
+            <div className="flex items-center justify-between">
+              <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0fdf4" }}>
+                <Video className="w-5 h-5 transition-transform group-hover:scale-110" style={{ color: "#15803d" }} />
+              </div>
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" style={{ color: "#b0c2d8" }} />
+            </div>
+            <span className="text-base font-semibold" style={titleStyle}>{t("fanResurslari.videoRecordings")}</span>
+            <span className="text-xs" style={labelStyle}>{t("fanResurslari.videoRecordingsCount", { n: recordingCount })}</span>
+          </button>
+        )}
       </div>
     </div>
   )
@@ -175,6 +195,10 @@ export default function FanResurslariDetail() {
   const buckets = summaryData?.data ?? []
   const hasTypedBuckets = buckets.some(b => b.trainingType !== null && b.topicCount > 0)
 
+  // Shu fanning video yozuvlari (backend faqat talaba guruhi qatnashgan darslarnikini beradi)
+  const { data: recRes } = useApi(() => meetingsApi.recordingsBySubject(subjectName), [subjectName])
+  const recordingCount = new Set((recRes?.data ?? []).filter(r => r.fileUrl).map(r => String(r.id))).size
+
   // null = hali tanlanmagan (bo'lim tanlash ekrani ko'rsatiladi, agar turlar bo'lsa).
   // Turlar umuman yo'q bo'lsa (hammasi eski/tegsiz), avtomatik "hammasi" ko'rsatiladi.
   const [selectedType, setSelectedType] = useState<string | null>(null)
@@ -182,49 +206,107 @@ export default function FanResurslariDetail() {
     if (!lSummary && !hasTypedBuckets) setSelectedType(NO_TRAINING_TYPE)
   }, [lSummary, hasTypedBuckets])
 
-  const shouldFetchTopics = selectedType !== null
+  const shouldFetchTopics = selectedType !== null && selectedType !== RECORDINGS_VIEW
   const { data, loading, error, refetch } = useApi(
     () => shouldFetchTopics ? teachingApi.studentTopics(subjectName, selectedType!) : Promise.resolve({ success: true, data: [] }),
     [subjectName, selectedType]
   )
-  const topics: StudentTopic[] = data?.data ?? []
+  const topics: StudentTopic[] = useMemo(() => data?.data ?? [], [data])
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const topRef = useRef<HTMLDivElement>(null)
 
+  // Ochilganda — hozirgi (birinchi tugallanmagan ochiq) mavzu; hammasi
+  // tugagan bo'lsa — oxirgi ochiq mavzu
   useEffect(() => {
     if (selectedKey && topics.some(t => t.topicKey === selectedKey)) return
-    const firstOpen = topics.find(t => !t.locked) ?? topics[0]
-    setSelectedKey(firstOpen ? firstOpen.topicKey : null)
+    const current = topics.find(t => !t.locked && !t.completed) ?? topics.filter(t => !t.locked).pop() ?? topics[0]
+    setSelectedKey(current ? current.topicKey : null)
   }, [topics, selectedKey])
 
   const selected = useMemo(() => topics.find(t => t.topicKey === selectedKey) ?? null, [topics, selectedKey])
-  const topRef = useRef<HTMLDivElement>(null)
-  const nextTopic = useMemo(() => {
+
+  // Mavzudagi yuklangan hamma narsa bajarilgan zahoti keyingi mavzuga
+  // o'zi o'tadi (qo'shimcha tugmasiz). Natijani (masalan test bahosini)
+  // ko'rib olish uchun qisqa kutish bilan.
+  const completedBefore = useRef<Record<string, boolean>>({})
+  const [advanceTo, setAdvanceTo] = useState<string | null>(null)
+  useEffect(() => {
+    const prev = completedBefore.current
     const idx = topics.findIndex(t => t.topicKey === selectedKey)
-    return idx >= 0 ? topics[idx + 1] ?? null : null
-  }, [topics, selectedKey])
+    const cur = idx >= 0 ? topics[idx] : null
+    const next = idx >= 0 ? topics[idx + 1] : undefined
+    if (cur && prev[cur.topicKey] === false && cur.completed && next && !next.locked) {
+      setAdvanceTo(next.topicKey)
+    }
+    completedBefore.current = Object.fromEntries(topics.map(t => [t.topicKey, t.completed]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topics])
+  useEffect(() => {
+    if (!advanceTo) return
+    const timer = setTimeout(() => {
+      setSelectedKey(advanceTo)
+      setAdvanceTo(null)
+      topRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })
+    }, 2500)
+    return () => clearTimeout(timer)
+  }, [advanceTo])
+
+  function selectTopic(key: string) {
+    setAdvanceTo(null)
+    setSelectedKey(key)
+  }
 
   if (lSummary) return <Loading />
 
   if (hasTypedBuckets && selectedType === null) {
-    return <TrainingTypePicker subjectName={subjectName} buckets={buckets} onSelect={setSelectedType} onBack={() => router.back()} />
+    return <TrainingTypePicker subjectName={subjectName} buckets={buckets} recordingCount={recordingCount}
+      onSelect={setSelectedType} onBack={() => router.back()} />
   }
 
-  if (loading) return <Loading />
+  const backToPicker = () => { setSelectedType(hasTypedBuckets ? null : NO_TRAINING_TYPE); setSelectedKey(null); setAdvanceTo(null) }
+
+  // ── Video yozuvlar (fan bo'yicha, mavzuga bog'lanmagan) ──
+  if (selectedType === RECORDINGS_VIEW) {
+    return (
+      <div className="flex flex-col gap-6 p-[30px]">
+        <div className="flex items-start gap-4">
+          <button onClick={backToPicker}
+            className="flex items-center justify-center w-9 h-9 rounded-[8px] transition-colors hover:bg-[#f0f5ff] shrink-0 mt-1"
+            style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
+            <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
+          </button>
+          <div>
+            <h1 className="text-[24px] font-semibold leading-snug" style={titleStyle}>
+              {subjectName}
+              <span className="ml-2 align-middle text-xs font-medium px-2 py-1 rounded-full"
+                style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                {t("fanResurslari.videoRecordings")}
+              </span>
+            </h1>
+            <p className="text-sm mt-0.5" style={labelStyle}>{t("fanResurslari.videoRecordingsHint")}</p>
+          </div>
+        </div>
+        <MeetingRecordingsSection subjectName={subjectName} topicTitle={undefined} />
+      </div>
+    )
+  }
+
+  // Qayta yuklanayotganda (progress saqlangach) sahifa "sakramasin" — eski ma'lumot ko'rinib turadi
+  if (loading && !data) return <Loading />
   if (error)   return <ApiError message={error} onRetry={refetch} />
 
   const typePick = TRAINING_TYPE_PICKS.find(p => p.value === selectedType)
-  const backToPicker = () => { setSelectedType(null); setSelectedKey(null) }
 
   return (
     <div ref={topRef} className="flex flex-col gap-6 p-[30px]">
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-4 flex-wrap">
         <button onClick={hasTypedBuckets ? backToPicker : () => router.back()}
           className="flex items-center justify-center w-9 h-9 rounded-[8px] transition-colors hover:bg-[#f0f5ff] shrink-0 mt-1"
           style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
           <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
         </button>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-[24px] font-semibold leading-snug" style={titleStyle}>
             {subjectName}
             {typePick && (
@@ -238,6 +320,13 @@ export default function FanResurslariDetail() {
             {t("fanResurslari.topicCount", { n: topics.length })}
           </p>
         </div>
+        {recordingCount > 0 && (
+          <button onClick={() => { setSelectedType(RECORDINGS_VIEW); setAdvanceTo(null) }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-semibold shrink-0"
+            style={{ backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.25)", fontFamily: "var(--font-poppins)" }}>
+            <Video className="w-3.5 h-3.5" /> {t("fanResurslari.videoRecordingsCount", { n: recordingCount })}
+          </button>
+        )}
       </div>
 
       {topics.length === 0 ? (
@@ -256,25 +345,15 @@ export default function FanResurslariDetail() {
       ) : (
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 flex flex-col gap-4 min-w-0">
+            {advanceTo && (
+              <div className="flex items-center gap-2 px-5 py-3 rounded-[10px] text-sm font-semibold"
+                style={{ backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.25)", fontFamily: "var(--font-poppins)" }}>
+                <CheckCircle2 className="w-4 h-4 shrink-0" /> {t("fanResurslari.autoNext")}
+              </div>
+            )}
             {selected ? (
-              <>
-                <TopicContent topic={selected} onProgress={refetch} />
-                {/* Mavzudagi yuklangan hamma narsa bajarilgach — keyingisiga o'tish */}
-                {selected.completed && nextTopic && !nextTopic.locked && (
-                  <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-4 rounded-[10px]"
-                    style={{ backgroundColor: "#f0fdf4", border: "1px solid rgba(21,128,61,0.25)" }}>
-                    <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                      <CheckCircle2 className="w-4 h-4" /> {t("fanResurslari.topicDone")}
-                    </span>
-                    <button onClick={() => { setSelectedKey(nextTopic.topicKey); topRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) }}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-sm font-semibold text-white min-w-0"
-                      style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                      <span className="truncate max-w-[260px]">{t("fanResurslari.nextTopic")}: {nextTopic.title}</span>
-                      <ChevronRight className="w-4 h-4 shrink-0" />
-                    </button>
-                  </div>
-                )}
-              </>
+              // key — har mavzuda bo'limlar qaytadan ochiladi (birinchi bajarilmagani o'zi ochiq)
+              <TopicContent key={selected.topicKey} topic={selected} onProgress={refetch} />
             ) : (
               <div className="bg-white rounded-[10px] p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
                 <Lock className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
@@ -295,7 +374,7 @@ export default function FanResurslariDetail() {
                 return (
                   <button
                     key={topic.topicKey}
-                    onClick={() => !topic.locked && setSelectedKey(topic.topicKey)}
+                    onClick={() => !topic.locked && selectTopic(topic.topicKey)}
                     disabled={topic.locked}
                     className="flex items-center gap-3 px-4 py-3 text-left transition-colors disabled:cursor-not-allowed"
                     style={{
@@ -324,7 +403,6 @@ export default function FanResurslariDetail() {
     </div>
   )
 }
-
 
 function QollanmaSection({
   qollanma, onProgress,
@@ -395,6 +473,10 @@ function SectionAccordion({
   children: React.ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen && !locked)
+  // Oldingi bo'lim tugab, navbat shu bo'limga kelganda — o'zi ochiladi
+  useEffect(() => {
+    if (defaultOpen && !locked) setOpen(true)
+  }, [defaultOpen, locked])
 
   const borderColor = locked
     ? "rgba(1,41,112,0.07)"

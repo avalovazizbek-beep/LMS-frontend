@@ -12,6 +12,7 @@ interface SubjectStat {
   name: string
   topicCount: number
   hasRecordings: boolean
+  recordingCount: number
 }
 
 export default function FanResurslari() {
@@ -23,25 +24,26 @@ export default function FanResurslari() {
   const recordings: MeetingRecording[] = recData?.data ?? []
 
   const subjects = useMemo((): SubjectStat[] => {
-    const map: Record<string, { topics: Set<string>; hasRec: boolean }> = {}
+    const map: Record<string, { topics: Set<string>; recs: Set<string> }> = {}
 
     // Add subjects from teacher content topics
     items.forEach(item => {
       if (!item.topicKey) return
       const name = item.subjectName || t("fanResurslari.other")
-      if (!map[name]) map[name] = { topics: new Set(), hasRec: false }
+      if (!map[name]) map[name] = { topics: new Set(), recs: new Set() }
       map[name].topics.add(item.topicKey)
     })
 
-    // Add subjects from meeting recordings
+    // Online dars video yozuvlari — backend faqat talabaning O'Z guruhi
+    // qatnashgan darslarinikini qaytaradi (canViewMeeting)
     recordings.forEach(r => {
       const name = r.subjectName || t("fanResurslari.other")
-      if (!map[name]) map[name] = { topics: new Set(), hasRec: false }
-      if (r.fileUrl) map[name].hasRec = true
+      if (!map[name]) map[name] = { topics: new Set(), recs: new Set() }
+      if (r.fileUrl) map[name].recs.add(String(r.id))
     })
 
     return Object.entries(map)
-      .map(([name, { topics, hasRec }]) => ({ name, topicCount: topics.size, hasRecordings: hasRec }))
+      .map(([name, { topics, recs }]) => ({ name, topicCount: topics.size, hasRecordings: recs.size > 0, recordingCount: recs.size }))
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [items, recordings, t])
 
@@ -82,7 +84,7 @@ export default function FanResurslari() {
                 {subject.hasRecordings && (
                   <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full"
                     style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                    <Video className="w-2.5 h-2.5" /> {t("fanResurslari.recording")}
+                    <Video className="w-2.5 h-2.5" /> {t("fanResurslari.videoRecordingsCount", { n: subject.recordingCount })}
                   </span>
                 )}
               </div>

@@ -187,6 +187,12 @@ function RichPptxViewer({
 
   const allSeen = count > 0 && maxReached >= count - 1
 
+  // Oxirgi slaydga yetgach o'zi yakunlanadi — talaba alohida tugma bosishi shart emas
+  useEffect(() => {
+    if (allSeen && !completed) void markDone()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allSeen])
+
   if (loading) {
     return (
       <div className="rounded-[10px] p-6 flex items-center gap-3" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -439,6 +445,26 @@ function PdfTheoryViewer({
     }
   }
 
+  // Oxirgi sahifaga yetgach o'zi yakunlanadi — talaba alohida tugma bosishi shart emas
+  useEffect(() => {
+    if (allSeen && !completed) void markDone()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allSeen])
+
+  // PDF ko'rsatib bo'lmasa — faylni ochgan zahoti yakunlanadi (aks holda
+  // talabada yakunlash yo'li umuman yo'q edi va keyingi mavzu abadiy yopiq qolardi)
+  async function markOpened() {
+    if (completed || saving) return
+    setSaving(true)
+    try {
+      await teachingApi.saveProgress(contentId, { pagesRead: [1], totalPages: 1, completed: true })
+      setCompleted(true)
+      onCompleted?.()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (loadError) {
     return (
       <div className="rounded-[10px] p-4 flex flex-col gap-2" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -446,7 +472,7 @@ function PdfTheoryViewer({
           <BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />
           <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Hujjat"}</span>
         </div>
-        <a href={downloadUrl ?? fileUrl} target="_blank" rel="noreferrer"
+        <a href={downloadUrl ?? fileUrl} target="_blank" rel="noreferrer" onClick={() => void markOpened()}
           className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-sm font-medium"
           style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <ExternalLink className="w-4 h-4" />
@@ -572,8 +598,8 @@ function ManualTheoryViewer({
   const [saving, setSaving] = useState(false)
   const [hasOpened, setHasOpened] = useState(false)
 
-  async function markRead() {
-    if (!hasOpened) return
+  async function markRead(opened = hasOpened) {
+    if (!opened || completed || saving) return
     setSaving(true)
     try {
       await teachingApi.saveProgress(contentId, { pagesRead: [1], totalPages: 1, completed: true })
@@ -591,7 +617,8 @@ function ManualTheoryViewer({
         <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Taqdimot"}</span>
         {completed && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
       </div>
-      <a href={fileUrl} target="_blank" rel="noreferrer" onClick={() => setHasOpened(true)}
+      {/* Faylni ochgan zahoti yakunlanadi (tashqarida ochilgan faylni kuzatib bo'lmaydi) */}
+      <a href={fileUrl} target="_blank" rel="noreferrer" onClick={() => { setHasOpened(true); void markRead(true) }}
         className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-sm font-medium"
         style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
         <ExternalLink className="w-4 h-4" />
@@ -599,7 +626,7 @@ function ManualTheoryViewer({
       </a>
       {!completed && (
         <div className="flex items-center gap-3">
-          <button onClick={markRead} disabled={saving || !hasOpened}
+          <button onClick={() => void markRead()} disabled={saving || !hasOpened}
             className="flex items-center justify-center gap-2 px-4 py-2 rounded-[8px] text-sm font-medium w-fit disabled:opacity-40"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
