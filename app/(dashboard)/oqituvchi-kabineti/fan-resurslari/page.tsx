@@ -219,7 +219,7 @@ function FileDropZone({
 
 /* ── Meeting section ────────────────────────────────────────────────── */
 function MeetingSection({
-  meetingItem, groupId, subjectName, topicKey, topicTitle, trainingType, topicDeadline, onRefetch, bare = false,
+  meetingItem, groupId, subjectName, topicKey, topicTitle, trainingType, topicDeadline, parallelGroupIds, onRefetch, bare = false,
 }: {
   meetingItem?: TeacherContent
   groupId: number
@@ -228,6 +228,8 @@ function MeetingSection({
   topicTitle: string
   trainingType: string
   topicDeadline: string | null
+  /** Yuqorida tanlangan qo'shimcha guruhlar — parallel sifatida oldindan belgilanadi */
+  parallelGroupIds: number[]
   onRefetch: () => void
   /** Tab panel ichiga joylanganda — tashqi ramka/sarlavha bosilmaydi, chunki
       panelning o'zi allaqachon ikonka+sarlavha+tavsifni ko'rsatgan bo'ladi. */
@@ -249,7 +251,10 @@ function MeetingSection({
   // joriy guruhdan tashqari o'qituvchining boshqa guruhlarini ham tanlash mumkin
   const { data: allGroupsRes } = useApi(() => teachingApi.groups(), [])
   const otherGroups = (allGroupsRes?.data ?? []).filter(g => g.id !== groupId)
-  const [extraGroupIds, setExtraGroupIds] = useState<number[]>([])
+  const [extraGroupIds, setExtraGroupIds] = useState<number[]>(parallelGroupIds)
+  const parallelKey = parallelGroupIds.join(",")
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setExtraGroupIds(parallelGroupIds), [parallelKey])
 
   function toggleExtraGroup(id: number) {
     setExtraGroupIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -272,20 +277,24 @@ function MeetingSection({
       const meetId = meetRes.data.id
       const meetLink = meetRes.data.link || ""
 
-      await teachingApi.createContent({
-        type: "mavzu",
+      const input = {
+        type: "mavzu" as const,
         kind: "meeting",
-        groupId,
         subjectName,
-        topicKey,
         title: form.title || topicTitle,
         trainingType: trainingType || undefined,
         availableFrom: startTime,
         deadline: topicDeadline,
         meetingLink: meetLink || meetId,
-      })
+      }
+      await teachingApi.createContent({ ...input, groupId, topicKey })
+      // Yuqorida tanlangan guruhlarda mavzu ichida ham ko'rinsin
+      for (const gid of extraGroupIds.filter(id => parallelGroupIds.includes(id))) {
+        const key = await ensureTopicKeyForGroup(gid, subjectName, topicTitle, topicDeadline, trainingType)
+        await teachingApi.createContent({ ...input, groupId: gid, topicKey: key })
+      }
       setCreating(false)
-      setExtraGroupIds([])
+      setExtraGroupIds(parallelGroupIds)
       onRefetch()
     } catch (e) {
       setErr(e instanceof Error ? e.message : t("fanResurslariOq.meeting.createError"))
@@ -299,6 +308,9 @@ function MeetingSection({
     setLoading(true)
     try {
       await teachingApi.removeContent(meetingItem.id)
+      for (const extra of await loadExtraTopics(parallelGroupIds, subjectName, topicTitle, trainingType)) {
+        for (const other of extra.items.filter(o => sameSlot(o, meetingItem))) await teachingApi.removeContent(other.id)
+      }
       onRefetch()
     } catch (e) {
       setErr(e instanceof Error ? e.message : t("fanResurslariOq.meeting.deleteError"))
@@ -443,7 +455,7 @@ function MeetingSection({
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarDays className="w-4 h-4" />}
               {loading ? t("fanResurslariOq.meeting.creating") : t("fanResurslariOq.meeting.create")}
             </button>
-            <button onClick={() => { setCreating(false); setErr(null); setExtraGroupIds([]) }}
+            <button onClick={() => { setCreating(false); setErr(null); setExtraGroupIds(parallelGroupIds) }}
               className="px-3 py-2 rounded-[6px] text-sm"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
               {t("fanResurslariOq.meeting.cancel")}
@@ -715,6 +727,34 @@ async function ensureTopicKeyForGroup(
   return newKey
 }
 
+/* Tanlangan parallel guruhlardagi shu mavzu (nomi + turi bo'yicha) va uning
+   qismlari — o'chirish/almashtirish/tahrirlash hamma tanlangan guruhda
+   birdan bajarilishi uchun. Mavzusi yo'q guruh o'tkazib yuboriladi. */
+interface ExtraTopic { groupId: number; topicKey: string; items: TeacherContent[] }
+
+async function loadExtraTopics(
+  groupIds: number[], subjectName: string, topicTitle: string, trainingType: string
+): Promise<ExtraTopic[]> {
+  const out: ExtraTopic[] = []
+  for (const gid of groupIds) {
+    const topicKey = await findTopicKeyInGroup(gid, subjectName, topicTitle, trainingType)
+    if (!topicKey) continue
+    const res = await teachingApi.contentByTopic({ topicKey, groupId: gid })
+    out.push({ groupId: gid, topicKey, items: res.data ?? [] })
+  }
+  return out
+}
+
+/* Parallel guruhdagi "mos" qism: video↔video, test↔test va h.k.;
+   uchrashuv havolalari bir nechta bo'lishi mumkin — URL bo'yicha. */
+function sameSlot(a: Pick<TeacherContent, "type" | "kind" | "meetingLink">, b: Pick<TeacherContent, "type" | "kind" | "meetingLink">) {
+  if (a.type !== b.type) return false
+  if (a.type === "exam" || a.type === "assignment") return true
+  if (a.kind !== b.kind || a.kind === "topic") return false
+  if (a.kind === "uchrashuv") return (a.meetingLink ?? "") === (b.meetingLink ?? "")
+  return true
+}
+
 /* ── Resurslar panel ─────────────────────────────────────────────────── */
 function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
   sel: Selection
@@ -732,6 +772,15 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
   async function refetch() {
     await refetchPanel()
     onChanged()
+  }
+  const extraTopics = () => loadExtraTopics(extraGroupIds, sel.subjectName, sel.topicTitle, trainingType)
+
+  /* Shu o'zgarishni tanlangan parallel guruhlardagi mos qismga ham qo'llaydi */
+  async function forEachExtraMatch(item: TeacherContent, fn: (other: TeacherContent, extra: ExtraTopic) => Promise<unknown>) {
+    if (!extraGroupIds.length) return
+    for (const extra of await extraTopics()) {
+      for (const other of extra.items.filter(o => sameSlot(o, item))) await fn(other, extra)
+    }
   }
 
   const [activeTab, setActiveTab] = useState<TabKind>("video_lesson")
@@ -798,8 +847,12 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
     setReopenLoading(true)
     setReopenErr(null)
     try {
-      if (topicMarker.isReopened) await teachingApi.closeTopic(sel.topicKey)
-      else await teachingApi.reopenTopic(sel.topicKey)
+      const apply = (key: string) => topicMarker.isReopened ? teachingApi.closeTopic(key) : teachingApi.reopenTopic(key)
+      await apply(sel.topicKey)
+      for (const gid of extraGroupIds) {
+        const key = await findTopicKeyInGroup(gid, sel.subjectName, sel.topicTitle, trainingType)
+        if (key) await apply(key)
+      }
       await refetch()
     } catch (e) {
       setReopenErr(e instanceof Error ? e.message : "Xatolik yuz berdi")
@@ -829,7 +882,9 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
     setMetaSaving(true)
     setMetaSaved(false)
     try {
-      await teachingApi.updateContent(activeItem.id, { title: titleDraft, description: descDraft })
+      const patch = { title: titleDraft, description: descDraft }
+      await teachingApi.updateContent(activeItem.id, patch)
+      await forEachExtraMatch(activeItem, other => teachingApi.updateContent(other.id, patch))
       await refetch()
       setMetaSaved(true)
     } catch (err) {
@@ -865,12 +920,14 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
     setSettingsErr(null)
     setSettingsOk(false)
     try {
-      await teachingApi.updateContent(test.id, {
+      const patch = {
         maxScore:             settings.testMaxScore     || null,
         durationMinutes:      settings.testDuration     || null,
         attemptsCount:        settings.testAttempts     || null,
         questionDisplayCount: settings.testDisplayCount || null,
-      })
+      }
+      await teachingApi.updateContent(test.id, patch)
+      await forEachExtraMatch(test, other => teachingApi.updateContent(other.id, patch))
       await refetch()
       setSettingsOk(true)
     } catch (e) {
@@ -878,6 +935,21 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
     } finally {
       setSavingSettings(false)
     }
+  }
+
+  // Savollar saqlangach — tanlangan parallel guruhlardagi testga ham xuddi
+  // shu savollar yoziladi (test o'zi upload() orqali u yerda ham yaratilgan).
+  async function onQuestionsSaved() {
+    try {
+      if (test && extraGroupIds.length) {
+        const res = await teachingApi.questions(test.id)
+        const questions = ((res.data ?? []) as ExamQuestion[]).map(({ id: _id, ...q }) => q)
+        await forEachExtraMatch(test, other => teachingApi.saveQuestions(other.id, questions))
+      }
+    } catch (err) {
+      setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.saveError"))
+    }
+    await refetch()
   }
 
   const now = () => new Date().toISOString()
@@ -894,20 +966,24 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
         availableFrom: now(), deadline: topicDeadline, docFile: file,
         onUploadProgress: file ? setUploadProgress : undefined,
       })
-      // Imtihon (savollari alohida qo'shiladi) bundan mustasno — boshqa
-      // resurslar (video/audio/taqdimot/qo'llanma/topshiriq) tanlangan
-      // qo'shimcha guruhlarga ham xuddi shunday nusxalanadi (kerak bo'lsa
-      // o'sha guruhda shu nomdagi mavzu ham avtomatik yaratiladi).
-      if (type !== "exam" && extraGroupIds.length) {
-        for (const gid of extraGroupIds) {
-          const groupTopicKey = await ensureTopicKeyForGroup(gid, sel.subjectName, sel.topicTitle, topicDeadline, trainingType)
-          await teachingApi.createContent({
-            type, groupId: gid, subjectName: sel.subjectName,
-            topicKey: groupTopicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
-            trainingType: trainingType || undefined,
-            availableFrom: now(), deadline: topicDeadline, docFile: file,
-          })
-        }
+      // Tanlangan qo'shimcha guruhlarga ham xuddi shunday qo'shiladi (test
+      // ham — savollari "Savollarni tahrirlash"da saqlanganda nusxalanadi;
+      // kerak bo'lsa o'sha guruhda shu nomdagi mavzu ham avtomatik yaratiladi).
+      for (const gid of extraGroupIds) {
+        const groupTopicKey = await ensureTopicKeyForGroup(gid, sel.subjectName, sel.topicTitle, topicDeadline, trainingType)
+        const existing = (await teachingApi.contentByTopic({ topicKey: groupTopicKey, groupId: gid })).data ?? []
+        const old = existing.filter(o => sameSlot(o, { type, kind, meetingLink: null }))
+        // Test/topshiriqqa talaba natijalari bog'langan — o'sha guruhda allaqachon
+        // bo'lsa (yoki test↔topshiriq bir-birini istisno qilsa) tegmaymiz.
+        if (type !== "mavzu" && (old.length || existing.some(o => o.type === (type === "exam" ? "assignment" : "exam")))) continue
+        await teachingApi.createContent({
+          type, groupId: gid, subjectName: sel.subjectName,
+          topicKey: groupTopicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
+          trainingType: trainingType || undefined,
+          availableFrom: now(), deadline: topicDeadline, docFile: file,
+        })
+        // Video/audio/taqdimot/qo'llanma — eski nusxa bo'lsa yangisi bilan almashadi
+        for (const o of old) await teachingApi.removeContent(o.id)
       }
       await refetch()
     } catch (err) {
@@ -923,6 +999,9 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
     setOpErr(null)
     try {
       await teachingApi.removeContent(item.id)
+      // Tanlangan parallel guruhlardagi nusxasi ham o'chadi — aks holda o'sha
+      // guruh talabalarida qolib ketardi.
+      await forEachExtraMatch(item, other => teachingApi.removeContent(other.id))
       await refetch()
     } catch (err) {
       setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.deleteError"))
@@ -949,6 +1028,18 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
         onUploadProgress: setUploadProgress,
       })
       await teachingApi.removeContent(item.id)
+      // Parallel guruhlarda ham xuddi shunday: avval yangisi, keyin eskisi
+      await forEachExtraMatch(item, async (other, extra) => {
+        await teachingApi.createContent({
+          type, groupId: extra.groupId, subjectName: sel.subjectName,
+          topicKey: extra.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
+          trainingType: other.trainingType ?? (trainingType || undefined),
+          availableFrom: other.availableFrom ?? new Date().toISOString(),
+          deadline: other.deadline,
+          docFile: file,
+        })
+        await teachingApi.removeContent(other.id)
+      })
       await refetch()
     } catch (err) {
       setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.replaceError"))
@@ -1094,6 +1185,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
               topicTitle={sel.topicTitle}
               trainingType={trainingType}
               topicDeadline={topicDeadline}
+              parallelGroupIds={extraGroupIds}
               onRefetch={refetch}
             />
             <div className="pt-4" style={{ borderTop: "1px solid rgba(1,41,112,0.1)" }}>
@@ -1105,6 +1197,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
                 topicTitle={sel.topicTitle}
                 trainingType={trainingType}
                 topicDeadline={topicDeadline}
+                parallelGroupIds={extraGroupIds}
                 onRefetch={refetch}
               />
             </div>
@@ -1200,7 +1293,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
                 </span>
               </div>
               {showQuestions && (
-                <QuestionsModal content={test} onClose={() => setShowQuestions(false)} onSaved={refetch} />
+                <QuestionsModal content={test} onClose={() => setShowQuestions(false)} onSaved={onQuestionsSaved} />
               )}
               {showTestResults && (
                 <TestResultsModal test={test} onClose={() => setShowTestResults(false)} />
@@ -1271,7 +1364,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
    tizimini boshqaradi, bu esa shunchaki tashqi ilova havolalarini
    (bitta yoki bir nechtasini) saqlab, talabalarga ko'rsatadi. ── */
 function MeetingLinksSection({
-  items, groupId, subjectName, topicKey, topicTitle, trainingType, topicDeadline, onRefetch,
+  items, groupId, subjectName, topicKey, topicTitle, trainingType, topicDeadline, parallelGroupIds, onRefetch,
 }: {
   items: TeacherContent[]
   groupId: number
@@ -1280,6 +1373,8 @@ function MeetingLinksSection({
   topicTitle: string
   trainingType: string
   topicDeadline: string | null
+  /** Yuqorida tanlangan qo'shimcha guruhlar — havola ularga ham qo'shiladi/o'chadi */
+  parallelGroupIds: number[]
   onRefetch: () => void | Promise<unknown>
 }) {
   const { t } = useLanguage()
@@ -1293,11 +1388,9 @@ function MeetingLinksSection({
     setSaving(true)
     setErr(null)
     try {
-      await teachingApi.createContent({
-        type: "mavzu",
-        groupId,
+      const input = {
+        type: "mavzu" as const,
         subjectName,
-        topicKey,
         title: label.trim() || `${topicTitle} — ${t("fanResurslariOq.meetingLinks.defaultTitle", { n: items.length + 1 })}`,
         kind: "uchrashuv",
         trainingType: trainingType || undefined,
@@ -1305,7 +1398,12 @@ function MeetingLinksSection({
         deadline: topicDeadline,
         docFile: null,
         meetingLink: url.trim(),
-      })
+      }
+      await teachingApi.createContent({ ...input, groupId, topicKey })
+      for (const gid of parallelGroupIds) {
+        const key = await ensureTopicKeyForGroup(gid, subjectName, topicTitle, topicDeadline, trainingType)
+        await teachingApi.createContent({ ...input, groupId: gid, topicKey: key })
+      }
       setLabel("")
       setUrl("")
       await onRefetch()
@@ -1316,8 +1414,16 @@ function MeetingLinksSection({
     }
   }
 
-  async function removeLink(id: number) {
-    await teachingApi.removeContent(id)
+  async function removeLink(item: TeacherContent) {
+    setErr(null)
+    try {
+      await teachingApi.removeContent(item.id)
+      for (const extra of await loadExtraTopics(parallelGroupIds, subjectName, topicTitle, trainingType)) {
+        for (const other of extra.items.filter(o => sameSlot(o, item))) await teachingApi.removeContent(other.id)
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t("fanResurslariOq.errors.deleteError"))
+    }
     await onRefetch()
   }
 
@@ -1342,7 +1448,7 @@ function MeetingLinksSection({
                   <ExternalLink className="w-3.5 h-3.5" /> {t("fanResurslariOq.recordings.view")}
                 </a>
               )}
-              <button onClick={() => removeLink(item.id)} className="shrink-0 text-xs"
+              <button onClick={() => removeLink(item)} className="shrink-0 text-xs"
                 style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                 {t("fanResurslariOq.meetingLinks.remove")}
               </button>
