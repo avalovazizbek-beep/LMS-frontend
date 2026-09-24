@@ -5,7 +5,7 @@ import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
   BookMarked, CalendarDays, VideoIcon, Save, BarChart3,
-  Check, X, RefreshCw, Users, ChevronLeft, ChevronDown, Pencil, Plus, Clock, Link2,
+  Check, X, Users, ChevronLeft, ChevronDown, Pencil, Plus, Clock, Link2, FolderOpen, ArrowRightLeft,
 } from "lucide-react"
 import {
   teachingApi, meetingsApi,
@@ -29,6 +29,23 @@ function academicYearStart() {
   return now.getMonth() >= 8 ? year : year - 1
 }
 const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => academicYearStart() - i)
+
+/* datetime-local qiymati MAHALLIY vaqtda bo'lishi kerak — ISO (UTC) satrini
+   .slice(0, 16) qilish vaqtni 5 soatga (Toshkent UTC+5) siljitib, har
+   saqlashda deadline'ni shuncha erta surib qo'yardi. */
+function toLocalInputValue(iso: string | null): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function formatDeadline(iso: string) {
+  return new Date(iso).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+}
+
+const isPast = (iso: string | null) => iso !== null && new Date(iso).getTime() < Date.now()
 
 interface Selection {
   groupId: number
@@ -202,13 +219,15 @@ function FileDropZone({
 
 /* ── Meeting section ────────────────────────────────────────────────── */
 function MeetingSection({
-  meetingItem, groupId, subjectName, topicKey, topicTitle, onRefetch, bare = false,
+  meetingItem, groupId, subjectName, topicKey, topicTitle, trainingType, topicDeadline, onRefetch, bare = false,
 }: {
   meetingItem?: TeacherContent
   groupId: number
   subjectName: string
   topicKey: string
   topicTitle: string
+  trainingType: string
+  topicDeadline: string | null
   onRefetch: () => void
   /** Tab panel ichiga joylanganda — tashqi ramka/sarlavha bosilmaydi, chunki
       panelning o'zi allaqachon ikonka+sarlavha+tavsifni ko'rsatgan bo'ladi. */
@@ -260,7 +279,9 @@ function MeetingSection({
         subjectName,
         topicKey,
         title: form.title || topicTitle,
+        trainingType: trainingType || undefined,
         availableFrom: startTime,
+        deadline: topicDeadline,
         meetingLink: meetLink || meetId,
       })
       setCreating(false)
@@ -668,18 +689,24 @@ const TRAINING_TYPE_OPTIONS = [
    bo'lmasa yaratadi, bo'lsa uning topicKey'ini qaytaradi — parallel
    guruhlarga resurs nusxalash uchun (ma'ruza/amaliyot/mustaqil ish
    aralashib ketmasligi uchun turi ham solishtiriladi). */
-async function ensureTopicKeyForGroup(
-  groupId: number, subjectName: string, topicTitle: string, deadline: string | null, trainingType: string
-): Promise<string> {
+async function findTopicKeyInGroup(
+  groupId: number, subjectName: string, topicTitle: string, trainingType: string
+): Promise<string | null> {
   const res = await teachingApi.content({ group: groupId, subject: subjectName })
-  const items = res.data ?? []
   const normalized = topicTitle.trim().toLowerCase()
-  const match = items.find(i =>
+  const match = (res.data ?? []).find(i =>
     i.type === "mavzu" && i.kind === "topic" &&
     i.title.trim().toLowerCase() === normalized &&
     (i.trainingType ?? "") === trainingType
   )
-  if (match?.topicKey) return match.topicKey
+  return match?.topicKey ?? null
+}
+
+async function ensureTopicKeyForGroup(
+  groupId: number, subjectName: string, topicTitle: string, deadline: string | null, trainingType: string
+): Promise<string> {
+  const existingKey = await findTopicKeyInGroup(groupId, subjectName, topicTitle, trainingType)
+  if (existingKey) return existingKey
   const newKey = `${subjectName}__${groupId}__${Date.now()}`
   await teachingApi.createContent({
     type: "mavzu", kind: "topic", groupId, subjectName, topicKey: newKey,
@@ -689,13 +716,23 @@ async function ensureTopicKeyForGroup(
 }
 
 /* ── Resurslar panel ─────────────────────────────────────────────────── */
-function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; extraGroupIds: number[]; trainingType: string }) {
+function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
+  sel: Selection
+  extraGroupIds: number[]
+  trainingType: string
+  /** Mavzular gridi (material soni/ikonkalari, muddat) ham yangilanishi uchun */
+  onChanged: () => void
+}) {
   const { t } = useLanguage()
-  const { data, loading, error, refetch } = useApi(
+  const { data, loading, error, refetch: refetchPanel } = useApi(
     () => teachingApi.contentByTopic({ topicKey: sel.topicKey, groupId: sel.groupId }),
     [sel.topicKey, sel.groupId]
   )
   const items = data?.data ?? []
+  async function refetch() {
+    await refetchPanel()
+    onChanged()
+  }
 
   const [activeTab, setActiveTab] = useState<TabKind>("video_lesson")
   const [uploadingKind, setUploadingKind] = useState<string | null>(null)
@@ -721,9 +758,40 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
   const meetingLinks = items.filter(i => i.type === "mavzu" && i.kind === "uchrashuv")
   const topicMarker = items.find(i => i.type === "mavzu" && i.kind === "topic")
   const topicDeadline = topicMarker?.deadline ?? null
-  const deadlinePassed = topicDeadline !== null && new Date(topicDeadline).getTime() < Date.now()
+  const deadlinePassed = isPast(topicDeadline)
   const [reopenLoading, setReopenLoading] = useState(false)
   const [reopenErr, setReopenErr] = useState<string | null>(null)
+  const [editingDeadline, setEditingDeadline] = useState(false)
+  const [deadlineDraft, setDeadlineDraft] = useState("")
+  const [deadlineSaving, setDeadlineSaving] = useState(false)
+
+  function startEditDeadline() {
+    setDeadlineDraft(toLocalInputValue(topicDeadline))
+    setReopenErr(null)
+    setEditingDeadline(true)
+  }
+
+  // Muddat o'tgan bo'lsa ham o'qituvchi o'zi uzaytira oladi — yangi muddat
+  // mavzuning barcha qismlariga (test, topshiriq) va tanlangan parallel
+  // guruhlardagi shu nomli mavzuga ham qo'llanadi.
+  async function saveDeadline(localValue: string | null) {
+    setDeadlineSaving(true)
+    setReopenErr(null)
+    try {
+      const deadline = localValue ? new Date(localValue).toISOString() : null
+      await teachingApi.updateTopic(sel.topicKey, { deadline })
+      for (const gid of extraGroupIds) {
+        const key = await findTopicKeyInGroup(gid, sel.subjectName, sel.topicTitle, trainingType)
+        if (key) await teachingApi.updateTopic(key, { deadline })
+      }
+      setEditingDeadline(false)
+      await refetch()
+    } catch (e) {
+      setReopenErr(e instanceof Error ? e.message : t("fanResurslariOq.deadline.saveError"))
+    } finally {
+      setDeadlineSaving(false)
+    }
+  }
 
   async function toggleReopen() {
     if (!topicMarker) return
@@ -869,10 +937,14 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
       // Avval YANGI faylni yuklaymiz, faqat muvaffaqiyatli bo'lsa eskisini
       // o'chiramiz — aks holda internet uzilib yuklash muvaffaqiyatsiz
       // tugasa, o'qituvchi eski faylini butunlay yo'qotib qo'yardi.
+      // trainingType/deadline ham saqlanadi — avval almashtirilgan fayl
+      // turisiz qolib, talabada alohida "arvoh" mavzu sifatida chiqardi.
       await teachingApi.createContent({
         type, groupId: sel.groupId, subjectName: sel.subjectName,
         topicKey: sel.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
+        trainingType: item.trainingType ?? (trainingType || undefined),
         availableFrom: item.availableFrom ?? new Date().toISOString(),
+        deadline: topicDeadline,
         docFile: file,
         onUploadProgress: setUploadProgress,
       })
@@ -901,38 +973,81 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
         </div>
       )}
 
-      {/* Mavzu muddati + qayta ochish */}
+      {/* Mavzu muddati (o'qituvchi o'zi o'zgartiradi/uzaytiradi) + qayta ochish */}
       {topicMarker && (
-        <div className="flex items-center gap-3 flex-wrap px-4 py-3 rounded-[10px]"
+        <div className="flex flex-col gap-3 px-4 py-3 rounded-[10px]"
           style={{ backgroundColor: topicMarker.isReopened ? "#f0fdf4" : deadlinePassed ? "#fff7ed" : "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
-          <Clock className="w-4 h-4 shrink-0" style={{ color: "#0e58a8" }} />
-          <span className="text-xs font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {topicDeadline
-              ? `Muddat: ${new Date(topicDeadline).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}${deadlinePassed ? " — o'tgan" : ""}`
-              : "Muddat belgilanmagan (cheksiz ochiq)"}
-          </span>
-          {topicMarker.isReopened && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#dcfce7", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-              Qayta ochilgan{topicMarker.reopenedBy ? ` — ${topicMarker.reopenedBy}` : ""}
+          <div className="flex items-center gap-3 flex-wrap">
+            <Clock className="w-4 h-4 shrink-0" style={{ color: deadlinePassed && !topicMarker.isReopened ? "#c2410c" : "#0e58a8" }} />
+            <span className="text-xs font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              {topicDeadline
+                ? `${t("fanResurslariOq.deadline.current", { date: formatDeadline(topicDeadline) })}${deadlinePassed ? ` — ${t("fanResurslariOq.deadline.passed")}` : ""}`
+                : t("fanResurslariOq.deadline.unlimited")}
             </span>
+            {topicMarker.isReopened && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#dcfce7", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                {t("fanResurslariOq.reopen.badge")}{topicMarker.reopenedBy ? ` — ${topicMarker.reopenedBy}` : ""}
+              </span>
+            )}
+            <div className="ml-auto flex items-center gap-2 flex-wrap">
+              {!editingDeadline && (
+                <button onClick={startEditDeadline}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors hover:bg-white"
+                  style={{ border: "1px solid rgba(14,88,168,0.3)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  {topicDeadline ? t("fanResurslariOq.deadline.change") : t("fanResurslariOq.deadline.set")}
+                </button>
+              )}
+              {(test || assignment) && (
+                <button onClick={toggleReopen} disabled={reopenLoading}
+                  className="text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors disabled:opacity-60"
+                  style={{
+                    backgroundColor: topicMarker.isReopened ? "#fff0f0" : "#eef4ff",
+                    color: topicMarker.isReopened ? "#b91c1c" : "#0e58a8",
+                    fontFamily: "var(--font-poppins)",
+                  }}>
+                  {reopenLoading ? "…" : topicMarker.isReopened ? t("fanResurslariOq.reopen.close") : t("fanResurslariOq.reopen.allow")}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {deadlinePassed && !topicMarker.isReopened && !editingDeadline && (
+            <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+              {t("fanResurslariOq.deadline.passedHint")}
+            </p>
           )}
-          {reopenErr && <span className="text-xs" style={{ color: "#b91c1c" }}>{reopenErr}</span>}
-          {!deadlinePassed && (test || assignment) && (
-            <button onClick={toggleReopen} disabled={reopenLoading}
-              className="ml-auto text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors disabled:opacity-60"
-              style={{
-                backgroundColor: topicMarker.isReopened ? "#fff0f0" : "#eef4ff",
-                color: topicMarker.isReopened ? "#b91c1c" : "#0e58a8",
-                fontFamily: "var(--font-poppins)",
-              }}>
-              {reopenLoading ? "…" : topicMarker.isReopened ? "Yopish" : "Qayta topshirishga ruxsat berish"}
-            </button>
+
+          {editingDeadline && (
+            <div className="flex flex-col gap-2 pt-3" style={{ borderTop: "1px solid rgba(1,41,112,0.1)" }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input type="datetime-local" value={deadlineDraft} onChange={e => setDeadlineDraft(e.target.value)}
+                  className="px-3 py-2 rounded-[6px] text-sm outline-none bg-white"
+                  style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                <button onClick={() => saveDeadline(deadlineDraft)} disabled={deadlineSaving || !deadlineDraft}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-[6px] text-sm font-medium text-white disabled:opacity-60"
+                  style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {deadlineSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {t("fanResurslariOq.form.saveMeta")}
+                </button>
+                {topicDeadline && (
+                  <button onClick={() => saveDeadline(null)} disabled={deadlineSaving}
+                    className="px-3 py-2 rounded-[6px] text-sm font-medium bg-white disabled:opacity-60"
+                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    {t("fanResurslariOq.deadline.clear")}
+                  </button>
+                )}
+                <button onClick={() => setEditingDeadline(false)} disabled={deadlineSaving}
+                  className="px-3 py-2 rounded-[6px] text-sm"
+                  style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                  {t("mavzularOq.cancel")}
+                </button>
+              </div>
+              <p className="text-[11px]" style={labelStyle}>{t("fanResurslariOq.deadline.appliesToAll")}</p>
+            </div>
           )}
-          {deadlinePassed && !topicMarker.isReopened && (
-            <span className="ml-auto text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-              Muddat o'tgan — endi faqat admin qayta ochishi mumkin
-            </span>
-          )}
+
+          {reopenErr && <span className="text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{reopenErr}</span>}
         </div>
       )}
 
@@ -977,6 +1092,8 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
               subjectName={sel.subjectName}
               topicKey={sel.topicKey}
               topicTitle={sel.topicTitle}
+              trainingType={trainingType}
+              topicDeadline={topicDeadline}
               onRefetch={refetch}
             />
             <div className="pt-4" style={{ borderTop: "1px solid rgba(1,41,112,0.1)" }}>
@@ -1079,7 +1196,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType }: { sel: Selection; 
                   <span className="text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{settingsErr}</span>
                 )}
                 <span className="text-xs ml-auto" style={labelStyle}>
-                  {deadlinePassed ? "Mavzu muddati tugagan — parametrlar muzlatilgan" : t("fanResurslariOq.saveBar.hint")}
+                  {deadlinePassed ? t("fanResurslariOq.test.frozenHint") : t("fanResurslariOq.saveBar.hint")}
                 </span>
               </div>
               {showQuestions && (
@@ -1301,10 +1418,163 @@ function TeacherRecordingsSection({ subjectName, topicTitle }: { subjectName: st
   )
 }
 
+/* ── Mavzular gridi (kataklar) ──────────────────────────────────────── */
+interface TopicInfo {
+  key: string
+  title: string
+  markerId: number | null
+  deadline: string | null
+  isReopened: boolean
+  trainingType: string | null
+}
+
+const inputStyle = { border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" } as const
+const CARD_MIN_HEIGHT = 184
+
+const MATERIAL_ICONS: { match: (i: TeacherContent) => boolean; icon: typeof Video }[] = [
+  { match: i => i.kind === "video_lesson", icon: Video },
+  { match: i => i.kind === "audio", icon: Music },
+  { match: i => i.kind === "theory", icon: BookOpen },
+  { match: i => i.kind === "qollanma", icon: Library },
+  { match: i => i.type === "exam", icon: HelpCircle },
+  { match: i => i.type === "assignment", icon: ClipboardList },
+]
+
+/* Tahrirlash/o'chirish/qo'shish holatidagi katak ramkasi */
+function CardShell({ children, variant = "edit" }: { children: React.ReactNode; variant?: "edit" | "add" | "danger" }) {
+  const border = variant === "add" ? "2px dashed rgba(14,88,168,0.35)"
+    : variant === "danger" ? "1px solid rgba(220,38,38,0.35)"
+    : "1px solid rgba(14,88,168,0.35)"
+  return (
+    <div className="flex flex-col gap-3 p-4 rounded-[12px] bg-white"
+      style={{ border, boxShadow: "0 4px 14px rgba(1,41,112,0.08)", minHeight: CARD_MIN_HEIGHT }}>
+      {children}
+    </div>
+  )
+}
+
+/* Mavzu nomi + muddat — yangi mavzu qo'shish va tahrirlash uchun bir xil forma */
+function TopicForm({
+  title, deadline, onTitle, onDeadline, onSubmit, onCancel, loading, submitLabel,
+}: {
+  title: string
+  deadline: string
+  onTitle: (v: string) => void
+  onDeadline: (v: string) => void
+  onSubmit: () => void
+  onCancel: () => void
+  loading: boolean
+  submitLabel: string
+}) {
+  const { t } = useLanguage()
+  return (
+    <div className="flex flex-col gap-2.5">
+      <input value={title} onChange={e => onTitle(e.target.value)} autoFocus
+        onKeyDown={e => { if (e.key === "Enter") onSubmit(); if (e.key === "Escape") onCancel() }}
+        placeholder={t("mavzularOq.topicName")}
+        className="w-full px-3 py-2 rounded-[6px] text-sm outline-none" style={inputStyle} />
+      <div className="flex flex-col gap-1">
+        <label className="text-[11px] font-medium" style={labelStyle}>{t("fanResurslariOq.deadline.label")}</label>
+        <input type="datetime-local" value={deadline} onChange={e => onDeadline(e.target.value)}
+          className="w-full px-3 py-2 rounded-[6px] text-sm outline-none" style={inputStyle} />
+      </div>
+      <div className="flex items-center gap-2 mt-1">
+        <button onClick={onSubmit} disabled={loading || !title.trim()}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[6px] text-xs font-semibold text-white disabled:opacity-60"
+          style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+          {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          {submitLabel}
+        </button>
+        <button onClick={onCancel} disabled={loading}
+          className="px-3 py-2 rounded-[6px] text-xs font-medium"
+          style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+          {t("mavzularOq.cancel")}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* Bitta mavzu katagi — bosilganda mavzu resurslari ochiladi */
+function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer }: {
+  index: number
+  topic: TopicInfo
+  /** Mavzuning resurslari (marker qatorisiz) */
+  items: TeacherContent[]
+  onOpen: () => void
+  onEdit: () => void
+  onDelete: () => void
+  footer?: React.ReactNode
+}) {
+  const { t } = useLanguage()
+  const count = items.length
+  const passed = isPast(topic.deadline)
+  const icons = MATERIAL_ICONS.filter(m => items.some(m.match))
+  const deadlineColor = topic.isReopened ? "#15803d" : passed ? "#c2410c" : "#445b7a"
+  const deadlineBg = topic.isReopened ? "#f0fdf4" : passed ? "#fff7ed" : "#f6f9ff"
+
+  return (
+    <div role="button" tabIndex={0} onClick={onOpen}
+      onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen() } }}
+      className="group flex flex-col gap-3 p-4 rounded-[12px] bg-white text-left cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md outline-none focus-visible:ring-2 focus-visible:ring-[#0e58a8]"
+      style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)", minHeight: CARD_MIN_HEIGHT }}>
+      <div className="flex items-start justify-between gap-2">
+        <span className="w-9 h-9 rounded-[10px] flex items-center justify-center text-sm font-bold shrink-0"
+          style={{
+            backgroundColor: count > 0 ? "rgba(34,197,94,0.12)" : "#eef4ff",
+            color: count > 0 ? "#15803d" : "#0e58a8",
+            fontFamily: "var(--font-poppins)",
+          }}>
+          {index}
+        </span>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button onClick={e => { e.stopPropagation(); onEdit() }} title={t("mavzularOq.edit")}
+            className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-[#f0f5ff]">
+            <Pencil className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
+          </button>
+          <button onClick={e => { e.stopPropagation(); onDelete() }} title={t("mavzularOq.delete")}
+            className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-red-50">
+            <Trash2 className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
+          </button>
+        </div>
+      </div>
+
+      <p className="flex-1 text-sm font-semibold leading-snug line-clamp-3 break-words" style={titleStyle} title={topic.title}>
+        {topic.title}
+      </p>
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs" style={{ color: count > 0 ? "#15803d" : "#b0c2d8", fontFamily: "var(--font-poppins)" }}>
+          {count > 0 ? t("fanResurslariOq.sidebar.materialCount", { n: count }) : t("fanResurslariOq.sidebar.empty")}
+        </span>
+        <div className="flex items-center gap-1">
+          {icons.map(({ icon: Icon }, i) => <Icon key={i} className="w-3.5 h-3.5" style={{ color: "#94a3b8" }} />)}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-medium"
+        style={{ backgroundColor: deadlineBg, color: deadlineColor, fontFamily: "var(--font-poppins)" }}>
+        <Clock className="w-3.5 h-3.5 shrink-0" />
+        <span className="truncate">
+          {!topic.deadline
+            ? t("fanResurslariOq.deadline.none")
+            : passed
+              ? `${t("fanResurslariOq.deadline.passed")} · ${formatDeadline(topic.deadline)}`
+              : t("fanResurslariOq.deadline.until", { date: formatDeadline(topic.deadline) })}
+        </span>
+        {topic.isReopened && <span className="ml-auto shrink-0 font-semibold">{t("fanResurslariOq.reopen.badge")}</span>}
+      </div>
+
+      {footer}
+    </div>
+  )
+}
+
 /* ── Bosh sahifa ─────────────────────────────────────────────────────── */
 export default function FanResurslariPage() {
   const { t } = useLanguage()
   const { data: groupsRes, loading: lGroups, error: eGroups } = useApi(() => teachingApi.groups(), [])
+  const topRef = useRef<HTMLDivElement>(null)
 
   const groups = groupsRes?.data ?? []
 
@@ -1334,15 +1604,6 @@ export default function FanResurslariPage() {
     return [...yearGroups].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
   }, [academicYear, groups, yearGroups])
 
-  const [isMobile, setIsMobile] = useState(false)
-  useEffect(() => {
-    const mql = window.matchMedia("(max-width: 767px)")
-    const apply = () => setIsMobile(mql.matches)
-    apply()
-    mql.addEventListener("change", apply)
-    return () => mql.removeEventListener("change", apply)
-  }, [])
-
   const activeGroupId = groupIds[0] ?? null
   const extraGroupIds = groupIds.slice(1)
 
@@ -1370,40 +1631,50 @@ export default function FanResurslariPage() {
   )
   const allItems = contentRes?.data ?? []
 
-  interface SidebarTopic {
-    key: string
-    title: string
-    markerId: number | null
-    deadline: string | null
-    isReopened: boolean
-    trainingType: string | null
-  }
-
-  // Mashg'ulot turi tanlangan bo'lsa, faqat o'sha turdagi mavzularni
-  // ko'rsatamiz — ma'ruza/amaliyot/mustaqil ish aralashib ketmasligi uchun.
-  // Hech narsa tanlanmagan bo'lsa ("Tanlanmagan"), eski (turi belgilanmagan)
-  // mavzular ham ko'rinishda qolishi uchun HAMMASI ko'rsatiladi.
-  const topics = useMemo<SidebarTopic[]>(() => {
-    const map = new Map<string, SidebarTopic>()
+  // Mavzuning turi marker (kind='topic') qatoridan olinadi; marker bo'lmasa —
+  // turi belgilangan birinchi qismdan (backend'dagi topicTrainingType bilan bir xil).
+  const allTopics = useMemo<TopicInfo[]>(() => {
+    const map = new Map<string, TopicInfo>()
     allItems.forEach(item => {
       if (!item.topicKey) return
-      if (!map.has(item.topicKey)) {
-        const isMarker = item.type === "mavzu" && item.kind === "topic"
+      const isMarker = item.type === "mavzu" && item.kind === "topic"
+      const existing = map.get(item.topicKey)
+      if (!existing) {
         map.set(item.topicKey, {
           key: item.topicKey, title: item.title,
           markerId: isMarker ? item.id : null,
-          deadline: isMarker ? item.deadline : null,
+          deadline: item.deadline,
           isReopened: isMarker ? item.isReopened : false,
-          trainingType: isMarker ? item.trainingType : null,
+          trainingType: item.trainingType ?? null,
         })
-      } else if (item.type === "mavzu" && item.kind === "topic") {
-        const existing = map.get(item.topicKey)!
-        map.set(item.topicKey, { ...existing, markerId: item.id, title: item.title, deadline: item.deadline, isReopened: item.isReopened, trainingType: item.trainingType })
+      } else if (isMarker) {
+        map.set(item.topicKey, {
+          ...existing, markerId: item.id, title: item.title, deadline: item.deadline,
+          isReopened: item.isReopened, trainingType: item.trainingType ?? null,
+        })
+      } else if (existing.markerId === null && !existing.trainingType && item.trainingType) {
+        map.set(item.topicKey, { ...existing, trainingType: item.trainingType })
       }
     })
-    const all = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
-    return trainingType ? all.filter(tp => tp.trainingType === trainingType) : all
-  }, [allItems, trainingType])
+    return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
+  }, [allItems])
+
+  // Tanlangan turdagi mavzular — ma'ruza/amaliyot/mustaqil ish aralashmaydi.
+  const typedTopics = useMemo(() => allTopics.filter(tp => tp.trainingType === trainingType), [allTopics, trainingType])
+  // Turi belgilanmagan (eski) mavzular — avval o'qituvchida umuman ko'rinmas,
+  // talabada esa "Boshqa materiallar"da va o'zlashtirishda chiqib turardi.
+  // Endi alohida bo'limda: turga o'tkazish yoki o'chirish mumkin.
+  const legacyTopics = useMemo(() => allTopics.filter(tp => !tp.trainingType), [allTopics])
+
+  const itemsByTopic = useMemo(() => {
+    const map = new Map<string, TeacherContent[]>()
+    allItems.forEach(item => {
+      if (!item.topicKey || item.kind === "topic") return
+      if (!map.has(item.topicKey)) map.set(item.topicKey, [])
+      map.get(item.topicKey)!.push(item)
+    })
+    return map
+  }, [allItems])
 
   const [addingTopic, setAddingTopic] = useState(false)
   const [newTopicTitle, setNewTopicTitle] = useState("")
@@ -1415,7 +1686,33 @@ export default function FanResurslariPage() {
   const [editTopicLoading, setEditTopicLoading] = useState(false)
   const [deleteTopicKey, setDeleteTopicKey] = useState<string | null>(null)
   const [deleteTopicLoading, setDeleteTopicLoading] = useState(false)
+  const [assigningKey, setAssigningKey] = useState<string | null>(null)
   const [topicOpError, setTopicOpError] = useState<string | null>(null)
+
+  function resetTopicUi() {
+    setTopicKey("")
+    setAddingTopic(false)
+    setEditTopicKey(null)
+    setDeleteTopicKey(null)
+    setTopicOpError(null)
+  }
+
+  function scrollToTop() {
+    topRef.current?.scrollIntoView({ block: "start" })
+  }
+
+  function openTopic(key: string) {
+    setEditTopicKey(null)
+    setDeleteTopicKey(null)
+    setTopicKey(key)
+    scrollToTop()
+  }
+
+  function cancelAddTopic() {
+    setAddingTopic(false)
+    setNewTopicTitle("")
+    setNewTopicDeadline("")
+  }
 
   async function handleAddTopic() {
     if (!newTopicTitle.trim() || !activeGroupId || !subjectName || !trainingType) return
@@ -1449,11 +1746,8 @@ export default function FanResurslariPage() {
           deadline: deadlineIso,
         })
       }
-      setNewTopicTitle("")
-      setNewTopicDeadline("")
-      setAddingTopic(false)
+      cancelAddTopic()
       await refetchTopics()
-      setTopicKey(newKey)
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.addError"))
     } finally {
@@ -1461,22 +1755,30 @@ export default function FanResurslariPage() {
     }
   }
 
-  function startEditTopic(tp: SidebarTopic) {
+  function startEditTopic(tp: TopicInfo) {
+    setDeleteTopicKey(null)
     setEditTopicKey(tp.key)
     setEditTopicTitle(tp.title)
-    setEditTopicDeadline(tp.deadline ? tp.deadline.slice(0, 16) : "")
+    setEditTopicDeadline(toLocalInputValue(tp.deadline))
     setTopicOpError(null)
   }
 
-  async function saveEditTopic(tp: SidebarTopic) {
-    if (!editTopicTitle.trim() || !tp.markerId) return
+  // Muddat o'tgan bo'lsa ham o'qituvchi o'zi o'zgartira oladi. Nom va muddat
+  // tanlangan parallel guruhlardagi shu nomli mavzuga ham qo'llanadi.
+  async function saveEditTopic(tp: TopicInfo) {
+    if (!editTopicTitle.trim()) return
     setEditTopicLoading(true)
     setTopicOpError(null)
     try {
-      await teachingApi.updateContent(tp.markerId, {
+      const body = {
         title: editTopicTitle.trim(),
         deadline: editTopicDeadline ? new Date(editTopicDeadline).toISOString() : null,
-      })
+      }
+      await teachingApi.updateTopic(tp.key, body)
+      for (const gid of extraGroupIds) {
+        const key = await findTopicKeyInGroup(gid, subjectName, tp.title, tp.trainingType ?? "")
+        if (key) await teachingApi.updateTopic(key, body)
+      }
       setEditTopicKey(null)
       await refetchTopics()
     } catch (err) {
@@ -1486,14 +1788,20 @@ export default function FanResurslariPage() {
     }
   }
 
-  async function handleDeleteTopic(key: string) {
+  // Mavzu serverda barcha qismlari bilan bir yo'la o'chiriladi; tanlangan
+  // parallel guruhlarga nusxalangan shu nomli mavzu ham o'chiriladi —
+  // aks holda o'sha guruh talabalarida (va o'zlashtirishda) qolib ketardi.
+  async function handleDeleteTopic(tp: TopicInfo) {
     setDeleteTopicLoading(true)
     setTopicOpError(null)
     try {
-      const toDelete = allItems.filter(i => i.topicKey === key)
-      await Promise.all(toDelete.map(i => teachingApi.removeContent(i.id)))
+      await teachingApi.deleteTopic(tp.key)
+      for (const gid of extraGroupIds) {
+        const key = await findTopicKeyInGroup(gid, subjectName, tp.title, tp.trainingType ?? "")
+        if (key) await teachingApi.deleteTopic(key)
+      }
       setDeleteTopicKey(null)
-      if (topicKey === key) setTopicKey("")
+      if (topicKey === tp.key) setTopicKey("")
       await refetchTopics()
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.deleteError"))
@@ -1502,24 +1810,32 @@ export default function FanResurslariPage() {
     }
   }
 
-  const topicCounts = useMemo(() => {
-    const map = new Map<string, number>()
-    allItems.forEach(item => {
-      if (!item.topicKey || item.kind === "topic") return
-      map.set(item.topicKey, (map.get(item.topicKey) ?? 0) + 1)
-    })
-    return map
-  }, [allItems])
+  async function assignLegacyTopic(tp: TopicInfo) {
+    if (!trainingType) return
+    setAssigningKey(tp.key)
+    setTopicOpError(null)
+    try {
+      await teachingApi.updateTopic(tp.key, { trainingType })
+      await refetchTopics()
+    } catch (err) {
+      setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.editError"))
+    } finally {
+      setAssigningKey(null)
+    }
+  }
 
-  const selectedTopic = topics.find(tp => tp.key === topicKey)
+  const selectedTopic = allTopics.find(tp => tp.key === topicKey)
   const groupName = displayGroups.find(g => g.id === activeGroupId)?.name ?? ""
+  const extraGroupNames = displayGroups.filter(g => extraGroupIds.includes(g.id)).map(g => g.name).join(", ")
+  const trainingTypeOption = TRAINING_TYPE_OPTIONS.find(o => o.value === trainingType)
+  const trainingTypeLabel = trainingTypeOption ? t(trainingTypeOption.labelKey) : trainingType
 
   function handleYearChange(val: string) {
     setAcademicYear(val)
     setGroupIds([])
     setSubjectName("")
-    setTopicKey("")
     setTrainingType("")
+    resetTopicUi()
   }
 
   // Faqat "asosiy" guruh (birinchisi) o'zgarganda fan/mavzu/turni tozalaymiz
@@ -1529,30 +1845,110 @@ export default function FanResurslariPage() {
     const newPrimary = ids[0] ?? null
     if (newPrimary !== activeGroupId) {
       setSubjectName("")
-      setTopicKey("")
       setTrainingType("")
+      resetTopicUi()
     }
     setGroupIds(ids)
   }
 
   function handleSubjectChange(val: string) {
     setSubjectName(val)
-    setTopicKey("")
     setTrainingType("")
+    resetTopicUi()
+  }
+
+  function handleTrainingTypeChange(val: string) {
+    setTrainingType(val)
+    resetTopicUi()
   }
 
   if (lGroups) return <Loading />
   if (eGroups) return <div className="p-[30px]"><ApiError message={eGroups} onRetry={() => {}} /></div>
 
-  const selection: Selection | null = activeGroupId && subjectName && topicKey && selectedTopic
+  const selection: Selection | null = activeGroupId && subjectName && trainingType && selectedTopic
     ? { groupId: activeGroupId, groupName, subjectName, topicKey, topicTitle: selectedTopic.title }
     : null
 
+  function renderTopicCell(tp: TopicInfo, index: number, footer?: React.ReactNode) {
+    if (editTopicKey === tp.key) {
+      return (
+        <CardShell key={tp.key}>
+          <TopicForm
+            title={editTopicTitle} deadline={editTopicDeadline}
+            onTitle={setEditTopicTitle} onDeadline={setEditTopicDeadline}
+            onSubmit={() => saveEditTopic(tp)} onCancel={() => setEditTopicKey(null)}
+            loading={editTopicLoading} submitLabel={t("fanResurslariOq.form.saveMeta")}
+          />
+        </CardShell>
+      )
+    }
+    if (deleteTopicKey === tp.key) {
+      return (
+        <CardShell key={tp.key} variant="danger">
+          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ backgroundColor: "#fef2f2" }}>
+            <Trash2 className="w-4 h-4" style={{ color: "#dc2626" }} />
+          </div>
+          <p className="flex-1 text-sm font-medium break-words" style={titleStyle}>
+            {t("mavzularOq.deleteConfirm", { title: tp.title })}
+          </p>
+          {extraGroupNames && (
+            <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+              {t("fanResurslariOq.deleteAlsoGroups", { groups: extraGroupNames })}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <button onClick={() => handleDeleteTopic(tp)} disabled={deleteTopicLoading}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-[6px] text-xs font-semibold text-white disabled:opacity-60"
+              style={{ backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+              {deleteTopicLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {t("mavzularOq.yesDelete")}
+            </button>
+            <button onClick={() => setDeleteTopicKey(null)} disabled={deleteTopicLoading}
+              className="px-3 py-2 rounded-[6px] text-xs font-medium"
+              style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {t("mavzularOq.cancel")}
+            </button>
+          </div>
+        </CardShell>
+      )
+    }
+    return (
+      <TopicCard key={tp.key} index={index} topic={tp} items={itemsByTopic.get(tp.key) ?? []}
+        onOpen={() => openTopic(tp.key)}
+        onEdit={() => startEditTopic(tp)}
+        onDelete={() => { setEditTopicKey(null); setDeleteTopicKey(tp.key); setTopicOpError(null) }}
+        footer={footer} />
+    )
+  }
+
+  const addCell = addingTopic ? (
+    <CardShell key="__add" variant="add">
+      <TopicForm
+        title={newTopicTitle} deadline={newTopicDeadline}
+        onTitle={setNewTopicTitle} onDeadline={setNewTopicDeadline}
+        onSubmit={handleAddTopic} onCancel={cancelAddTopic}
+        loading={addTopicLoading} submitLabel={t("mavzularOq.add")}
+      />
+    </CardShell>
+  ) : (
+    <button key="__add" onClick={() => { setAddingTopic(true); setTopicOpError(null) }}
+      className="flex flex-col items-center justify-center gap-2 rounded-[12px] transition-colors hover:bg-white"
+      style={{ border: "2px dashed rgba(14,88,168,0.3)", minHeight: CARD_MIN_HEIGHT, color: "#0e58a8", backgroundColor: "rgba(255,255,255,0.55)", fontFamily: "var(--font-poppins)" }}>
+      <span className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "#eef4ff" }}>
+        <Plus className="w-5 h-5" />
+      </span>
+      <span className="text-sm font-semibold">{t("mavzularOq.addTopic")}</span>
+    </button>
+  )
+
+  const gridStyle = { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } as const
+  const chipStyle = { backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" } as const
+
   return (
-    <div className="flex flex-col" style={{ minHeight: "100vh", backgroundColor: "#f0f4fa" }}>
+    <div ref={topRef} className="flex flex-col" style={{ minHeight: "100vh", backgroundColor: "#f0f4fa" }}>
 
       {/* ── Top header bar ── */}
-      <div className="px-8 py-5 bg-white shrink-0"
+      <div className="px-4 sm:px-8 py-5 bg-white shrink-0"
         style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
         <div className="flex items-start justify-between gap-6 flex-wrap">
           <div>
@@ -1589,7 +1985,7 @@ export default function FanResurslariPage() {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.trainingTypeLabel")}</label>
-              <select value={trainingType} onChange={e => setTrainingType(e.target.value)}
+              <select value={trainingType} onChange={e => handleTrainingTypeChange(e.target.value)}
                 disabled={!subjectName}
                 className="px-3 py-2 rounded-[6px] text-sm outline-none disabled:opacity-50"
                 style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)", minWidth: 160, backgroundColor: "white" }}>
@@ -1603,8 +1999,8 @@ export default function FanResurslariPage() {
         </div>
       </div>
 
-      {/* ── Two-panel body ── */}
       {!activeGroupId || !subjectName || !trainingType ? (
+        /* ── Filtrlar to'liq tanlanmagan ── */
         <div className="flex flex-col items-center justify-center flex-1 gap-4 py-24">
           <div className="w-16 h-16 rounded-full flex items-center justify-center"
             style={{ backgroundColor: "#eef4ff" }}>
@@ -1619,273 +2015,113 @@ export default function FanResurslariPage() {
             <p className="text-sm mt-1" style={labelStyle}>{t("fanResurslariOq.selectFromFiltersAbove")}</p>
           </div>
         </div>
-      ) : (
-        <div className="flex flex-1 min-h-0" style={{ flexDirection: isMobile ? "column" : "row" }}>
+      ) : selection && selectedTopic ? (
+        /* ── Tanlangan mavzu resurslari ── */
+        <div className="flex-1 px-4 sm:px-8 py-5 sm:py-6">
+          <div className="max-w-[1100px] mx-auto flex flex-col gap-4">
+            <button onClick={() => { setTopicKey(""); scrollToTop() }}
+              className="flex items-center gap-1.5 text-sm font-medium w-fit px-3 py-2 rounded-[8px] bg-white transition-colors hover:bg-[#f6f9ff]"
+              style={{ border: "1px solid rgba(1,41,112,0.12)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              <ChevronLeft className="w-4 h-4" /> {t("fanResurslariOq.grid.back")}
+            </button>
 
-          {/* ── Left: main content area ── */}
-          <div className="flex-1 overflow-y-auto p-6" style={{ order: isMobile ? 2 : 0 }}>
-            {selection ? (
-              <div className="flex flex-col gap-4">
-                {/* Topic header */}
-                <div className="rounded-[12px] bg-white px-5 py-4 flex items-center gap-3"
-                  style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
-                  <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: "#0e58a8" }}>
-                    <BookMarked className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-base font-semibold truncate" style={titleStyle}>{selection.topicTitle}</h2>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium"
-                        style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                        {selection.subjectName}
-                      </span>
-                      <span className="text-xs" style={labelStyle}>{selection.groupName}</span>
+            {/* Topic header */}
+            <div className="rounded-[12px] bg-white px-5 py-4 flex items-center gap-3 flex-wrap"
+              style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
+              <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0"
+                style={{ backgroundColor: "#0e58a8" }}>
+                <BookMarked className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base font-semibold break-words" style={titleStyle}>{selection.topicTitle}</h2>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={chipStyle}>
+                    {selection.subjectName}
+                  </span>
+                  {selectedTopic.trainingType && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={chipStyle}>{trainingTypeLabel}</span>
+                  )}
+                  <span className="text-xs" style={labelStyle}>{selection.groupName}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {MATERIAL_ICONS.map(({ match, icon: Icon }, i) => {
+                  const has = (itemsByTopic.get(selection.topicKey) ?? []).some(match)
+                  return (
+                    <div key={i} className="w-7 h-7 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: has ? "rgba(34,197,94,0.12)" : "rgba(1,41,112,0.06)", color: has ? "#15803d" : "#b0c2d8" }}>
+                      <Icon className="w-3.5 h-3.5" />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {["video_lesson","audio","theory","qollanma"].map(kind => {
-                      const has = allItems.some(i => i.topicKey === selection.topicKey && i.kind === kind)
-                      const icons: Record<string,React.ReactNode> = {
-                        video_lesson: <Video className="w-3.5 h-3.5" />,
-                        audio: <Music className="w-3.5 h-3.5" />,
-                        theory: <BookOpen className="w-3.5 h-3.5" />,
-                        qollanma: <Library className="w-3.5 h-3.5" />,
-                      }
-                      return (
-                        <div key={kind} className="w-7 h-7 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: has ? "rgba(34,197,94,0.12)" : "rgba(1,41,112,0.06)", color: has ? "#15803d" : "#b0c2d8" }}>
-                          {icons[kind]}
-                        </div>
-                      )
-                    })}
-                    {allItems.some(i => i.topicKey === selection.topicKey && i.type === "exam") && (
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: "rgba(34,197,94,0.12)", color: "#15803d" }}>
-                        <HelpCircle className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <ResourcesPanel sel={selection} extraGroupIds={extraGroupIds} trainingType={trainingType} />
+                  )
+                })}
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full gap-4 py-24">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "#eef4ff" }}>
-                  <BookMarked className="w-7 h-7" style={{ color: "#0e58a8" }} />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-semibold" style={titleStyle}>{t("fanResurslariOq.selectTopic")}</p>
-                  <p className="text-xs mt-1" style={labelStyle}>{t("fanResurslariOq.selectTopicHint")}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Right: course topics sidebar ── */}
-          <div className="shrink-0 bg-white overflow-y-auto"
-            style={{
-              width: isMobile ? "100%" : 300,
-              maxHeight: isMobile ? 260 : undefined,
-              borderLeft: isMobile ? "none" : "1px solid rgba(1,41,112,0.08)",
-              borderBottom: isMobile ? "1px solid rgba(1,41,112,0.08)" : "none",
-              order: isMobile ? 1 : 0,
-            }}>
-            {/* Sidebar header */}
-            <div className="px-4 py-3 sticky top-0 bg-white z-10 flex items-center justify-between gap-2"
-              style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  {t("fanResurslariOq.sidebar.courseTopics")}
-                </p>
-                {lTopics && (
-                  <div className="flex items-center gap-1.5 mt-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#7293b9" }} />
-                    <span className="text-xs" style={labelStyle}>{t("fanResurslariOq.sidebar.loading")}</span>
-                  </div>
-                )}
-              </div>
-              <button onClick={() => { setAddingTopic(v => !v); setTopicOpError(null) }}
-                className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-[6px] shrink-0 transition-colors hover:bg-[#f6f9ff]"
-                style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                <Plus className="w-3.5 h-3.5" />
-                {t("mavzularOq.addTopic")}
-              </button>
             </div>
 
-            {addingTopic && (
-              <div className="px-4 py-3 flex flex-col gap-2" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-                <input
-                  value={newTopicTitle}
-                  onChange={e => setNewTopicTitle(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleAddTopic()}
-                  placeholder={t("mavzularOq.topicName")}
-                  autoFocus
-                  className="px-3 py-2 rounded-[5px] text-sm outline-none"
-                  style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
-                />
-                <div className="flex flex-col gap-1">
-                  <label className="text-[11px] font-medium" style={labelStyle}>Muddat (deadline)</label>
-                  <input
-                    type="datetime-local"
-                    value={newTopicDeadline}
-                    onChange={e => setNewTopicDeadline(e.target.value)}
-                    className="px-3 py-2 rounded-[5px] text-sm outline-none"
-                    style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={handleAddTopic} disabled={addTopicLoading}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium text-white disabled:opacity-60"
-                    style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                    {addTopicLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                    {t("mavzularOq.add")}
-                  </button>
-                  <button onClick={() => { setAddingTopic(false); setNewTopicTitle(""); setNewTopicDeadline("") }}
-                    className="px-3 py-1.5 rounded-[6px] text-xs font-medium"
-                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    {t("mavzularOq.cancel")}
-                  </button>
+            <ResourcesPanel key={selection.topicKey} sel={selection} extraGroupIds={extraGroupIds}
+              trainingType={selectedTopic.trainingType ?? ""} onChanged={refetchTopics} />
+          </div>
+        </div>
+      ) : (
+        /* ── Mavzular gridi ── */
+        <div className="flex-1 px-4 sm:px-8 py-5 sm:py-6">
+          <div className="max-w-[1200px] mx-auto flex flex-col gap-5">
+            <div className="flex items-end justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold" style={titleStyle}>{t("mavzularOq.topics")}</h2>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={chipStyle}>{subjectName}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={chipStyle}>{trainingTypeLabel}</span>
+                  <span className="text-xs" style={labelStyle}>
+                    {[groupName, extraGroupNames].filter(Boolean).join(", ")} · {t("fanResurslariOq.grid.count", { n: typedTopics.length })}
+                  </span>
+                  {lTopics && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#7293b9" }} />}
                 </div>
               </div>
-            )}
+            </div>
 
             {topicOpError && (
-              <div className="px-4 py-2 text-xs" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+              <div className="px-4 py-2.5 rounded-[8px] text-sm" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                 {topicOpError}
               </div>
             )}
 
-            {/* Topics list */}
-            <div className="py-2">
-              {topics.length === 0 && !lTopics ? (
-                <div className="px-4 py-6 text-center">
-                  <p className="text-xs" style={labelStyle}>{t("fanResurslariOq.sidebar.noTopicsYet")}</p>
-                </div>
-              ) : topics.map((tp, idx) => {
-                const count  = topicCounts.get(tp.key) ?? 0
-                const isActive = tp.key === topicKey
+            {typedTopics.length === 0 && !lTopics && !addingTopic && (
+              <p className="text-sm" style={labelStyle}>
+                {t("fanResurslariOq.sidebar.noTopicsYet")} — {t("fanResurslariOq.grid.emptyHint")}
+              </p>
+            )}
 
-                if (editTopicKey === tp.key) {
-                  return (
-                    <div key={tp.key} className="px-4 py-3 flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          value={editTopicTitle}
-                          onChange={e => setEditTopicTitle(e.target.value)}
-                          onKeyDown={e => { if (e.key === "Escape") setEditTopicKey(null) }}
-                          autoFocus
-                          className="flex-1 px-2 py-1.5 rounded-[5px] text-sm outline-none"
-                          style={{ border: "1px solid rgba(1,41,112,0.35)", color: "#012970", fontFamily: "var(--font-poppins)" }}
-                        />
-                        <button onClick={() => saveEditTopic(tp)} disabled={editTopicLoading}
-                          className="flex items-center justify-center w-7 h-7 rounded-[6px] transition-colors hover:bg-green-50 disabled:opacity-60">
-                          {editTopicLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#16a34a" }} /> : <Check className="w-4 h-4" style={{ color: "#16a34a" }} />}
-                        </button>
-                        <button onClick={() => setEditTopicKey(null)}
-                          className="flex items-center justify-center w-7 h-7 rounded-[6px] transition-colors hover:bg-red-50">
-                          <X className="w-4 h-4" style={{ color: "#dc2626" }} />
-                        </button>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-medium" style={labelStyle}>Muddat (deadline)</label>
-                        <input
-                          type="datetime-local"
-                          value={editTopicDeadline}
-                          onChange={e => setEditTopicDeadline(e.target.value)}
-                          disabled={tp.deadline !== null && new Date(tp.deadline).getTime() < Date.now()}
-                          className="px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
-                          style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
-                        />
-                        {tp.deadline !== null && new Date(tp.deadline).getTime() < Date.now() && (
-                          <span className="text-[10px]" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                            Muddat o'tgan — endi o'zgartirib bo'lmaydi
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                }
-
-                if (deleteTopicKey === tp.key) {
-                  return (
-                    <div key={tp.key} className="px-4 py-3 flex flex-col gap-2">
-                      <span className="text-xs" style={labelStyle}>{t("mavzularOq.deleteConfirm", { title: tp.title })}</span>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleDeleteTopic(tp.key)} disabled={deleteTopicLoading}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium text-white disabled:opacity-60"
-                          style={{ backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
-                          {deleteTopicLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                          {t("mavzularOq.yesDelete")}
-                        </button>
-                        <button onClick={() => setDeleteTopicKey(null)}
-                          className="px-3 py-1.5 rounded-[6px] text-xs font-medium"
-                          style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                          {t("mavzularOq.cancel")}
-                        </button>
-                      </div>
-                    </div>
-                  )
-                }
-
-                return (
-                  <div key={tp.key} className="group w-full flex items-start gap-1 transition-all"
-                    style={{
-                      backgroundColor: isActive ? "#eef4ff" : "transparent",
-                      borderLeft: isActive ? "3px solid #0e58a8" : "3px solid transparent",
-                    }}>
-                    <button onClick={() => setTopicKey(tp.key)}
-                      className="flex-1 min-w-0 text-left px-4 py-3 flex items-start gap-3">
-                      {/* Number badge */}
-                      <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
-                        style={{
-                          backgroundColor: isActive ? "#0e58a8" : count > 0 ? "rgba(34,197,94,0.12)" : "rgba(1,41,112,0.06)",
-                          color: isActive ? "white" : count > 0 ? "#15803d" : "#7293b9",
-                          fontFamily: "var(--font-poppins)",
-                        }}>
-                        {idx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium leading-snug"
-                          style={{ color: isActive ? "#012970" : "#445b7a", fontFamily: "var(--font-poppins)" }}>
-                          {tp.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {count > 0 ? (
-                            <span className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                              {t("fanResurslariOq.sidebar.materialCount", { n: count })}
-                            </span>
-                          ) : (
-                            <span className="text-xs" style={{ color: "#b0c2d8", fontFamily: "var(--font-poppins)" }}>
-                              {t("fanResurslariOq.sidebar.empty")}
-                            </span>
-                          )}
-                          {count > 0 && (
-                            <div className="flex items-center gap-0.5">
-                              {allItems.some(i => i.topicKey === tp.key && i.kind === "video_lesson") && <Video className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                              {allItems.some(i => i.topicKey === tp.key && i.kind === "audio") && <Music className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                              {allItems.some(i => i.topicKey === tp.key && i.kind === "theory") && <BookOpen className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                              {allItems.some(i => i.topicKey === tp.key && i.type === "exam") && <HelpCircle className="w-3 h-3" style={{ color: "#94a3b8" }} />}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                    <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 pr-2 pt-3">
-                      <button onClick={() => startEditTopic(tp)} title={t("mavzularOq.edit")}
-                        className="flex items-center justify-center w-6 h-6 rounded-[5px] transition-colors hover:bg-[#f0f5ff]">
-                        <Pencil className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
-                      </button>
-                      <button onClick={() => { setDeleteTopicKey(tp.key); setTopicOpError(null) }} title={t("mavzularOq.delete")}
-                        className="flex items-center justify-center w-6 h-6 rounded-[5px] transition-colors hover:bg-red-50">
-                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="grid gap-4" style={gridStyle}>
+              {typedTopics.map((tp, idx) => renderTopicCell(tp, idx + 1))}
+              {addCell}
             </div>
+
+            {legacyTopics.length > 0 && (
+              <section className="flex flex-col gap-3 pt-2">
+                <div className="flex items-start gap-3 px-4 py-3 rounded-[10px]"
+                  style={{ backgroundColor: "#f8fafc", border: "1px dashed rgba(1,41,112,0.2)" }}>
+                  <FolderOpen className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#64748b" }} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold" style={titleStyle}>
+                      {t("fanResurslariOq.legacy.title")} ({legacyTopics.length})
+                    </p>
+                    <p className="text-xs mt-0.5" style={labelStyle}>
+                      {t("fanResurslariOq.legacy.hint", { type: trainingTypeLabel })}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-4" style={gridStyle}>
+                  {legacyTopics.map((tp, idx) => renderTopicCell(tp, idx + 1, (
+                    <button onClick={e => { e.stopPropagation(); assignLegacyTopic(tp) }} disabled={assigningKey === tp.key}
+                      className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-[8px] text-xs font-semibold text-white transition-opacity disabled:opacity-60"
+                      style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                      {assigningKey === tp.key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
+                      {t("fanResurslariOq.legacy.assign", { type: trainingTypeLabel })}
+                    </button>
+                  )))}
+                </div>
+              </section>
+            )}
           </div>
         </div>
       )}

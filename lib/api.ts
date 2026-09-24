@@ -1497,10 +1497,16 @@ export const teachingApi = {
     return get<ListRes<TeacherContent>>(`/api/teaching/content/by-topic?${q}`)
   },
 
-  /** O'qituvchi: mavzuni qayta ochish (faqat mavzu deadline'i o'tmagan bo'lsa) */
+  /** O'qituvchi: mavzuni qayta ochish (muddat o'tgan bo'lsa ham) */
   reopenTopic: (topicKey: string) => post<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}/reopen`, {}),
   /** O'qituvchi: mavzuni qayta yopish */
   closeTopic: (topicKey: string) => post<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}/close`, {}),
+  /** O'qituvchi: mavzu nomi/deadline/turini o'zgartirish — deadline va tur
+      mavzuning barcha qismlariga (test, topshiriq, ...) birdan qo'llanadi */
+  updateTopic: (topicKey: string, body: { title?: string; deadline?: string | null; trainingType?: string | null }) =>
+    patch<ListRes<TeacherContent>>(`/api/teaching/topics/${encodeURIComponent(topicKey)}`, body),
+  /** O'qituvchi: mavzuni barcha qismlari bilan o'chirish (serverda bir yo'la) */
+  deleteTopic: (topicKey: string) => del<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}`),
 
   createContent: (input: {
     type: TeachingContentType
