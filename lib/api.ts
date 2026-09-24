@@ -2332,6 +2332,8 @@ export interface AdminTeacherTopicContent {
   meetingLink: string | null
   maxScore: number | null
   deadline: string | null
+  /** Test savollari soni — 0 bo'lsa test talabaga ko'rsatilmaydi */
+  questionCount?: number
 }
 
 export interface AdminExamQuestion {

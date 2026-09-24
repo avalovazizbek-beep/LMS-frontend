@@ -1339,6 +1339,12 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
             </button>
           ) : (
             <div className="flex flex-col gap-4">
+              {test.questionCount === 0 && (
+                <p className="text-xs px-3 py-2 rounded-[6px]"
+                  style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                  {t("fanResurslariOq.test.noQuestionsWarn")}
+                </p>
+              )}
               <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={() => setShowQuestions(true)}
                   className="px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
@@ -1907,6 +1913,12 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, grou
           {icons.map(({ icon: Icon }, i) => <Icon key={i} className="w-3.5 h-3.5" style={{ color: "#94a3b8" }} />)}
         </div>
       </div>
+
+      {items.some(i => i.type === "exam" && i.questionCount === 0) && (
+        <p className="text-[11px] font-medium" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+          {t("fanResurslariOq.grid.emptyTest")}
+        </p>
+      )}
 
       <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-medium"
         style={{ backgroundColor: deadlineBg, color: deadlineColor, fontFamily: "var(--font-poppins)" }}>

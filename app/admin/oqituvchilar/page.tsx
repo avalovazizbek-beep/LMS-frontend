@@ -135,8 +135,19 @@ function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: stri
                   {isTest ? t("adminOqituvchilar.itemTypeTest") : it.type === "assignment" ? t("adminOqituvchilar.itemTypeAssignment") : (CONTENT_KIND_LABEL_KEY[it.kind ?? ""] ? t(CONTENT_KIND_LABEL_KEY[it.kind ?? ""]) : it.kind)}
                 </span>
                 <span className="text-sm truncate" style={T}>
-                  {it.fileName ?? (it.meetingLink ? it.meetingLink : isTest ? t("adminOqituvchilar.maxScoreLabel", { value: it.maxScore ?? "—" }) : it.title)}
+                  {/* Maks. ball berilmagan bo'lsa tizim 100 deb hisoblaydi */}
+                  {it.fileName ?? (it.meetingLink ? it.meetingLink : isTest ? t("adminOqituvchilar.maxScoreLabel", { value: it.maxScore ?? 100 }) : it.title)}
                 </span>
+                {isTest && it.questionCount != null && (
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded shrink-0"
+                    style={it.questionCount > 0
+                      ? { backgroundColor: "#f0fdf4", color: "#15803d" }
+                      : { backgroundColor: "#fef2f2", color: "#b91c1c" }}>
+                    {it.questionCount > 0
+                      ? t("adminOqituvchilar.questionCount", { n: it.questionCount })
+                      : t("adminOqituvchilar.noQuestionsHidden")}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {isTest && (
