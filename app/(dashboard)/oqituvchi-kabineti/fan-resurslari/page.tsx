@@ -840,11 +840,13 @@ async function ensureTopicKeyForGroup(
   const existingKey = await findTopicKeyInGroup(groupId, subjectName, topicTitle, trainingType)
   if (existingKey) return existingKey
   const newKey = `${subjectName}__${groupId}__${Date.now()}`
-  await teachingApi.createContent({
+  const res = await teachingApi.createContent({
     type: "mavzu", kind: "topic", groupId, subjectName, topicKey: newKey,
     title: topicTitle, trainingType: trainingType || undefined, availableFrom: new Date().toISOString(), deadline,
   })
-  return newKey
+  // Backend shu guruhda shu nomdagi mavzu allaqachon bo'lsa, yangisini
+  // yaratmay mavjudini qaytaradi — resurslar o'sha mavzuga tushishi kerak.
+  return res.data?.topicKey ?? newKey
 }
 
 /* Tanlangan parallel guruhlardagi shu mavzu (nomi + turi bo'yicha) va uning
@@ -1810,7 +1812,7 @@ const GROUP_STATE_STYLE: Record<GroupState, { bg: string; color: string; border:
   missing: { bg: "white",   color: "#b91c1c", border: "1px dashed rgba(185,28,28,0.45)", titleKey: "fanResurslariOq.grid.missingInGroup" },
 }
 
-function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, groups, onSync, syncing, ownerName }: {
+function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, groups, onSync, syncing, ownerName, duplicateGroups, onMergeDuplicates, merging }: {
   index: number
   topic: TopicInfo
   /** Mavzuning resurslari (marker qatorisiz) */
@@ -1825,6 +1827,10 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, grou
   syncing?: boolean
   /** Boshqa o'qituvchining mavzusi — faqat ko'rish uchun */
   ownerName?: string
+  /** Shu mavzu bir necha marta bor guruhlar (talabalar ikkalasini ko'radi) */
+  duplicateGroups?: string[]
+  onMergeDuplicates?: () => void
+  merging?: boolean
 }) {
   const { t } = useLanguage()
   const count = items.length
@@ -1914,6 +1920,24 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, grou
         </span>
         {topic.isReopened && <span className="ml-auto shrink-0 font-semibold">{t("fanResurslariOq.reopen.badge")}</span>}
       </div>
+
+      {duplicateGroups && duplicateGroups.length > 0 && (
+        <div className="flex flex-col gap-2 px-2.5 py-2 rounded-[8px]"
+          style={{ backgroundColor: "#fef2f2", border: "1px solid rgba(185,28,28,0.25)" }}>
+          <span className="text-[11px] font-semibold" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}
+            title={t("fanResurslariOq.dup.hint")}>
+            {t("fanResurslariOq.dup.badge", { groups: duplicateGroups.join(", ") })}
+          </span>
+          {onMergeDuplicates && (
+            <button onClick={e => { e.stopPropagation(); onMergeDuplicates() }} disabled={merging}
+              className="flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-[6px] text-xs font-semibold text-white disabled:opacity-60"
+              style={{ backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+              {merging ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRightLeft className="w-3.5 h-3.5" />}
+              {t("fanResurslariOq.dup.merge")}
+            </button>
+          )}
+        </div>
+      )}
 
       {needsSync && onSync && (
         <button onClick={e => { e.stopPropagation(); onSync() }} disabled={syncing}
@@ -2030,6 +2054,7 @@ export default function FanResurslariPage() {
   const [deleteTopicLoading, setDeleteTopicLoading] = useState(false)
   const [assigningKey, setAssigningKey] = useState<string | null>(null)
   const [syncingKey, setSyncingKey] = useState<string | null>(null)
+  const [mergingKey, setMergingKey] = useState<string | null>(null)
   const [topicOpError, setTopicOpError] = useState<string | null>(null)
   const [topicOpInfo, setTopicOpInfo] = useState<string | null>(null)
 
@@ -2113,10 +2138,17 @@ export default function FanResurslariPage() {
   async function handleDeleteTopic(tp: TopicInfo) {
     setDeleteTopicLoading(true)
     setTopicOpError(null)
+    setTopicOpInfo(null)
     try {
-      // Boshqa o'qituvchining mavzusi — backend faqat o'z guruhingizda ruxsat beradi
-      const othersInMyGroup = tp.ownerId !== me
-      for (const inst of tp.instances) await teachingApi.deleteTopic(inst.key, { othersInMyGroup })
+      if (tp.ownerId !== me) {
+        // Boshqa o'qituvchining mavzusi — backend faqat o'z guruhingizda ruxsat beradi
+        for (const inst of tp.instances) await teachingApi.deleteTopic(inst.key, { othersInMyGroup: true })
+      } else {
+        // O'z mavzusi — barcha guruhlaridan (tanlanmaganlaridan va takrorlari
+        // bilan ham): "o'chirdim" = talabada, adminda, o'zida hech qayerda yo'q
+        const res = await teachingApi.deleteTopic(tp.key, { everywhere: true })
+        setTopicOpInfo(t("fanResurslariOq.deletedResult", { n: res.data?.groups ?? tp.instances.length }))
+      }
       setDeleteTopicKey(null)
       if (tp.instances.some(i => i.key === topicKey)) setTopicKey("")
       await refetchTopics()
@@ -2138,6 +2170,23 @@ export default function FanResurslariPage() {
       setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.editError"))
     } finally {
       setAssigningKey(null)
+    }
+  }
+
+  // Bir guruhda takrorlangan shu mavzularni bittaga birlashtiradi (backend:
+  // eng to'liq mavzu qoladi, qolganlaridagi yetishmayotgan qismlar ko'chadi).
+  async function mergeDuplicates(tp: TopicInfo) {
+    setMergingKey(tp.key)
+    setTopicOpError(null)
+    setTopicOpInfo(null)
+    try {
+      const res = await teachingApi.mergeDuplicateTopics(tp.key)
+      setTopicOpInfo(t("fanResurslariOq.dup.result", { topics: res.data.removedTopics, moved: res.data.movedItems }))
+      await refetchTopics()
+    } catch (err) {
+      setTopicOpError(err instanceof Error ? err.message : t("fanResurslariOq.errors.saveError"))
+    } finally {
+      setMergingKey(null)
     }
   }
 
@@ -2242,9 +2291,9 @@ export default function FanResurslariPage() {
                 groups: tp.instances.map(i => groupNameOf(i.groupId)).join(", "),
               })}
             </p>
-          ) : tp.instances.length > 1 && (
+          ) : (
             <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-              {t("fanResurslariOq.deleteAlsoGroups", { groups: tp.instances.slice(1).map(i => groupNameOf(i.groupId)).join(", ") })}
+              {t("fanResurslariOq.deleteEverywhere")}
             </p>
           )}
           <div className="flex items-center gap-2">
@@ -2272,13 +2321,19 @@ export default function FanResurslariPage() {
           ownerName={owners[tp.ownerId] ?? t("fanResurslariOq.others.unknown")} onDelete={onDelete} />
       )
     }
+    const duplicateGroups = groupIds
+      .filter(gid => tp.instances.filter(i => i.groupId === gid).length > 1)
+      .map(groupNameOf)
     return (
       <TopicCard key={tp.key} index={index} topic={tp} items={tp.base.items}
         onOpen={() => openTopic(tp.key)}
         onEdit={() => startEditTopic(tp)}
         onDelete={onDelete}
         groups={groups}
-        onSync={() => syncTopicToGroups(tp)} syncing={syncingKey === tp.key}
+        duplicateGroups={duplicateGroups}
+        onMergeDuplicates={() => mergeDuplicates(tp)} merging={mergingKey === tp.key}
+        // Takror bo'lsa avval birlashtirish kerak — keyin moslash
+        onSync={duplicateGroups.length ? undefined : () => syncTopicToGroups(tp)} syncing={syncingKey === tp.key}
         footer={footer} />
     )
   }

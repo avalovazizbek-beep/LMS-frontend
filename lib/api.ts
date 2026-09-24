@@ -1506,8 +1506,17 @@ export const teachingApi = {
   updateTopic: (topicKey: string, body: { title?: string; deadline?: string | null; trainingType?: string | null }) =>
     patch<ListRes<TeacherContent>>(`/api/teaching/topics/${encodeURIComponent(topicKey)}`, body),
   /** O'qituvchi: mavzuni barcha qismlari bilan o'chirish (serverda bir yo'la) */
-  deleteTopic: (topicKey: string, opts?: { othersInMyGroup?: boolean }) =>
-    del<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}${opts?.othersInMyGroup ? "?scope=group" : ""}`),
+  /** everywhere — o'z mavzusi barcha guruhlaridan; othersInMyGroup — boshqa
+      o'qituvchining mavzusi (faqat o'zi dars beradigan guruhda) */
+  deleteTopic: (topicKey: string, opts?: { othersInMyGroup?: boolean; everywhere?: boolean }) =>
+    del<{ success: boolean; message: string; data?: { deleted: number; groups?: number } }>(
+      `/api/teaching/topics/${encodeURIComponent(topicKey)}${opts?.othersInMyGroup ? "?scope=group" : opts?.everywhere ? "?everywhere=1" : ""}`
+    ),
+  /** O'qituvchi: bir guruhda takrorlangan shu mavzularni bittaga birlashtirish */
+  mergeDuplicateTopics: (topicKey: string) =>
+    post<{ success: boolean; data: { removedTopics: number; movedItems: number; removedItems: number } }>(
+      `/api/teaching/topics/${encodeURIComponent(topicKey)}/merge-duplicates`, {}
+    ),
   /** O'qituvchi: tanlangan guruhlardagi shu fanning barcha kontenti (boshqa
       o'qituvchilarniki ham — `owners` ularning ismi, `me` o'zining ID'si) */
   groupContent: (groupIds: number[], subject: string) =>

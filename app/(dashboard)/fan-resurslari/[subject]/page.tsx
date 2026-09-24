@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, BookOpen, CheckCircle2, ClipboardList, HelpCircle, Lock, Circle, Library, ExternalLink, Video, Play, Clapperboard, FolderOpen, ChevronRight } from "lucide-react"
 import { teachingApi, hemisApi, meetingsApi, NO_TRAINING_TYPE, type StudentTopic, type StudentTopicSectionWithLock, type LocalResource, type SubjectRecording } from "@/lib/api"
@@ -198,6 +198,11 @@ export default function FanResurslariDetail() {
   }, [topics, selectedKey])
 
   const selected = useMemo(() => topics.find(t => t.topicKey === selectedKey) ?? null, [topics, selectedKey])
+  const topRef = useRef<HTMLDivElement>(null)
+  const nextTopic = useMemo(() => {
+    const idx = topics.findIndex(t => t.topicKey === selectedKey)
+    return idx >= 0 ? topics[idx + 1] ?? null : null
+  }, [topics, selectedKey])
 
   if (lSummary) return <Loading />
 
@@ -212,7 +217,7 @@ export default function FanResurslariDetail() {
   const backToPicker = () => { setSelectedType(null); setSelectedKey(null) }
 
   return (
-    <div className="flex flex-col gap-6 p-[30px]">
+    <div ref={topRef} className="flex flex-col gap-6 p-[30px]">
       <div className="flex items-start gap-4">
         <button onClick={hasTypedBuckets ? backToPicker : () => router.back()}
           className="flex items-center justify-center w-9 h-9 rounded-[8px] transition-colors hover:bg-[#f0f5ff] shrink-0 mt-1"
@@ -252,7 +257,24 @@ export default function FanResurslariDetail() {
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 flex flex-col gap-4 min-w-0">
             {selected ? (
-              <TopicContent topic={selected} onProgress={refetch} />
+              <>
+                <TopicContent topic={selected} onProgress={refetch} />
+                {/* Mavzudagi yuklangan hamma narsa bajarilgach — keyingisiga o'tish */}
+                {selected.completed && nextTopic && !nextTopic.locked && (
+                  <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-4 rounded-[10px]"
+                    style={{ backgroundColor: "#f0fdf4", border: "1px solid rgba(21,128,61,0.25)" }}>
+                    <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                      <CheckCircle2 className="w-4 h-4" /> {t("fanResurslari.topicDone")}
+                    </span>
+                    <button onClick={() => { setSelectedKey(nextTopic.topicKey); topRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) }}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-sm font-semibold text-white min-w-0"
+                      style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                      <span className="truncate max-w-[260px]">{t("fanResurslari.nextTopic")}: {nextTopic.title}</span>
+                      <ChevronRight className="w-4 h-4 shrink-0" />
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="bg-white rounded-[10px] p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
                 <Lock className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
