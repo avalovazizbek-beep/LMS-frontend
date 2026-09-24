@@ -1849,16 +1849,20 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, grou
           }}>
           {index}
         </span>
-        {!readOnly && (
+        {(onEdit || onDelete) && (
           <div className="flex items-center gap-0.5 shrink-0">
-            <button onClick={e => { e.stopPropagation(); onEdit?.() }} title={t("mavzularOq.edit")}
-              className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-[#f0f5ff]">
-              <Pencil className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
-            </button>
-            <button onClick={e => { e.stopPropagation(); onDelete?.() }} title={t("mavzularOq.delete")}
-              className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-red-50">
-              <Trash2 className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
-            </button>
+            {onEdit && (
+              <button onClick={e => { e.stopPropagation(); onEdit() }} title={t("mavzularOq.edit")}
+                className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-[#f0f5ff]">
+                <Pencil className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
+              </button>
+            )}
+            {onDelete && (
+              <button onClick={e => { e.stopPropagation(); onDelete() }} title={t("mavzularOq.delete")}
+                className="w-7 h-7 flex items-center justify-center rounded-[6px] transition-colors hover:bg-red-50">
+                <Trash2 className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -2110,7 +2114,9 @@ export default function FanResurslariPage() {
     setDeleteTopicLoading(true)
     setTopicOpError(null)
     try {
-      for (const inst of tp.instances) await teachingApi.deleteTopic(inst.key)
+      // Boshqa o'qituvchining mavzusi — backend faqat o'z guruhingizda ruxsat beradi
+      const othersInMyGroup = tp.ownerId !== me
+      for (const inst of tp.instances) await teachingApi.deleteTopic(inst.key, { othersInMyGroup })
       setDeleteTopicKey(null)
       if (tp.instances.some(i => i.key === topicKey)) setTopicKey("")
       await refetchTopics()
@@ -2229,7 +2235,14 @@ export default function FanResurslariPage() {
           <p className="flex-1 text-sm font-medium break-words" style={titleStyle}>
             {t("mavzularOq.deleteConfirm", { title: tp.title })}
           </p>
-          {tp.instances.length > 1 && (
+          {tp.ownerId !== me ? (
+            <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+              {t("fanResurslariOq.others.deleteConfirm", {
+                author: owners[tp.ownerId] ?? t("fanResurslariOq.others.unknown"),
+                groups: tp.instances.map(i => groupNameOf(i.groupId)).join(", "),
+              })}
+            </p>
+          ) : tp.instances.length > 1 && (
             <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
               {t("fanResurslariOq.deleteAlsoGroups", { groups: tp.instances.slice(1).map(i => groupNameOf(i.groupId)).join(", ") })}
             </p>
@@ -2250,12 +2263,21 @@ export default function FanResurslariPage() {
         </CardShell>
       )
     }
+    const groups = topicGroupStates(tp, groupIds).map(g => ({ name: groupNameOf(g.groupId), state: g.state }))
+    const onDelete = () => { setEditTopicKey(null); setDeleteTopicKey(tp.key); setTopicOpError(null) }
+    // Boshqa o'qituvchining mavzusi — ochish/tahrirlash/moslash yo'q, faqat o'chirish
+    if (tp.ownerId !== me) {
+      return (
+        <TopicCard key={tp.key} index={index} topic={tp} items={tp.base.items} groups={groups}
+          ownerName={owners[tp.ownerId] ?? t("fanResurslariOq.others.unknown")} onDelete={onDelete} />
+      )
+    }
     return (
       <TopicCard key={tp.key} index={index} topic={tp} items={tp.base.items}
         onOpen={() => openTopic(tp.key)}
         onEdit={() => startEditTopic(tp)}
-        onDelete={() => { setEditTopicKey(null); setDeleteTopicKey(tp.key); setTopicOpError(null) }}
-        groups={topicGroupStates(tp, groupIds).map(g => ({ name: groupNameOf(g.groupId), state: g.state }))}
+        onDelete={onDelete}
+        groups={groups}
         onSync={() => syncTopicToGroups(tp)} syncing={syncingKey === tp.key}
         footer={footer} />
     )
@@ -2481,11 +2503,7 @@ export default function FanResurslariPage() {
                   </div>
                 </div>
                 <div className="grid gap-4" style={gridStyle}>
-                  {otherTopics.map((tp, idx) => (
-                    <TopicCard key={tp.id} index={idx + 1} topic={tp} items={tp.base.items}
-                      ownerName={owners[tp.ownerId] ?? t("fanResurslariOq.others.unknown")}
-                      groups={topicGroupStates(tp, groupIds).map(g => ({ name: groupNameOf(g.groupId), state: g.state }))} />
-                  ))}
+                  {otherTopics.map((tp, idx) => renderTopicCell(tp, idx + 1))}
                 </div>
               </section>
             )}

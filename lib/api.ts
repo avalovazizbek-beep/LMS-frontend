@@ -1506,7 +1506,8 @@ export const teachingApi = {
   updateTopic: (topicKey: string, body: { title?: string; deadline?: string | null; trainingType?: string | null }) =>
     patch<ListRes<TeacherContent>>(`/api/teaching/topics/${encodeURIComponent(topicKey)}`, body),
   /** O'qituvchi: mavzuni barcha qismlari bilan o'chirish (serverda bir yo'la) */
-  deleteTopic: (topicKey: string) => del<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}`),
+  deleteTopic: (topicKey: string, opts?: { othersInMyGroup?: boolean }) =>
+    del<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}${opts?.othersInMyGroup ? "?scope=group" : ""}`),
   /** O'qituvchi: tanlangan guruhlardagi shu fanning barcha kontenti (boshqa
       o'qituvchilarniki ham — `owners` ularning ismi, `me` o'zining ID'si) */
   groupContent: (groupIds: number[], subject: string) =>
