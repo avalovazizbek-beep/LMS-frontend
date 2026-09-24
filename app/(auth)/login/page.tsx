@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { GraduationCap, KeyRound } from "lucide-react"
 import { hemisApi } from "@/lib/api"
@@ -10,6 +10,11 @@ export default function LoginPage() {
   const router = useRouter()
   const [oauthLoading, setOauthLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 30 daqiqa harakatsizlikdan keyin chiqarilgan bo'lsa (IdleLogout)
+  const [idleNotice, setIdleNotice] = useState(false)
+  useEffect(() => {
+    setIdleNotice(new URLSearchParams(window.location.search).get("reason") === "idle")
+  }, [])
 
   // Faqat Zoom Marketplace ko'rib chiqish (va shunga o'xshash tashqi test)
   // uchun — HEMIS'ga bog'liq bo'lmagan, oldindan yaratilgan demo login/parol
@@ -74,6 +79,12 @@ export default function LoginPage() {
 
         <div className="rounded-[10px] bg-[var(--lms-cell)] p-8" style={{ boxShadow: "var(--lms-shadow)" }}>
           <div className="flex flex-col gap-4">
+            {idleNotice && !error && (
+              <div className="rounded-[5px] px-3 py-2.5 text-sm"
+                style={{ backgroundColor: "rgba(234,179,8,0.12)", color: "#a16207", border: "1px solid #eab308", fontFamily: "var(--font-poppins)" }}>
+                30 daqiqa harakatsizlik sababli xavfsizlik uchun tizimdan chiqdingiz. Iltimos, qayta kiring.
+              </div>
+            )}
             {error && (
               <div className="rounded-[5px] px-3 py-2.5 text-sm"
                 style={{ backgroundColor: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid #ef4444", fontFamily: "var(--font-poppins)" }}>

@@ -9,6 +9,7 @@ import { MeetingReminder } from "@/components/layout/MeetingReminder"
 import { AnnouncementModal } from "@/components/layout/AnnouncementModal"
 import { FaceReregisterModal } from "@/components/layout/FaceReregisterModal"
 import { MeetingCallProvider, useMeetingCall } from "@/components/layout/MeetingCallContext"
+import { IdleLogout } from "@/components/layout/IdleLogout"
 
 export default function DashboardLayout({
   children,
@@ -67,11 +68,16 @@ function DashboardLayoutInner({
 
   if (!checkedAuth) return null
 
+  // Online dars va imtihon paytida harakatsizlik hisoblanmaydi (talaba
+  // shunchaki tinglayotgan yoki savol ustida o'ylayotgan bo'lishi mumkin)
+  const idlePaused = inCall || /^\/(test|imtihonlar)\/[^/]+/.test(pathname)
+
   return (
     <div
       className="flex h-screen overflow-hidden"
       style={{ backgroundColor: "var(--lms-bg)" }}
     >
+      <IdleLogout paused={idlePaused} />
       {!isMeetingRoute && <MeetingReminder />}
       {/* MeetingReminder bilan bir xil z-[5000] fixed overlay — bir nechtasi bir
           vaqtda chiqib qolsa (kamdan-kam), keyingisi DOM tartibida keyinroq

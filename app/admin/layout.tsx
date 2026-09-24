@@ -28,6 +28,7 @@ import {
   MessageSquareText,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
+import { IdleLogout } from "@/components/layout/IdleLogout"
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ""
 
@@ -115,6 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "#f0f5ff" }}>
+      <IdleLogout />
       {/* Mobilda sidebar ochiq bo'lsa — orqa fon, bosilsa yopiladi */}
       {isMobile && sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setSidebarOpen(false)} />
