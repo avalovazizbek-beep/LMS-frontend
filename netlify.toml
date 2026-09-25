@@ -4,15 +4,3 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-[[redirects]]
-  from = "/"
-  to = "/lms-samisi/login"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/login"
-  to = "/lms-samisi/login"
-  status = 301
-  force = true

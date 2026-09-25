@@ -1,9 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Build vaqtidagi NEXT_PUBLIC_BASE_PATH orqali boshqariladi — shu bitta
-  // repo turli joylashuvlarga (Netlify: /lms-samisi ostida, yoki o'z domeni:
-  // bo'sh/root) moslashtirilishi uchun. Lokal `next dev`da bo'sh qoladi.
-  basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
   typescript: { ignoreBuildErrors: true },
   images: { unoptimized: true },
   // face-api.js model fayllari (~7MB) statik va hech qachon o'zgarmaydi —
@@ -18,40 +14,26 @@ const nextConfig = {
       },
     ]
   },
-  // basePath o'rnatilganda Next.js domen ILDIZINI (masalan https://lms.sies.uz/,
-  // /lms-samisi'siz) hech qanday sahifaga bog'lamaydi — kimdir shu manzilga
-  // to'g'ridan-to'g'ri kirsa (OAuth qaytishi, eski havola, qo'lda yozish)
-  // 404 ko'radi. `basePath: false` bu qoidani basePath'dan TASHQARIDA
-  // qo'llash uchun Next.js'ning maxsus imkoniyati.
+  // Ilgari butun sayt /lms-samisi ostida (basePath) ishlardi — endi domen
+  // ildizida (https://lms.sies.uz/login). Eski havolalar (xatcho'plar, Google
+  // natijalari, HEMIS/Zoom sozlamalarida qolgan manzillar) buzilmasligi
+  // uchun /lms-samisi/<yo'l> -> /<yo'l> ga yo'naltiriladi (query saqlanadi).
+  // Hozircha vaqtinchalik (307): orqaga qaytish kerak bo'lsa brauzerlar bu
+  // yo'naltirishni keshlab qolmasin. Barqaror ishlashiga ishonch hosil
+  // bo'lgach permanent: true (308) qilinsin.
   async redirects() {
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ""
     return [
+      // Faqat "/lms-samisi" o'zi — quyidagi qoida bo'sh :path bilan bo'sh
+      // Location qaytarardi (brauzer shu joyda aylanib qoladi).
       {
-        source: "/",
-        destination: `${basePath}/login`,
-        basePath: false,
+        source: "/lms-samisi",
+        destination: "/",
         permanent: false,
       },
-    ]
-  },
-  // Google Search Console (va kelajakda Bing/Yandex kabi) sayt-tasdiqlash
-  // fayllari domen ILDIZIDA (masalan https://lms.sies.uz/google....html)
-  // bo'lishi SHART — basePath'dan (/lms-samisi) mustaqil. Fayl o'zi
-  // public/ ichida joylashadi (u yerda basePath bilan xizmat qiladi);
-  // bu qoida esa basePath'siz ildiz so'rovini o'sha faylga yo'naltiradi.
-  async rewrites() {
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ""
-    return [
       {
-        // basePath:false qo'llangan rewrite ICHKI (o'z ilovamiz ichidagi)
-        // manzilga yo'naltirilishi mumkin emas — Next.js buni majburlaydi
-        // ("outside of basePath" xatosi), shuning uchun destination TO'LIQ
-        // (https://) manzil bo'lishi kerak — bu yerda o'zining basePath
-        // ostidagi (allaqachon to'g'ri xizmat qiladigan) statik faylining
-        // o'ziga qaytadi.
-        source: "/google4a8de6346ea0f413.html",
-        destination: `https://lms.sies.uz${basePath}/google4a8de6346ea0f413.html`,
-        basePath: false,
+        source: "/lms-samisi/:path*",
+        destination: "/:path*",
+        permanent: false,
       },
     ]
   },

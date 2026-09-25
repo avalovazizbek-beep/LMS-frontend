@@ -5,8 +5,7 @@ import { BookOpen, CheckCircle2, ExternalLink, Loader2, ChevronLeft, ChevronRigh
 import { Document, Page, pdfjs } from "react-pdf"
 import { teachingApi, type ContentProgress, type TeachingFile, type PptxSlide, type PptxShape } from "@/lib/api"
 
-const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ""
-pdfjs.GlobalWorkerOptions.workerSrc = `${BASE_PATH}/pdf.worker.min.mjs`
+pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"
 
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const

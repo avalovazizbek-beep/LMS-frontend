@@ -8,8 +8,7 @@ declare global {
   interface Window { faceapi: any }
 }
 
-const BASE_PATH   = process.env.NEXT_PUBLIC_BASE_PATH || ""
-const MODEL_URL   = `${BASE_PATH}/models`
+const MODEL_URL   = "/models"
 const PING_SECONDS = 15
 const TINY_CONF    = 0.30
 
@@ -96,7 +95,7 @@ export default function MeetingFaceAttendanceTracker({ meetingId, stream, camera
   return (
     <>
       <Script
-        src={`${BASE_PATH}/face-api.min.js`}
+        src="/face-api.min.js"
         strategy="afterInteractive"
         onLoad={() => { loadModels() }}
       />

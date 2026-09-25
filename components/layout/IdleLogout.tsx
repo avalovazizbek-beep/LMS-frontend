@@ -66,7 +66,7 @@ export function IdleLogout({ paused = false }: {
       if (loggedOut.current) return
       loggedOut.current = true
       clearSession()
-      window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/login?reason=idle`
+      window.location.href = "/login?reason=idle"
     }
 
     // Sahifa ochilganda: oxirgi faollik 30 daqiqadan eski bo'lsa (masalan tab
@@ -105,7 +105,7 @@ export function IdleLogout({ paused = false }: {
     const onStorage = (e: StorageEvent) => {
       if (e.key === "lms_token" && !e.newValue && !loggedOut.current) {
         loggedOut.current = true
-        window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/login`
+        window.location.href = "/login"
       }
     }
     window.addEventListener("storage", onStorage)

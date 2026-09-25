@@ -16,7 +16,6 @@ declare global {
 
 type Phase = "loading" | "camera" | "liveness" | "confirm" | "submitting" | "done" | "error"
 
-const BASE_PATH     = process.env.NEXT_PUBLIC_BASE_PATH || ""
 const TOTAL_SAMPLES = 3
 const HOLD_FRAMES   = 5
 const MIN_CONF      = 0.4
@@ -431,7 +430,7 @@ export default function FaceRegisterPage() {
   /* ── Render ──────────────────────────────────────────────────────── */
   return (
     <>
-      <Script src={`${BASE_PATH}/face-api.min.js`} strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
+      <Script src="/face-api.min.js" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
 
       <div className="flex flex-col gap-6 p-[30px] max-w-[720px]">
 

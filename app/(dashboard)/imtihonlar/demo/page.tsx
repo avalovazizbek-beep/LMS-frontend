@@ -23,7 +23,6 @@ type Phase =
   | "terminated"
   | "done"
 
-const BASE_PATH   = process.env.NEXT_PUBLIC_BASE_PATH || ""
 const MIN_CONF    = 0.4
 const CVS_W       = 480
 const CVS_H       = 360
@@ -330,7 +329,7 @@ export default function DemoExamPage() {
   return (
     <>
       <Script
-        src={`${BASE_PATH}/face-api.min.js`}
+        src="/face-api.min.js"
         strategy="afterInteractive"
         onLoad={() => setScriptReady(true)}
       />

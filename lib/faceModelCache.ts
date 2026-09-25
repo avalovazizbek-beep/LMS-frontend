@@ -2,7 +2,7 @@
 let modelsLoaded = false
 let loadingPromise: Promise<void> | null = null
 
-const MODEL_URL = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/models`
+const MODEL_URL = "/models"
 
 export async function ensureFaceModels(onProgress?: (loaded: number, total: number) => void): Promise<void> {
   const fa = (window as any).faceapi

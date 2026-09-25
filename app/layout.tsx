@@ -12,13 +12,7 @@ const poppins = Poppins({
   variable: "--font-poppins",
 })
 
-const SITE_URL   = "https://lms.sies.uz"
-const BASE_PATH  = process.env.NEXT_PUBLIC_BASE_PATH || ""
-// Haqiqiy jamoat uchun ochiq manzil — basePath bilan birga (masalan
-// https://lms.sies.uz/lms-samisi). Ilgari SITE_URL basePath'siz ishlatilgan
-// edi (openGraph.url va h.k.da) — bu qidiruv botlari/ijtimoiy tarmoqlar
-// uchun noto'g'ri (haqiqatda ko'rinmaydigan) manzil ko'rsatardi.
-const PUBLIC_URL = `${SITE_URL}${BASE_PATH}`
+const SITE_URL = "https://lms.sies.uz"
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
@@ -36,12 +30,12 @@ export const metadata = {
   ],
   applicationName: "SamISI LMS",
   alternates: {
-    canonical: `${PUBLIC_URL}/login`,
+    canonical: `${SITE_URL}/login`,
   },
   openGraph: {
     type: "website",
     locale: "uz_UZ",
-    url: PUBLIC_URL,
+    url: SITE_URL,
     siteName: "SamISI LMS (SIES)",
     title: "SamISI LMS — Masofaviy Ta'lim Tizimi (SIES)",
     description: "Talabalar va o'qituvchilar uchun SamISI (SIES) onlayn masofaviy ta'lim platformasi.",
@@ -75,7 +69,7 @@ const jsonLd = {
     "Masofaviy ta'lim SamISI", "Masofaviy ta'lim SIES",
     "Samarqand iqtisodiyot va servis instituti",
   ],
-  url: PUBLIC_URL,
+  url: SITE_URL,
   logo: `${SITE_URL}/logo.png`,
 }
 

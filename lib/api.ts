@@ -59,7 +59,7 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
     }
     localStorage.removeItem("lms_token")
     localStorage.removeItem("lms_role")
-    window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/login`
+    window.location.href = "/login"
     throw new Error("Sessiya tugadi")
   }
 
