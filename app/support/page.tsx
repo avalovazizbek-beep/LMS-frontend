@@ -1,62 +1,76 @@
 import Link from "next/link"
+import { PublicDoc, Section, MailLink } from "@/components/public/PublicDoc"
 
 export const metadata = {
-  title: "Qo'llab-quvvatlash",
-  description: "SamISI (SIES) Masofaviy Ta'lim Tizimi qo'llab-quvvatlash xizmati",
+  title: "Support",
+  description: "Support for the SamISI (SIES) Distance Learning System and its Zoom integration",
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function English() {
   return (
-    <section className="mb-8">
-      <h2 className="text-lg font-semibold mb-2" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-        {title}
-      </h2>
-      <div className="text-sm leading-relaxed space-y-2" style={{ color: "#33415c", fontFamily: "var(--font-poppins)" }}>
-        {children}
-      </div>
-    </section>
+    <>
+      <Section title="Contact support">
+        <p>Signed-in users (students and teachers) can open a support request in the &quot;Support requests&quot; section of the System and follow the reply there.</p>
+        <p>If you cannot sign in (including Zoom reviewers), contact us by email.</p>
+      </Section>
+
+      <Section title="Email support">
+        <p><MailLink /></p>
+        <p>Working hours: Monday–Friday, 09:00–18:00 (Tashkent time, UTC+5).</p>
+        <p>First response time: usually within 1 business day, at most 2 business days.</p>
+      </Section>
+
+      <Section title="Documentation">
+        <p>
+          How to add, use and remove the Zoom app:{" "}
+          <Link href="/docs" style={{ color: "#0e58a8" }}>lms.sies.uz/docs</Link>
+        </p>
+        <p>
+          Privacy Policy: <Link href="/privacy" style={{ color: "#0e58a8" }}>lms.sies.uz/privacy</Link> · Terms of Use:{" "}
+          <Link href="/terms" style={{ color: "#0e58a8" }}>lms.sies.uz/terms</Link>
+        </p>
+      </Section>
+    </>
+  )
+}
+
+function Uzbek() {
+  return (
+    <>
+      <Section title="Murojaat yuborish">
+        <p>Tizimga kirgan foydalanuvchilar (talaba va o&apos;qituvchilar) &quot;Murojaatlar&quot; bo&apos;limida so&apos;rov ochib, javobni shu yerda kuzatishi mumkin.</p>
+        <p>Tizimga kira olmayotgan bo&apos;lsangiz (Zoom sharhlovchilari ham), email orqali murojaat qiling.</p>
+      </Section>
+
+      <Section title="Email orqali yordam">
+        <p><MailLink /></p>
+        <p>Ish vaqti: Dushanba–Juma, 09:00–18:00 (Toshkent vaqti, UTC+5).</p>
+        <p>Birinchi javob muddati: odatda 1 ish kuni ichida, ko&apos;pi bilan 2 ish kuni.</p>
+      </Section>
+
+      <Section title="Qo'llanmalar">
+        <p>
+          Zoom ilovasini ulash, ishlatish va olib tashlash:{" "}
+          <Link href="/docs" style={{ color: "#0e58a8" }}>lms.sies.uz/docs</Link>
+        </p>
+        <p>
+          Maxfiylik siyosati: <Link href="/privacy" style={{ color: "#0e58a8" }}>lms.sies.uz/privacy</Link> · Foydalanish shartlari:{" "}
+          <Link href="/terms" style={{ color: "#0e58a8" }}>lms.sies.uz/terms</Link>
+        </p>
+      </Section>
+    </>
   )
 }
 
 export default function SupportPage() {
   return (
-    <main className="min-h-screen" style={{ backgroundColor: "#f6f9ff" }}>
-      <div className="mx-auto max-w-3xl px-5 py-14">
-        <p className="text-xs uppercase tracking-wide mb-2" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          SamISI (SIES) Masofaviy Ta&apos;lim Tizimi
-        </p>
-        <h1 className="text-3xl font-bold mb-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Qo&apos;llab-quvvatlash
-        </h1>
-        <p className="text-xs mb-10" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Zoom integratsiyasi va Tizimning boshqa qismlari bo&apos;yicha yordam
-        </p>
-
-        <Section title="Murojaat yuborish">
-          <p>
-            Tizimga kirgan foydalanuvchilar (talaba/o&apos;qituvchi) &quot;Murojaatlar&quot; bo&apos;limi orqali to&apos;g&apos;ridan-to&apos;g&apos;ri
-            support so&apos;rovi (ticket) ochishi va javobni shu yerda kuzatishi mumkin.
-          </p>
-          <p>
-            Tizimga hali kira olmayotganlar (shu jumladan Zoom sharhlovchilari) uchun — pastdagi email orqali murojaat qiling.
-          </p>
-        </Section>
-
-        <Section title="Email orqali qo'llab-quvvatlash">
-          <p>
-            <a href="mailto:azizbekavalov132@gmail.com" style={{ color: "#0e58a8" }}>azizbekavalov132@gmail.com</a>
-          </p>
-          <p>Ish vaqti: Dushanba–Juma, 09:00–18:00 (Toshkent vaqti).</p>
-          <p>Birinchi javob berish muddati (SLA): odatda 1 ish kuni ichida, eng ko&apos;pi bilan 2 ish kuni ichida.</p>
-        </Section>
-
-        <Section title="Bilimlar bazasi">
-          <p>
-            Ilovani qanday ulash, ishlatish va olib tashlash bo&apos;yicha qo&apos;llanma:{" "}
-            <Link href="/docs" style={{ color: "#0e58a8" }}>lms.sies.uz/docs</Link>
-          </p>
-        </Section>
-      </div>
-    </main>
+    <PublicDoc
+      titleEn="Support"
+      titleUz="Qo'llab-quvvatlash"
+      subtitleEn="Help with the Zoom integration and the rest of the System"
+      subtitleUz="Zoom integratsiyasi va Tizimning boshqa qismlari bo'yicha yordam"
+      en={<English />}
+      uz={<Uzbek />}
+    />
   )
 }
