@@ -1685,10 +1685,10 @@ function ContentFormModal({
                   color: form.isAdaptive ? "#7c3aed" : "#445b7a",
                   fontFamily: "var(--font-poppins)",
                 }}>
-                {form.isAdaptive ? "☑" : "☐"} Moslashuvchan test (qiyinlik javobga qarab moslashadi)
+                {form.isAdaptive ? "☑" : "☐"} {t("typeContentOq.adaptive.toggle")}
               </button>
               <p className="mt-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Yoqilsa, savollar bittalab ko'rsatiladi: to'g'ri javob — qiyinroq savol, xato javob — osonroq savol. Savollarga qiyinlik darajasini "Savollar" oynasida belgilang.
+                {t("typeContentOq.adaptive.hint")}
               </p>
             </div>
           )}
@@ -1883,7 +1883,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
       await teachingApi.runPlagiarismCheck(content.id)
       await refetchPlag()
     } catch (err) {
-      setPlagError(err instanceof Error ? err.message : "Tekshirishda xatolik")
+      setPlagError(err instanceof Error ? err.message : t("typeContentOq.plag.checkError"))
     } finally {
       setPlagChecking(false)
     }
@@ -1914,7 +1914,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
         <div className="bg-white rounded-[14px] w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Antiplagiat — {studentName}
+              {t("typeContentOq.plag.title", { name: studentName })}
             </h2>
             <button onClick={() => setPlagDetail(null)} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">
               <X className="w-5 h-5" style={{ color: "#7293b9" }} />
@@ -1923,24 +1923,24 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
 
           <div className="rounded-[10px] p-4" style={{ backgroundColor: "#f6f9ff" }}>
             <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Talaba-talaba o'xshashlik: {result.maxSimilarityPct}%
+              {t("typeContentOq.plag.studentSimilarity", { pct: result.maxSimilarityPct })}
             </p>
             <p className="text-xs mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              {result.matchedStudentName ? `Eng o'xshash: ${result.matchedStudentName}` : "O'xshash topshiriq topilmadi"}
+              {result.matchedStudentName ? t("typeContentOq.plag.mostSimilar", { name: result.matchedStudentName }) : t("typeContentOq.plag.noSimilar")}
             </p>
           </div>
 
           <div className="rounded-[10px] p-4" style={{ backgroundColor: "#f6f9ff" }}>
             <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              Internet tekshiruvi
+              {t("typeContentOq.plag.internetCheck")}
             </p>
             {!result.internetEnabled ? (
               <p className="text-xs mt-1" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                Internet tekshiruvi uchun API kalit sozlanmagan (GOOGLE_CSE_KEY/GOOGLE_CSE_CX)
+                {t("typeContentOq.plag.noApiKey")}
               </p>
             ) : result.internetMatches.length === 0 ? (
               <p className="text-xs mt-1" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                Internetdan mos matn topilmadi
+                {t("typeContentOq.plag.noInternetMatch")}
               </p>
             ) : (
               <div className="flex flex-col gap-2 mt-2">
@@ -1960,7 +1960,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
           </div>
 
           <p className="text-[11px]" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
-            Tekshirilgan vaqt: {formatDateTime(result.checkedAt)}
+            {t("typeContentOq.plag.checkedAt", { time: formatDateTime(result.checkedAt) })}
           </p>
         </div>
       </div>
@@ -1985,7 +1985,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors hover:bg-[#f0f5ff] disabled:opacity-60"
                 style={{ color: "#0e58a8", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
                 <ShieldAlert className={`w-3.5 h-3.5 ${plagChecking ? "animate-pulse" : ""}`} />
-                {plagChecking ? "Tekshirilmoqda…" : "Antiplagiat tekshirish"}
+                {plagChecking ? t("common.checking") : t("typeContentOq.plag.run")}
               </button>
             )}
             <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">

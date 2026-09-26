@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { tr } from "@/lib/i18n/translations"
 
 export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = []) {
   const [data, setData]       = useState<T | null>(null)
@@ -14,7 +15,7 @@ export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = []) {
       const res = await fetcher()
       setData(res)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Xatolik yuz berdi")
+      setError(e instanceof Error ? e.message : tr("common.error"))
     } finally {
       setLoading(false)
     }

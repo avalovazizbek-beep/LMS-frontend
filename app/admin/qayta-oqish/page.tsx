@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, RefreshCw, Repeat, Search, UserPlus, ChevronRight, Layers } from "lucide-react"
 import { reeduApi, type ReeduDebtor, type ReeduGroup } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const SEMESTERS = ["11", "12", "13", "14", "15", "16", "17", "18"]
 
 export default function QaytaOqishAdmin() {
   const router = useRouter()
+  const { t } = useLanguage()
   const [semester, setSemester] = useState("")
   const [debtors, setDebtors] = useState<ReeduDebtor[]>([])
   const [departmentId, setDepartmentId] = useState<string | null>(null)
@@ -42,7 +44,7 @@ export default function QaytaOqishAdmin() {
         setDepartmentId(res.data.departmentId)
         setMessage(res.data.message ?? null)
       })
-      .catch(e => setDebtorsError(e instanceof Error ? e.message : "Yuklashda xato"))
+      .catch(e => setDebtorsError(e instanceof Error ? e.message : t("adminReedu.errLoad")))
       .finally(() => setLoadingDebtors(false))
   }
 
@@ -86,7 +88,7 @@ export default function QaytaOqishAdmin() {
       await reeduApi.enroll(created.data.id, selectedDebtors)
       router.push(`/admin/qayta-oqish/${created.data.id}`)
     } catch (e) {
-      setDebtorsError(e instanceof Error ? e.message : "Guruh yaratishda xato")
+      setDebtorsError(e instanceof Error ? e.message : t("adminReedu.errCreate"))
     } finally {
       setCreating(false)
     }
@@ -96,10 +98,10 @@ export default function QaytaOqishAdmin() {
     <div className="flex flex-col gap-6 p-4 sm:p-8">
       <div>
         <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Qayta o'qish
+          {t("adminReedu.title")}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Akademik qarzdorlarni (jami ball 55dan past) HEMIS'dan aniqlash, reedu guruhga biriktirish va jarayonni yuritish
+          {t("adminReedu.subtitle")}
         </p>
       </div>
 
@@ -108,19 +110,19 @@ export default function QaytaOqishAdmin() {
         <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: "#0e58a8" }}>1</div>
-            <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Akademik qarzdorlar</h2>
+            <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("adminReedu.debtors")}</h2>
           </div>
           <div className="flex items-center gap-2">
             <select value={semester} onChange={e => setSemester(e.target.value)}
               className="px-3 py-2 rounded-[8px] text-sm outline-none" style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              <option value="">Barcha semestrlar</option>
-              {SEMESTERS.map(s => <option key={s} value={s}>{s}-semestr</option>)}
+              <option value="">{t("adminReedu.allSemesters")}</option>
+              {SEMESTERS.map(s => <option key={s} value={s}>{t("common.semesterN", { n: s })}</option>)}
             </select>
             <button onClick={loadDebtors} disabled={loadingDebtors}
               className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
               style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
               <RefreshCw className={`w-3.5 h-3.5 ${loadingDebtors ? "animate-spin" : ""}`} />
-              Qidirish
+              {t("adminReedu.search")}
             </button>
           </div>
         </div>
@@ -134,14 +136,14 @@ export default function QaytaOqishAdmin() {
           </div>
         ) : debtors.length === 0 && !loadingDebtors ? (
           <div className="px-5 py-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            "Qidirish" tugmasini bosing — HEMIS'dan real vaqtda tekshiriladi
+            {t("adminReedu.searchHint")}
           </div>
         ) : (
           <>
             <div className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
               <div className="relative">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#7293b9" }} />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Talaba, fan yoki guruh"
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("adminReedu.filterPh")}
                   className="pl-8 pr-3 py-2 rounded-[8px] text-sm outline-none w-64" style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
               </div>
               {selectedDebtors.length > 0 && (
@@ -153,7 +155,7 @@ export default function QaytaOqishAdmin() {
                     className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px] text-white disabled:opacity-60"
                     style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                     <UserPlus className="w-3.5 h-3.5" />
-                    {creating ? "Yaratilmoqda…" : `Reedu guruh yaratish (${selectedDebtors.length})`}
+                    {creating ? t("common.creating") : t("adminReedu.createGroup", { n: selectedDebtors.length })}
                   </button>
                 </div>
               )}
@@ -163,7 +165,7 @@ export default function QaytaOqishAdmin() {
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f6f9ff" }}>
                     <th className="px-4 py-3 w-10"><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>
-                    {["Talaba", "Guruh", "Fan", "Semestr", "Jami ball"].map(h => (
+                    {[t("common.student"), t("common.group"), t("common.subject"), t("adminReedu.colSemester"), t("adminReedu.colTotal")].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
                     ))}
                   </tr>
@@ -178,7 +180,7 @@ export default function QaytaOqishAdmin() {
                       <td className="px-4 py-3 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{d.semester}</td>
                       <td className="px-4 py-3">
                         <span className="text-sm font-semibold px-2 py-0.5 rounded-full" style={{ color: "#b91c1c", backgroundColor: "#fff0f0" }}>{d.totalPoint}</span>
-                        {d.alreadyEnrolled && <span className="ml-2 text-xs" style={{ color: "#22c55e" }}>reedu'da bor</span>}
+                        {d.alreadyEnrolled && <span className="ml-2 text-xs" style={{ color: "#22c55e" }}>{t("adminReedu.alreadyIn")}</span>}
                       </td>
                     </tr>
                   ))}
@@ -193,13 +195,13 @@ export default function QaytaOqishAdmin() {
       <div className="bg-white rounded-[12px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
         <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
           <Layers className="w-4 h-4" style={{ color: "#0e58a8" }} />
-          <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Reedu guruhlar</h2>
+          <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("adminReedu.groups")}</h2>
         </div>
         {loadingGroups ? (
           <div className="flex items-center justify-center py-14"><RefreshCw className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} /></div>
         ) : groups.length === 0 ? (
           <div className="px-5 py-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Hali reedu guruh yaratilmagan
+            {t("adminReedu.noGroups")}
           </div>
         ) : (
           groups.map(g => (
@@ -213,7 +215,7 @@ export default function QaytaOqishAdmin() {
                 <div>
                   <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{g.name}</p>
                   <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    {g.subjectName} · {g.studentCount} talaba{g.teacherFullName ? ` · ${g.teacherFullName}` : ""}
+                    {t("adminReedu.groupMeta", { subject: g.subjectName, n: g.studentCount })}{g.teacherFullName ? ` · ${g.teacherFullName}` : ""}
                   </p>
                 </div>
               </div>
@@ -221,7 +223,7 @@ export default function QaytaOqishAdmin() {
                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{
                   backgroundColor: g.status === "active" ? "#f0fbfd" : "#f1f5f9",
                   color: g.status === "active" ? "#1cc2dc" : "#64748b",
-                }}>{g.status === "active" ? "Faol" : "Yopilgan"}</span>
+                }}>{g.status === "active" ? t("adminReedu.active") : t("adminReedu.closedGroup")}</span>
                 <ChevronRight className="w-4 h-4" style={{ color: "#94a3b8" }} />
               </div>
             </button>

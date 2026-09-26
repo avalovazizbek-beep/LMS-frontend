@@ -369,14 +369,14 @@ function GradeJournal({
               </tr>
               {/* 2-qator: har bir ustun */}
               <tr style={{ backgroundColor: "#f0f5ff", borderBottom: "2px solid rgba(1,41,112,0.12)" }}>
-                {topics.map(t => (
-                  <th key={t.key}
+                {topics.map(tp => (
+                  <th key={tp.key}
                     className="px-1 py-2 text-center text-[10px] font-semibold"
                     style={{ ...T, minWidth: 52, maxWidth: 70, borderRight: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f0f5ff" }}
-                    title={t.title}>
-                    <div className="font-semibold">{t.idx}-mavzu</div>
-                    {t.maxScore > 0 && (
-                      <div className="font-normal" style={L}>/{t.maxScore}</div>
+                    title={tp.title}>
+                    <div className="font-semibold">{t("natijalarOq.topicN", { n: tp.idx })}</div>
+                    {tp.maxScore > 0 && (
+                      <div className="font-normal" style={L}>/{tp.maxScore}</div>
                     )}
                   </th>
                 ))}

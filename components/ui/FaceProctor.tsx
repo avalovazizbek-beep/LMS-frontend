@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback, ReactNode } from "react"
 import Script from "next/script"
 import { ShieldAlert, ShieldCheck, ShieldX, Loader2 } from "lucide-react"
 import { faceApi } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { translate } from "@/lib/i18n/translations"
 
 declare global {
   interface Window { faceapi: any }
@@ -34,12 +36,12 @@ type ProcStatus = "loading" | "ready" | "ok" | "warning" | "violation" | "error"
 
 export type FaceViolationType = "face_mismatch" | "no_face" | "multi_face" | "liveness"
 
-function classifyViolation(reason: string): FaceViolationType {
-  if (reason.includes("ko'rinmadi")) return "no_face"
-  if (reason.includes("Boshqa odam")) return "multi_face"
-  if (reason.includes("Jonlilik")) return "liveness"
-  return "face_mismatch"
-}
+/**
+ * Holat/qoidabuzarlik xabari — matn emas, lug'at kaliti saqlanadi: ekranda
+ * tanlangan tilda chiqadi, backend'ga esa (o'qituvchi/admin ko'radigan
+ * hisobot uchun) doim o'zbekcha kanonik matn yuboriladi.
+ */
+type ProctorMsg = { key: string; params?: Record<string, string | number>; reason?: ProctorMsg }
 
 interface FaceProcProps {
   children: ReactNode
@@ -90,12 +92,15 @@ export default function FaceProctor({
     setStatus(s)
   }, [])
   const [violations,   setViolations]   = useState(0)
-  const [statusMsg,    setStatusMsg]    = useState("Yuklanmoqda...")
+  const { t } = useLanguage()
+  const [statusMsg,    setStatusMsg]    = useState<ProctorMsg>({ key: "proctor.loading" })
   const [examBlocked,      setExamBlocked]      = useState(false)
   const [multiPersonBlocked, setMultiPersonBlocked] = useState(false)
   const [confidence,   setConfidence]   = useState<number | null>(null)
   const [violationSnap,    setViolationSnap]    = useState<string | null>(null)
-  const [violationHistory, setViolationHistory] = useState<{ reason: string; time: string }[]>([])
+  const [violationHistory, setViolationHistory] = useState<{ msg: ProctorMsg; time: string }[]>([])
+  const msgText = (m: ProctorMsg): string =>
+    t(m.key, m.reason ? { ...m.params, reason: msgText(m.reason) } : m.params)
 
   useEffect(() => {
     if (!scriptReady) return
@@ -112,7 +117,7 @@ export default function FaceProctor({
         setModelsLoaded(true)
       } catch {
         setStatusSynced("error")
-        setStatusMsg("Model yuklanmadi")
+        setStatusMsg({ key: "proctor.modelFailed" })
       }
     })()
   }, [scriptReady])
@@ -139,7 +144,7 @@ export default function FaceProctor({
       })
       .catch(() => {
         setStatusSynced("error")
-        setStatusMsg("Kameraga ruxsat berilmadi")
+        setStatusMsg({ key: "proctor.cameraDenied" })
       })
     return () => {
       cancelled = true
@@ -160,7 +165,7 @@ export default function FaceProctor({
 
   const violationsRef = useRef(0)  // state updater ichida ishlatish uchun ref
 
-  const addViolation = useCallback((reason: string) => {
+  const addViolation = useCallback((type: FaceViolationType, reason: ProctorMsg) => {
     // Xatolik paytidagi video kadr
     try {
       const vid = videoRef.current
@@ -181,8 +186,8 @@ export default function FaceProctor({
 
     const now = new Date()
     const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`
-    setViolationHistory(h => [...h, { reason, time: timeStr }])
-    onViolation?.(classifyViolation(reason), reason)
+    setViolationHistory(h => [...h, { msg: reason, time: timeStr }])
+    onViolation?.(type, translate("uz", reason.key, reason.params))
 
     // ref orqali hisoblash — state updater ichida setState chaqirishdan qochish
     violationsRef.current += 1
@@ -192,17 +197,17 @@ export default function FaceProctor({
 
     if (next >= MAX_VIOLATIONS) {
       setStatusSynced("violation")
-      setStatusMsg(`${MAX_VIOLATIONS} ta xatolik — imtihon yakunlandi`)
+      setStatusMsg({ key: "proctor.terminated", params: { max: MAX_VIOLATIONS } })
       stopAll()
       // onTerminate ni render fazasidan tashqarida chaqirish (React xatosini oldini olish)
       setTimeout(() => onTerminate?.(), 0)
     } else {
       setStatusSynced("warning")
-      setStatusMsg(`Xatolik ${next}/${MAX_VIOLATIONS}: ${reason}`)
+      setStatusMsg({ key: "proctor.violationN", params: { n: next, max: MAX_VIOLATIONS }, reason })
       setTimeout(() => {
         setExamBlocked(false)
         setStatusSynced("ok")
-        setStatusMsg("Tekshiruv davom etmoqda")
+        setStatusMsg({ key: "proctor.continuing" })
       }, 4000)
     }
   }, [onTerminate, onViolation, setStatusSynced])
@@ -236,17 +241,17 @@ export default function FaceProctor({
           consecutiveVerifyFails.current = 0
           const conf = res.confidence !== undefined ? Math.round(res.confidence * 100) : 0
           setConfidence(conf)
-          addViolation(res.reason === "not_registered" ? "Yuz ro'yxatdan o'tmagan" : "Yuz ma'lumotlari muddati tugagan")
+          addViolation("face_mismatch", { key: res.reason === "not_registered" ? "proctor.v.notRegistered" : "proctor.v.expired" })
         } else {
           consecutiveVerifyFails.current += 1
           const conf = res.confidence !== undefined ? Math.round(res.confidence * 100) : 0
           setConfidence(conf)
           if (consecutiveVerifyFails.current >= VERIFY_FAIL_LIMIT) {
             consecutiveVerifyFails.current = 0
-            addViolation(`Yuz mos kelmadi (${conf}% · ${VERIFY_FAIL_LIMIT}x tekshiruv)`)
+            addViolation("face_mismatch", { key: "proctor.v.mismatch", params: { conf, n: VERIFY_FAIL_LIMIT } })
           } else {
             setStatusSynced("warning")
-            setStatusMsg(`Yuz tekshiruvda... (${conf}%)`)
+            setStatusMsg({ key: "proctor.verifying", params: { conf } })
           }
         }
       } else {
@@ -254,7 +259,7 @@ export default function FaceProctor({
         const conf = res.confidence !== undefined ? Math.round(res.confidence * 100) : null
         setConfidence(conf)
         setStatusSynced("ok")
-        setStatusMsg(`Tasdiqlandi${conf !== null ? ` — ${conf}%` : ""}`)
+        setStatusMsg(conf !== null ? { key: "proctor.verifiedConf", params: { conf } } : { key: "proctor.verified" })
         if (!firstVerifiedFiredRef.current) {
           firstVerifiedFiredRef.current = true
           onFirstVerifiedRef.current?.()
@@ -304,14 +309,14 @@ export default function FaceProctor({
               setMultiPersonBlocked(true)
               setExamBlocked(true)
               setStatusSynced("warning")
-              setStatusMsg(`${allFaces.length} ta yuz aniqlandi — imtihon bloklanadi`)
+              setStatusMsg({ key: "proctor.multiFaces", params: { n: allFaces.length } })
               // 15 soniya ichida ketmasa → violation
               if (multiPersonTimerRef.current) clearTimeout(multiPersonTimerRef.current)
               multiPersonTimerRef.current = setTimeout(() => {
                 if (multiPersonRef.current) {
                   multiPersonRef.current = false
                   setMultiPersonBlocked(false)
-                  addViolation("Boshqa odam imtihon davomida aniqlandi")
+                  addViolation("multi_face", { key: "proctor.v.multi" })
                 }
               }, 15000)
             }
@@ -326,7 +331,7 @@ export default function FaceProctor({
               }
               setExamBlocked(false)
               setStatusSynced("ok")
-              setStatusMsg("Kuzatilmoqda")
+              setStatusMsg({ key: "proctor.watching" })
             }
           }
         } catch { /* ignore */ }
@@ -339,18 +344,18 @@ export default function FaceProctor({
         const absentMs = Date.now() - absentSince.current
         if (absentMs >= ABSENT_LIMIT) {
           absentSince.current = null
-          addViolation("Yuz kamerada ko'rinmadi (10 soniya)")
+          addViolation("no_face", { key: "proctor.v.noFace" })
         } else {
           const secs = Math.ceil((ABSENT_LIMIT - absentMs) / 1000)
           setStatusSynced("warning")
-          setStatusMsg(`Yuz ko'rinmayapti — ${secs}s`)
+          setStatusMsg({ key: "proctor.faceMissing", params: { secs } })
         }
       } else {
         absentSince.current = null
         // statusRef.current — fresh qiymat (stale closure muammosi yo'q)
         if (statusRef.current !== "ok" && statusRef.current !== "loading") {
           setStatusSynced("ok")
-          setStatusMsg("Kuzatilmoqda")
+          setStatusMsg({ key: "proctor.watching" })
         }
         if (lastBlinkTime.current === null) lastBlinkTime.current = now
         if (landmarks) {
@@ -366,7 +371,7 @@ export default function FaceProctor({
         }
         if (now - lastBlinkTime.current >= BLINK_TIMEOUT) {
           lastBlinkTime.current = now
-          addViolation("Jonlilik tekshiruvi: ko'z qisish aniqlanmadi")
+          addViolation("liveness", { key: "proctor.v.liveness" })
         }
       }
     } catch { /* ignore frame errors */ }
@@ -377,7 +382,7 @@ export default function FaceProctor({
   useEffect(() => {
     if (!cameraReady) return
     setStatusSynced("ok")
-    setStatusMsg("Kuzatilmoqda")
+    setStatusMsg({ key: "proctor.watching" })
     rafRef.current = requestAnimationFrame(presenceLoop)
     runVerify()
     verifyTimerRef.current = setInterval(runVerify, VERIFY_INTERVAL)
@@ -445,10 +450,10 @@ export default function FaceProctor({
         <StatusIcon className="w-4 h-4 shrink-0" style={{ color: c.icon }} />
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
           <p style={{ fontSize: 11, fontWeight: 600, color: c.text, margin: 0, fontFamily: "var(--font-poppins)", whiteSpace: "nowrap" }}>
-            {statusMsg}
+            {msgText(statusMsg)}
           </p>
           <p style={{ fontSize: 10, color: c.text, opacity: 0.7, margin: 0, fontFamily: "var(--font-poppins)" }}>
-            Face ID · {violations}/{MAX_VIOLATIONS} xatolik{confidence !== null ? ` · ${confidence}%` : ""}
+            {t("proctor.counter", { n: violations, max: MAX_VIOLATIONS })}{confidence !== null ? ` · ${confidence}%` : ""}
           </p>
         </div>
       </div>
@@ -469,18 +474,17 @@ export default function FaceProctor({
           <ShieldAlert className="w-20 h-20" style={{ color: "#fff" }} />
           <div style={{ textAlign: "center", padding: "0 40px", maxWidth: 480 }}>
             <p style={{ fontSize: 22, fontWeight: 800, color: "#fff", margin: "0 0 10px", fontFamily: "var(--font-poppins)" }}>
-              Boshqa odam aniqlandi!
+              {t("proctor.otherPerson")}
             </p>
             <p style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", margin: "0 0 16px", fontFamily: "var(--font-poppins)", lineHeight: 1.5 }}>
-              Imtihon davomida faqat <strong>siz</strong> kamerada ko&apos;rinishingiz kerak.
-              Boshqa odam yoki telfon ekranini kameradan olib tashlang.
+              {t("proctor.onlyYou")}
             </p>
             <div style={{
               display: "inline-block", padding: "8px 20px", borderRadius: 8,
               backgroundColor: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)",
             }}>
               <p style={{ fontSize: 13, color: "#fde68a", margin: 0, fontFamily: "var(--font-poppins)", fontWeight: 600 }}>
-                ⚠ 15 soniya ichida olib tashlasangiz — xatolik yozilmaydi
+                {t("proctor.graceHint")}
               </p>
             </div>
           </div>
@@ -490,17 +494,17 @@ export default function FaceProctor({
         <>
           <ShieldAlert className="w-12 h-12" style={{ color: "#ef4444" }} />
           {violationSnap && (
-            <img src={violationSnap} alt="xatolik rasmi"
+            <img src={violationSnap} alt={t("proctor.snapAlt")}
               style={{ width: 140, height: 105, borderRadius: 8, objectFit: "cover",
                 border: "2px solid rgba(239,68,68,0.5)", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }} />
           )}
           <div style={{ textAlign: "center", padding: "0 32px" }}>
             <p style={{ fontSize: 16, fontWeight: 700, color: "#7f1d1d", margin: "0 0 4px", fontFamily: "var(--font-poppins)" }}>
-              Face ID xatoligi — {violations}/{MAX_VIOLATIONS}
+              {t("proctor.violationTitle", { n: violations, max: MAX_VIOLATIONS })}
             </p>
-            <p style={{ fontSize: 14, color: "#92400e", margin: 0, fontFamily: "var(--font-poppins)" }}>{statusMsg}</p>
+            <p style={{ fontSize: 14, color: "#92400e", margin: 0, fontFamily: "var(--font-poppins)" }}>{msgText(statusMsg)}</p>
             <p style={{ fontSize: 12, color: "#b45309", margin: "8px 0 0", fontFamily: "var(--font-poppins)" }}>
-              Imtihon 4 soniyadan so&apos;ng davom etadi...
+              {t("proctor.resumeSoon")}
             </p>
           </div>
         </>
@@ -517,16 +521,16 @@ export default function FaceProctor({
     }}>
       <ShieldX className="w-16 h-16" style={{ color: "#ef4444" }} />
       {violationSnap && (
-        <img src={violationSnap} alt="oxirgi xatolik"
+        <img src={violationSnap} alt={t("proctor.lastSnapAlt")}
           style={{ width: 140, height: 105, borderRadius: 8, objectFit: "cover",
             border: "2px solid rgba(239,68,68,0.5)", boxShadow: "0 2px 12px rgba(0,0,0,0.2)" }} />
       )}
       <div style={{ textAlign: "center", padding: "0 32px" }}>
         <p style={{ fontSize: 18, fontWeight: 700, color: "#7f1d1d", margin: "0 0 8px", fontFamily: "var(--font-poppins)" }}>
-          Imtihon yakunlandi
+          {t("proctor.examEnded")}
         </p>
         <p style={{ fontSize: 14, color: "#92400e", margin: 0, fontFamily: "var(--font-poppins)" }}>
-          {MAX_VIOLATIONS} ta Face ID xatoligi qayd etildi. Natijalar avtomatik yuborildi.
+          {t("proctor.examEndedDesc", { max: MAX_VIOLATIONS })}
         </p>
       </div>
     </div>
@@ -584,7 +588,7 @@ export default function FaceProctor({
             }}>
               <div style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: c.icon, flexShrink: 0 }} />
               <span style={{ fontSize: 11, fontWeight: 600, color: "#fff", fontFamily: "var(--font-poppins)", lineHeight: 1 }}>
-                {statusMsg}
+                {msgText(statusMsg)}
               </span>
             </div>
           </div>
@@ -614,7 +618,7 @@ export default function FaceProctor({
               overflowY: "auto",
             }}>
               <p style={{ fontSize: 9, fontWeight: 700, color: "#b91c1c", margin: "0 0 4px", fontFamily: "var(--font-poppins)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Qayd etilgan xatoliklar
+                {t("proctor.history")}
               </p>
               {violationHistory.map((v, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 5, marginBottom: 4 }}>
@@ -626,7 +630,7 @@ export default function FaceProctor({
                   }}>{i + 1}</span>
                   <div>
                     <p style={{ margin: 0, fontSize: 9, color: "#7f1d1d", fontFamily: "var(--font-poppins)", lineHeight: 1.3 }}>
-                      {v.reason}
+                      {msgText(v.msg)}
                     </p>
                     <p style={{ margin: 0, fontSize: 8, color: "#b45309", fontFamily: "var(--font-poppins)", opacity: 0.8 }}>
                       {v.time}

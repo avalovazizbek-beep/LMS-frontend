@@ -1,7 +1,11 @@
+"use client"
+
 import { Construction, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function NotFound() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col items-center justify-center min-h-full p-[30px]" style={{ backgroundColor: "#f6f9ff" }}>
       <div
@@ -21,13 +25,13 @@ export default function NotFound() {
           className="text-2xl font-semibold mb-2"
           style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
         >
-          Sahifa tayyorlanmoqda
+          {t("pagePrep.title")}
         </h2>
         <p
           className="text-sm leading-relaxed mb-8"
           style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}
         >
-          Bu bo&apos;lim hozircha ishlab chiqilmoqda. Tez orada foydalanishga tayyor bo&apos;ladi.
+          {t("pagePrep.desc")}
         </p>
 
         {/* Divider */}
@@ -40,7 +44,7 @@ export default function NotFound() {
           style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Dashboardga qaytish
+          {t("pagePrep.back")}
         </Link>
       </div>
     </div>

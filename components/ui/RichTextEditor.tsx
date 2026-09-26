@@ -6,6 +6,7 @@ import {
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight,
   Link as LinkIcon, Undo2, Redo2,
 } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const btnCls = "p-1.5 rounded-[5px] transition-colors hover:bg-[#eef4ff]"
 
@@ -27,6 +28,7 @@ export default function RichTextEditor({
   onChange: (html: string) => void
   placeholder?: string
 }) {
+  const { t } = useLanguage()
   const ref = useRef<HTMLDivElement>(null)
   const lastValue = useRef(value)
 
@@ -50,31 +52,31 @@ export default function RichTextEditor({
   }
 
   function handleLink() {
-    const url = window.prompt("Havola manzilini kiriting:")
+    const url = window.prompt(t("rte.linkPrompt"))
     if (url) exec("createLink", url)
   }
 
   return (
     <div className="rounded-[8px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.2)" }}>
       <div className="flex items-center gap-0.5 px-2 py-1.5 flex-wrap" style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-        <ToolbarButton icon={<Bold className="w-4 h-4" />} title="Qalin" onClick={() => exec("bold")} />
-        <ToolbarButton icon={<Italic className="w-4 h-4" />} title="Kursiv" onClick={() => exec("italic")} />
-        <ToolbarButton icon={<Strikethrough className="w-4 h-4" />} title="Chizilgan" onClick={() => exec("strikeThrough")} />
+        <ToolbarButton icon={<Bold className="w-4 h-4" />} title={t("rte.bold")} onClick={() => exec("bold")} />
+        <ToolbarButton icon={<Italic className="w-4 h-4" />} title={t("rte.italic")} onClick={() => exec("italic")} />
+        <ToolbarButton icon={<Strikethrough className="w-4 h-4" />} title={t("rte.strike")} onClick={() => exec("strikeThrough")} />
         <span className="w-px h-5 mx-1" style={{ backgroundColor: "rgba(1,41,112,0.12)" }} />
-        <ToolbarButton icon={<Heading1 className="w-4 h-4" />} title="Sarlavha 1" onClick={() => exec("formatBlock", "H1")} />
-        <ToolbarButton icon={<Heading2 className="w-4 h-4" />} title="Sarlavha 2" onClick={() => exec("formatBlock", "H2")} />
-        <ToolbarButton icon={<Heading3 className="w-4 h-4" />} title="Sarlavha 3" onClick={() => exec("formatBlock", "H3")} />
+        <ToolbarButton icon={<Heading1 className="w-4 h-4" />} title={t("rte.h1")} onClick={() => exec("formatBlock", "H1")} />
+        <ToolbarButton icon={<Heading2 className="w-4 h-4" />} title={t("rte.h2")} onClick={() => exec("formatBlock", "H2")} />
+        <ToolbarButton icon={<Heading3 className="w-4 h-4" />} title={t("rte.h3")} onClick={() => exec("formatBlock", "H3")} />
         <span className="w-px h-5 mx-1" style={{ backgroundColor: "rgba(1,41,112,0.12)" }} />
-        <ToolbarButton icon={<List className="w-4 h-4" />} title="Ro'yxat" onClick={() => exec("insertUnorderedList")} />
-        <ToolbarButton icon={<ListOrdered className="w-4 h-4" />} title="Raqamli ro'yxat" onClick={() => exec("insertOrderedList")} />
+        <ToolbarButton icon={<List className="w-4 h-4" />} title={t("rte.bulletList")} onClick={() => exec("insertUnorderedList")} />
+        <ToolbarButton icon={<ListOrdered className="w-4 h-4" />} title={t("rte.numberedList")} onClick={() => exec("insertOrderedList")} />
         <span className="w-px h-5 mx-1" style={{ backgroundColor: "rgba(1,41,112,0.12)" }} />
-        <ToolbarButton icon={<AlignLeft className="w-4 h-4" />} title="Chapga" onClick={() => exec("justifyLeft")} />
-        <ToolbarButton icon={<AlignCenter className="w-4 h-4" />} title="O'rtaga" onClick={() => exec("justifyCenter")} />
-        <ToolbarButton icon={<AlignRight className="w-4 h-4" />} title="O'ngga" onClick={() => exec("justifyRight")} />
+        <ToolbarButton icon={<AlignLeft className="w-4 h-4" />} title={t("rte.alignLeft")} onClick={() => exec("justifyLeft")} />
+        <ToolbarButton icon={<AlignCenter className="w-4 h-4" />} title={t("rte.alignCenter")} onClick={() => exec("justifyCenter")} />
+        <ToolbarButton icon={<AlignRight className="w-4 h-4" />} title={t("rte.alignRight")} onClick={() => exec("justifyRight")} />
         <span className="w-px h-5 mx-1" style={{ backgroundColor: "rgba(1,41,112,0.12)" }} />
-        <ToolbarButton icon={<LinkIcon className="w-4 h-4" />} title="Havola" onClick={handleLink} />
-        <ToolbarButton icon={<Undo2 className="w-4 h-4" />} title="Bekor qilish" onClick={() => exec("undo")} />
-        <ToolbarButton icon={<Redo2 className="w-4 h-4" />} title="Qaytarish" onClick={() => exec("redo")} />
+        <ToolbarButton icon={<LinkIcon className="w-4 h-4" />} title={t("rte.link")} onClick={handleLink} />
+        <ToolbarButton icon={<Undo2 className="w-4 h-4" />} title={t("rte.undo")} onClick={() => exec("undo")} />
+        <ToolbarButton icon={<Redo2 className="w-4 h-4" />} title={t("rte.redo")} onClick={() => exec("redo")} />
       </div>
       <div
         ref={ref}

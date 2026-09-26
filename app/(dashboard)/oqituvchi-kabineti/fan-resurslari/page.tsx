@@ -524,7 +524,7 @@ function MeetingSection({
           {otherGroups.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium" style={labelStyle}>
-                Parallel guruhlar (ixtiyoriy) — shu darsni birga o'tkazish
+                {t("fanResurslariOq.parallelGroups")}
               </label>
               <div className="flex flex-wrap gap-2">
                 {otherGroups.map(g => {

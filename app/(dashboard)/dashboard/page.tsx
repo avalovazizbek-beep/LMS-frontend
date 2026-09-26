@@ -301,7 +301,7 @@ function TeacherDashboard() {
               {employee.full_name}
             </p>
             <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              {employee.staffPosition?.name || employee.employeeType?.name || "O'qituvchi"}
+              {employee.staffPosition?.name || employee.employeeType?.name || t("common.teacher")}
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
               {[employee.department?.name, employee.employmentForm?.name, employee.employeeStatus?.name].filter(Boolean).map((item) => (

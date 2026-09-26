@@ -55,7 +55,7 @@ import { useMeetingCall } from "@/components/layout/MeetingCallContext"
 import { RecordingCard } from "@/components/meeting/RecordingCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import type { Lang } from "@/lib/i18n/translations"
-import { translate } from "@/lib/i18n/translations"
+import { translate, tr } from "@/lib/i18n/translations"
 
 /* ── JWT payload decode (faqat o'qish uchun, imzo tekshirilmaydi) ── */
 function readJwtPayload(): Record<string, unknown> {
@@ -98,10 +98,10 @@ function cleanName(name: string): string {
 type TeacherGroupOption = { id: number; name: string }
 
 function roleLabel(role: string, groupId?: number | null, groupName?: string | null): string {
-  if (role === "admin")   return "Admin"
-  if (role === "teacher" || role === "employee") return "O'qituvchi"
-  const label = groupName || (groupId ? `Guruh ${groupId}` : null)
-  return label ? `Talaba · ${label}` : "Talaba"
+  if (role === "admin")   return tr("meetingPage.roleAdmin")
+  if (role === "teacher" || role === "employee") return tr("common.teacher")
+  const label = groupName || (groupId ? tr("meetingPage.groupPrefix", { id: groupId }) : null)
+  return label ? tr("meetingPage.roleStudentGroup", { group: label }) : tr("common.student")
 }
 
 type Participant = {
@@ -146,11 +146,11 @@ type ViewState =
 
 const participantAccents = ["#0e58a8", "#1cc2dc", "#38bdf8", "#2563eb", "#14b8a6", "#f59e0b"]
 
-const ATTENDANCE_STATUS_OPTIONS: { value: AttendanceStatus; label: string; color: string; bg: string }[] = [
-  { value: "present", label: "Bor",     color: "#15803d", bg: "#f0fdf4" },
-  { value: "absent",  label: "Yo'q",    color: "#b91c1c", bg: "#fef2f2" },
-  { value: "excused", label: "Uzrli",   color: "#92400e", bg: "#fffbeb" },
-  { value: "late",    label: "Kechikdi", color: "#0e58a8", bg: "#eef4ff" },
+const ATTENDANCE_STATUS_OPTIONS: { value: AttendanceStatus; labelKey: string; color: string; bg: string }[] = [
+  { value: "present", labelKey: "meetingPage.att.present", color: "#15803d", bg: "#f0fdf4" },
+  { value: "absent",  labelKey: "meetingPage.att.absent",  color: "#b91c1c", bg: "#fef2f2" },
+  { value: "excused", labelKey: "meetingPage.att.excused", color: "#92400e", bg: "#fffbeb" },
+  { value: "late",    labelKey: "meetingPage.att.late",    color: "#0e58a8", bg: "#eef4ff" },
 ]
 
 function getInitials(name: string) {
@@ -197,10 +197,10 @@ function stopStream(stream: MediaStream | null) {
 
 function mediaErrorText(error: unknown) {
   if (error instanceof DOMException) {
-    if (error.name === "NotAllowedError") return "Kamera yoki mikrofon uchun ruxsat berilmadi"
-    if (error.name === "NotFoundError") return "Kamera yoki mikrofon qurilmasi topilmadi"
+    if (error.name === "NotAllowedError") return tr("meetingPage.media.denied")
+    if (error.name === "NotFoundError") return tr("meetingPage.media.notFound")
   }
-  return error instanceof Error ? error.message : "Media qurilmani yoqishda xatolik"
+  return error instanceof Error ? error.message : tr("meetingPage.media.error")
 }
 
 function recordValue(value: unknown): Record<string, unknown> {
@@ -502,7 +502,7 @@ function MeetingCard({
               {meeting.subject || meeting.host}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <InfoPill icon={Users2} label={meeting.host || "Host"} />
+              <InfoPill icon={Users2} label={meeting.host || t("meetingPage.host")} />
               <InfoPill icon={CalendarDays} label={meeting.date} />
               <InfoPill icon={Clock3} label={`${meeting.time} - ${meeting.duration}`} />
               <InfoPill icon={Users2} label={participantText(meeting.participants, lang)} />
@@ -523,7 +523,7 @@ function MeetingCard({
                 className="inline-flex items-center justify-center gap-1.5 rounded-[5px] bg-[#1a73e8] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#1558b0]"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
-                <Video className="h-3.5 w-3.5" /> Google Meet'ga kirish
+                <Video className="h-3.5 w-3.5" /> {t("meetingPage.joinGoogleMeet")}
               </a>
             )}
             {isTeacher && meeting.googleMeet?.status === "failed" && (
@@ -535,7 +535,7 @@ function MeetingCard({
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
                 {retryingGoogle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5" />}
-                {retryingGoogle ? "Urinilmoqda..." : "Google Meet — qayta urinish"}
+                {retryingGoogle ? t("meetingPage.retrying") : t("meetingPage.retryGoogleMeet")}
               </button>
             )}
             {meeting.zoom?.status === "created" && meeting.zoom.joinUrl && (
@@ -546,7 +546,7 @@ function MeetingCard({
                 className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-[#2563eb] bg-white px-3 py-2 text-xs font-medium text-[#2563eb] transition-colors hover:bg-[#eef4ff]"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
-                <Video className="h-3.5 w-3.5" /> Zoomga kirish
+                <Video className="h-3.5 w-3.5" /> {t("meetingPage.joinZoom")}
               </a>
             )}
             {isTeacher && meeting.zoom?.status === "created" && meeting.zoom.startUrl && (
@@ -557,7 +557,7 @@ function MeetingCard({
                 className="inline-flex items-center justify-center gap-1.5 rounded-[5px] bg-[#2563eb] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#1d4ed8]"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
-                <Video className="h-3.5 w-3.5" /> Zoom'ni boshlash
+                <Video className="h-3.5 w-3.5" /> {t("meetingPage.startZoom")}
               </a>
             )}
             {isTeacher && meeting.zoom?.status === "failed" && (
@@ -569,7 +569,7 @@ function MeetingCard({
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
                 {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5" />}
-                {retrying ? "Urinilmoqda..." : "Zoom — qayta urinish"}
+                {retrying ? t("meetingPage.retrying") : t("meetingPage.retryZoom")}
               </button>
             )}
             {meeting.link !== "#" && (
@@ -590,7 +590,7 @@ function MeetingCard({
                 className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-xs font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
-                <ClipboardCheck className="h-3.5 w-3.5" /> Davomat olish
+                <ClipboardCheck className="h-3.5 w-3.5" /> {t("meetingPage.takeAttendance")}
               </Link>
             )}
             {onDelete && (
@@ -618,7 +618,7 @@ function MeetingCard({
                 <span>Google Meet: {meeting.googleMeet.errorMessage}</span>
               </div>
               <Link href="/tizim/profil" className="self-end font-medium underline underline-offset-2 hover:text-amber-900">
-                Profildan Google akkauntni qayta ulash →
+                {t("meetingPage.reconnectGoogle")}
               </Link>
             </div>
           )}
@@ -684,6 +684,7 @@ function PastMeetingCard({ meeting }: { meeting: Meeting }) {
 }
 
 function VideoPreview({ label }: { label: string }) {
+  const { t } = useLanguage()
   return (
     <div className="relative min-h-[320px] overflow-hidden rounded-[8px] bg-[#dfe9f7]">
       <div className="absolute inset-0 bg-[linear-gradient(135deg,_#f6f9ff_0%,_#d9f8ff_52%,_#bad8f4_100%)]" />
@@ -701,7 +702,7 @@ function VideoPreview({ label }: { label: string }) {
             className="mt-1 text-xs text-[#7293b9]"
             style={{ fontFamily: "var(--font-poppins)" }}
           >
-            Kamera preview
+            {t("meetingPage.cameraPreview")}
           </p>
         </div>
       </div>
@@ -722,6 +723,7 @@ function LiveVideoPreview({
   screenSharing: boolean
   mediaError: string | null
 }) {
+  const { t } = useLanguage()
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hasVideo =
     Boolean(stream?.getVideoTracks().some((track) => track.readyState === "live")) &&
@@ -752,7 +754,7 @@ function LiveVideoPreview({
               className="mt-4 text-sm font-medium text-white"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
-              {cameraEnabled ? "Kamera ulanmoqda" : "Kamera o'chirilgan"}
+              {cameraEnabled ? t("meetingPage.cameraConnecting") : t("meetingPage.cameraOff")}
             </p>
             {mediaError && (
               <p
@@ -781,7 +783,7 @@ function LiveVideoPreview({
         className="absolute left-5 top-5 rounded-full bg-white/95 px-4 py-2 text-xs font-medium text-[#012970] shadow-[0_6px_18px_rgba(1,41,112,0.16)]"
         style={{ fontFamily: "var(--font-poppins)" }}
       >
-        {screenSharing ? "Ekran ulashilmoqda" : "Kamera yoniq"}
+        {screenSharing ? t("meetingPage.screenSharing") : t("meetingPage.cameraOn")}
       </div>
     </div>
   )
@@ -806,6 +808,7 @@ function LocalVideoTile({
   onSelect: () => void
   fill?: boolean
 }) {
+  const { t } = useLanguage()
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hasVideo = Boolean(
     stream?.getVideoTracks().some((track) => track.readyState === "live")
@@ -858,7 +861,7 @@ function LocalVideoTile({
         className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-2 py-1.5 text-xs font-medium text-white"
         style={{ fontFamily: "var(--font-poppins)" }}
       >
-        {screenSharing ? "Siz - ekran" : cameraEnabled ? label : "Siz - kamera o'chirilgan"}
+        {screenSharing ? t("meetingPage.youScreen") : cameraEnabled ? label : t("meetingPage.youCameraOff")}
       </div>
     </button>
   )
@@ -875,6 +878,7 @@ function RemoteVideoTile({
   onSelect: () => void
   fill?: boolean
 }) {
+  const { t } = useLanguage()
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hasVideo = Boolean(
     remote.stream.getVideoTracks().some((track) => track.readyState === "live")
@@ -931,7 +935,7 @@ function RemoteVideoTile({
         className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-2 py-1.5 text-xs font-medium text-white"
         style={{ fontFamily: "var(--font-poppins)" }}
       >
-        {remote.screenSharing ? `${remote.name} - ekran` : remote.name}
+        {remote.screenSharing ? t("meetingPage.nameScreen", { name: remote.name }) : remote.name}
       </div>
     </button>
   )
@@ -968,6 +972,7 @@ function CreateMeetingModal({
   onClose: () => void
   onCreated: () => void
 }) {
+  const { t } = useLanguage()
   const today = new Date().toISOString().slice(0, 10)
   const [title, setTitle]           = useState("")
   const [subjectName, setSubjectName] = useState("")
@@ -1006,13 +1011,13 @@ function CreateMeetingModal({
           : []
         setGroupOptions(options)
         if (!options.length && defaultGroupIds.length) {
-          setGroupOptions(defaultGroupIds.map((id) => ({ id, name: `Guruh ${id}` })))
+          setGroupOptions(defaultGroupIds.map((id) => ({ id, name: tr("meetingPage.groupPrefix", { id }) })))
         }
       })
       .catch(() => {
-        setGroupsError("Guruhlar ro'yxatini yuklab bo'lmadi")
+        setGroupsError(tr("meetingPage.groupsLoadError"))
         if (defaultGroupIds.length) {
-          setGroupOptions(defaultGroupIds.map((id) => ({ id, name: `Guruh ${id}` })))
+          setGroupOptions(defaultGroupIds.map((id) => ({ id, name: tr("meetingPage.groupPrefix", { id }) })))
         }
       })
       .finally(() => setGroupsLoading(false))
@@ -1030,24 +1035,24 @@ function CreateMeetingModal({
     e.preventDefault()
     setError(null)
     const ids = selectedGroupIds
-    if (!title.trim()) { setError("Sarlavha majburiy"); return }
-    if (!subjectName.trim()) { setError("Fan nomi majburiy"); return }
-    if (!date) { setError("Sana majburiy"); return }
-    if (!startTime || !endTime) { setError("Vaqt majburiy"); return }
-    if (ids.length === 0) { setError("Kamida 1 ta guruh ID kerak"); return }
+    if (!title.trim()) { setError(t("meetingPage.err.titleRequired")); return }
+    if (!subjectName.trim()) { setError(t("meetingPage.err.subjectRequired")); return }
+    if (!date) { setError(t("meetingPage.err.dateRequired")); return }
+    if (!startTime || !endTime) { setError(t("meetingPage.err.timeRequired")); return }
+    if (ids.length === 0) { setError(t("meetingPage.err.groupRequired")); return }
     if (wantsZoom && zoomStatus?.status !== "active") {
-      setError("Zoom account ulanmagan. Avval profilingizdan Zoom account'ni ulang.")
+      setError(t("meetingPage.err.zoomNotLinked"))
       return
     }
     if (wantsGoogleMeet && googleMeetStatus?.status !== "active") {
-      setError("Google account ulanmagan. Avval profilingizdan Google account'ni ulang.")
+      setError(t("meetingPage.err.googleNotLinked"))
       return
     }
 
     const startISO = new Date(`${date}T${startTime}:00`).toISOString()
     const endISO   = new Date(`${date}T${endTime}:00`).toISOString()
     if (new Date(endISO) <= new Date(startISO)) {
-      setError("Tugash vaqti boshlanish vaqtidan keyin bo'lishi kerak"); return
+      setError(t("meetingPage.err.endBeforeStart")); return
     }
 
     setLoading(true)
@@ -1068,7 +1073,7 @@ function CreateMeetingModal({
       onCreated()
       onClose()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Xatolik yuz berdi")
+      setError(err instanceof Error ? err.message : t("common.error"))
     } finally {
       setLoading(false)
     }
@@ -1087,10 +1092,10 @@ function CreateMeetingModal({
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <div>
             <h2 className="text-lg font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-              Yangi meeting yaratish
+              {t("meetingPage.create.title")}
             </h2>
             <p className="text-xs text-[#7293b9] mt-0.5" style={{ fontFamily: "var(--font-poppins)" }}>
-              O&apos;qituvchi sifatida meeting belgilang
+              {t("meetingPage.create.subtitle")}
             </p>
           </div>
           <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full hover:bg-[#f6f9ff] transition-colors">
@@ -1103,12 +1108,12 @@ function CreateMeetingModal({
           {/* Title */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-              Sarlavha <span className="text-red-500">*</span>
+              {t("meetingPage.create.titleLabel")} <span className="text-red-500">*</span>
             </label>
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder="Masalan: Hosil va uning tatbiqlari"
+              placeholder={t("meetingPage.create.titlePh")}
               className="h-10 rounded-[8px] border border-[#d8e6f7] px-3 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors"
               style={{ fontFamily: "var(--font-poppins)" }}
             />
@@ -1117,12 +1122,12 @@ function CreateMeetingModal({
           {/* Subject name */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-              Fan nomi <span className="text-red-500">*</span>
+              {t("meetingPage.create.subjectLabel")} <span className="text-red-500">*</span>
             </label>
             <input
               value={subjectName}
               onChange={e => setSubjectName(e.target.value)}
-              placeholder="Masalan: Matematik tahlil"
+              placeholder={t("meetingPage.create.subjectPh")}
               className="h-10 rounded-[8px] border border-[#d8e6f7] px-3 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors"
               style={{ fontFamily: "var(--font-poppins)" }}
             />
@@ -1131,12 +1136,12 @@ function CreateMeetingModal({
           {/* Description */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-              Tavsif (ixtiyoriy)
+              {t("meetingPage.create.descLabel")}
             </label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Meeting haqida qisqacha..."
+              placeholder={t("meetingPage.create.descPh")}
               rows={2}
               className="rounded-[8px] border border-[#d8e6f7] px-3 py-2 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors resize-none"
               style={{ fontFamily: "var(--font-poppins)" }}
@@ -1146,7 +1151,7 @@ function CreateMeetingModal({
           {/* Date */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-              Sana <span className="text-red-500">*</span>
+              {t("meetingPage.create.dateLabel")} <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -1162,7 +1167,7 @@ function CreateMeetingModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-                Boshlanish <span className="text-red-500">*</span>
+                {t("meetingPage.create.startLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="time"
@@ -1174,7 +1179,7 @@ function CreateMeetingModal({
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-                Tugash <span className="text-red-500">*</span>
+                {t("meetingPage.create.endLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="time"
@@ -1189,19 +1194,19 @@ function CreateMeetingModal({
           {/* Groups */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-              Guruhlar <span className="text-red-500">*</span>
+              {t("meetingPage.create.groupsLabel")} <span className="text-red-500">*</span>
             </label>
             <p className="text-[11px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-              Meeting faqat tanlangan guruhlarga ko&apos;rinadi. Ro&apos;yxat siz o&apos;qitadigan davomat jurnali guruhlaridan olinadi.
+              {t("meetingPage.create.groupsHint")}
             </p>
 
             {groupsLoading ? (
               <div className="flex items-center gap-2 rounded-[8px] border border-[#d8e6f7] px-3 py-3 text-sm text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-                <Loader2 className="h-4 w-4 animate-spin" /> Guruhlar yuklanmoqda...
+                <Loader2 className="h-4 w-4 animate-spin" /> {t("meetingPage.create.groupsLoading")}
               </div>
             ) : groupOptions.length === 0 ? (
               <div className="rounded-[8px] border border-[#d8e6f7] px-3 py-3 text-sm text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-                Sizga biriktirilgan guruhlar topilmadi
+                {t("meetingPage.create.noGroups")}
               </div>
             ) : (
               <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto rounded-[8px] border border-[#d8e6f7] p-2">
@@ -1232,7 +1237,7 @@ function CreateMeetingModal({
             )}
             {!groupsLoading && groupOptions.length > 0 && (
               <p className="text-[11px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-                Tanlandi: {selectedGroupIds.length ? groupOptions.filter(g => selectedGroupIds.includes(g.id)).map(g => g.name).join(", ") : "—"}
+                {t("meetingPage.create.selected")} {selectedGroupIds.length ? groupOptions.filter(g => selectedGroupIds.includes(g.id)).map(g => g.name).join(", ") : "—"}
               </p>
             )}
           </div>
@@ -1246,14 +1251,14 @@ function CreateMeetingModal({
                 onChange={e => setWantsGoogleMeet(e.target.checked)}
                 className="h-4 w-4 rounded border-[#d2e3fc] text-[#1a73e8] focus:ring-[#1a73e8]"
               />
-              <span className="font-medium text-[#012970]">Google Meet meeting ham yaratilsin</span>
+              <span className="font-medium text-[#012970]">{t("meetingPage.create.withGoogleMeet")}</span>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#e8f0fe", color: "#1a73e8" }}>
-                TAVSIYA ETILADI
+                {t("meetingPage.create.recommended")}
               </span>
             </label>
             {wantsGoogleMeet && googleMeetStatus?.status !== "active" && (
               <p className="text-[11px] text-red-500 pl-6" style={{ fontFamily: "var(--font-poppins)" }}>
-                Google account ulanmagan. Avval profilingizdan (Tizim → Profil) Google account&apos;ni ulang.
+                {t("meetingPage.create.googleNotLinkedHint")}
               </p>
             )}
           </div>
@@ -1267,11 +1272,11 @@ function CreateMeetingModal({
                 onChange={e => setWantsZoom(e.target.checked)}
                 className="h-4 w-4 rounded border-[#d8e6f7] text-[#0e58a8] focus:ring-[#0e58a8]"
               />
-              <span className="font-medium text-[#012970]">Zoom meeting ham yaratilsin</span>
+              <span className="font-medium text-[#012970]">{t("meetingPage.create.withZoom")}</span>
             </label>
             {wantsZoom && zoomStatus?.status !== "active" && (
               <p className="text-[11px] text-red-500 pl-6" style={{ fontFamily: "var(--font-poppins)" }}>
-                Zoom account ulanmagan. Avval profilingizdan (Tizim → Profil) Zoom account&apos;ni ulang.
+                {t("meetingPage.create.zoomNotLinkedHint")}
               </p>
             )}
           </div>
@@ -1292,7 +1297,7 @@ function CreateMeetingModal({
               style={{ fontFamily: "var(--font-poppins)" }}
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              {loading ? "Yaratilmoqda..." : "Meeting yaratish"}
+              {loading ? t("common.creating") : t("meetingPage.create.submit")}
             </button>
             <button
               type="button"
@@ -1300,7 +1305,7 @@ function CreateMeetingModal({
               className="rounded-[8px] border border-[#d8e6f7] px-5 py-2.5 text-sm font-medium text-[#7293b9] hover:bg-[#f6f9ff] transition-colors"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
-              Bekor qilish
+              {t("common.cancel")}
             </button>
           </div>
         </form>
@@ -1718,29 +1723,29 @@ function PrejoinStage({
               className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1cc2dc]"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
-              Host
+              {t("meetingPage.host")}
             </p>
             <p
               className="mt-2 text-base font-semibold text-[#012970]"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
-              {meeting.host || "Ko'rsatilmagan"}
+              {meeting.host || t("meetingPage.notSpecified")}
             </p>
           </div>
 
           <div className="mt-5 grid gap-3">
             <ToggleCard
               active={micEnabled}
-              title="Mikrofon"
-              subtitle={micEnabled ? "Yoniq" : "Ochiq emas"}
+              title={t("meetingPage.mic")}
+              subtitle={micEnabled ? t("meetingPage.micOn") : t("meetingPage.micOff")}
               icon={Mic}
               offIcon={MicOff}
               onClick={onToggleMic}
             />
             <ToggleCard
               active={cameraEnabled}
-              title="Kamera"
-              subtitle={cameraEnabled ? "Tayyor" : "Yopiq"}
+              title={t("meetingPage.camera")}
+              subtitle={cameraEnabled ? t("meetingPage.cameraReady") : t("meetingPage.cameraClosed")}
               icon={Video}
               offIcon={VideoOff}
               onClick={onToggleCamera}
@@ -1761,7 +1766,7 @@ function PrejoinStage({
           <div className="sticky bottom-0 -mx-5 mt-6 space-y-3 border-t border-[#d8e6f7] bg-white px-5 py-3 xl:static xl:mx-0 xl:border-0 xl:bg-transparent xl:px-0 xl:py-0">
             <PrimaryButton onClick={onEnter} loading={joining} disabled={joining}>
               {!joining ? <Play className="h-4 w-4 fill-current" /> : null}
-              Meetingga kirish
+              {t("meetingPage.enterMeeting")}
             </PrimaryButton>
 
             {meeting.link !== "#" && (
@@ -1772,7 +1777,7 @@ function PrejoinStage({
                 className="inline-flex w-full items-center justify-center gap-2 rounded-[5px] border border-[#d8e6f7] bg-white px-4 py-2.5 text-sm font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
-                Tashqi havolani ochish
+                {t("meetingPage.openExternal")}
                 <ArrowUpRight className="h-4 w-4" />
               </a>
             )}
@@ -1871,6 +1876,7 @@ function ParticipantTile({
   screenOn?: boolean
   onClick?: () => void
 }) {
+  const { t } = useLanguage()
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hasVideo = Boolean(stream?.getVideoTracks().some(t => t.readyState === "live")) && (camOn !== false || screenOn)
 
@@ -1915,7 +1921,7 @@ function ParticipantTile({
       {/* Name + role */}
       <div className="absolute bottom-0 left-0 right-0 px-3 py-2">
         <p className="truncate text-left text-sm font-semibold text-white drop-shadow" style={{ fontFamily: "var(--font-poppins)" }}>
-          {name}{isSelf ? " (Siz)" : ""}
+          {name}{isSelf ? t("meetingPage.youSuffix") : ""}
         </p>
         <p className="truncate text-left text-[11px] text-white/70" style={{ fontFamily: "var(--font-poppins)" }}>
           {roleLine}
@@ -1938,7 +1944,7 @@ function ParticipantTile({
 
       {isActive && (
         <div className="absolute left-2 top-2 rounded-full bg-[#0e58a8] px-2 py-0.5 text-[10px] font-semibold text-white">
-          Asosiy
+          {t("meetingPage.main")}
         </div>
       )}
     </button>
@@ -2080,7 +2086,7 @@ function CallStage({
       setAttendanceRoster(res.data)
       setAttendanceGroupId(groupId)
     } catch (e) {
-      setAttendanceError(e instanceof Error ? e.message : "Ro'yxatni yuklashda xato")
+      setAttendanceError(e instanceof Error ? e.message : tr("meetingPage.att.loadError"))
     } finally {
       setAttendanceLoading(false)
     }
@@ -2116,9 +2122,9 @@ function CallStage({
           comment: r.comment ?? undefined,
         })),
       })
-      setAttendanceSaveMsg("Davomat jurnaliga saqlandi")
+      setAttendanceSaveMsg(tr("meetingPage.att.saved"))
     } catch (e) {
-      setAttendanceSaveMsg(e instanceof Error ? e.message : "Saqlashda xato")
+      setAttendanceSaveMsg(e instanceof Error ? e.message : tr("meetingPage.att.saveError"))
     } finally {
       setAttendanceSaving(false)
     }
@@ -2267,7 +2273,7 @@ function CallStage({
                   <div className="text-center">
                     <p className="text-lg font-semibold text-white" style={{ fontFamily: "var(--font-poppins)" }}>{activeLabel}</p>
                     <p className="mt-1 text-sm text-white/60" style={{ fontFamily: "var(--font-poppins)" }}>{activeSubLabel}</p>
-                    <p className="mt-2 text-xs text-white/40" style={{ fontFamily: "var(--font-poppins)" }}>Kamera o'chirilgan</p>
+                    <p className="mt-2 text-xs text-white/40" style={{ fontFamily: "var(--font-poppins)" }}>{t("meetingPage.cameraOff")}</p>
                   </div>
                 </div>
               )}
@@ -2294,10 +2300,10 @@ function CallStage({
                       {isRecording && (
                         <>
                           <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                          Yozib olinmoqda
+                          {t("meetingPage.recording")}
                         </>
                       )}
-                      {recordingUploading && "Yozuv serverga yuklanmoqda..."}
+                      {recordingUploading && t("meetingPage.recordingUploading")}
                     </div>
                   )}
                   {socketError && (
@@ -2313,7 +2319,7 @@ function CallStage({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  <button type="button" aria-label={pseudoFullscreen ? "Kichraytirish" : "Kattalashtirish"} onClick={handleFullscreen}
+                  <button type="button" aria-label={pseudoFullscreen ? t("meetingPage.exitFullscreen") : t("meetingPage.fullscreen")} onClick={handleFullscreen}
                     className="hidden h-9 w-9 place-items-center rounded-full bg-black/50 text-white hover:bg-black/65 xl:grid">
                     {pseudoFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                   </button>
@@ -2328,7 +2334,7 @@ function CallStage({
               {(activeRemote || visibleRemoteStreams.length > 0) && (
                 <div className="absolute right-4 top-16 bottom-24 z-10 hidden w-32 flex-col gap-3 overflow-y-auto xl:flex">
                   {activeRemote && (
-                    <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
+                    <LocalVideoTile stream={localPreviewStream} label={t("meetingPage.you")} cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
                   )}
                   {visibleRemoteStreams.map(remote => (
                     <RemoteVideoTile key={remote.socketId} remote={remote} active={activeVideoId === remote.socketId} onSelect={() => onSelectVideo(remote.socketId)} fill />
@@ -2345,12 +2351,12 @@ function CallStage({
                   (mobile keeps the separate pill below the video, unchanged) */}
               <div className="absolute inset-x-0 bottom-5 z-10 hidden justify-center xl:flex">
                 <div className="flex flex-wrap items-center justify-center gap-2 rounded-full bg-[#10192a]/85 px-4 py-2.5 shadow-[0_10px_30px_rgba(1,10,25,0.35)] backdrop-blur">
-                  <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
-                  <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
-                  <CallControlButton label={screenSharing ? "Ekran ulashishni to'xtatish" : "Ekran ulashish"} icon={MonitorUp} tone="primary" active={screenSharing} onClick={onToggleScreen} />
+                  <CallControlButton label={micEnabled ? t("meetingPage.micMute") : t("meetingPage.micUnmute")} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
+                  <CallControlButton label={cameraEnabled ? t("meetingPage.cameraTurnOff") : t("meetingPage.cameraTurnOn")} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
+                  <CallControlButton label={screenSharing ? t("meetingPage.stopShare") : t("meetingPage.shareScreen")} icon={MonitorUp} tone="primary" active={screenSharing} onClick={onToggleScreen} />
                   {isTeacher && (
                     <CallControlButton
-                      label={isRecording ? "Yozishni tugatish" : "Yozishni boshlash"}
+                      label={isRecording ? t("meetingPage.stopRecording") : t("meetingPage.startRecording")}
                       icon={isRecording ? Square : Circle}
                       tone={isRecording ? "danger" : "primary"}
                       active={isRecording}
@@ -2358,14 +2364,14 @@ function CallStage({
                     />
                   )}
                   {isTeacher && attendanceModeManual && (
-                    <CallControlButton label="Davomat" icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
+                    <CallControlButton label={t("meetingPage.attendance")} icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
                   )}
-                  <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} badge={unreadChatCount} onClick={() => openMobilePanel("chat")} />
-                  <button type="button" aria-label="Yana" onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
+                  <CallControlButton label={t("meetingPage.chat")} icon={MessageSquareText} tone="primary" active={activePanel === "chat"} badge={unreadChatCount} onClick={() => openMobilePanel("chat")} />
+                  <button type="button" aria-label={t("meetingPage.more")} onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
                     className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20">
                     <MoreHorizontal className="h-5 w-5" />
                   </button>
-                  <CallControlButton label="Chiqish" icon={PhoneOff} tone="danger" onClick={onLeave} />
+                  <CallControlButton label={t("meetingPage.leave")} icon={PhoneOff} tone="danger" onClick={onLeave} />
                 </div>
               </div>
 
@@ -2375,17 +2381,17 @@ function CallStage({
                 covers video labels/content on short viewports) */}
             <div className="mt-3 flex justify-center xl:hidden">
               <div className="flex flex-wrap items-center justify-center gap-2 rounded-full bg-white px-3 py-2 shadow-[0_2px_12px_rgba(1,41,112,0.1)] border border-[#d8e6f7]">
-                <CallControlButton label={micEnabled ? "Mikrofonni o'chirish" : "Mikrofonni yoqish"} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
-                <CallControlButton label={cameraEnabled ? "Kamerani o'chirish" : "Kamerani yoqish"} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
+                <CallControlButton label={micEnabled ? t("meetingPage.micMute") : t("meetingPage.micUnmute")} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
+                <CallControlButton label={cameraEnabled ? t("meetingPage.cameraTurnOff") : t("meetingPage.cameraTurnOn")} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
                 {isTeacher && attendanceModeManual && (
-                  <CallControlButton label="Davomat" icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
+                  <CallControlButton label={t("meetingPage.attendance")} icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
                 )}
-                <CallControlButton label="Chat" icon={MessageSquareText} tone="primary" active={activePanel === "chat"} badge={unreadChatCount} onClick={() => openMobilePanel("chat")} />
-                <button type="button" aria-label="Yana" onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
+                <CallControlButton label={t("meetingPage.chat")} icon={MessageSquareText} tone="primary" active={activePanel === "chat"} badge={unreadChatCount} onClick={() => openMobilePanel("chat")} />
+                <button type="button" aria-label={t("meetingPage.more")} onClick={() => openMobilePanel(activePanel === "participants" ? "chat" : "participants")}
                   className="grid h-11 w-11 place-items-center rounded-full border border-[#d8e6f7] bg-white text-[#104475]">
                   <MoreHorizontal className="h-5 w-5" />
                 </button>
-                <CallControlButton label="Chiqish" icon={PhoneOff} tone="danger" onClick={onLeave} />
+                <CallControlButton label={t("meetingPage.leave")} icon={PhoneOff} tone="danger" onClick={onLeave} />
               </div>
             </div>
 
@@ -2393,7 +2399,7 @@ function CallStage({
             {(activeRemote || visibleRemoteStreams.length > 0) && (
               <div className="mt-3 grid grid-cols-2 gap-3 xl:hidden">
                 {activeRemote && (
-                  <LocalVideoTile stream={localPreviewStream} label="Siz" cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
+                  <LocalVideoTile stream={localPreviewStream} label={t("meetingPage.you")} cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
                 )}
                 {visibleRemoteStreams.map(remote => (
                   <RemoteVideoTile key={remote.socketId} remote={remote} active={activeVideoId === remote.socketId} onSelect={() => onSelectVideo(remote.socketId)} fill />
@@ -2419,7 +2425,7 @@ function CallStage({
                     className={cn("relative rounded-[5px] px-3 py-2 text-xs font-medium transition-colors",
                       activePanel === id ? "bg-white text-[#012970] shadow-[0_2px_8px_rgba(1,41,112,0.08)]" : "text-[#7293b9] hover:bg-white")}
                     style={{ fontFamily: "var(--font-poppins)" }}>
-                    {id === "participants" ? "Ishtirokchilar" : id === "cameras" ? "Kameralar" : "Chat"}
+                    {id === "participants" ? t("meetingPage.participantsTab") : id === "cameras" ? t("meetingPage.camerasTab") : t("meetingPage.chat")}
                     {id === "chat" && unreadChatCount > 0 && (
                       <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#f6f9ff]" />
                     )}
@@ -2428,14 +2434,14 @@ function CallStage({
                 <span className="ml-auto rounded-full bg-[#e8fbff] px-2 py-0.5 text-xs font-medium text-[#0e58a8]" style={{ fontFamily: "var(--font-poppins)" }}>
                   {panelCount}
                 </span>
-                <button type="button" aria-label="Yopish" onClick={() => setMobilePanelOpen(false)}
+                <button type="button" aria-label={t("meetingPage.close")} onClick={() => setMobilePanelOpen(false)}
                   className="ml-2 grid h-7 w-7 place-items-center rounded-full text-[#7293b9] hover:bg-white">
                   <X className="h-4 w-4" />
                 </button>
               </div>
               {activePanel === "participants" && (
                 <p className="mt-3 text-[11px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-                  💡 Bosing — kamerasini asosiy ekranda oching
+                  {t("meetingPage.clickToMain")}
                 </p>
               )}
             </div>
@@ -2445,10 +2451,10 @@ function CallStage({
               <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 space-y-1">
                 {/* O'zi */}
                 <div className="flex items-center gap-3 rounded-[8px] px-3 py-2.5 bg-[#f0f5ff]">
-                  <Avatar name={localUserName || "Siz"} size="sm" />
+                  <Avatar name={localUserName || t("meetingPage.you")} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
-                      {localUserName || "Siz"} <span className="text-[#7293b9] text-xs font-normal">(Siz)</span>
+                      {localUserName || t("meetingPage.you")} <span className="text-[#7293b9] text-xs font-normal">({t("meetingPage.you")})</span>
                     </p>
                     <p className="truncate text-xs text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>{roleLabel(localUserRole, localGroupId, groupIdToName.get(localGroupId ?? 0))}</p>
                   </div>
@@ -2460,7 +2466,7 @@ function CallStage({
                     <div
                       key={person.socketId ?? person.name}
                       onClick={() => handleParticipantClick(person)}
-                      title={hasStream ? "Bosing — kamerasini oching" : ""}
+                      title={hasStream ? t("meetingPage.clickToOpenCamera") : ""}
                       className={cn(
                         "flex items-center gap-3 rounded-[8px] px-3 py-2.5 transition-colors",
                         hasStream ? "cursor-pointer hover:bg-[#f0f5ff] active:bg-[#e8f0fb]" : "hover:bg-[#f6f9ff]",
@@ -2474,7 +2480,7 @@ function CallStage({
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {hasStream && (
-                          <span className="text-[10px] text-[#0e58a8]" title="Kamera bor">
+                          <span className="text-[10px] text-[#0e58a8]" title={t("meetingPage.hasCamera")}>
                             <Video className="h-3 w-3" />
                           </span>
                         )}
@@ -2491,7 +2497,7 @@ function CallStage({
               <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 space-y-3">
                 {remoteStreams.length === 0 ? (
                   <p className="rounded-[8px] border border-dashed border-[#b7cce8] px-3 py-8 text-center text-sm text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-                    Hali hech kim kamera yoqmagan
+                    {t("meetingPage.noCamerasYet")}
                   </p>
                 ) : remoteStreams.map(remote => (
                   <ParticipantTile
@@ -2525,12 +2531,12 @@ function CallStage({
                     </div>
                   )) : (
                     <p className="rounded-[8px] border border-dashed border-[#b7cce8] px-3 py-8 text-center text-sm text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-                      Hozircha xabar yo&apos;q
+                      {t("meetingPage.noMessagesYet")}
                     </p>
                   )}
                 </div>
                 <form onSubmit={handleChatSubmit} className="mt-4 flex shrink-0 gap-2">
-                  <input value={chatInput} onChange={e => onChatInputChange(e.target.value)} placeholder="Xabar yozish"
+                  <input value={chatInput} onChange={e => onChatInputChange(e.target.value)} placeholder={t("meetingPage.writeMessage")}
                     className="min-w-0 flex-1 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-sm text-[#104475] outline-none placeholder:text-[#7293b9]"
                     style={{ fontFamily: "var(--font-poppins)" }} />
                   <button type="submit" disabled={!chatInput.trim()}
@@ -2550,7 +2556,7 @@ function CallStage({
           <div className="w-full max-w-2xl rounded-[14px] bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
               <div>
-                <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Davomat</h2>
+                <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("meetingPage.attendance")}</h2>
                 <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                   {(meeting.subjectName || meeting.subject)} — {meetingDateStr}
                 </p>
@@ -2562,7 +2568,7 @@ function CallStage({
 
             {meetingGroupIds.length > 1 && (
               <div className="px-5 py-3 flex items-center gap-1.5 flex-wrap" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-                <span className="text-xs font-medium mr-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Guruh:</span>
+                <span className="text-xs font-medium mr-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("meetingPage.groupColon")}</span>
                 {meetingGroupIds.map(gid => (
                   <button key={gid} onClick={() => loadAttendanceRoster(gid)}
                     className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
@@ -2571,7 +2577,7 @@ function CallStage({
                       color: attendanceGroupId === gid ? "#fff" : "#0e58a8",
                       fontFamily: "var(--font-poppins)",
                     }}>
-                    {groupIdToName.get(gid) ?? `Guruh #${gid}`}
+                    {groupIdToName.get(gid) ?? t("meetingPage.groupHash", { id: gid })}
                   </button>
                 ))}
               </div>
@@ -2586,7 +2592,7 @@ function CallStage({
                 </div>
               ) : attendanceRoster.length === 0 ? (
                 <div className="p-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                  Bu guruhda talaba topilmadi
+                  {t("meetingPage.noStudentsInGroup")}
                 </div>
               ) : (
                 <table className="w-full">
@@ -2609,7 +2615,7 @@ function CallStage({
                                     border: active ? `1px solid ${opt.color}33` : "1px solid rgba(1,41,112,0.12)",
                                     fontFamily: "var(--font-poppins)",
                                   }}>
-                                  {opt.label}
+                                  {t(opt.labelKey)}
                                 </button>
                               )
                             })}
@@ -2633,7 +2639,7 @@ function CallStage({
                   className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50 ml-auto"
                   style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
                   <ClipboardCheck className="w-4 h-4" />
-                  {attendanceSaving ? "Saqlanmoqda..." : "Saqlash"}
+                  {attendanceSaving ? t("common.saving") : t("common.save")}
                 </button>
               </div>
             )}
@@ -2645,6 +2651,7 @@ function CallStage({
 }
 
 export default function MeetingPage() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => meetingsApi.getStudentMeetings())
   const { data: groupsData } = useApi(() => teachingApi.groups(), [])
   // Admin "Sozlamalar"dan tanlangan davomat rejimi — "manual" bo'lsa,
@@ -2680,7 +2687,8 @@ export default function MeetingPage() {
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
   const [screenSharing, setScreenSharing] = useState(false)
   const [mediaError, setMediaError] = useState<string | null>(null)
-  const [socketStatus, setSocketStatus] = useState("Realtime tayyor")
+  // Holat matni emas, lug'at kaliti saqlanadi (til almashsa ham to'g'ri chiqadi)
+  const [socketStatus, setSocketStatus] = useState("meetingPage.rt.ready")
   const [socketError, setSocketError] = useState<string | null>(null)
   const [socketParticipants, setSocketParticipants] = useState<Participant[]>([])
   const [remoteStreams, setRemoteStreams] = useState<RemoteStream[]>([])
@@ -2751,14 +2759,14 @@ export default function MeetingPage() {
   })()
 
   const sourceLabel = loading
-    ? "Yuklanmoqda"
+    ? t("meetingPage.status.loading")
     : error
-      ? "API xatosi"
+      ? t("meetingPage.status.apiError")
       : viewState.stage === "call"
-        ? socketStatus
-        : "Tayyor"
+        ? t(socketStatus)
+        : t("meetingPage.status.ready")
   const sourceTone = error || socketError ? "warning" : loading ? "loading" : "success"
-  const apiError   = error ? `Xatolik: ${error}` : null
+  const apiError   = error ? t("common.errorWithMsg", { msg: error }) : null
 
   useEffect(() => {
     if (
@@ -2856,7 +2864,7 @@ export default function MeetingPage() {
 
   const ensureLocalMedia = async (constraints: MediaStreamConstraints) => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error("Brauzer media qurilmalarni qo'llamaydi")
+      throw new Error(tr("meetingPage.media.unsupported"))
     }
 
     const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -2891,7 +2899,7 @@ export default function MeetingPage() {
 
     if (hasTrack) return current
     if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error("Brauzer media qurilmalarni qo'llamaydi")
+      throw new Error(tr("meetingPage.media.unsupported"))
     }
 
     const nextTrackStream = await navigator.mediaDevices.getUserMedia({
@@ -2932,7 +2940,7 @@ export default function MeetingPage() {
     setChatInput("")
     setMediaError(null)
     setSocketError(null)
-    setSocketStatus("Realtime tayyor")
+    setSocketStatus("meetingPage.rt.ready")
     setCallSeconds(0)
     setViewState({ stage: "lobby" })
     refetch()
@@ -2986,7 +2994,7 @@ export default function MeetingPage() {
     try {
       setMediaError(null)
       if (!navigator.mediaDevices?.getDisplayMedia) {
-        throw new Error("Brauzer ekran ulashishni qo'llamaydi")
+        throw new Error(tr("meetingPage.media.noScreenShare"))
       }
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
       stream.getVideoTracks()[0]?.addEventListener("ended", stopScreenShare, { once: true })
@@ -3032,7 +3040,7 @@ export default function MeetingPage() {
     try {
       await meetingsApi.uploadRecording(meetingId, blob, "meeting.webm")
     } catch (issue) {
-      setRecordingError(issue instanceof Error ? issue.message : "Yozuvni yuklashda xatolik")
+      setRecordingError(issue instanceof Error ? issue.message : tr("meetingPage.recordingUploadError"))
     } finally {
       setRecordingUploading(false)
     }
@@ -3042,7 +3050,7 @@ export default function MeetingPage() {
     try {
       setRecordingError(null)
       if (!navigator.mediaDevices?.getDisplayMedia) {
-        throw new Error("Brauzer ekran yozishni qo'llamaydi")
+        throw new Error(tr("meetingPage.media.noRecording"))
       }
 
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -3109,7 +3117,7 @@ export default function MeetingPage() {
 
     const socket = socketRef.current
     if (!socket?.connected) {
-      setSocketError("Realtime ulanmagan, xabar yuborilmadi")
+      setSocketError(tr("meetingPage.chatNotConnected"))
       return
     }
 
@@ -3117,7 +3125,7 @@ export default function MeetingPage() {
       const body = unwrapSocketData(ack)
       const record = recordValue(ack)
       if (record.success === false) {
-        setSocketError(socketText(record.error, record.message) || "Xabar yuborilmadi")
+        setSocketError(socketText(record.error, record.message) || tr("meetingPage.messageNotSent"))
         return
       }
       setChatMessages((messages) =>
@@ -3228,12 +3236,12 @@ export default function MeetingPage() {
             pendingProducersRef.current = []
             pending.forEach((producer) => void mediaClientRef.current?.handleNewProducer(producer))
           })
-          .catch((issue) => setSocketError(issue instanceof Error ? issue.message : "Media ulanishida xatolik"))
+          .catch((issue) => setSocketError(issue instanceof Error ? issue.message : tr("meetingPage.mediaConnectError")))
       }
     }
 
     socket.on("connect", () => {
-      setSocketStatus("Realtime ulandi")
+      setSocketStatus("meetingPage.rt.connected")
       // A reconnect (network blip, tab backgrounded, etc.) gets a brand new
       // socket.io session server-side — any transports/consumers the old
       // MeetingMediaClient was holding are already dead on the server, and
@@ -3246,7 +3254,7 @@ export default function MeetingPage() {
       socket.emit("meeting:join", {}, (ack: unknown) => {
         const record = recordValue(ack)
         if (record.success === false) {
-          setSocketError(socketText(record.error, record.message) || "Meetingga socket orqali kirilmadi")
+          setSocketError(socketText(record.error, record.message) || tr("meetingPage.socketJoinFailed"))
           return
         }
         applyJoinedPayload(ack)
@@ -3315,11 +3323,11 @@ export default function MeetingPage() {
       void leaveCall()
     })
     socket.on("connect_error", (issue) => {
-      setSocketStatus("Realtime xatosi")
+      setSocketStatus("meetingPage.rt.error")
       setSocketError(issue.message)
     })
     socket.on("disconnect", () => {
-      setSocketStatus("Realtime uzildi")
+      setSocketStatus("meetingPage.rt.disconnected")
     })
 
     return () => {
@@ -3331,13 +3339,13 @@ export default function MeetingPage() {
   }, [joinToken, viewState])
 
   const handleDeleteMeeting = async (meetingId: string) => {
-    if (!confirm("Meetingni o'chirishni tasdiqlaysizmi?")) return
+    if (!confirm(tr("meetingPage.confirmDelete"))) return
     setDeletingId(meetingId)
     try {
       await meetingsApi.remove(meetingId)
       refetch()
     } catch (e) {
-      alert(e instanceof Error ? e.message : "O'chirishda xatolik")
+      alert(e instanceof Error ? e.message : tr("common.deleteError"))
     } finally {
       setDeletingId(null)
     }
@@ -3371,7 +3379,7 @@ export default function MeetingPage() {
       setChatMessages([])
       setSocketParticipants([])
       setActiveVideoId("self")
-      setSocketStatus("Realtime ulanmoqda")
+      setSocketStatus("meetingPage.rt.connecting")
       setSocketError(null)
       setCallSeconds(0)
       setViewState({ stage: "call", meetingId: prejoinMeeting.id })
@@ -3381,7 +3389,7 @@ export default function MeetingPage() {
       // boshlash" tugmasini bosish shart bo'lmay qoladi.
       if (isTeacher) void startRecording()
     } catch (e) {
-      setJoinError(e instanceof Error ? e.message : "Join-token olishda xatolik")
+      setJoinError(e instanceof Error ? e.message : tr("meetingPage.joinTokenError"))
     } finally {
       setJoiningId(null)
     }

@@ -8,11 +8,13 @@ import { authApi, hemisApi, adminApi, HemisEmployee, HemisStudent, notifications
 import { useApi } from "@/hooks/useApi"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 interface HeaderProps { onMenuClick?: () => void }
 
 export function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter()
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [role, setRole] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -59,17 +61,17 @@ export function Header({ onMenuClick }: HeaderProps) {
   const fullName = hemisUser?.full_name || adminUser?.fullName || ""
   const userRoleLabel =
     role === "student"
-      ? "Talaba"
+      ? t("common.student")
       : role === "employee"
-        ? "O'qituvchi"
+        ? t("common.teacher")
         : adminUser?.role === "super_admin"
-          ? "Super Admin"
-          : adminUser?.role ?? "Admin"
+          ? t("header.roleSuperAdmin")
+          : t("header.roleAdmin")
 
   const initial     = fullName.charAt(0).toUpperCase() || "U"
   const displayName = fullName
     ? fullName.split(" ").slice(0, 2).map((w: string, i: number) => i === 0 ? w : w.charAt(0) + ".").join(" ")
-    : (adminUser?.username ?? "Foydalanuvchi")
+    : (adminUser?.username ?? t("common.user"))
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -97,7 +99,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       style={{ borderBottom: "1px solid var(--lms-border)" }}>
 
       {/* Chapdan: Menu */}
-      <button type="button" aria-label="Open menu" onClick={onMenuClick}
+      <button type="button" aria-label={t("header.openMenu")} onClick={onMenuClick}
         className="flex h-[30px] w-[30px] items-center justify-center transition-opacity hover:opacity-70">
         <Menu className="h-6 w-6 text-[var(--lms-primary)]" />
       </button>
@@ -108,7 +110,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         <ThemeToggle />
 
         {/* Bildirishnoma */}
-        <button type="button" aria-label="Xabarnomalar" onClick={() => router.push("/xabarnoma")}
+        <button type="button" aria-label={t("header.notifications")} onClick={() => router.push("/xabarnoma")}
           className="relative flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--lms-bg)]">
           <Bell className="h-[19px] w-[19px] text-[var(--lms-primary)]" />
           {unread > 0 && (
@@ -145,7 +147,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 {/* Foydalanuvchi ma'lumoti */}
                 <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--lms-border)" }}>
                   <p className="text-sm font-medium text-[var(--lms-primary)]" style={{ fontFamily: "var(--font-poppins)" }}>
-                    {fullName || "Foydalanuvchi"}
+                    {fullName || t("common.user")}
                   </p>
                   <p className="text-xs text-[var(--lms-muted)] mt-0.5" style={{ fontFamily: "var(--font-poppins)" }}>
                     {userRoleLabel}
@@ -157,7 +159,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--lms-primary)] hover:bg-[var(--lms-bg)] transition-colors"
                   style={{ fontFamily: "var(--font-poppins)" }}>
                   <UserIcon className="h-4 w-4 text-[var(--lms-muted)]" />
-                  Profil
+                  {t("header.profile")}
                 </button>
 
                 {/* Admin huquqi bo'lganlar uchun — admin panelga o'tish */}
@@ -166,7 +168,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                     className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--lms-primary)] hover:bg-[var(--lms-bg)] transition-colors"
                     style={{ fontFamily: "var(--font-poppins)" }}>
                     <ShieldCheck className="h-4 w-4 text-[var(--lms-muted)]" />
-                    Admin panelga o'tish
+                    {t("header.toAdminPanel")}
                   </button>
                 )}
 
@@ -175,7 +177,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-red-50 transition-colors"
                   style={{ color: "#ef4444", fontFamily: "var(--font-poppins)" }}>
                   <LogOut className="h-4 w-4" />
-                  Chiqish
+                  {t("header.logout")}
                 </button>
               </motion.div>
             )}

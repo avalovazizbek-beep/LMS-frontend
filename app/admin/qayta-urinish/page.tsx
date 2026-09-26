@@ -8,19 +8,22 @@ import {
 import { adminApi, type AdminTeacherStat, type AdminTopicRow } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { tr } from "@/lib/i18n/translations"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 const sel = "w-full px-3 py-2.5 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none bg-white"
 
 function fmtDeadline(iso: string | null) {
-  if (!iso) return "Muddat belgilanmagan"
+  if (!iso) return tr("adminRetry.noDeadline")
   const d = new Date(iso)
   if (isNaN(d.getTime())) return "—"
   return d.toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
 }
 
 export default function AdminQaytaUrinish() {
+  const { t } = useLanguage()
   const [teacherId, setTeacherId] = useState<number | "">("")
   const [subjectName, setSubjectName] = useState("")
   const [groupId, setGroupId] = useState<number | "">("")
@@ -55,7 +58,7 @@ export default function AdminQaytaUrinish() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return topics
-    return topics.filter(t => t.title.toLowerCase().includes(q))
+    return topics.filter(tp => tp.title.toLowerCase().includes(q))
   }, [topics, search])
 
   async function toggleTopic(topic: AdminTopicRow) {
@@ -66,7 +69,7 @@ export default function AdminQaytaUrinish() {
       else await adminApi.reopenTopic(topic.topicKey)
       await refetchTopics()
     } catch (e) {
-      setToggleErr(e instanceof Error ? e.message : "Xatolik yuz berdi")
+      setToggleErr(e instanceof Error ? e.message : t("common.error"))
     } finally {
       setToggling(null)
     }
@@ -78,9 +81,9 @@ export default function AdminQaytaUrinish() {
   return (
     <div className="flex flex-col gap-5 p-[30px]">
       <div>
-        <h1 className="text-[28px] font-medium" style={T}>Qayta topshirish</h1>
+        <h1 className="text-[28px] font-medium" style={T}>{t("adminRetry.title")}</h1>
         <p className="text-sm mt-1" style={L}>
-          Mavzu deadline'i o'tgandan keyin talabalar test/topshiriqni qayta topshira olishi uchun ruxsat bering
+          {t("adminRetry.subtitle")}
         </p>
       </div>
 
@@ -88,28 +91,28 @@ export default function AdminQaytaUrinish() {
       <div className="rounded-[10px] bg-white p-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="flex flex-wrap gap-4">
           <div className="flex flex-col gap-1 min-w-[220px] flex-1">
-            <label className="text-xs font-medium" style={L}>O'qituvchi</label>
+            <label className="text-xs font-medium" style={L}>{t("common.teacher")}</label>
             <select value={teacherId} onChange={e => handleTeacherChange(e.target.value)}
               className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              <option value="">Tanlang...</option>
+              <option value="">{t("adminRetry.selectPh")}</option>
               {teachers.map(tc => <option key={tc.hemisId} value={tc.hemisId}>{tc.fullName}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1 min-w-[200px] flex-1">
-            <label className="text-xs font-medium" style={L}>Fan</label>
+            <label className="text-xs font-medium" style={L}>{t("common.subject")}</label>
             <select value={subjectName} onChange={e => { setSubjectName(e.target.value); setGroupId("") }}
               disabled={teacherId === ""}
               className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)", opacity: teacherId === "" ? 0.5 : 1 }}>
-              <option value="">Tanlang...</option>
+              <option value="">{t("adminRetry.selectPh")}</option>
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1 min-w-[200px] flex-1">
-            <label className="text-xs font-medium" style={L}>Guruh</label>
+            <label className="text-xs font-medium" style={L}>{t("common.group")}</label>
             <select value={groupId} onChange={e => setGroupId(e.target.value === "" ? "" : Number(e.target.value))}
               disabled={subjectName === ""}
               className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)", opacity: subjectName === "" ? 0.5 : 1 }}>
-              <option value="">Tanlang...</option>
+              <option value="">{t("adminRetry.selectPh")}</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           </div>
@@ -127,19 +130,19 @@ export default function AdminQaytaUrinish() {
       {!ready ? (
         <div className="rounded-[10px] bg-white p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-medium" style={T}>O'qituvchi, fan va guruhni tanlang</p>
+          <p className="text-sm font-medium" style={T}>{t("adminRetry.pickAll")}</p>
         </div>
       ) : lTopics ? (
         <div className="rounded-[10px] bg-white p-4 sm:p-8 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <div className="w-7 h-7 border-2 border-[#0e58a8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm" style={L}>Yuklanmoqda…</p>
+          <p className="text-sm" style={L}>{t("common.loading")}</p>
         </div>
       ) : eTopics ? (
         <ApiError message={eTopics} onRetry={refetchTopics} />
       ) : topics.length === 0 ? (
         <div className="rounded-[10px] bg-white p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-medium" style={T}>Bu kombinatsiyada mavzu topilmadi</p>
+          <p className="text-sm font-medium" style={T}>{t("adminRetry.noTopics")}</p>
         </div>
       ) : (
         <>
@@ -148,7 +151,7 @@ export default function AdminQaytaUrinish() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Mavzu nomi bo'yicha qidirish"
+              placeholder={t("adminRetry.searchPh")}
               className="w-full pl-9 pr-3 py-2.5 rounded-[8px] text-sm outline-none"
               style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}
             />
@@ -169,31 +172,31 @@ export default function AdminQaytaUrinish() {
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
                         {fmtDeadline(topic.deadline)}
-                        {topic.deadlinePassed && <span style={{ color: "#b91c1c" }}> · o'tgan</span>}
+                        {topic.deadlinePassed && <span style={{ color: "#b91c1c" }}>{t("adminRetry.passed")}</span>}
                       </span>
                       {topic.hasTest && (
-                        <span className="flex items-center gap-1"><HelpCircle className="w-3.5 h-3.5" /> Test bor</span>
+                        <span className="flex items-center gap-1"><HelpCircle className="w-3.5 h-3.5" /> {t("adminRetry.hasTest")}</span>
                       )}
                       {topic.hasAssignment && (
-                        <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> Topshiriq bor</span>
+                        <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> {t("adminRetry.hasAssignment")}</span>
                       )}
                       {!topic.hasTest && !topic.hasAssignment && (
                         <span className="flex items-center gap-1" style={{ color: "#94a3b8" }}>
-                          <ShieldAlert className="w-3.5 h-3.5" /> Test/topshiriq yo'q
+                          <ShieldAlert className="w-3.5 h-3.5" /> {t("adminRetry.nothing")}
                         </span>
                       )}
                     </div>
                     {topic.isReopened && (
                       <div className="flex items-center gap-1.5 mt-1.5 text-xs font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        Qayta ochilgan{topic.reopenedBy ? ` — ${topic.reopenedBy}` : ""}
+                        {topic.reopenedBy ? t("adminRetry.reopenedBy", { name: topic.reopenedBy }) : t("adminRetry.reopened")}
                       </div>
                     )}
                   </div>
 
                   {!topic.hasTest && !topic.hasAssignment ? (
                     <span className="shrink-0 text-xs px-3 py-2 rounded-[6px]" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
-                      Faollashtirib bo'lmaydi
+                      {t("adminRetry.cannot")}
                     </span>
                   ) : (
                     <button onClick={() => toggleTopic(topic)} disabled={isBusy}
@@ -204,7 +207,7 @@ export default function AdminQaytaUrinish() {
                         fontFamily: "var(--font-poppins)",
                       }}>
                       {isBusy ? <RefreshCw className="w-4 h-4 animate-spin" /> : topic.isReopened ? <Lock className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                      {topic.isReopened ? "Yopish" : "Faollikni yoqish"}
+                      {topic.isReopened ? t("adminRetry.close") : t("adminRetry.enable")}
                     </button>
                   )}
                 </div>

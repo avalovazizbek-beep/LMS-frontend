@@ -3,30 +3,33 @@
 import { useEffect, useState } from "react"
 import { RefreshCw, ShieldHalf, Eye, Plus, Pencil, Trash2, Lock } from "lucide-react"
 import { adminApi, type AdminModule, type ModulePermission } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
-const MODULE_LABELS: Record<AdminModule, string> = {
-  users: "Foydalanuvchilar",
-  students: "Talabalar ro'yxati",
-  teachers: "O'qituvchi hisoboti",
-  results: "Natijalar jurnali",
-  attendance: "Davomatlar",
-  grading: "Baholashlar",
-  retake: "Qayta urinish",
-  reedu: "Qayta o'qish",
-  faceid: "Face ID so'rovlari",
-  announcements: "E'lonlar",
-  settings: "Sozlamalar",
-  permissions: "Ruxsatlar boshqaruvi",
+// Modul nomlari admin menyusi bilan bir xil kalitlardan olinadi
+const MODULE_LABEL_KEYS: Record<AdminModule, string> = {
+  users: "adminNav.users",
+  students: "adminNav.students",
+  teachers: "adminNav.teachers",
+  results: "adminNav.results",
+  attendance: "adminNav.attendance",
+  grading: "adminNav.grading",
+  retake: "adminNav.retries",
+  reedu: "adminNav.retake",
+  faceid: "adminNav.faceId",
+  announcements: "adminNav.announcements",
+  settings: "adminNav.settings",
+  permissions: "adminNav.permissions",
 }
 
 const ACTIONS: { key: keyof Pick<ModulePermission, "canView" | "canCreate" | "canEdit" | "canDelete">; label: string; icon: typeof Eye }[] = [
-  { key: "canView", label: "Ko'rish", icon: Eye },
-  { key: "canCreate", label: "Yaratish", icon: Plus },
-  { key: "canEdit", label: "Tahrirlash", icon: Pencil },
-  { key: "canDelete", label: "O'chirish", icon: Trash2 },
+  { key: "canView", label: "adminPerm.view", icon: Eye },
+  { key: "canCreate", label: "adminPerm.create", icon: Plus },
+  { key: "canEdit", label: "adminPerm.edit", icon: Pencil },
+  { key: "canDelete", label: "adminPerm.delete", icon: Trash2 },
 ]
 
 export default function RuxsatlarBoshqaruvi() {
+  const { t } = useLanguage()
   const [modules, setModules] = useState<AdminModule[]>([])
   const [roles, setRoles] = useState<Record<"admin" | "dean", ModulePermission[]> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -72,16 +75,16 @@ export default function RuxsatlarBoshqaruvi() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Kengaytirilgan boshqaruv
+            {t("adminPerm.title")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Har bir rol uchun modul bo'yicha Ko'rish/Yaratish/Tahrirlash/O'chirish huquqlari
+            {t("adminPerm.subtitle")}
           </p>
         </div>
         <button onClick={load} className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Yangilash
+          {t("common.refresh")}
         </button>
       </div>
 
@@ -89,7 +92,7 @@ export default function RuxsatlarBoshqaruvi() {
         <div className="rounded-[10px] p-4 flex items-center gap-3" style={{ backgroundColor: "#fff8e6" }}>
           <Lock className="w-4 h-4 shrink-0" style={{ color: "#92400e" }} />
           <p className="text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-            Faqat ko'rish huquqi bor — ruxsatlarni faqat asosiy admin o'zgartira oladi
+            {t("adminPerm.readOnly")}
           </p>
         </div>
       )}
@@ -104,14 +107,14 @@ export default function RuxsatlarBoshqaruvi() {
               fontFamily: "var(--font-poppins)",
             }}>
             <ShieldHalf className="w-3.5 h-3.5" />
-            {r === "dean" ? "Dekan" : "Admin"}
+            {r === "dean" ? t("adminPerm.roleDean") : t("adminPerm.roleAdmin")}
           </button>
         ))}
       </div>
 
       {role === "admin" && (
         <p className="text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
-          Admin rolida har doim barcha huquqlar to'liq — bu yerda faqat ma'lumot uchun ko'rsatiladi, o'zgartirilmaydi.
+          {t("adminPerm.adminNote")}
         </p>
       )}
 
@@ -122,9 +125,9 @@ export default function RuxsatlarBoshqaruvi() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f6f9ff" }}>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>Modul</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminPerm.module")}</th>
                 {ACTIONS.map(a => (
-                  <th key={a.key} className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{a.label}</th>
+                  <th key={a.key} className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t(a.label)}</th>
                 ))}
               </tr>
             </thead>
@@ -134,7 +137,7 @@ export default function RuxsatlarBoshqaruvi() {
                 if (!perm) return null
                 return (
                   <tr key={mod} style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-                    <td className="px-4 py-3 text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{MODULE_LABELS[mod]}</td>
+                    <td className="px-4 py-3 text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{MODULE_LABEL_KEYS[mod] ? t(MODULE_LABEL_KEYS[mod]) : mod}</td>
                     {ACTIONS.map(a => {
                       const active = perm[a.key]
                       const disabled = !canEditGrid || role === "admin"

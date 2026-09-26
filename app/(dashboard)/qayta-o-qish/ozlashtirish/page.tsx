@@ -57,7 +57,7 @@ export default function QaytaOqishOzlashtirish() {
                   <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{e.groupName}</p>
                 </div>
                 <span className="text-sm font-semibold" style={{ color: e.finalScore !== null ? (e.finalScore >= 55 ? "#22c55e" : "#ef4444") : "#7293b9" }}>
-                  {e.finalScore !== null ? `Yakuniy: ${e.finalScore}` : "Baholanmoqda"}
+                  {e.finalScore !== null ? t("qaytaOqish.finalScore", { score: e.finalScore }) : t("qaytaOqish.grading")}
                 </span>
               </div>
               <div className="grid grid-cols-4 gap-3 px-5 py-4">

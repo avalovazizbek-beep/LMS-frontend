@@ -5,12 +5,13 @@ import { hemisApi, HemisContractItem } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { intlLocale, tr } from "@/lib/i18n/translations"
 
 function formatSum(val?: string | number): string {
   if (val == null) return "—"
   const n = Number(val)
   if (isNaN(n)) return String(val)
-  return n.toLocaleString("uz-UZ") + " so'm"
+  return `${n.toLocaleString(intlLocale())} ${tr("common.currencySom")}`
 }
 
 export default function Shartnomalar() {

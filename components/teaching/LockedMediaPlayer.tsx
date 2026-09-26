@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback } from "react"
 import { CheckCircle2, Music, Video, Play, Pause, Maximize } from "lucide-react"
 import { teachingApi, type ContentProgress } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 
@@ -29,6 +30,7 @@ function formatTime(seconds: number): string {
 }
 
 export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress, onCompleted }: LockedMediaPlayerProps) {
+  const { t } = useLanguage()
   const mediaRef = useRef<HTMLMediaElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const [completed, setCompleted] = useState(!!initialProgress?.completed)
@@ -289,7 +291,7 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
       </div>
 
       <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-        Diqqat: oldinga siljitish bloklangan — to&apos;liq tinglab/ko&apos;rib chiqing.
+        {t("lockedMedia.noSkip")}
       </p>
     </div>
   )

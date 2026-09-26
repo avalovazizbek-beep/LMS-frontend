@@ -6,6 +6,7 @@ import { hemisApi, zoomApi, googleMeetApi, type HemisEmployee, type HemisStudent
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { tr } from "@/lib/i18n/translations"
 
 type ProfileData = HemisStudent | HemisEmployee | null
 
@@ -19,6 +20,7 @@ function nestedName(value?: { name?: string } | string) {
  *  Google Meet uchun — tavsiya etiladigan platforma sifatida Zoom'dan
  *  YUQORIDA ko'rsatiladi. */
 function GoogleMeetIntegrationCard() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => googleMeetApi.status(), [])
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
@@ -31,10 +33,10 @@ function GoogleMeetIntegrationCard() {
     const google = params.get("google")
     if (!google) return
     if (google === "connected") {
-      setBanner({ type: "success", text: "Google account muvaffaqiyatli ulandi" })
+      setBanner({ type: "success", text: tr("profileInt.googleConnected") })
       refetch()
     } else if (google === "error") {
-      setBanner({ type: "error", text: params.get("message") || "Google account ulanmadi" })
+      setBanner({ type: "error", text: params.get("message") || tr("profileInt.googleFailed") })
     }
     params.delete("google")
     params.delete("message")
@@ -50,19 +52,19 @@ function GoogleMeetIntegrationCard() {
       const res = await googleMeetApi.connect()
       window.location.href = res.data.url
     } catch (e) {
-      setBanner({ type: "error", text: e instanceof Error ? e.message : "Ulanishda xato" })
+      setBanner({ type: "error", text: e instanceof Error ? e.message : t("profileInt.connectError") })
       setConnecting(false)
     }
   }
 
   async function handleDisconnect() {
-    if (!window.confirm("Google account'ni uzasizmi? Eski yaratilgan meetinglarning havolalari saqlanib qoladi.")) return
+    if (!window.confirm(t("profileInt.googleConfirmDisconnect"))) return
     setDisconnecting(true)
     try {
       await googleMeetApi.disconnect()
       await refetch()
     } catch (e) {
-      setBanner({ type: "error", text: e instanceof Error ? e.message : "Uzishda xato" })
+      setBanner({ type: "error", text: e instanceof Error ? e.message : t("profileInt.disconnectError") })
     } finally {
       setDisconnecting(false)
     }
@@ -79,7 +81,7 @@ function GoogleMeetIntegrationCard() {
         </h3>
         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
           style={{ backgroundColor: "#e8f0fe", color: "#1a73e8", fontFamily: "var(--font-poppins)" }}>
-          TAVSIYA ETILADI
+          {t("profileInt.recommended")}
         </span>
       </div>
 
@@ -96,24 +98,24 @@ function GoogleMeetIntegrationCard() {
       )}
 
       {loading ? (
-        <div className="py-4 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Yuklanmoqda…</div>
+        <div className="py-4 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("common.loading")}</div>
       ) : error ? (
         <ApiError message={error} onRetry={refetch} />
       ) : (
         <div className="flex items-center justify-between py-3 flex-wrap gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Google account:</span>
+            <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("profileInt.googleAccount")}</span>
             {status?.status === "active" ? (
               <span className="flex items-center gap-1.5 text-sm" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                <CheckCircle2 className="w-4 h-4" /> Ulangan {status.email ? `(${status.email})` : ""}
+                <CheckCircle2 className="w-4 h-4" /> {t("profileInt.connected")} {status.email ? `(${status.email})` : ""}
               </span>
             ) : status?.status === "needs_reconnect" ? (
               <span className="flex items-center gap-1.5 text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                <AlertTriangle className="w-4 h-4" /> Qayta ulash kerak
+                <AlertTriangle className="w-4 h-4" /> {t("profileInt.needsReconnect")}
               </span>
             ) : (
               <span className="flex items-center gap-1.5 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                <Circle className="w-4 h-4" /> Ulanmagan
+                <Circle className="w-4 h-4" /> {t("profileInt.notConnected")}
               </span>
             )}
           </div>
@@ -122,21 +124,21 @@ function GoogleMeetIntegrationCard() {
             <button onClick={handleDisconnect} disabled={disconnecting}
               className="text-xs font-medium px-3.5 py-2 rounded-[6px] disabled:opacity-60"
               style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-              {disconnecting ? "Uzilmoqda…" : "Google account'ni uzish"}
+              {disconnecting ? t("profileInt.disconnecting") : t("profileInt.googleDisconnect")}
             </button>
           ) : (
             <button onClick={handleConnect} disabled={connecting || !status?.configured}
               className="flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-[6px] disabled:opacity-60"
               style={{ backgroundColor: "#1a73e8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
               <ExternalLink className="w-3.5 h-3.5" />
-              {connecting ? "O'tilmoqda…" : status?.status === "needs_reconnect" ? "Google account'ni qayta ulash" : "Google bilan ulash"}
+              {connecting ? t("profileInt.redirecting") : status?.status === "needs_reconnect" ? t("profileInt.googleReconnect") : t("profileInt.googleConnect")}
             </button>
           )}
         </div>
       )}
       {!loading && !error && status && !status.configured && (
         <p className="text-xs mt-1" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-          Google Meet integratsiyasi hali serverda sozlanmagan (admin bilan bog'laning)
+          {t("profileInt.googleNotConfigured")}
         </p>
       )}
     </div>
@@ -148,6 +150,7 @@ function GoogleMeetIntegrationCard() {
  *  hisobini OAuth orqali ulaydi, keyin meeting yaratganda ANIQ shu
  *  o'qituvchining hisobi nomidan Zoom meeting ochiladi. */
 function ZoomIntegrationCard() {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => zoomApi.status(), [])
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
@@ -162,10 +165,10 @@ function ZoomIntegrationCard() {
     const zoom = params.get("zoom")
     if (!zoom) return
     if (zoom === "connected") {
-      setBanner({ type: "success", text: "Zoom account muvaffaqiyatli ulandi" })
+      setBanner({ type: "success", text: tr("profileInt.zoomConnected") })
       refetch()
     } else if (zoom === "error") {
-      setBanner({ type: "error", text: params.get("message") || "Zoom account ulanmadi" })
+      setBanner({ type: "error", text: params.get("message") || tr("profileInt.zoomFailed") })
     }
     params.delete("zoom")
     params.delete("message")
@@ -181,19 +184,19 @@ function ZoomIntegrationCard() {
       const res = await zoomApi.connect()
       window.location.href = res.data.url
     } catch (e) {
-      setBanner({ type: "error", text: e instanceof Error ? e.message : "Ulanishda xato" })
+      setBanner({ type: "error", text: e instanceof Error ? e.message : t("profileInt.connectError") })
       setConnecting(false)
     }
   }
 
   async function handleDisconnect() {
-    if (!window.confirm("Zoom account'ni uzasizmi? Eski yaratilgan meetinglarning havolalari saqlanib qoladi.")) return
+    if (!window.confirm(t("profileInt.zoomConfirmDisconnect"))) return
     setDisconnecting(true)
     try {
       await zoomApi.disconnect()
       await refetch()
     } catch (e) {
-      setBanner({ type: "error", text: e instanceof Error ? e.message : "Uzishda xato" })
+      setBanner({ type: "error", text: e instanceof Error ? e.message : t("profileInt.disconnectError") })
     } finally {
       setDisconnecting(false)
     }
@@ -206,7 +209,7 @@ function ZoomIntegrationCard() {
       <div className="flex items-center gap-2 mb-4">
         <Video className="w-5 h-5" style={{ color: "#0e58a8" }} />
         <h3 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          Integratsiyalar
+          {t("profileInt.integrations")}
         </h3>
       </div>
 
@@ -223,24 +226,24 @@ function ZoomIntegrationCard() {
       )}
 
       {loading ? (
-        <div className="py-4 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Yuklanmoqda…</div>
+        <div className="py-4 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("common.loading")}</div>
       ) : error ? (
         <ApiError message={error} onRetry={refetch} />
       ) : (
         <div className="flex items-center justify-between py-3 flex-wrap gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Zoom:</span>
+            <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("profileInt.zoomLabel")}</span>
             {status?.status === "active" ? (
               <span className="flex items-center gap-1.5 text-sm" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                <CheckCircle2 className="w-4 h-4" /> Ulangan {status.email ? `(${status.email})` : ""}
+                <CheckCircle2 className="w-4 h-4" /> {t("profileInt.connected")} {status.email ? `(${status.email})` : ""}
               </span>
             ) : status?.status === "needs_reconnect" ? (
               <span className="flex items-center gap-1.5 text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                <AlertTriangle className="w-4 h-4" /> Qayta ulash kerak
+                <AlertTriangle className="w-4 h-4" /> {t("profileInt.needsReconnect")}
               </span>
             ) : (
               <span className="flex items-center gap-1.5 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                <Circle className="w-4 h-4" /> Ulanmagan
+                <Circle className="w-4 h-4" /> {t("profileInt.notConnected")}
               </span>
             )}
           </div>
@@ -249,14 +252,14 @@ function ZoomIntegrationCard() {
             <button onClick={handleDisconnect} disabled={disconnecting}
               className="text-xs font-medium px-3.5 py-2 rounded-[6px] disabled:opacity-60"
               style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-              {disconnecting ? "Uzilmoqda…" : "Zoomni uzish"}
+              {disconnecting ? t("profileInt.disconnecting") : t("profileInt.zoomDisconnect")}
             </button>
           ) : (
             <button onClick={handleConnect} disabled={connecting || !status?.configured || !ageConfirmed}
               className="flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-[6px] disabled:opacity-60"
               style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
               <ExternalLink className="w-3.5 h-3.5" />
-              {connecting ? "O'tilmoqda…" : status?.status === "needs_reconnect" ? "Zoomni qayta ulash" : "Zoom account'ni ulash"}
+              {connecting ? t("profileInt.redirecting") : status?.status === "needs_reconnect" ? t("profileInt.zoomReconnect") : t("profileInt.zoomConnect")}
             </button>
           )}
         </div>
@@ -265,12 +268,12 @@ function ZoomIntegrationCard() {
         <label className="flex items-start gap-2 mt-3 text-xs cursor-pointer" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
           <input type="checkbox" checked={ageConfirmed} onChange={(e) => setAgeConfirmed(e.target.checked)}
             className="mt-0.5 shrink-0" />
-          <span>Men 18 yoshdan katta va ushbu muassasaning HEMIS orqali tasdiqlangan o'qituvchi/xodim hisobi egasi ekanligimni tasdiqlayman. Talabalar ushbu integratsiyani ulay olmaydi.</span>
+          <span>{t("profileInt.ageConfirm")}</span>
         </label>
       )}
       {!loading && !error && status && !status.configured && (
         <p className="text-xs mt-1" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-          Zoom integratsiyasi hali serverda sozlanmagan (admin bilan bog'laning)
+          {t("profileInt.zoomNotConfigured")}
         </p>
       )}
     </div>

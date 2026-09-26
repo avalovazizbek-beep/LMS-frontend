@@ -9,6 +9,8 @@ import {
 import { teachingApi, type TeacherContent, type ExamQuestion, type QuestionDifficulty } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { tr } from "@/lib/i18n/translations"
 
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -38,10 +40,10 @@ const emptyDraft = (): QuestionDraft => ({
   difficulty: "orta",
 })
 
-const DIFFICULTY_LABELS: Record<QuestionDifficulty, { label: string; color: string; bg: string }> = {
-  oson: { label: "Oson", color: "#22c55e", bg: "#f0fdf4" },
-  orta: { label: "O'rta", color: "#f59e0b", bg: "#fff8e6" },
-  qiyin: { label: "Qiyin", color: "#ef4444", bg: "#fff0f0" },
+const DIFFICULTY_LABELS: Record<QuestionDifficulty, { labelKey: string; color: string; bg: string }> = {
+  oson: { labelKey: "qModal.diff.easy", color: "#22c55e", bg: "#f0fdf4" },
+  orta: { labelKey: "qModal.diff.medium", color: "#f59e0b", bg: "#fff8e6" },
+  qiyin: { labelKey: "qModal.diff.hard", color: "#ef4444", bg: "#fff0f0" },
 }
 
 /* ── Template parser ────────────────────────────────────────────────── */
@@ -98,15 +100,16 @@ function parseTemplate(text: string): ExamQuestion[] {
 
 /* ── Template generator ─────────────────────────────────────────────── */
 function generateTemplate(questions?: ExamQuestion[]): string {
+  // Shablon joriy tilda yaratiladi — parser faqat "+", "-" va "//" belgilariga qaraydi
   const header = [
-    "// LMS Test Shablon Formati",
+    `// ${tr("qModal.tpl.header1")}`,
     "// ========================",
-    "// - Har bir savol bo'sh qator bilan ajratiladi",
-    "// - Savol matni birinchi qatorda bo'ladi",
-    "// - @https://rasm-url.com/rasm.png  — savol rasmi (ixtiyoriy)",
-    "// - + variant  — to'g'ri javob",
-    "// - - variant  — noto'g'ri javob",
-    "// - Bir nechta + satri — bir nechta to'g'ri javob bo'lishi mumkin",
+    `// - ${tr("qModal.tpl.rule1")}`,
+    `// - ${tr("qModal.tpl.rule2")}`,
+    `// - ${tr("qModal.tpl.rule3")}`,
+    `// - ${tr("qModal.tpl.rule4")}`,
+    `// - ${tr("qModal.tpl.rule5")}`,
+    `// - ${tr("qModal.tpl.rule6")}`,
     "// ========================",
   ].join("\n")
 
@@ -124,25 +127,27 @@ function generateTemplate(questions?: ExamQuestion[]): string {
   }
 
   // Empty sample template
+  const ok = tr("qModal.tpl.correct")
+  const bad = tr("qModal.tpl.wrong")
   return `${header}
 
-1. Savol matni bu yerga yoziladi?
-+ To'g'ri javob
-- Noto'g'ri javob A
-- Noto'g'ri javob B
-- Noto'g'ri javob C
+1. ${tr("qModal.tpl.q1")}
++ ${ok}
+- ${bad} A
+- ${bad} B
+- ${bad} C
 
-2. Rasmli savol misoli?
+2. ${tr("qModal.tpl.q2")}
 @https://example.com/rasm.png
-+ To'g'ri javob
-- Noto'g'ri javob A
-- Noto'g'ri javob B
++ ${ok}
+- ${bad} A
+- ${bad} B
 
-3. Ko'p to'g'ri javobli savol misoli?
-+ To'g'ri javob 1
-+ To'g'ri javob 2
-- Noto'g'ri javob A
-- Noto'g'ri javob B`
+3. ${tr("qModal.tpl.q3")}
++ ${ok} 1
++ ${ok} 2
+- ${bad} A
+- ${bad} B`
 }
 
 function downloadTemplate(questions?: ExamQuestion[]) {
@@ -151,7 +156,7 @@ function downloadTemplate(questions?: ExamQuestion[]) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
-  a.download = "test-shablon.txt"
+  a.download = tr("qModal.tpl.fileName")
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -165,6 +170,7 @@ function QuestionCard({
   onEdit: () => void
   onDelete: () => void
 }) {
+  const { t } = useLanguage()
   const [expanded, setExpanded] = useState(false)
   const correctSet = new Set(q.correctIndexes ?? [q.correctIndex])
   const isMulti = (q.correctIndexes?.length ?? 1) > 1
@@ -188,10 +194,10 @@ function QuestionCard({
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span className="text-xs px-2 py-0.5 rounded-full"
               style={{ backgroundColor: isMulti ? "#fdf4ff" : "#eef4ff", color: isMulti ? "#7c3aed" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              {isMulti ? "Ko'p to'g'ri" : "Bir to'g'ri"}
+              {isMulti ? t("qModal.multiShort") : t("qModal.singleShort")}
             </span>
-            <span className="text-xs" style={labelStyle}>{q.options.length} variant · {q.points} ball</span>
-            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: diff.bg, color: diff.color, fontFamily: "var(--font-poppins)" }}>{diff.label}</span>
+            <span className="text-xs" style={labelStyle}>{t("qModal.optionsPoints", { n: q.options.length, points: q.points })}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: diff.bg, color: diff.color, fontFamily: "var(--font-poppins)" }}>{t(diff.labelKey)}</span>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -202,7 +208,7 @@ function QuestionCard({
               : <ChevronDown className="w-4 h-4" style={{ color: "#7293b9" }} />}
           </button>
           <button onClick={onEdit} className="p-1.5 rounded hover:bg-[#f0f5ff] transition-colors"
-            title="Tahrirlash">
+            title={t("qModal.edit")}>
             <FileText className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
           </button>
           <button onClick={onDelete} className="p-1.5 rounded hover:bg-[#fef2f2] transition-colors">
@@ -216,7 +222,7 @@ function QuestionCard({
           {q.imageUrl && (q.imageUrl.startsWith("http") || q.imageUrl.startsWith("/api/")) && (
             <img
               src={q.imageUrl.startsWith("/api/") ? teachingApi.fileUrl(q.imageUrl) : q.imageUrl}
-              alt="savol rasmi"
+              alt={t("qModal.questionImage")}
               className="max-h-[160px] w-auto rounded-[6px] object-contain mb-1"
               style={{ border: "1px solid rgba(1,41,112,0.1)" }} />
           )}
@@ -238,7 +244,7 @@ function QuestionCard({
                 <div className="pl-7">
                   <img
                     src={q.optionImages[oi]!.startsWith("/api/") ? teachingApi.fileUrl(q.optionImages[oi]!) : q.optionImages[oi]!}
-                    alt={`variant ${oi + 1}`}
+                    alt={t("qModal.optionImageAlt", { n: oi + 1 })}
                     className="max-h-[80px] w-auto rounded-[4px] object-contain"
                     style={{ border: "1px solid rgba(1,41,112,0.08)" }}
                   />
@@ -254,13 +260,14 @@ function QuestionCard({
 
 /* ── Question form (add / edit) ─────────────────────────────────────── */
 function QuestionForm({
-  initial, onSave, onCancel, saveLabel = "Qo'shish",
+  initial, onSave, onCancel, saveLabel,
 }: {
   initial: QuestionDraft
   onSave: (d: QuestionDraft) => void
   onCancel: () => void
   saveLabel?: string
 }) {
+  const { t } = useLanguage()
   const [d, setD] = useState<QuestionDraft>(initial)
   const [imgUploading, setImgUploading] = useState(false)
   const [imgErr, setImgErr] = useState<string | null>(null)
@@ -274,7 +281,7 @@ function QuestionForm({
       const res = await teachingApi.uploadQuestionImage(file)
       setD(p => ({ ...p, imageUrl: res.data.url }))
     } catch (e) {
-      setImgErr(e instanceof Error ? e.message : "Rasm yuklanmadi")
+      setImgErr(e instanceof Error ? e.message : t("qModal.imageUploadFailed"))
     } finally {
       setImgUploading(false)
     }
@@ -348,20 +355,20 @@ function QuestionForm({
 
       {/* Question text */}
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium" style={labelStyle}>Savol matni *</label>
+        <label className="text-xs font-medium" style={labelStyle}>{t("qModal.questionText")}</label>
         <textarea
           className={inputCls}
           style={{ fontFamily: "var(--font-poppins)", minHeight: 64, resize: "vertical" }}
           value={d.questionText}
           onChange={e => setD(p => ({ ...p, questionText: e.target.value }))}
-          placeholder="Savol matnini kiriting..."
+          placeholder={t("qModal.questionTextPh")}
         />
       </div>
 
       {/* Image upload / URL */}
       <div className="flex flex-col gap-1.5">
         <label className="text-xs font-medium flex items-center gap-1.5" style={labelStyle}>
-          <ImageIcon className="w-3.5 h-3.5" /> Rasm (ixtiyoriy)
+          <ImageIcon className="w-3.5 h-3.5" /> {t("qModal.imageOptional")}
         </label>
         <div className="flex gap-2 items-start">
           <input
@@ -369,12 +376,12 @@ function QuestionForm({
             style={{ fontFamily: "var(--font-poppins)" }}
             value={d.imageUrl}
             onChange={e => setD(p => ({ ...p, imageUrl: e.target.value }))}
-            placeholder="https://... yoki fayl yuklash →"
+            placeholder={t("qModal.imageUrlPh")}
           />
           <label className="flex items-center gap-1.5 px-3 py-2.5 rounded-[8px] text-sm font-medium cursor-pointer shrink-0 transition-colors hover:bg-[#f0f5ff] disabled:opacity-50"
             style={{ border: "1px solid #d8e6f7", color: "#0e58a8", fontFamily: "var(--font-poppins)", opacity: imgUploading ? 0.6 : 1 }}>
             {imgUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            Yuklash
+            {t("common.upload")}
             <input ref={imgInputRef} type="file" accept="image/*" className="hidden"
               disabled={imgUploading}
               onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f) }} />
@@ -386,14 +393,14 @@ function QuestionForm({
             {(d.imageUrl.startsWith("http") || d.imageUrl.startsWith("/api/")) && (
               <img
                 src={d.imageUrl.startsWith("/api/") ? teachingApi.fileUrl(d.imageUrl) : d.imageUrl}
-                alt="preview"
+                alt={t("qModal.preview")}
                 className="max-h-[120px] w-auto rounded-[6px] object-contain"
                 style={{ border: "1px solid rgba(1,41,112,0.1)" }}
               />
             )}
             <button onClick={() => setD(p => ({ ...p, imageUrl: "" }))}
               className="p-1.5 rounded hover:bg-red-50 transition-colors mt-0.5"
-              title="Rasmni o'chirish">
+              title={t("qModal.removeImage")}>
               <X className="w-3.5 h-3.5" style={{ color: "#dc2626" }} />
             </button>
           </div>
@@ -412,13 +419,13 @@ function QuestionForm({
             fontFamily: "var(--font-poppins)",
           }}>
           {d.isMulti ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-          {d.isMulti ? "Ko'p to'g'ri javob (checkbox)" : "Bir to'g'ri javob (radio)"}
+          {d.isMulti ? t("qModal.multiAnswer") : t("qModal.singleAnswer")}
         </button>
       </div>
 
       {/* Options */}
       <div className="flex flex-col gap-3">
-        <label className="text-xs font-medium" style={labelStyle}>Variantlar (to'g'risini belgilang) *</label>
+        <label className="text-xs font-medium" style={labelStyle}>{t("qModal.optionsLabel")}</label>
         {d.options.map((opt, oi) => {
           const isCorrect = d.correctIndexes.includes(oi)
           const optImg = d.optionImages?.[oi] ?? null
@@ -443,11 +450,11 @@ function QuestionForm({
                   style={{ fontFamily: "var(--font-poppins)", borderColor: isCorrect ? "#86efac" : "#d8e6f7" }}
                   value={opt}
                   onChange={e => setOption(oi, e.target.value)}
-                  placeholder={`${oi + 1}-variant matni`}
+                  placeholder={t("qModal.optionPh", { n: oi + 1 })}
                 />
                 {/* Variant rasm yuklash */}
                 <label className="flex items-center justify-center w-8 h-8 rounded cursor-pointer shrink-0 transition-colors hover:bg-[#f0f5ff]"
-                  title="Rasm qo'shish"
+                  title={t("qModal.addImage")}
                   style={{ border: "1px solid #d8e6f7", color: optImg ? "#0e58a8" : "#b0c4de" }}>
                   {optImgLoading
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -466,11 +473,11 @@ function QuestionForm({
                 <div className="flex items-start gap-2 pl-14">
                   <img
                     src={optImg.startsWith("/api/") ? teachingApi.fileUrl(optImg) : optImg}
-                    alt={`variant ${oi + 1} rasm`}
+                    alt={t("qModal.optionImageAlt", { n: oi + 1 })}
                     className="max-h-[90px] w-auto rounded-[6px] object-contain"
                     style={{ border: "1px solid rgba(1,41,112,0.1)" }}
                   />
-                  <button onClick={() => removeOptionImage(oi)} className="p-1 rounded hover:bg-red-50" title="Rasmni o'chirish">
+                  <button onClick={() => removeOptionImage(oi)} className="p-1 rounded hover:bg-red-50" title={t("qModal.removeImage")}>
                     <X className="w-3 h-3" style={{ color: "#dc2626" }} />
                   </button>
                 </div>
@@ -482,7 +489,7 @@ function QuestionForm({
           <button onClick={addOption}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-[6px] w-fit transition-colors hover:bg-[#f0f5ff]"
             style={{ color: "#0e58a8", border: "1px dashed #d8e6f7", fontFamily: "var(--font-poppins)" }}>
-            <Plus className="w-3 h-3" /> Variant qo&apos;shish
+            <Plus className="w-3 h-3" /> {t("qModal.addOption")}
           </button>
         )}
       </div>
@@ -490,7 +497,7 @@ function QuestionForm({
       {/* Points + Difficulty */}
       <div className="flex items-center gap-5 flex-wrap">
         <div className="flex items-center gap-3">
-          <label className="text-xs font-medium" style={labelStyle}>Ball:</label>
+          <label className="text-xs font-medium" style={labelStyle}>{t("qModal.pointsLabel")}</label>
           <input type="number" min={1} max={100}
             className={inputCls}
             style={{ fontFamily: "var(--font-poppins)", maxWidth: 80 }}
@@ -499,7 +506,7 @@ function QuestionForm({
           />
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-xs font-medium" style={labelStyle}>Qiyinlik:</label>
+          <label className="text-xs font-medium" style={labelStyle}>{t("qModal.difficultyLabel")}</label>
           {(["oson", "orta", "qiyin"] as QuestionDifficulty[]).map(level => {
             const cfg = DIFFICULTY_LABELS[level]
             const active = d.difficulty === level
@@ -511,7 +518,7 @@ function QuestionForm({
                   backgroundColor: active ? cfg.color : "transparent",
                   color: active ? "#fff" : cfg.color,
                   fontFamily: "var(--font-poppins)",
-                }}>{cfg.label}</button>
+                }}>{t(cfg.labelKey)}</button>
             )
           })}
         </div>
@@ -522,12 +529,12 @@ function QuestionForm({
           className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
           <Check className="w-4 h-4" />
-          {saveLabel}
+          {saveLabel ?? t("common.add")}
         </button>
         <button onClick={onCancel}
           className="px-4 py-2.5 rounded-[8px] text-sm font-medium"
           style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
-          Bekor
+          {t("qModal.cancel")}
         </button>
       </div>
     </div>
@@ -550,6 +557,7 @@ export function QuestionsModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const { t } = useLanguage()
   const { data, loading, error } = useApi(() => teachingApi.questions(content.id), [content.id])
 
   const [tab, setTab] = useState<Tab>("questions")
@@ -620,12 +628,12 @@ export function QuestionsModal({
   function handleTemplatePreview() {
     setImportError(null)
     if (!templateText.trim()) {
-      setImportError("Shablon matni bo'sh")
+      setImportError(t("qModal.tplEmpty"))
       return
     }
     const parsed = parseTemplate(templateText)
     if (!parsed.length) {
-      setImportError("Hech qanday savol topilmadi — format to'g'riligini tekshiring")
+      setImportError(t("qModal.tplNoQuestions"))
       return
     }
     setImportPreview(parsed)
@@ -645,8 +653,8 @@ export function QuestionsModal({
   async function handleSave() {
     setSaveError(null)
     for (const q of list) {
-      if (!q.questionText.trim()) { setSaveError("Har bir savol matni to'ldirilishi kerak"); return }
-      if (q.options.some(o => !o.trim())) { setSaveError("Har bir variant to'ldirilishi kerak"); return }
+      if (!q.questionText.trim()) { setSaveError(t("qModal.errQuestionText")); return }
+      if (q.options.some(o => !o.trim())) { setSaveError(t("qModal.errOptionText")); return }
     }
     setSaving(true)
     try {
@@ -654,7 +662,7 @@ export function QuestionsModal({
       onSaved()
       onClose()
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Saqlashda xatolik yuz berdi")
+      setSaveError(err instanceof Error ? err.message : t("common.saveError"))
     } finally {
       setSaving(false)
     }
@@ -671,9 +679,9 @@ export function QuestionsModal({
         <div className="px-6 pt-5 pb-0 shrink-0">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-lg font-semibold" style={titleStyle}>{content.title} — savollar</h2>
+              <h2 className="text-lg font-semibold" style={titleStyle}>{t("qModal.title", { title: content.title })}</h2>
               <p className="text-xs mt-0.5" style={labelStyle}>
-                {list.length} ta savol · {totalPoints} ball jami
+                {t("qModal.summaryTotal", { n: list.length, points: totalPoints })}
               </p>
             </div>
             <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors mt-0.5">
@@ -684,20 +692,20 @@ export function QuestionsModal({
           {/* Tabs */}
           <div className="flex gap-1 border-b" style={{ borderColor: "rgba(1,41,112,0.1)" }}>
             {([
-              { id: "questions", label: "Savollar" },
-              { id: "shablon", label: "Shablon" },
-            ] as { id: Tab; label: string }[]).map(t => (
+              { id: "questions", label: t("qModal.tabQuestions") },
+              { id: "shablon", label: t("qModal.tabTemplate") },
+            ] as { id: Tab; label: string }[]).map(tb => (
               <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
+                key={tb.id}
+                onClick={() => setTab(tb.id)}
                 className="px-4 py-2.5 text-sm font-medium transition-colors relative"
                 style={{
-                  color: tab === t.id ? "#0e58a8" : "#7293b9",
+                  color: tab === tb.id ? "#0e58a8" : "#7293b9",
                   fontFamily: "var(--font-poppins)",
                 }}
               >
-                {t.label}
-                {tab === t.id && (
+                {tb.label}
+                {tab === tb.id && (
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
                     style={{ backgroundColor: "#0e58a8" }} />
                 )}
@@ -723,8 +731,8 @@ export function QuestionsModal({
                   {list.length === 0 && !addMode && (
                     <div className="text-center py-8" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                       <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-                      <p className="text-sm">Hali savollar qo&apos;shilmagan</p>
-                      <p className="text-xs mt-1">Quyidagi tugma orqali savol qo&apos;shing yoki shablon orqali import qiling</p>
+                      <p className="text-sm">{t("qModal.noQuestions")}</p>
+                      <p className="text-xs mt-1">{t("qModal.noQuestionsHint")}</p>
                     </div>
                   )}
 
@@ -735,7 +743,7 @@ export function QuestionsModal({
                         initial={draftFromQuestion(q)}
                         onSave={d => handleEdit(qi, d)}
                         onCancel={() => setEditIndex(null)}
-                        saveLabel="Saqlash"
+                        saveLabel={t("common.save")}
                       />
                     ) : (
                       <QuestionCard
@@ -763,7 +771,7 @@ export function QuestionsModal({
                       style={{ color: "#7c3aed", border: "1px dashed #e9d5ff", fontFamily: "var(--font-poppins)" }}
                     >
                       <Plus className="w-4 h-4" />
-                      Savol qo&apos;shish
+                      {t("qModal.addQuestion")}
                     </button>
                   )}
                 </div>
@@ -775,48 +783,48 @@ export function QuestionsModal({
                   {/* Download section */}
                   <div className="rounded-[10px] p-4 flex flex-col gap-3"
                     style={{ border: "1px solid rgba(1,41,112,0.1)", backgroundColor: "#f8fafc" }}>
-                    <h3 className="text-sm font-semibold" style={titleStyle}>Shablonni yuklab olish</h3>
+                    <h3 className="text-sm font-semibold" style={titleStyle}>{t("qModal.downloadTpl")}</h3>
                     <p className="text-xs" style={labelStyle}>
-                      Shablon faylini yuklab oling, to&apos;ldiring va qayta import qiling.
-                      Format: <code style={{ backgroundColor: "#eef4ff", padding: "1px 4px", borderRadius: 4 }}>+ to&apos;g&apos;ri</code> / <code style={{ backgroundColor: "#fef2f2", padding: "1px 4px", borderRadius: 4 }}>- noto&apos;g&apos;ri</code>
+                      {t("qModal.downloadTplHint")}{" "}
+                      {t("qModal.formatLabel")} <code style={{ backgroundColor: "#eef4ff", padding: "1px 4px", borderRadius: 4 }}>{t("qModal.fmtCorrect")}</code> / <code style={{ backgroundColor: "#fef2f2", padding: "1px 4px", borderRadius: 4 }}>{t("qModal.fmtWrong")}</code>
                     </p>
                     <div className="flex gap-2 flex-wrap">
                       <button onClick={() => downloadTemplate()}
                         className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f0f5ff]"
                         style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                         <Download className="w-4 h-4" />
-                        Bo&apos;sh shablon
+                        {t("qModal.emptyTpl")}
                       </button>
                       {list.length > 0 && (
                         <button onClick={() => downloadTemplate(list)}
                           className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f0f5ff]"
                           style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                           <Download className="w-4 h-4" />
-                          Mavjud savollar bilan ({list.length} ta)
+                          {t("qModal.withExisting", { n: list.length })}
                         </button>
                       )}
                     </div>
 
                     <div className="text-xs rounded-[6px] p-3" style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "monospace" }}>
-                      <div>1. Savol matni?</div>
-                      <div>@https://rasm-url.com/rasm.png <span style={{ color: "#7293b9" }}>(ixtiyoriy rasm)</span></div>
-                      <div style={{ color: "#16a34a" }}>+ To&apos;g&apos;ri javob</div>
-                      <div style={{ color: "#dc2626" }}>- Noto&apos;g&apos;ri javob A</div>
-                      <div style={{ color: "#dc2626" }}>- Noto&apos;g&apos;ri javob B</div>
+                      <div>{t("qModal.sampleQuestion")}</div>
+                      <div>@https://rasm-url.com/rasm.png <span style={{ color: "#7293b9" }}>{t("qModal.optionalImage")}</span></div>
+                      <div style={{ color: "#16a34a" }}>{t("qModal.sampleCorrect")}</div>
+                      <div style={{ color: "#dc2626" }}>{t("qModal.sampleWrongA")}</div>
+                      <div style={{ color: "#dc2626" }}>{t("qModal.sampleWrongB")}</div>
                     </div>
                   </div>
 
                   {/* Import section */}
                   <div className="rounded-[10px] p-4 flex flex-col gap-3"
                     style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-                    <h3 className="text-sm font-semibold" style={titleStyle}>Shablon orqali import</h3>
-                    <p className="text-xs" style={labelStyle}>Shablon faylini yuklang (.txt) yoki matnni quyida joylashtiring</p>
+                    <h3 className="text-sm font-semibold" style={titleStyle}>{t("qModal.importTitle")}</h3>
+                    <p className="text-xs" style={labelStyle}>{t("qModal.importHint")}</p>
 
                     {/* .txt file upload button */}
                     <label className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm font-medium cursor-pointer w-fit transition-colors hover:bg-[#f0f5ff]"
                       style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                       <Upload className="w-4 h-4" />
-                      .txt fayldan yuklash
+                      {t("qModal.uploadTxt")}
                       <input type="file" accept=".txt,text/plain" className="hidden"
                         onChange={e => {
                           const file = e.target.files?.[0]
@@ -841,7 +849,7 @@ export function QuestionsModal({
                       onChange={e => { setTemplateText(e.target.value); setImportPreview(null); setImportError(null) }}
                       className={inputCls}
                       style={{ fontFamily: "monospace", minHeight: 160, fontSize: "12px", resize: "vertical" }}
-                      placeholder={"1. Savol matni?\n+ To'g'ri javob\n- Noto'g'ri javob A\n- Noto'g'ri javob B\n\n2. Ikkinchi savol?\n..."}
+                      placeholder={t("qModal.importPh")}
                     />
 
                     {importError && (
@@ -855,16 +863,16 @@ export function QuestionsModal({
                       <div className="flex flex-col gap-2 rounded-[8px] p-3"
                         style={{ backgroundColor: "#f0fdf4", border: "1px solid #86efac" }}>
                         <p className="text-xs font-semibold" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                          {importPreview.length} ta savol topildi
+                          {t("qModal.foundN", { n: importPreview.length })}
                         </p>
                         {importPreview.slice(0, 3).map((q, i) => (
                           <p key={i} className="text-xs truncate" style={{ color: "#166534", fontFamily: "var(--font-poppins)" }}>
-                            {i + 1}. {q.questionText} ({q.options.length} variant)
+                            {t("qModal.previewLine", { i: i + 1, text: q.questionText, n: q.options.length })}
                           </p>
                         ))}
                         {importPreview.length > 3 && (
                           <p className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                            ...va yana {importPreview.length - 3} ta
+                            {t("qModal.andMore", { n: importPreview.length - 3 })}
                           </p>
                         )}
                       </div>
@@ -876,7 +884,7 @@ export function QuestionsModal({
                           className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm font-medium disabled:opacity-50 transition-colors hover:bg-[#f0f5ff]"
                           style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                           <FileText className="w-4 h-4" />
-                          Tekshirish
+                          {t("qModal.check")}
                         </button>
                       ) : (
                         <>
@@ -885,19 +893,19 @@ export function QuestionsModal({
                             onChange={e => setImportMode(e.target.value as "replace" | "append")}
                             className="px-3 py-2 rounded-[6px] text-sm outline-none"
                             style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                            <option value="append">Mavjudlarga qo&apos;shish</option>
-                            <option value="replace">Almashtirib yuklash</option>
+                            <option value="append">{t("qModal.modeAppend")}</option>
+                            <option value="replace">{t("qModal.modeReplace")}</option>
                           </select>
                           <button onClick={handleImport}
                             className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-sm font-medium text-white"
                             style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                             <Upload className="w-4 h-4" />
-                            Import qilish
+                            {t("qModal.import")}
                           </button>
                           <button onClick={() => { setImportPreview(null) }}
                             className="px-3 py-2 text-sm"
                             style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                            Bekor
+                            {t("qModal.cancel")}
                           </button>
                         </>
                       )}
@@ -913,18 +921,18 @@ export function QuestionsModal({
         <div className="px-6 py-4 flex items-center justify-between gap-3 shrink-0"
           style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
           <span className="text-xs" style={labelStyle}>
-            {list.length} ta savol · {totalPoints} ball
+            {t("qModal.summary", { n: list.length, points: totalPoints })}
           </span>
           <div className="flex items-center gap-2">
             <button onClick={onClose} className="px-4 py-2.5 rounded-[8px] text-sm font-medium"
               style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
-              Yopish
+              {t("common.close")}
             </button>
             <button onClick={handleSave} disabled={saving || list.length === 0}
               className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium disabled:opacity-50"
               style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Saqlash
+              {t("common.save")}
             </button>
           </div>
         </div>

@@ -3,15 +3,11 @@
 import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, Paperclip, Send, CheckCircle2, FileText, Users, Phone, X } from "lucide-react"
 import { supportApi, type ConversationDetail } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 
-const RECIPIENT_LABEL: Record<string, string> = {
-  teacher: "O'qituvchi",
-  dean: "Dekanat",
-  admin: "Admin",
-}
 
 function fmtTime(iso: string) {
   const d = new Date(iso)
@@ -36,6 +32,7 @@ export default function ConversationThread({
   onBack: () => void
   onClosed?: () => void
 }) {
+  const { t } = useLanguage()
   const [detail, setDetail] = useState<ConversationDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [text, setText] = useState("")
@@ -50,7 +47,7 @@ export default function ConversationThread({
       const res = await supportApi.detail(conversationId)
       setDetail(res.data)
     } catch (e) {
-      if (!silent) setError(e instanceof Error ? e.message : "Yuklashda xato")
+      if (!silent) setError(e instanceof Error ? e.message : t("support.errLoad"))
     }
   }
 
@@ -81,7 +78,7 @@ export default function ConversationThread({
       setText("")
       await load(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Yuborishda xato")
+      setError(e instanceof Error ? e.message : t("support.errSend"))
     } finally {
       setSending(false)
     }
@@ -96,21 +93,21 @@ export default function ConversationThread({
       await supportApi.sendAttachment(conversationId, file)
       await load(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fayl yuborishda xato")
+      setError(err instanceof Error ? err.message : t("support.errFileSend"))
     } finally {
       setSending(false)
     }
   }
 
   async function handleClose() {
-    if (!window.confirm("Suhbatni yakunlaysizmi? Yakunlangandan keyin xabar yozib bo'lmaydi.")) return
+    if (!window.confirm(t("support.confirmClose"))) return
     setClosing(true)
     try {
       await supportApi.close(conversationId)
       await load(true)
       onClosed?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Yakunlashda xato")
+      setError(e instanceof Error ? e.message : t("support.errClose"))
     } finally {
       setClosing(false)
     }
@@ -120,7 +117,7 @@ export default function ConversationThread({
     return (
       <div className="flex flex-col gap-4 p-6">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm" style={L}>
-          <ArrowLeft className="w-4 h-4" /> Orqaga
+          <ArrowLeft className="w-4 h-4" /> {t("common.back")}
         </button>
         <div className="rounded-[10px] p-6 text-sm" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{error}</div>
       </div>
@@ -128,7 +125,7 @@ export default function ConversationThread({
   }
 
   if (!detail) {
-    return <div className="p-10 text-center text-sm" style={L}>Yuklanmoqda…</div>
+    return <div className="p-10 text-center text-sm" style={L}>{t("common.loading")}</div>
   }
 
   return (
@@ -142,13 +139,13 @@ export default function ConversationThread({
           <div className="min-w-0">
             <div className="text-sm font-semibold truncate" style={T}>{detail.subject}</div>
             <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap" style={L}>
-              <span>{RECIPIENT_LABEL[detail.recipientType] ?? detail.recipientType}{detail.recipientName ? ` — ${detail.recipientName}` : ""}</span>
+              <span>{["teacher", "dean", "admin"].includes(detail.recipientType) ? t(`support.recipient.${detail.recipientType}`) : detail.recipientType}{detail.recipientName ? ` — ${detail.recipientName}` : ""}</span>
               <span>·</span>
               {detail.status === "open" ? (
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d" }}>Ochiq</span>
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d" }}>{t("support.open")}</span>
               ) : (
                 <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f1f5f9", color: "#64748b" }}>
-                  Yakunlangan{detail.closedByName ? ` — ${detail.closedByName}` : ""}
+                  {detail.closedByName ? t("support.closedBy", { name: detail.closedByName }) : t("support.closed")}
                 </span>
               )}
             </div>
@@ -158,7 +155,7 @@ export default function ConversationThread({
           <button onClick={handleClose} disabled={closing}
             className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] shrink-0 disabled:opacity-60"
             style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-            <X className="w-3.5 h-3.5" /> {closing ? "Yakunlanmoqda…" : "Suhbatni yakunlash"}
+            <X className="w-3.5 h-3.5" /> {closing ? t("support.closing") : t("support.closeChat")}
           </button>
         )}
       </div>
@@ -227,7 +224,7 @@ export default function ConversationThread({
             value={text}
             onChange={e => setText(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-            placeholder="Xabar yozing…"
+            placeholder={t("support.writePh")}
             className="flex-1 min-w-0 px-3.5 py-2.5 rounded-[10px] text-sm outline-none"
             style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}
           />
@@ -239,7 +236,7 @@ export default function ConversationThread({
         </div>
       ) : (
         <div className="flex items-center justify-center gap-2 px-4 py-4 text-xs" style={L}>
-          <CheckCircle2 className="w-4 h-4" /> Suhbat yakunlangan — tarix saqlanadi, yangi xabar yozib bo'lmaydi
+          <CheckCircle2 className="w-4 h-4" /> {t("support.chatClosed")}
         </div>
       )}
     </div>

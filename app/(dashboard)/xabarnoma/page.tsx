@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Bell, BellOff, Trash2, CheckCheck, AlertCircle, Calendar, BookOpen, Info } from "lucide-react"
+import { Bell, BellOff, Trash2, CheckCheck, AlertCircle, Calendar, BookOpen, Info, MessageSquareText } from "lucide-react"
 import { notificationsApi, Notif } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -13,16 +14,37 @@ const typeConfig: Record<string, { icon: React.ComponentType<{ className?: strin
   teacher:  { icon: BookOpen,    bg: "#f0fbfd", color: "#1cc2dc" },
   schedule: { icon: Calendar,    bg: "#fff8e6", color: "#f59e0b" },
   reminder: { icon: AlertCircle, bg: "#fff0f0", color: "#ef4444" },
+  support:  { icon: MessageSquareText, bg: "#f5f3ff", color: "#7c3aed" },
 }
 
 export default function XabarnomPage() {
-  const { t } = useLanguage()
+  const { t, locale } = useLanguage()
+  const router = useRouter()
+
+  // Backend kalit yuborgan bo'lsa — tanlangan tilda; aks holda saqlangan (o'zbekcha) matn
+  const titleOf = (n: Notif) => {
+    const key = n.i18nKey ? `notif.${n.i18nKey}.title` : null
+    const text = key ? t(key, n.i18nParams ?? undefined) : ""
+    return key && text !== key ? text : n.title
+  }
+  const bodyOf = (n: Notif) => {
+    const key = n.i18nKey ? `notif.${n.i18nKey}.body` : null
+    const text = key ? t(key, n.i18nParams ?? undefined) : ""
+    return key && text !== key ? text : n.body
+  }
+  const timeOf = (n: Notif) => {
+    const d = new Date(n.time)
+    return Number.isNaN(d.getTime())
+      ? n.time
+      : d.toLocaleString(locale, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+  }
   const filterTabs = [
     { key: "all",      label: t("xabarnoma.filter.all") },
     { key: "unread",   label: t("xabarnoma.filter.unread") },
     { key: "system",   label: t("xabarnoma.filter.system") },
     { key: "teacher",  label: t("xabarnoma.filter.teacher") },
     { key: "schedule", label: t("xabarnoma.filter.schedule") },
+    { key: "support",  label: t("xabarnoma.filter.support") },
   ]
   const { data, loading, error, refetch } = useApi(() => notificationsApi.getAll())
   const [filter, setFilter] = useState("all")
@@ -37,7 +59,11 @@ export default function XabarnomPage() {
   const unreadCount = notifs.filter((n) => !n.read).length
 
   const markAllRead = async () => { await notificationsApi.markAllRead(); refetch() }
-  const markRead    = async (id: string) => { await notificationsApi.markRead(id); refetch() }
+  const openNotif   = async (n: Notif) => {
+    if (!n.read) await notificationsApi.markRead(n.id).catch(() => {})
+    if (n.link) router.push(n.link)
+    else refetch()
+  }
   const deleteNotif = async (id: string) => { await notificationsApi.remove(id); refetch() }
 
   if (loading) return <Loading />
@@ -84,22 +110,22 @@ export default function XabarnomPage() {
                 <motion.div key={n.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ delay: i * 0.04 }}
                   className="bg-white rounded-[10px] p-4 flex items-start gap-4 cursor-pointer"
                   style={{ border: `1px solid ${!n.read ? "rgba(28,194,220,0.3)" : "rgba(1,41,112,0.1)"}`, backgroundColor: !n.read ? "rgba(28,194,220,0.02)" : "#fff" }}
-                  onClick={() => markRead(n.id)}>
+                  onClick={() => openNotif(n)}>
                   <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: cfg.bg }}>
                     <Icon className="w-5 h-5" style={{ color: cfg.color } as React.CSSProperties} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                        {n.title}
+                        {titleOf(n)}
                         {!n.read && <span className="inline-block w-2 h-2 rounded-full ml-2 mb-0.5 align-middle" style={{ backgroundColor: "#1cc2dc" }} />}
                       </p>
                       <button onClick={(e) => { e.stopPropagation(); deleteNotif(n.id) }} className="p-1 rounded hover:bg-[#f6f9ff] shrink-0">
                         <Trash2 className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
                       </button>
                     </div>
-                    <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{n.body}</p>
-                    <p className="text-xs mt-1.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{n.time}</p>
+                    <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{bodyOf(n)}</p>
+                    <p className="text-xs mt-1.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{timeOf(n)}</p>
                   </div>
                 </motion.div>
               )

@@ -1,8 +1,10 @@
 import { Poppins } from "next/font/google"
+import { cookies } from "next/headers"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { LanguageProvider } from "@/lib/i18n/LanguageContext"
+import { DEFAULT_LANG, LANG_COOKIE, isLang, languageInfo } from "@/lib/i18n/translations"
 import { cn } from "@/lib/utils"
 import SplashScreen from "@/components/SplashScreen"
 
@@ -73,14 +75,18 @@ const jsonLd = {
   logo: `${SITE_URL}/logo.png`,
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Tanlangan til cookie'da — sahifa serverdayoq shu tilda chiziladi
+  const cookieLang = (await cookies()).get(LANG_COOKIE)?.value
+  const initialLang = isLang(cookieLang) ? cookieLang : undefined
+
   return (
     <html
-      lang="uz"
+      lang={languageInfo(initialLang ?? DEFAULT_LANG).htmlLang}
       suppressHydrationWarning
       className={cn("antialiased", poppins.variable)}
       style={{ fontFamily: "var(--font-poppins), sans-serif" }}
@@ -90,8 +96,8 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <SplashScreen />
-        <LanguageProvider>
+        <LanguageProvider initialLang={initialLang}>
+          <SplashScreen />
           <ThemeProvider>{children}</ThemeProvider>
         </LanguageProvider>
       </body>

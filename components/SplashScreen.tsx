@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 import Image from "next/image"
 
 
 export default function SplashScreen() {
+  const { t } = useLanguage()
   const [visible, setVisible] = useState(true)
   const [fadeOut, setFadeOut] = useState(false)
 
@@ -71,7 +73,7 @@ export default function SplashScreen() {
         fontFamily: "sans-serif",
         animation: "splashFadeUp 0.6s 0.35s ease both",
       }}>
-        Masofaviy Ta&apos;lim Tizimi
+        {t("splash.subtitle")}
       </div>
       <style>{`
         @keyframes splashPop {

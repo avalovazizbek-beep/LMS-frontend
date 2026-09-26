@@ -1,5 +1,7 @@
 "use client"
 
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+
 interface Props {
   currentCode: number      // student's current semester (e.g., 2) — disables tabs above this
   value: number            // currently selected tab
@@ -9,11 +11,12 @@ interface Props {
 }
 
 export default function SemesterTabs({ currentCode, value, onChange, total = 8, lockFuture = true }: Props) {
+  const { t } = useLanguage()
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       <span className="text-xs font-semibold mr-1 tracking-widest"
         style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-        SEMESTR
+        {t("semesterTabs.label")}
       </span>
       {Array.from({ length: total }, (_, i) => i + 1).map(n => {
         const isActive   = n === value

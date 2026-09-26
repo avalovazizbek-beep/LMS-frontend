@@ -10,6 +10,7 @@ import { useApi } from "@/hooks/useApi"
 import { Modal } from "@/components/ui/Modal"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 interface MavzuModalProps {
   open: boolean
@@ -44,6 +45,7 @@ function UploadSection({
   onDelete: () => void
   extra?: React.ReactNode
 }) {
+  const { t } = useLanguage()
   return (
     <div className="rounded-[10px] p-4 flex flex-col gap-2"
       style={{ border: "1px solid rgba(1,41,112,0.1)", opacity: disabled ? 0.55 : 1 }}>
@@ -80,13 +82,13 @@ function UploadSection({
           className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-[6px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
           style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-          {uploading ? "Yaratilmoqda..." : "Test yaratish"}
+          {uploading ? t("common.creating") : t("mavzuModal.createTest")}
         </button>
       ) : uploading ? (
         <div className="flex flex-col gap-1.5 w-full max-w-[260px]">
           <div className="flex items-center gap-2 text-sm font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Yuklanmoqda... {progress != null ? `${progress}%` : ""}
+            {t("mavzuModal.uploading", { pct: progress != null ? `${progress}%` : "" })}
           </div>
           <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: "#eef4ff" }}>
             <div className="h-full rounded-full transition-all"
@@ -97,7 +99,7 @@ function UploadSection({
         <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-[6px] text-sm font-medium cursor-pointer w-fit transition-colors hover:bg-[#f6f9ff]"
           style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <Upload className="w-4 h-4" />
-          Fayl yuklash
+          {t("mavzuModal.uploadFile")}
           <input type="file" accept={accept} className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f) }} />
         </label>
@@ -118,6 +120,7 @@ function YoutubeLinkSection({
   onAdd: (url: string) => void
   onDelete: () => void
 }) {
+  const { t } = useLanguage()
   const [url, setUrl] = useState("")
   const [invalid, setInvalid] = useState(false)
 
@@ -136,10 +139,10 @@ function YoutubeLinkSection({
     <div className="rounded-[10px] p-4 flex flex-col gap-2" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
       <div className="flex items-center gap-2">
         <Clapperboard className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        <span className="text-sm font-semibold" style={titleStyle}>YouTube video</span>
+        <span className="text-sm font-semibold" style={titleStyle}>{t("mavzuModal.youtube")}</span>
         {item && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
       </div>
-      <p className="text-xs" style={labelStyle}>Qo&apos;shimcha video material — ixtiyoriy, majburiy emas. YouTube havolasi kifoya.</p>
+      <p className="text-xs" style={labelStyle}>{t("mavzuModal.youtubeHint")}</p>
 
       {item ? (
         <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#f6f9ff" }}>
@@ -166,12 +169,12 @@ function YoutubeLinkSection({
               className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm font-medium shrink-0 transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
               style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Qo&apos;shish
+              {t("common.add")}
             </button>
           </div>
           {invalid && (
             <span className="text-xs" style={{ color: "#dc2626", fontFamily: "var(--font-poppins)" }}>
-              To&apos;g&apos;ri YouTube havolasini kiriting (youtube.com yoki youtu.be)
+              {t("mavzuModal.youtubeInvalid")}
             </span>
           )}
         </div>
@@ -181,6 +184,7 @@ function YoutubeLinkSection({
 }
 
 export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjectName }: MavzuModalProps) {
+  const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(
     () => teachingApi.contentByTopic({ topicKey, groupId }),
     [topicKey, groupId, open]
@@ -220,7 +224,7 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
       })
       await refetch()
     } catch (err) {
-      setOpErr(err instanceof Error ? err.message : "Yuklashda xatolik yuz berdi")
+      setOpErr(err instanceof Error ? err.message : t("common.uploadError"))
     } finally {
       setUploadingKind(null)
       setUploadProgress(null)
@@ -243,7 +247,7 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
       })
       await refetch()
     } catch (err) {
-      setOpErr(err instanceof Error ? err.message : "Havola qo'shishda xatolik yuz berdi")
+      setOpErr(err instanceof Error ? err.message : t("mavzuModal.linkAddError"))
     } finally {
       setUploadingKind(null)
     }
@@ -256,7 +260,7 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
       await teachingApi.removeContent(item.id)
       await refetch()
     } catch (err) {
-      setOpErr(err instanceof Error ? err.message : "O'chirishda xatolik yuz berdi")
+      setOpErr(err instanceof Error ? err.message : t("common.deleteError"))
     }
   }
 
@@ -276,8 +280,8 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
 
           <UploadSection
             icon={<Video className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-            title="Video"
-            description="Mavzu bo'yicha video dars"
+            title={t("mavzuModal.video")}
+            description={t("mavzuModal.videoDesc")}
             item={video}
             accept="video/*"
             uploading={uploadingKind === "video_lesson"}
@@ -295,8 +299,8 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
 
           <UploadSection
             icon={<Music className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-            title="Audio"
-            description="Mavzu bo'yicha audio material"
+            title={t("mavzuModal.audio")}
+            description={t("mavzuModal.audioDesc")}
             item={audio}
             accept="audio/*"
             uploading={uploadingKind === "audio"}
@@ -307,8 +311,8 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
 
           <UploadSection
             icon={<BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-            title="Taqdimot (Prezentatsiya)"
-            description="Talaba video ko'rgandan keyin ochiladi — PDF, PPT, PPTX"
+            title={t("mavzuModal.theory")}
+            description={t("mavzuModal.theoryDesc")}
             item={theory}
             accept=".pdf,.ppt,.pptx"
             uploading={uploadingKind === "theory"}
@@ -319,8 +323,8 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
 
           <UploadSection
             icon={<Library className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-            title="Qo'llanma (Adabiyotlar)"
-            description="Qo'shimcha adabiyot va materiallar — PDF, Word, ZIP"
+            title={t("mavzuModal.guide")}
+            description={t("mavzuModal.guideDesc")}
             item={qollanma}
             accept=".pdf,.doc,.docx,.zip,.rar"
             uploading={uploadingKind === "qollanma"}
@@ -331,14 +335,14 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
 
           <UploadSection
             icon={<HelpCircle className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-            title="Test"
-            description="MCQ test — yuklansa, shu mavzu uchun Topshiriq bloklanadi"
+            title={t("mavzuModal.test")}
+            description={t("mavzuModal.testDesc")}
             item={test}
             accept=""
             noFile
             uploading={uploadingKind === "test"}
             disabled={!!assignment && !test}
-            disabledMessage="Bu mavzuga Topshiriq yuklangan — Test qo'shib bo'lmaydi"
+            disabledMessage={t("mavzuModal.testBlocked")}
             onUpload={() => {}}
             onCreate={() => upload("test", "exam", null)}
             onDelete={() => remove(test)}
@@ -347,7 +351,7 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
                 <button onClick={() => setShowQuestions(true)}
                   className="px-3 py-2 rounded-[6px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff]"
                   style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  Savollarni tahrirlash
+                  {t("mavzuModal.editQuestions")}
                 </button>
                 {showQuestions && (
                   <QuestionsModal content={test} onClose={() => setShowQuestions(false)} onSaved={refetch} />
@@ -357,14 +361,14 @@ export function MavzuModal({ open, onClose, topicKey, topicName, groupId, subjec
           />
           <UploadSection
             icon={<ClipboardList className="w-4 h-4" style={{ color: "#0e58a8" }} />}
-            title="Topshiriq"
-            description="Talaba bajarib topshiradigan vazifa fayli"
+            title={t("mavzuModal.assignment")}
+            description={t("mavzuModal.assignmentDesc")}
             item={assignment}
             accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar"
             uploading={uploadingKind === "assignment"}
             progress={uploadingKind === "assignment" ? uploadProgress : null}
             disabled={!!test && !assignment}
-            disabledMessage="Bu mavzuga Test yuklangan — Topshiriq qo'shib bo'lmaydi"
+            disabledMessage={t("mavzuModal.assignmentBlocked")}
             onUpload={f => upload("assignment", "assignment", f)}
             onDelete={() => remove(assignment)}
           />

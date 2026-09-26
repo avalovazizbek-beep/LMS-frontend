@@ -6,7 +6,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { LANGUAGES } from "@/lib/i18n/translations"
 
 export function LanguageSwitcher() {
-  const { lang, setLang } = useLanguage()
+  const { lang, setLang, t } = useLanguage()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const current = LANGUAGES.find(l => l.code === lang) ?? LANGUAGES[0]
@@ -24,6 +24,9 @@ export function LanguageSwitcher() {
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
+        aria-label={t("langSwitcher.label")}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#f6f9ff]"
         style={{ color: "var(--lms-primary, #012970)", fontFamily: "var(--font-poppins)", border: "1px solid rgba(1,41,112,0.15)" }}
       >
@@ -41,6 +44,7 @@ export function LanguageSwitcher() {
             <button
               key={l.code}
               type="button"
+              lang={l.htmlLang}
               onClick={() => { setLang(l.code); setOpen(false) }}
               className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[#f6f9ff]"
               style={{

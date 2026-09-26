@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { BookOpen, CheckCircle2, ExternalLink, Loader2, ChevronLeft, ChevronRight } from "lucide-react"
 import { Document, Page, pdfjs } from "react-pdf"
 import { teachingApi, type ContentProgress, type TeachingFile, type PptxSlide, type PptxShape } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"
 
@@ -73,6 +74,7 @@ function PptxViewer({
   initialProgress?: ContentProgress | null
   onCompleted?: () => void
 }) {
+  const { t } = useLanguage()
   const [mode, setMode] = useState<"loading" | "pdf" | "rich" | "text">("loading")
   const checkedRef = useRef(false)
 
@@ -90,7 +92,7 @@ function PptxViewer({
     return (
       <div className="rounded-[10px] p-6 flex items-center gap-3" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} />
-        <span className="text-sm" style={labelStyle}>Taqdimot tayyorlanmoqda…</span>
+        <span className="text-sm" style={labelStyle}>{t("theory.pptxPreparing")}</span>
       </div>
     )
   }
@@ -133,6 +135,7 @@ function RichPptxViewer({
   initialProgress?: ContentProgress | null
   onCompleted?: () => void
 }) {
+  const { t } = useLanguage()
   const [completed, setCompleted] = useState(!!initialProgress?.completed)
   const [slides, setSlides] = useState<PptxSlide[]>([])
   const [count, setCount] = useState(0)
@@ -196,7 +199,7 @@ function RichPptxViewer({
     return (
       <div className="rounded-[10px] p-6 flex items-center gap-3" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} />
-        <span className="text-sm" style={labelStyle}>Taqdimot yuklanmoqda…</span>
+        <span className="text-sm" style={labelStyle}>{t("theory.pptxLoading")}</span>
       </div>
     )
   }
@@ -223,14 +226,14 @@ function RichPptxViewer({
       <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: "#f6f9ff", borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />
-          <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Taqdimot"}</span>
+          <span className="text-sm font-semibold" style={titleStyle}>{title ?? t("theory.presentation")}</span>
         </div>
         <div className="flex items-center gap-3">
           <a href={fileUrl} target="_blank" rel="noreferrer"
             className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-[5px] transition-colors hover:bg-[#e8f0fb]"
             style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             <ExternalLink className="w-3.5 h-3.5" />
-            Yuklab olish
+            {t("common.download")}
           </a>
           <span className="text-xs font-medium" style={labelStyle}>{current + 1} / {count}</span>
           {completed && <CheckCircle2 className="w-4 h-4" style={{ color: "#22c55e" }} />}
@@ -272,7 +275,7 @@ function RichPptxViewer({
           className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] disabled:opacity-40 transition-colors hover:bg-[#e8f0fb]"
           style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <ChevronLeft className="w-4 h-4" />
-          Oldingi
+          {t("theory.prev")}
         </button>
 
         {/* Dot indicators — ko'rilmagan slaydlarga o'tib bo'lmaydi */}
@@ -306,7 +309,7 @@ function RichPptxViewer({
             disabled={!canGoNext}
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] transition-colors disabled:opacity-40"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-            Keyingi <ChevronRight className="w-4 h-4" />
+            {t("theory.next")} <ChevronRight className="w-4 h-4" />
           </button>
         ) : allSeen ? (
           /* Oxirgi slaydga yetib, hammasi ko'rilgan — "Tugatish" tugmasi */
@@ -316,10 +319,10 @@ function RichPptxViewer({
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] disabled:opacity-60"
             style={{ backgroundColor: completed ? "#22c55e" : "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
             {completed
-              ? <><CheckCircle2 className="w-4 h-4" />Tugatildi</>
+              ? <><CheckCircle2 className="w-4 h-4" />{t("theory.done")}</>
               : saving
-                ? <><Loader2 className="w-4 h-4 animate-spin" />Saqlanmoqda…</>
-                : <><CheckCircle2 className="w-4 h-4" />Tugatish</>}
+                ? <><Loader2 className="w-4 h-4 animate-spin" />{t("common.saving")}</>
+                : <><CheckCircle2 className="w-4 h-4" />{t("theory.finish")}</>}
           </button>
         ) : (
           /* Hali hammasi ko'rilmagan holda oxirgi slaydda — disabled */
@@ -327,7 +330,7 @@ function RichPptxViewer({
             disabled
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] opacity-40"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-            <CheckCircle2 className="w-4 h-4" />Tugatish
+            <CheckCircle2 className="w-4 h-4" />{t("theory.finish")}
           </button>
         )}
       </div>
@@ -335,7 +338,7 @@ function RichPptxViewer({
       {/* Ko'rilmagan slaydlar haqida ogohlantirish */}
       {!completed && !allSeen && (
         <div className="px-4 py-2 text-xs text-center" style={{ backgroundColor: "#fffbeb", borderTop: "1px solid rgba(217,119,6,0.15)", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-          Keyingi bo&apos;limni ochish uchun barcha {count} ta slaydni navbatma-navbat ko&apos;ring ({Math.min(maxReached + 1, count)}/{count} ko&apos;rildi)
+          {t("theory.slidesHint", { count, seen: Math.min(maxReached + 1, count) })}
         </div>
       )}
     </div>
@@ -397,6 +400,7 @@ function PdfTheoryViewer({
   downloadUrl?: string
   downloadName?: string
 }) {
+  const { t } = useLanguage()
   const [completed, setCompleted] = useState(!!initialProgress?.completed)
   const [numPages, setNumPages] = useState(0)
   const [current, setCurrent] = useState(0)
@@ -469,13 +473,13 @@ function PdfTheoryViewer({
       <div className="rounded-[10px] p-4 flex flex-col gap-2" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />
-          <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Hujjat"}</span>
+          <span className="text-sm font-semibold" style={titleStyle}>{title ?? t("theory.document")}</span>
         </div>
         <a href={downloadUrl ?? fileUrl} target="_blank" rel="noreferrer" onClick={() => void markOpened()}
           className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-sm font-medium"
           style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <ExternalLink className="w-4 h-4" />
-          {downloadName ?? "Faylni ochish"}
+          {downloadName ?? t("theory.openFile")}
         </a>
       </div>
     )
@@ -487,7 +491,7 @@ function PdfTheoryViewer({
       <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: "#f6f9ff", borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />
-          <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Taqdimot"}</span>
+          <span className="text-sm font-semibold" style={titleStyle}>{title ?? t("theory.presentation")}</span>
         </div>
         <div className="flex items-center gap-3">
           {downloadUrl && (
@@ -495,7 +499,7 @@ function PdfTheoryViewer({
               className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-[5px] transition-colors hover:bg-[#e8f0fb]"
               style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
               <ExternalLink className="w-3.5 h-3.5" />
-              {downloadName ?? "Yuklab olish"}
+              {downloadName ?? t("common.download")}
             </a>
           )}
           {numPages > 0 && <span className="text-xs font-medium" style={labelStyle}>{current + 1} / {numPages}</span>}
@@ -511,7 +515,7 @@ function PdfTheoryViewer({
           loading={
             <div className="flex items-center gap-3 py-16">
               <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
-              <span className="text-sm" style={{ color: "#fff" }}>Yuklanmoqda…</span>
+              <span className="text-sm" style={{ color: "#fff" }}>{t("common.loading")}</span>
             </div>
           }
           onLoadSuccess={({ numPages: n }) => setNumPages(n)}
@@ -547,7 +551,7 @@ function PdfTheoryViewer({
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] disabled:opacity-40 transition-colors hover:bg-[#e8f0fb]"
             style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             <ChevronLeft className="w-4 h-4" />
-            Oldingi
+            {t("theory.prev")}
           </button>
 
           {current < numPages - 1 ? (
@@ -556,7 +560,7 @@ function PdfTheoryViewer({
               disabled={!canGoNext}
               className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] transition-colors disabled:opacity-40"
               style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-              Keyingi <ChevronRight className="w-4 h-4" />
+              {t("theory.next")} <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             <button
@@ -565,10 +569,10 @@ function PdfTheoryViewer({
               className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-[6px] disabled:opacity-60"
               style={{ backgroundColor: completed ? "#22c55e" : "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
               {completed
-                ? <><CheckCircle2 className="w-4 h-4" />Tugatildi</>
+                ? <><CheckCircle2 className="w-4 h-4" />{t("theory.done")}</>
                 : saving
-                  ? <><Loader2 className="w-4 h-4 animate-spin" />Saqlanmoqda…</>
-                  : <><CheckCircle2 className="w-4 h-4" />O&apos;qib chiqdim</>}
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />{t("common.saving")}</>
+                  : <><CheckCircle2 className="w-4 h-4" />{t("theory.readIt")}</>}
             </button>
           )}
         </div>
@@ -576,7 +580,7 @@ function PdfTheoryViewer({
 
       {!completed && numPages > 0 && !allSeen && (
         <div className="px-4 py-2 text-xs text-center" style={{ backgroundColor: "#fffbeb", borderTop: "1px solid rgba(217,119,6,0.15)", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-          Tugmani ochish uchun barcha {numPages} sahifani navbatma-navbat ko&apos;ring ({Math.min(maxReached + 1, numPages)}/{numPages} ko&apos;rildi)
+          {t("theory.pagesHint", { count: numPages, seen: Math.min(maxReached + 1, numPages) })}
         </div>
       )}
     </div>
@@ -593,6 +597,7 @@ function ManualTheoryViewer({
   initialProgress?: ContentProgress | null
   onCompleted?: () => void
 }) {
+  const { t } = useLanguage()
   const [completed, setCompleted] = useState(!!initialProgress?.completed)
   const [saving, setSaving] = useState(false)
   const [hasOpened, setHasOpened] = useState(false)
@@ -613,7 +618,7 @@ function ManualTheoryViewer({
     <div className="rounded-[10px] p-4 flex flex-col gap-2" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
       <div className="flex items-center gap-2">
         <BookOpen className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        <span className="text-sm font-semibold" style={titleStyle}>{title ?? "Taqdimot"}</span>
+        <span className="text-sm font-semibold" style={titleStyle}>{title ?? t("theory.presentation")}</span>
         {completed && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
       </div>
       {/* Faylni ochgan zahoti yakunlanadi (tashqarida ochilgan faylni kuzatib bo'lmaydi) */}
@@ -629,10 +634,10 @@ function ManualTheoryViewer({
             className="flex items-center justify-center gap-2 px-4 py-2 rounded-[8px] text-sm font-medium w-fit disabled:opacity-40"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-            O&apos;qib chiqdim
+            {t("theory.readIt")}
           </button>
           {!hasOpened && (
-            <p className="text-xs" style={labelStyle}>Avval faylni ochib chiqing</p>
+            <p className="text-xs" style={labelStyle}>{t("theory.openFirst")}</p>
           )}
         </div>
       )}

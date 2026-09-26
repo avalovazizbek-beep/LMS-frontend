@@ -22,6 +22,7 @@ interface NotRegisteredStudent {
 }
 
 function NotRegisteredTab() {
+  const { t } = useLanguage()
   const [students, setStudents] = useState<NotRegisteredStudent[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(0)
@@ -66,7 +67,7 @@ function NotRegisteredTab() {
           <div className="p-12 text-center">
             <ShieldAlert className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
             <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Hammasi ro'yxatdan o'tgan
+              {t("adminFaceId.allRegistered")}
             </p>
           </div>
         ) : (
@@ -82,14 +83,14 @@ function NotRegisteredTab() {
                   </td>
                   <td className="px-5 py-3 text-right">
                     {s.adminRequestPending ? (
-                      <span className="text-xs italic" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>So'rov yuborilgan</span>
+                      <span className="text-xs italic" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{t("adminFaceId.requestSent")}</span>
                     ) : sendingId === s.hemisId ? (
                       <RefreshCw className="w-4 h-4 animate-spin ml-auto" style={{ color: "#0e58a8" }} />
                     ) : (
                       <button onClick={() => handleRequest(s.hemisId)}
                         className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-opacity hover:opacity-90"
                         style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                        <Send className="w-3.5 h-3.5" /> So'rash
+                        <Send className="w-3.5 h-3.5" /> {t("adminFaceId.request")}
                       </button>
                     )}
                   </td>
@@ -204,7 +205,7 @@ export default function AdminFaceId() {
             fontFamily: "var(--font-poppins)",
           }}>
           <UserX className="w-3.5 h-3.5" />
-          Ro'yxatdan o'tmaganlar
+          {t("adminFaceId.notRegisteredTab")}
         </button>
         {statusTab !== "not_registered" && (
           <button onClick={() => load(statusTab)} className="ml-auto text-xs flex items-center gap-1.5 px-3 py-2 rounded-[8px]"

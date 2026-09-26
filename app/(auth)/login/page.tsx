@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation"
 import { GraduationCap, KeyRound } from "lucide-react"
 import { hemisApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { t } = useLanguage()
   const [oauthLoading, setOauthLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // 30 daqiqa harakatsizlikdan keyin chiqarilgan bo'lsa (IdleLogout)
@@ -34,7 +37,7 @@ export default function LoginPage() {
       localStorage.setItem("lms_role", res.role)
       router.push("/dashboard")
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Kirishda xatolik")
+      setError(err instanceof Error ? err.message : t("login.error"))
       setDemoLoading(false)
     }
   }
@@ -54,14 +57,15 @@ export default function LoginPage() {
       sessionStorage.removeItem("hemis_oauth_redirect_uri")
       window.location.href = hemisApi.oauthStartUrl(role)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "HEMIS orqali kirishda xatolik")
+      setError(err instanceof Error ? err.message : t("login.hemisError"))
       setOauthLoading(false)
     }
   }
 
   return (
     <main className="relative flex min-h-screen items-center justify-center" style={{ backgroundColor: "var(--lms-bg)" }}>
-      <div className="absolute right-5 top-5">
+      <div className="absolute right-5 top-5 flex items-center gap-2">
+        <LanguageSwitcher />
         <ThemeToggle />
       </div>
       <div className="w-full max-w-[480px] px-4">
@@ -70,10 +74,10 @@ export default function LoginPage() {
             <GraduationCap className="h-9 w-9 text-white" />
           </div>
           <h1 className="text-center text-[28px] font-semibold" style={{ color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
-            Masofaviy Ta&apos;lim
+            {t("login.title")}
           </h1>
           <p className="mt-1 text-center text-sm" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-            HEMIS orqali kiring
+            {t("login.subtitle")}
           </p>
         </div>
 
@@ -82,7 +86,7 @@ export default function LoginPage() {
             {idleNotice && !error && (
               <div className="rounded-[5px] px-3 py-2.5 text-sm"
                 style={{ backgroundColor: "rgba(234,179,8,0.12)", color: "#a16207", border: "1px solid #eab308", fontFamily: "var(--font-poppins)" }}>
-                30 daqiqa harakatsizlik sababli xavfsizlik uchun tizimdan chiqdingiz. Iltimos, qayta kiring.
+                {t("login.idleNotice")}
               </div>
             )}
             {error && (
@@ -93,14 +97,14 @@ export default function LoginPage() {
             )}
 
             <p className="text-center text-sm" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-              {oauthLoading ? "HEMIS login sahifasi ochilmoqda..." : "Kim sifatida kirmoqchisiz?"}
+              {oauthLoading ? t("login.opening") : t("login.chooseRole")}
             </p>
 
             <button type="button" onClick={() => startHemisOAuth("student")} disabled={oauthLoading}
               className="flex items-center justify-center gap-2 rounded-[5px] py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
               <KeyRound className="h-5 w-5" />
-              HEMIS orqali talaba sifatida kirish
+              {t("login.asStudent")}
             </button>
 
             <button type="button" onClick={() => startHemisOAuth("employee")} disabled={oauthLoading}
@@ -112,30 +116,30 @@ export default function LoginPage() {
                 fontFamily: "var(--font-poppins)",
               }}>
               <KeyRound className="h-5 w-5" />
-              HEMIS orqali xodim sifatida kirish
+              {t("login.asEmployee")}
             </button>
 
             {!showDemoForm ? (
               <button type="button" onClick={() => setShowDemoForm(true)}
                 className="text-center text-xs underline decoration-dotted"
                 style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
-                Demo bilan kirish
+                {t("login.demo")}
               </button>
             ) : (
               <div className="flex flex-col gap-2.5 border-t pt-4" style={{ borderColor: "var(--lms-border)" }}>
                 <input type="text" value={demoLogin} onChange={(e) => setDemoLogin(e.target.value)}
-                  placeholder="Login" autoComplete="username"
+                  placeholder={t("login.loginPlaceholder")} autoComplete="username"
                   className="rounded-[5px] px-3 py-2.5 text-sm outline-none"
                   style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)", color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }} />
                 <input type="password" value={demoPassword} onChange={(e) => setDemoPassword(e.target.value)}
-                  placeholder="Parol" autoComplete="current-password"
+                  placeholder={t("login.passwordPlaceholder")} autoComplete="current-password"
                   onKeyDown={(e) => { if (e.key === "Enter" && demoLogin && demoPassword && !demoLoading) handleDemoLogin() }}
                   className="rounded-[5px] px-3 py-2.5 text-sm outline-none"
                   style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)", color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }} />
                 <button type="button" onClick={handleDemoLogin} disabled={demoLoading || !demoLogin || !demoPassword}
                   className="rounded-[5px] py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
                   style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
-                  {demoLoading ? "Kirilmoqda..." : "Kirish"}
+                  {demoLoading ? t("login.signingIn") : t("login.signIn")}
                 </button>
               </div>
             )}

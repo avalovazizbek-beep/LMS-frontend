@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X, ChevronLeft, ChevronRight, FileText, Download } from "lucide-react"
+import { X, ChevronLeft, ChevronRight, FileText, Download, Send, Loader2 } from "lucide-react"
 import { announcementsApi, type Announcement } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -15,6 +15,9 @@ export function AnnouncementModal() {
   const { t } = useLanguage()
   const [items, setItems] = useState<Announcement[]>([])
   const [index, setIndex] = useState(0)
+  const [reply, setReply] = useState("")
+  const [sending, setSending] = useState(false)
+  const [replyError, setReplyError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -26,13 +29,37 @@ export function AnnouncementModal() {
 
   if (items.length === 0) return null
 
-  const current = items[index]
+  const current = items[Math.min(index, items.length - 1)]
   const hasMultiple = items.length > 1
+  // "Javob talab qilinsin" e'loni — javob yozilmaguncha yopilmaydi
+  const needsReply = (a: Announcement) => !!a.requireReply && !a.replied
+  const currentNeedsReply = needsReply(current)
 
+  // Oddiy e'lonlar yopiladi; javob kutayotganlari ro'yxatda qoladi
   function handleClose() {
-    const ids = items.map(a => a.id)
-    setItems([])
-    announcementsApi.dismiss(ids).catch(() => {})
+    const closable = items.filter(a => !needsReply(a))
+    const pending = items.filter(needsReply)
+    setItems(pending)
+    setIndex(0)
+    if (closable.length) announcementsApi.dismiss(closable.map(a => a.id)).catch(() => {})
+  }
+
+  async function handleReply() {
+    const text = reply.trim()
+    if (!text || sending) return
+    setSending(true)
+    setReplyError(false)
+    try {
+      await announcementsApi.reply(current.id, text)
+      setReply("")
+      const rest = items.filter(a => a.id !== current.id)
+      setItems(rest)
+      setIndex(i => Math.max(0, Math.min(i, rest.length - 1)))
+    } catch {
+      setReplyError(true)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -45,13 +72,15 @@ export function AnnouncementModal() {
           <div className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
             {hasMultiple ? t("announcementModal.counter", { current: index + 1, total: items.length }) : ""}
           </div>
-          <button
-            onClick={handleClose}
-            aria-label={t("announcementModal.closeAriaLabel")}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#f0f5ff] transition-colors"
-          >
-            <X className="w-4 h-4" style={{ color: "#7293b9" }} />
-          </button>
+          {!currentNeedsReply && (
+            <button
+              onClick={handleClose}
+              aria-label={t("announcementModal.closeAriaLabel")}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#f0f5ff] transition-colors"
+            >
+              <X className="w-4 h-4" style={{ color: "#7293b9" }} />
+            </button>
+          )}
         </div>
 
         <div className="overflow-y-auto flex-1">
@@ -108,6 +137,27 @@ export function AnnouncementModal() {
               )}
             </div>
           )}
+
+          {currentNeedsReply && (
+            <div className="px-5 pb-4 flex flex-col gap-2">
+              <label htmlFor={`announcement-reply-${current.id}`} className="text-xs font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                {t("announcementModal.replyLabel")}
+              </label>
+              <textarea
+                id={`announcement-reply-${current.id}`}
+                value={reply}
+                onChange={e => { setReply(e.target.value); setReplyError(false) }}
+                rows={3}
+                maxLength={2000}
+                placeholder={t("announcementModal.replyPlaceholder")}
+                className="w-full px-3 py-2.5 rounded-[8px] text-sm outline-none resize-none"
+                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+              />
+              <p className="text-xs" style={{ color: replyError ? "#dc2626" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                {replyError ? t("announcementModal.replyError") : t("announcementModal.replyRequired")}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3 px-5 py-3 shrink-0" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
@@ -131,13 +181,25 @@ export function AnnouncementModal() {
               </button>
             </>
           )}
-          <button
-            onClick={handleClose}
-            className="ml-auto px-5 py-2.5 rounded-[8px] text-sm font-semibold text-white"
-            style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}
-          >
-            {t("announcementModal.closeBtn")}
-          </button>
+          {currentNeedsReply ? (
+            <button
+              onClick={handleReply}
+              disabled={!reply.trim() || sending}
+              className="ml-auto flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold text-white disabled:opacity-50"
+              style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {sending ? t("announcementModal.replySending") : t("announcementModal.replySend")}
+            </button>
+          ) : (
+            <button
+              onClick={handleClose}
+              className="ml-auto px-5 py-2.5 rounded-[8px] text-sm font-semibold text-white"
+              style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}
+            >
+              {t("announcementModal.closeBtn")}
+            </button>
+          )}
         </div>
       </div>
     </div>

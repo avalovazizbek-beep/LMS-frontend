@@ -73,7 +73,7 @@ function SubmissionsList({
       await teachingApi.runPlagiarismCheck(content.id)
       await refetchPlag()
     } catch (e) {
-      setPlagError(e instanceof Error ? e.message : "Tekshirishda xatolik")
+      setPlagError(e instanceof Error ? e.message : t("typeContentOq.plag.checkError"))
     } finally {
       setPlagChecking(false)
     }
@@ -184,7 +184,7 @@ function SubmissionsList({
                 className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors hover:bg-[#f0f5ff] disabled:opacity-60 self-stretch"
                 style={{ border: "1px solid #d8e6f7", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 <ShieldAlert className={`w-3.5 h-3.5 ${plagChecking ? "animate-pulse" : ""}`} />
-                {plagChecking ? "Tekshirilmoqda…" : "Antiplagiat tekshirish"}
+                {plagChecking ? t("common.checking") : t("typeContentOq.plag.run")}
               </button>
             )}
           </div>
@@ -249,7 +249,7 @@ function SubmissionsList({
                             color: plag.maxSimilarityPct >= 50 || plag.internetMatches.length > 0 ? "#b91c1c" : plag.maxSimilarityPct >= 20 ? "#92400e" : "#15803d",
                             fontFamily: "var(--font-poppins)",
                           }}>
-                          Antiplagiat: {plag.maxSimilarityPct}%{plag.internetMatches.length > 0 ? " · web" : ""}
+                          {t("plag.short", { pct: plag.maxSimilarityPct })}{plag.internetMatches.length > 0 ? " · web" : ""}
                         </button>
                       )}
                       {(isGraded || isSavedNow) && (
@@ -265,14 +265,14 @@ function SubmissionsList({
                   {plag && openPlagFor === sub.id && (
                     <div className="rounded-[8px] p-3 flex flex-col gap-2" style={{ backgroundColor: "#f6f9ff" }}>
                       <p className="text-xs" style={L}>
-                        {plag.matchedStudentName ? `Eng o'xshash: ${plag.matchedStudentName}` : "O'xshash topshiriq topilmadi"}
+                        {plag.matchedStudentName ? t("typeContentOq.plag.mostSimilar", { name: plag.matchedStudentName }) : t("typeContentOq.plag.noSimilar")}
                       </p>
                       {!plag.internetEnabled ? (
                         <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                          Internet tekshiruvi uchun API kalit sozlanmagan
+                          {t("plag.noApiKeyShort")}
                         </p>
                       ) : plag.internetMatches.length === 0 ? (
-                        <p className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>Internetdan mos matn topilmadi</p>
+                        <p className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.plag.noInternetMatch")}</p>
                       ) : (
                         plag.internetMatches.map((m, i) => (
                           <a key={i} href={m.link} target="_blank" rel="noreferrer"

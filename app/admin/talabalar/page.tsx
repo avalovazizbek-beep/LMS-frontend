@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react"
 import { Users, RefreshCw, GraduationCap, ChevronLeft, ChevronRight, X, ScanFace, CheckCircle2, AlertCircle, Send } from "lucide-react"
 import { adminApi, type StudentFaceRow } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { tr } from "@/lib/i18n/translations"
 
 const PAGE_SIZE = 20
 
 interface GroupRow { groupId: number; groupName: string; studentCount: number }
 
 function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void }) {
+  const { t } = useLanguage()
   const [students, setStudents] = useState<StudentFaceRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<number | null>(null)
@@ -17,14 +20,14 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
     let cancelled = false
     adminApi.studentFaceRoster(group.groupId)
       .then(res => { if (!cancelled) setStudents(res.students) })
-      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : "Yuklashda xato") })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : tr("adminStudents.errLoad")) })
     return () => { cancelled = true }
   }, [group.groupId])
 
   async function handleRequest(hemisId: number, fullName: string, alreadyRegistered: boolean) {
     const confirmMsg = alreadyRegistered
-      ? `${fullName} uchun mavjud Face ID ma'lumoti bazadan o'chiriladi va u qayta ro'yxatdan o'ta oladi. Davom etasizmi?`
-      : `${fullName} ga Face ID'ni ro'yxatdan o'tkazish so'rovi yuboriladi. Davom etasizmi?`
+      ? t("adminStudents.confirmReset", { name: fullName })
+      : t("adminStudents.confirmRequest", { name: fullName })
     if (!window.confirm(confirmMsg)) return
 
     setSendingId(hemisId)
@@ -45,7 +48,7 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <div>
             <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{group.groupName}</h2>
-            <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Face ID holati</p>
+            <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("adminStudents.faceStatus")}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#f0f5ff] transition-colors">
             <X className="w-4 h-4" style={{ color: "#7293b9" }} />
@@ -61,7 +64,7 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
             </div>
           ) : students.length === 0 ? (
             <div className="p-10 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-              Bu guruhda talaba topilmadi
+              {t("adminStudents.noStudents")}
             </div>
           ) : (
             <table className="w-full">
@@ -78,18 +81,18 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
                       {s.faceRegistered ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
                           style={{ backgroundColor: "#f0fff4", color: "#166534", fontFamily: "var(--font-poppins)" }}>
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Ro&apos;yxatdan o&apos;tgan
+                          <CheckCircle2 className="w-3.5 h-3.5" /> {t("adminStudents.registered")}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
                           style={{ backgroundColor: "#fff8e6", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                          <AlertCircle className="w-3.5 h-3.5" /> O&apos;tmagan
+                          <AlertCircle className="w-3.5 h-3.5" /> {t("adminStudents.notRegistered")}
                         </span>
                       )}
                     </td>
                     <td className="px-5 py-3 text-right">
                       {s.adminRequestPending ? (
-                        <span className="text-xs italic" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>So&apos;rov yuborilgan</span>
+                        <span className="text-xs italic" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{t("adminStudents.requestSent")}</span>
                       ) : sendingId === s.hemisId ? (
                         <RefreshCw className="w-4 h-4 animate-spin ml-auto" style={{ color: "#0e58a8" }} />
                       ) : (
@@ -97,7 +100,7 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
                           className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-opacity hover:opacity-90"
                           style={{ backgroundColor: s.faceRegistered ? "#fef2f2" : "#eef4ff", color: s.faceRegistered ? "#b91c1c" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                           <Send className="w-3.5 h-3.5" />
-                          {s.faceRegistered ? "Qayta ro'yxatdan o'tkazish" : "So'rash"}
+                          {s.faceRegistered ? t("adminStudents.reregister") : t("adminStudents.request")}
                         </button>
                       )}
                     </td>
@@ -113,6 +116,7 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
 }
 
 export default function AdminTalabalar() {
+  const { t } = useLanguage()
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [totalGroups, setTotalGroups] = useState(0)
   const [totalStudents, setTotalStudents] = useState(0)
@@ -143,7 +147,7 @@ export default function AdminTalabalar() {
         setCourses(res.courses ?? [])
         setDegrees(res.degrees ?? [])
       })
-      .catch(e => setError(e instanceof Error ? e.message : "Yuklashda xato"))
+      .catch(e => setError(e instanceof Error ? e.message : tr("adminStudents.errLoad")))
       .finally(() => setLoading(false))
   }
 
@@ -180,16 +184,16 @@ export default function AdminTalabalar() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Talabalar ro'yxati
+            {t("adminStudents.title")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Masofaviy ta'lim guruhlari (bakalavr + magistr) — Face ID holatini ko'rish uchun guruhni bosing
+            {t("adminStudents.subtitle")}
           </p>
         </div>
         <button onClick={() => load(courseFilter, degreeFilter, page)} className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Yangilash
+          {t("common.refresh")}
         </button>
       </div>
 
@@ -211,7 +215,7 @@ export default function AdminTalabalar() {
             <div>
               <div className="text-3xl font-bold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{totalStudents}</div>
               <div className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                Jami talaba ({totalGroups} guruhda)
+                {t("adminStudents.totalStudents", { groups: totalGroups })}
               </div>
             </div>
           </div>
@@ -220,20 +224,20 @@ export default function AdminTalabalar() {
               (Bakalavr va Magistr'ning kurslari har xil) */}
           <div className="flex items-center gap-4 flex-wrap">
             <label className="flex items-center gap-2">
-              <span className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Daraja:</span>
+              <span className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("adminStudents.degree")}</span>
               <select value={degreeFilter} onChange={e => applyDegree(e.target.value)}
                 className="text-sm px-3 py-2 rounded-[8px] outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                <option value="">Barchasi</option>
+                <option value="">{t("common.all")}</option>
                 {degrees.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
               </select>
             </label>
             <label className="flex items-center gap-2">
-              <span className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Kurs:</span>
+              <span className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("adminStudents.course")}</span>
               <select value={courseFilter} onChange={e => applyCourse(e.target.value)}
                 className="text-sm px-3 py-2 rounded-[8px] outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                <option value="">Barchasi</option>
+                <option value="">{t("common.all")}</option>
                 {courses.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
             </label>
@@ -242,12 +246,12 @@ export default function AdminTalabalar() {
           <div className="bg-white rounded-[12px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
             <div className="px-5 py-4 flex items-center justify-between gap-3 flex-wrap" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
               <h2 className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                Guruhlar bo'yicha
+                {t("adminStudents.byGroups")}
               </h2>
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Shu sahifadan qidirish"
+                placeholder={t("adminStudents.searchPage")}
                 className="px-3 py-2 rounded-[8px] text-sm outline-none w-56"
                 style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}
               />
@@ -256,7 +260,7 @@ export default function AdminTalabalar() {
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f6f9ff" }}>
-                    {["#", "Guruh", "Talaba soni", ""].map(h => (
+                    {["#", t("common.group"), t("adminStudents.studentCount"), ""].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
                         style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
                     ))}
@@ -268,7 +272,7 @@ export default function AdminTalabalar() {
                       <td colSpan={4} className="px-4 py-14 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                         <div className="flex flex-col items-center gap-2">
                           <GraduationCap className="w-8 h-8" style={{ color: "#d8e6f7" }} />
-                          Guruh topilmadi
+                          {t("adminStudents.noGroups")}
                         </div>
                       </td>
                     </tr>
@@ -293,7 +297,7 @@ export default function AdminTalabalar() {
           {totalGroups > 0 && (
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                {page * PAGE_SIZE + 1}–{Math.min(totalGroups, page * PAGE_SIZE + PAGE_SIZE)} / {totalGroups} guruh
+                {t("adminStudents.pageRange", { from: page * PAGE_SIZE + 1, to: Math.min(totalGroups, page * PAGE_SIZE + PAGE_SIZE), total: totalGroups })}
               </span>
               <div className="flex items-center gap-2">
                 <button onClick={() => goToPage(page - 1)} disabled={page <= 0}

@@ -648,7 +648,7 @@ export default function ImtihonTopshirish() {
                 {adaptiveQuestion.imageUrl && (
                   <img
                     src={adaptiveQuestion.imageUrl.startsWith("/api/") ? teachingApi.fileUrl(adaptiveQuestion.imageUrl) : adaptiveQuestion.imageUrl}
-                    alt="savol rasmi"
+                    alt={t("qModal.questionImage")}
                     style={{ marginTop: 10, maxHeight: 200, width: "auto", borderRadius: 8, objectFit: "contain", border: "1px solid rgba(1,41,112,0.1)" }}
                   />
                 )}
@@ -680,7 +680,7 @@ export default function ImtihonTopshirish() {
                           {optImg && (
                             <img
                               src={optImg.startsWith("/api/") ? teachingApi.fileUrl(optImg) : optImg}
-                              alt={`variant ${shuffledPos + 1} rasmi`}
+                              alt={t("qModal.optionImageAlt", { n: shuffledPos + 1 })}
                               style={{ marginTop: 8, maxHeight: 120, width: "auto", maxWidth: "100%", display: "block",
                                 borderRadius: 6, objectFit: "contain", border: "1px solid rgba(1,41,112,0.1)" }}
                             />
@@ -846,7 +846,7 @@ export default function ImtihonTopshirish() {
                           {q.imageUrl && (
                             <img
                               src={q.imageUrl.startsWith("/api/") ? teachingApi.fileUrl(q.imageUrl) : q.imageUrl}
-                              alt="savol rasmi"
+                              alt={t("qModal.questionImage")}
                               style={{ marginTop: 10, maxHeight: 200, width: "auto", borderRadius: 8, objectFit: "contain",
                                 border: "1px solid rgba(1,41,112,0.1)" }}
                             />
@@ -886,7 +886,7 @@ export default function ImtihonTopshirish() {
                               {optImg && (
                                 <img
                                   src={optImg.startsWith("/api/") ? teachingApi.fileUrl(optImg) : optImg}
-                                  alt={`variant ${shuffledPos + 1} rasmi`}
+                                  alt={t("qModal.optionImageAlt", { n: shuffledPos + 1 })}
                                   style={{ marginTop: 8, maxHeight: 120, width: "auto", maxWidth: "100%", display: "block",
                                     borderRadius: 6, objectFit: "contain", border: "1px solid rgba(1,41,112,0.1)" }}
                                 />

@@ -5,6 +5,7 @@ import { announcementsApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { intlLocale } from "@/lib/i18n/translations"
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -14,7 +15,7 @@ function formatSize(bytes: number) {
 
 function formatDate(iso: string) {
   try {
-    return new Date(iso).toLocaleDateString("uz-UZ", { day: "2-digit", month: "long", year: "numeric" })
+    return new Date(iso).toLocaleDateString(intlLocale(), { day: "2-digit", month: "long", year: "numeric" })
   } catch {
     return iso
   }

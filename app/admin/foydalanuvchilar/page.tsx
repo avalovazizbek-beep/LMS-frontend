@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Search, ChevronDown, ChevronLeft, ChevronRight, UserCheck, Shield, ShieldHalf, BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon, CheckCircle2, AlertCircle } from "lucide-react"
 import { adminApi, type AdminUser } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { intlLocale } from "@/lib/i18n/translations"
 
 const PAGE_SIZE = 20
 
@@ -140,7 +141,7 @@ export default function AdminFoydalanuvchilar() {
     if (!s) return "—"
     const d = new Date(s)
     if (isNaN(d.getTime())) return "—"
-    return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "short", year: "numeric" })
+    return d.toLocaleDateString(intlLocale(), { day: "2-digit", month: "short", year: "numeric" })
   }
 
   return (
@@ -230,15 +231,15 @@ export default function AdminFoydalanuvchilar() {
             tushunchasi yo'q, shuning uchun doimo ko'rinib turmasligi kerak) */}
         {roleFilter === "student" && (
           <label className="flex items-center gap-2 w-full">
-            <span className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Face ID:</span>
+            <span className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("adminUsers.faceIdFilter")}</span>
             <select
               value={faceFilter}
               onChange={e => applyFaceFilter(e.target.value)}
               className="text-sm px-3 py-2 rounded-[8px] outline-none"
               style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              <option value="">Barchasi</option>
-              <option value="registered">O'tgan</option>
-              <option value="not_registered">O'tmagan</option>
+              <option value="">{t("common.all")}</option>
+              <option value="registered">{t("adminUsers.faceRegistered")}</option>
+              <option value="not_registered">{t("adminUsers.faceNotRegistered")}</option>
             </select>
           </label>
         )}
@@ -334,12 +335,12 @@ export default function AdminFoydalanuvchilar() {
                       ) : u.faceRegistered ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
                           style={{ backgroundColor: "#f0fff4", color: "#166534", fontFamily: "var(--font-poppins)" }}>
-                          <CheckCircle2 className="w-3 h-3" /> O'tgan
+                          <CheckCircle2 className="w-3 h-3" /> {t("adminUsers.faceRegistered")}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
                           style={{ backgroundColor: "#fff8e6", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                          <AlertCircle className="w-3 h-3" /> O'tmagan
+                          <AlertCircle className="w-3 h-3" /> {t("adminUsers.faceNotRegistered")}
                         </span>
                       )}
                     </td>

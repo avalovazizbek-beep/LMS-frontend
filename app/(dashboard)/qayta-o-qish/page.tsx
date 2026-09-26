@@ -17,9 +17,9 @@ export default function QaytaOqish() {
   }, [])
 
   const statusConfig: Record<string, { label: string; bg: string; color: string; icon: typeof Clock }> = {
-    active:    { label: "Davom etmoqda", bg: "#fff8e6", color: "#f59e0b", icon: Clock },
-    completed: { label: "Tugallandi",    bg: "#f0fdf4", color: "#22c55e", icon: CheckCircle2 },
-    failed:    { label: "Yiqildi",       bg: "#fff0f0", color: "#ef4444", icon: XCircle },
+    active:    { label: t("qaytaOqish.statusActive"),    bg: "#fff8e6", color: "#f59e0b", icon: Clock },
+    completed: { label: t("qaytaOqish.statusCompleted"), bg: "#f0fdf4", color: "#22c55e", icon: CheckCircle2 },
+    failed:    { label: t("qaytaOqish.statusFailed"),    bg: "#fff0f0", color: "#ef4444", icon: XCircle },
   }
 
   return (
@@ -27,7 +27,7 @@ export default function QaytaOqish() {
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.title")}</h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          Fandan jami ball (oraliq + yakuniy) 55dan past bo'lgani uchun biriktirilgan qayta o'qish guruhlaringiz
+          {t("qaytaOqish.pageSubtitle")}
         </p>
       </div>
 
@@ -41,10 +41,10 @@ export default function QaytaOqish() {
             <GraduationCap className="w-8 h-8" style={{ color: "#22c55e" }} />
           </div>
           <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Siz hozircha qayta o'qish guruhiga biriktirilmagansiz
+            {t("qaytaOqish.notEnrolled")}
           </p>
           <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Fandan qarzdorlik aniqlansa, dekanat sizni tegishli guruhga biriktiradi va bu yerda ko'rinadi
+            {t("qaytaOqish.notEnrolledHint")}
           </p>
         </div>
       ) : (
@@ -59,7 +59,7 @@ export default function QaytaOqish() {
                   <div>
                     <p className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{e.subjectName}</p>
                     <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      {e.groupName}{e.teacherFullName ? ` · ${e.teacherFullName}` : ""} · Qarzdorlik balli: {e.debtorTotalPoint ?? "—"}
+                      {e.groupName}{e.teacherFullName ? ` · ${e.teacherFullName}` : ""} · {t("qaytaOqish.debtScore", { score: e.debtorTotalPoint ?? "—" })}
                     </p>
                   </div>
                 </div>

@@ -3,6 +3,7 @@
 import { ReactNode } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X } from "lucide-react"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 interface ModalProps {
   open: boolean
@@ -69,15 +70,16 @@ export function FSelect({ label, children, ...props }: { label: string } & React
 
 // Modal footer tugmalari
 export function ModalFooter({ onClose, saving }: { onClose: () => void; saving: boolean }) {
+  const { t } = useLanguage()
   return (
     <div className="flex gap-3 justify-end mt-5 pt-4" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
       <button type="button" onClick={onClose} className="h-[38px] px-4 rounded-[5px] text-sm transition-colors hover:bg-[#f6f9ff]"
         style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-        Bekor
+        {t("common.cancel")}
       </button>
       <button type="submit" disabled={saving} className="h-[38px] px-5 rounded-[5px] text-sm text-white disabled:opacity-60 transition-opacity"
         style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-        {saving ? "Saqlanmoqda..." : "Saqlash"}
+        {saving ? t("common.saving") : t("common.save")}
       </button>
     </div>
   )

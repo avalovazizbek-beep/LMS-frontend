@@ -5,10 +5,11 @@ import { hemisApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { intlLocale, tr } from "@/lib/i18n/translations"
 
 function formatSum(val?: number): string {
   if (val == null) return "—"
-  return val.toLocaleString("uz-UZ") + " so'm"
+  return `${val.toLocaleString(intlLocale())} ${tr("common.currencySom")}`
 }
 
 export default function StipendiyaHisobi() {

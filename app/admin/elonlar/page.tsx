@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react"
 import {
   Megaphone, RefreshCw, Send, Paperclip, X, Video, Image as ImageIcon,
-  FileText, Trash2, CheckCircle2,
+  FileText, Trash2, CheckCircle2, MessageSquareReply,
 } from "lucide-react"
-import { adminApi, type AdminAnnouncement, type AnnouncementAudience } from "@/lib/api"
+import { adminApi, type AdminAnnouncement, type AnnouncementAudience, type AnnouncementReply } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { Modal } from "@/components/ui/Modal"
 
@@ -27,6 +27,95 @@ function mediaIcon(kind: "image" | "video" | "file" | undefined) {
   return FileText
 }
 
+/* ── "Javoblar" bo'limi: javob talab qilingan e'lonni tanlab, xodimlar
+   yozgan javoblarni ko'rish ─────────────────────────────────────────── */
+function RepliesPanel({ items, selectedId, onSelect }: {
+  items: AdminAnnouncement[]
+  selectedId: number | null
+  onSelect: (id: number) => void
+}) {
+  const { t, locale } = useLanguage()
+  const [replies, setReplies] = useState<AnnouncementReply[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const withReplies = items.filter(a => a.requireReply)
+
+  useEffect(() => {
+    if (selectedId == null) return
+    let cancelled = false
+    setLoading(true)
+    adminApi.announcementReplies(selectedId)
+      .then(res => { if (!cancelled) setReplies(res.data ?? []) })
+      .catch(() => { if (!cancelled) setReplies([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedId])
+
+  if (withReplies.length === 0) {
+    return (
+      <div className="text-center text-sm py-12 px-6 bg-white rounded-[12px]" style={{ color: "#7293b9", border: "1px solid rgba(1,41,112,0.08)", fontFamily: "var(--font-poppins)" }}>
+        {t("adminElonlar.noReplyAnnouncements")}
+      </div>
+    )
+  }
+
+  const selected = withReplies.find(a => a.id === selectedId) ?? null
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+          {t("adminElonlar.pickAnnouncement")}
+        </label>
+        <select
+          value={selectedId ?? ""}
+          onChange={e => e.target.value && onSelect(Number(e.target.value))}
+          className="w-full px-3 py-2.5 rounded-[8px] text-sm outline-none bg-white"
+          style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+        >
+          <option value="">{t("common.select")}</option>
+          {withReplies.map(a => (
+            <option key={a.id} value={a.id}>
+              {(a.title || a.message?.slice(0, 60) || t("adminElonlar.untitled"))} — {t("adminElonlar.repliesCount", { n: a.replyCount ?? 0 })}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selected && (
+        <div className="bg-white rounded-[12px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
+          <div className="px-5 py-3 text-sm font-semibold" style={{ color: "#012970", borderBottom: "1px solid rgba(1,41,112,0.08)", fontFamily: "var(--font-poppins)" }}>
+            {selected.title || t("adminElonlar.untitled")}
+            {replies && <span className="ml-2 text-xs font-medium" style={{ color: "#7293b9" }}>{t("adminElonlar.repliesCount", { n: replies.length })}</span>}
+          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} />
+            </div>
+          ) : !replies || replies.length === 0 ? (
+            <div className="text-center text-sm py-10" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {t("adminElonlar.noReplies")}
+            </div>
+          ) : (
+            replies.map(r => (
+              <div key={r.id} className="px-5 py-3.5" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                    {r.fullName || t("adminElonlar.unknownUser")}
+                  </span>
+                  <span className="text-[11px]" style={{ color: "#9db3cf", fontFamily: "var(--font-poppins)" }}>
+                    {new Date(r.createdAt).toLocaleString(locale, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <p className="text-sm mt-1 whitespace-pre-wrap break-words" style={{ color: "#516a8f", fontFamily: "var(--font-poppins)" }}>{r.body}</p>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AdminElonlar() {
   const { t } = useLanguage()
   const [items, setItems] = useState<AdminAnnouncement[]>([])
@@ -35,6 +124,10 @@ export default function AdminElonlar() {
   const [title, setTitle] = useState("")
   const [message, setMessage] = useState("")
   const [audience, setAudience] = useState<AnnouncementAudience>("all")
+  // Faqat xodimlarga e'londa: javob yozmaguncha yopilmaydi
+  const [requireReply, setRequireReply] = useState(false)
+  const [tab, setTab] = useState<"list" | "replies">("list")
+  const [replyTargetId, setReplyTargetId] = useState<number | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
@@ -59,6 +152,7 @@ export default function AdminElonlar() {
     setTitle("")
     setMessage("")
     setAudience("all")
+    setRequireReply(false)
     setFile(null)
     setProgress(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
@@ -77,12 +171,13 @@ export default function AdminElonlar() {
         setProgress(0)
         await adminApi.uploadAnnouncement(
           file,
-          { audience, title: title.trim() || undefined, message: message.trim() || undefined },
+          { audience, title: title.trim() || undefined, message: message.trim() || undefined, requireReply: audience === "employee" && requireReply },
           pct => setProgress(pct)
         )
       } else {
         await adminApi.createAnnouncement({
           audience,
+          requireReply: audience === "employee" && requireReply,
           title: title.trim() || undefined,
           message: message.trim() || undefined,
         })
@@ -147,6 +242,21 @@ export default function AdminElonlar() {
         </button>
       </div>
 
+      {/* Tablar: e'lonlar / javoblar */}
+      <div className="flex gap-1 border-b" style={{ borderColor: "rgba(1,41,112,0.1)" }}>
+        {(["list", "replies"] as const).map(key => (
+          <button key={key} type="button" onClick={() => setTab(key)}
+            className="px-4 py-2.5 text-sm font-medium relative transition-colors"
+            style={{ color: tab === key ? "#0e58a8" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
+            {key === "list" ? t("adminElonlar.tabList") : t("adminElonlar.tabReplies")}
+            {tab === key && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ backgroundColor: "#0e58a8" }} />}
+          </button>
+        ))}
+      </div>
+
+      {tab === "replies" ? (
+        <RepliesPanel items={items} selectedId={replyTargetId} onSelect={setReplyTargetId} />
+      ) : (<>
       {/* Create form */}
       <div className="bg-white rounded-[12px] p-6 flex flex-col gap-4"
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
@@ -204,6 +314,30 @@ export default function AdminElonlar() {
             })}
           </div>
         </div>
+
+        {audience === "employee" && (
+          <div className="flex items-start gap-3 cursor-pointer select-none">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={requireReply}
+              onClick={() => setRequireReply(v => !v)}
+              className="relative shrink-0 rounded-full transition-colors mt-0.5"
+              style={{ backgroundColor: requireReply ? "#7c3aed" : "#d8e6f7", height: 22, width: 40 }}
+            >
+              <span className="absolute top-0.5 rounded-full bg-white transition-transform"
+                style={{ width: 18, height: 18, left: 2, transform: requireReply ? "translateX(18px)" : "translateX(0px)" }} />
+            </button>
+            <span className="flex flex-col gap-0.5" onClick={() => setRequireReply(v => !v)}>
+              <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                {t("adminElonlar.requireReply")}
+              </span>
+              <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                {t("adminElonlar.requireReplyHint")}
+              </span>
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <input ref={fileInputRef} type="file" className="hidden"
@@ -294,6 +428,12 @@ export default function AdminElonlar() {
                       style={{ backgroundColor: `${badgeColor}18`, color: badgeColor, fontFamily: "var(--font-poppins)" }}>
                       {t(audienceLabelKey)}
                     </span>
+                    {a.requireReply && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: "#fdf4ff", color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
+                        {t("adminElonlar.requireReplyBadge")}
+                      </span>
+                    )}
                   </div>
                   {a.message && (
                     <p className="text-xs mt-1 line-clamp-2" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{a.message}</p>
@@ -305,6 +445,16 @@ export default function AdminElonlar() {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
+                  {a.requireReply && (
+                    <button
+                      onClick={() => { setReplyTargetId(a.id); setTab("replies") }}
+                      className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-[6px]"
+                      style={{ backgroundColor: "#fdf4ff", color: "#7c3aed", fontFamily: "var(--font-poppins)" }}
+                    >
+                      <MessageSquareReply className="w-3.5 h-3.5" />
+                      {t("adminElonlar.repliesBtn", { n: a.replyCount ?? 0 })}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleToggle(a.id)}
                     className="relative w-10 h-5.5 rounded-full transition-colors"
@@ -323,6 +473,7 @@ export default function AdminElonlar() {
           })
         )}
       </div>
+      </>)}
 
       <Modal open={confirmDeleteId != null} title={t("adminElonlar.deleteConfirmTitle")} onClose={() => setConfirmDeleteId(null)}>
         <p className="text-sm mb-5" style={{ color: "#516a8f", fontFamily: "var(--font-poppins)" }}>

@@ -5,12 +5,13 @@ import { hemisApi, HemisContractItem } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { intlLocale, tr } from "@/lib/i18n/translations"
 
 function formatSum(val?: string | number): string {
   if (val == null) return "—"
   const n = Number(val)
   if (isNaN(n)) return String(val)
-  return n.toLocaleString("uz-UZ") + " so'm"
+  return `${n.toLocaleString(intlLocale())} ${tr("common.currencySom")}`
 }
 
 export default function Moliyaviy() {
@@ -45,8 +46,8 @@ export default function Moliyaviy() {
   return (
     <div className="flex flex-col gap-6 p-[30px]">
       <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Moliyaviy</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>To&apos;lov holati va ma&apos;lumotlar</p>
+        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.pageTitle")}</h1>
+        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.pageSubtitle")}</p>
       </div>
 
       {/* Stats */}

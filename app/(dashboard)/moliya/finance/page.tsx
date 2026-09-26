@@ -8,9 +8,10 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { Modal, FInput, FSelect, ModalFooter } from "@/components/ui/Modal"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { intlLocale, tr } from "@/lib/i18n/translations"
 
 type PaymentStatus = Payment["status"]
-const fmt = (n: number) => new Intl.NumberFormat("uz-UZ").format(n) + " so'm"
+const fmt = (n: number) => `${new Intl.NumberFormat(intlLocale()).format(n)} ${tr("common.currencySom")}`
 
 const EMPTY_PAY  = { student: "", group: "", semester: "1", total: "", paid: "0", dueDate: "", status: "pending" }
 const EMPTY_CASH = { amount: "" }

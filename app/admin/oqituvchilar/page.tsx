@@ -10,6 +10,7 @@ import {
 import { adminApi, type AdminTeacherStat, type AdminTeacherTopic, type AdminTeacherTopicContent, type AdminExamQuestion } from "@/lib/api"
 import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { intlLocale } from "@/lib/i18n/translations"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -19,7 +20,7 @@ function fmtDate(s: string) {
   if (!s) return "—"
   const d = new Date(s)
   if (isNaN(d.getTime())) return "—"
-  return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "short", year: "numeric" })
+  return d.toLocaleDateString(intlLocale(), { day: "2-digit", month: "short", year: "numeric" })
 }
 
 function pageNums(cur: number, total: number): (number | "...")[] {

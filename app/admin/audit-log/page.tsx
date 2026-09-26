@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { RefreshCw, History, Globe } from "lucide-react"
 import { adminApi, type AuditLogRow } from "@/lib/api"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 export default function AuditLogPage() {
+  const { t } = useLanguage()
   const [rows, setRows] = useState<AuditLogRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -26,16 +28,16 @@ export default function AuditLogPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            Audit log
+            {t("adminAudit.title")}
           </h1>
           <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            Admin panelidagi sezilarli amallar — kim, qachon, qaysi IP'dan
+            {t("adminAudit.subtitle")}
           </p>
         </div>
         <button onClick={load} className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
           style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Yangilash
+          {t("common.refresh")}
         </button>
       </div>
 
@@ -45,14 +47,14 @@ export default function AuditLogPage() {
         ) : rows.length === 0 ? (
           <div className="px-5 py-14 text-center text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
             <History className="w-8 h-8 mx-auto mb-2" style={{ color: "#d8e6f7" }} />
-            Hali yozuv yo'q
+            {t("adminAudit.empty")}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f6f9ff" }}>
-                  {["Vaqt", "Bajardi", "Rol", "Amal", "Modul", "Nishon", "IP"].map(h => (
+                  {[t("common.time"), t("adminAudit.colActor"), t("adminAudit.colRole"), t("adminAudit.colAction"), t("adminPerm.module"), t("adminAudit.colTarget"), "IP"].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
                   ))}
                 </tr>

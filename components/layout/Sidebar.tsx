@@ -421,7 +421,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
                 fontFamily: "var(--font-poppins)",
               }}
             >
-              Murojaatlar
+              {t("sidebar.murojaatlar")}
             </span>
           </Link>
 

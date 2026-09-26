@@ -8,11 +8,12 @@ import {
 } from "lucide-react"
 import { teachingApi, type TeacherContent, type TeachingSubmission, type ContentStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
+import { useLanguage } from "@/lib/i18n/LanguageContext"
 
-const STATUS_CONFIG: Record<ContentStatus, { label: string; color: string; bg: string; Icon: typeof Lock }> = {
-  locked: { label: "Qulflangan", color: "#b91c1c", bg: "#fef2f2", Icon: Lock },
-  open:   { label: "Ochiq",      color: "#15803d", bg: "#f0fdf4", Icon: CheckCircle2 },
-  closed: { label: "Muddat tugagan", color: "#92400e", bg: "#fffbeb", Icon: Clock },
+const STATUS_CONFIG: Record<ContentStatus, { labelKey: string; color: string; bg: string; Icon: typeof Lock }> = {
+  locked: { labelKey: "scc.status.locked", color: "#b91c1c", bg: "#fef2f2", Icon: Lock },
+  open:   { labelKey: "scc.status.open",   color: "#15803d", bg: "#f0fdf4", Icon: CheckCircle2 },
+  closed: { labelKey: "scc.status.closed", color: "#92400e", bg: "#fffbeb", Icon: Clock },
 }
 
 function formatDateTime(iso: string | null): string {
@@ -43,6 +44,7 @@ interface Props {
 }
 
 export function StudentContentCard({ item, submittable = false }: Props) {
+  const { t } = useLanguage()
   const st = STATUS_CONFIG[item.status]
   const locked = item.status === "locked"
 
@@ -61,7 +63,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
 
   async function handleSubmit() {
     if (!sub.file && !sub.comment.trim()) {
-      setSub(prev => ({ ...prev, error: "Fayl yoki izoh kiriting" }))
+      setSub(prev => ({ ...prev, error: t("scc.errFileOrComment") }))
       return
     }
     setSub(prev => ({ ...prev, loading: true, error: null }))
@@ -74,7 +76,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
         refetchSubmission()
       }, 1500)
     } catch (err) {
-      setSub(prev => ({ ...prev, loading: false, error: err instanceof Error ? err.message : "Yuborishda xatolik" }))
+      setSub(prev => ({ ...prev, loading: false, error: err instanceof Error ? err.message : t("scc.errSend") }))
     }
   }
 
@@ -100,7 +102,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
           </div>
           <span className="px-3 py-1 rounded-full text-xs font-semibold shrink-0"
             style={{ backgroundColor: st.bg, color: st.color, border: `1px solid ${st.color}`, fontFamily: "var(--font-poppins)" }}>
-            {st.label}
+            {t(st.labelKey)}
           </span>
         </div>
 
@@ -108,19 +110,19 @@ export function StudentContentCard({ item, submittable = false }: Props) {
           {locked ? (
             <span className="flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5" />
-              Ochiladi: <strong style={{ color: "#012970" }}>{formatDateTime(item.availableFrom)}</strong>
+              {t("scc.opensAt")} <strong style={{ color: "#012970" }}>{formatDateTime(item.availableFrom)}</strong>
             </span>
           ) : (
             <>
-              <span>Ochilgan: <strong style={{ color: "#012970" }}>{formatDateTime(item.availableFrom)}</strong></span>
+              <span>{t("scc.openedAt")} <strong style={{ color: "#012970" }}>{formatDateTime(item.availableFrom)}</strong></span>
               {item.deadline && (
                 <span className="flex items-center gap-1">
                   {item.status === "closed" && <AlertCircle className="w-3.5 h-3.5" style={{ color: "#ef4444" }} />}
-                  Muddat: <strong style={{ color: item.status === "closed" ? "#ef4444" : "#012970" }}>{formatDateTime(item.deadline)}</strong>
+                  {t("scc.deadline")} <strong style={{ color: item.status === "closed" ? "#ef4444" : "#012970" }}>{formatDateTime(item.deadline)}</strong>
                 </span>
               )}
-              {item.maxScore != null && <span>Maks. ball: <strong style={{ color: "#012970" }}>{item.maxScore}</strong></span>}
-              {item.durationMinutes != null && <span>Davomiyligi: <strong style={{ color: "#012970" }}>{item.durationMinutes} daq.</strong></span>}
+              {item.maxScore != null && <span>{t("scc.maxScore")} <strong style={{ color: "#012970" }}>{item.maxScore}</strong></span>}
+              {item.durationMinutes != null && <span>{t("scc.duration")} <strong style={{ color: "#012970" }}>{t("scc.minutesShort", { n: item.durationMinutes })}</strong></span>}
             </>
           )}
         </div>
@@ -129,7 +131,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
           <div className="flex items-start gap-2 px-3 py-2.5 rounded-[8px]" style={{ backgroundColor: "#fef2f2" }}>
             <Lock className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#b91c1c" }} />
             <p className="text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-              Bu kontent hali ochilmagan. Belgilangan vaqtda mavjud bo&apos;ladi.
+              {t("scc.lockedNotice")}
             </p>
           </div>
         )}
@@ -151,7 +153,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
                   <Video className="w-3.5 h-3.5" />
-                  Video darslik
+                  {t("scc.videoLesson")}
                 </div>
                 <video controls playsInline preload="metadata" className="aspect-video w-full rounded-[8px] bg-black"
                   src={teachingApi.fileUrl(item.videoFile.url)} />
@@ -166,7 +168,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                 className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-xs font-medium"
                 style={{ backgroundColor: "#ecfeff", color: "#0891b2", fontFamily: "var(--font-poppins)" }}>
                 <LinkIcon className="w-3.5 h-3.5" />
-                Online darsg&apos;a kirish
+                {t("scc.joinOnline")}
               </a>
             )}
           </div>
@@ -175,7 +177,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
         {!locked && submittable && item.type === "exam" && item.questionCount > 0 && (
           <div className="pt-3" style={{ borderTop: "1px solid rgba(1,41,112,0.06)" }}>
             {subLoading ? (
-              <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Yuklanmoqda…</p>
+              <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("common.loading")}</p>
             ) : mySubmission ? (() => {
               const maxAttempts = item.attemptsCount && item.attemptsCount > 0 ? item.attemptsCount : null
               const used = mySubmission.attemptsUsed ?? 1
@@ -187,16 +189,16 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <CheckCircle2 className="w-4 h-4" style={{ color: "#22c55e" }} />
                     <span className="text-xs font-medium" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>
-                      Topshirildi: {formatDateTime(mySubmission.submittedAt)}
+                      {t("scc.submittedAt", { time: formatDateTime(mySubmission.submittedAt) })}
                     </span>
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
                       style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                      Natija: {mySubmission.grade}{item.maxScore ? ` / ${item.maxScore}` : ""}
+                      {t("scc.result", { score: `${mySubmission.grade}${item.maxScore ? ` / ${item.maxScore}` : ""}` })}
                     </span>
                     {maxAttempts !== null && (
                       <span className="text-xs px-2 py-0.5 rounded-full"
                         style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                        {used}/{maxAttempts} urinish
+                        {t("scc.attempts", { used, max: maxAttempts })}
                       </span>
                     )}
                   </div>
@@ -204,17 +206,17 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                     <Link href={`/imtihonlar/${item.id}`}
                       className="flex items-center gap-2 w-fit px-4 py-2 rounded-[8px] text-sm font-medium"
                       style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-                      <Send className="w-4 h-4" /> Qayta topshirish ({maxAttempts! - used} urinish qoldi)
+                      <Send className="w-4 h-4" /> {t("scc.retake", { n: maxAttempts! - used })}
                     </Link>
                   )}
                   {!canRetry && alreadyPassed && (
                     <p className="text-xs font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                      ✓ Test muvaffaqiyatli topshirildi
+                      {t("scc.testPassed")}
                     </p>
                   )}
                   {!canRetry && !alreadyPassed && maxAttempts !== null && used >= maxAttempts && (
                     <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                      Barcha {maxAttempts} ta urinish ishlatildi
+                      {t("scc.allAttemptsUsed", { n: maxAttempts })}
                     </p>
                   )}
                 </div>
@@ -223,11 +225,11 @@ export function StudentContentCard({ item, submittable = false }: Props) {
               <Link href={`/imtihonlar/${item.id}`}
                 className="flex items-center gap-2 w-fit px-4 py-2 rounded-[8px] text-sm font-medium"
                 style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-                <Send className="w-4 h-4" /> Imtihonni boshlash
+                <Send className="w-4 h-4" /> {t("scc.startExam")}
               </Link>
             ) : (
               <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                Topshirish muddati tugagan — siz ulgurmadingiz.
+                {t("scc.deadlineMissed")}
               </p>
             )}
           </div>
@@ -236,18 +238,18 @@ export function StudentContentCard({ item, submittable = false }: Props) {
         {!locked && submittable && !(item.type === "exam" && item.questionCount > 0) && (
           <div className="pt-3" style={{ borderTop: "1px solid rgba(1,41,112,0.06)" }}>
             {subLoading ? (
-              <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>Yuklanmoqda…</p>
+              <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("common.loading")}</p>
             ) : mySubmission ? (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <CheckCircle2 className="w-4 h-4" style={{ color: "#22c55e" }} />
                   <span className="text-xs font-medium" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>
-                    Topshirilgan: {formatDateTime(mySubmission.submittedAt)}
+                    {t("scc.submittedAt2", { time: formatDateTime(mySubmission.submittedAt) })}
                   </span>
                   {mySubmission.grade != null && (
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
                       style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                      Baho: {mySubmission.grade}{item.maxScore ? ` / ${item.maxScore}` : ""}
+                      {t("scc.grade", { score: `${mySubmission.grade}${item.maxScore ? ` / ${item.maxScore}` : ""}` })}
                     </span>
                   )}
                 </div>
@@ -264,14 +266,14 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                 )}
                 {mySubmission.feedback && (
                   <p className="text-xs italic" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                    O&apos;qituvchi izohi: {mySubmission.feedback}
+                    {t("scc.teacherComment", { text: mySubmission.feedback })}
                   </p>
                 )}
                 {canSubmit && (
                   <button onClick={() => setFormOpen(o => !o)}
                     className="w-fit text-xs font-medium px-3 py-1.5 rounded-[6px] mt-1"
                     style={{ color: "#0e58a8", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
-                    {formOpen ? "Bekor qilish" : "Qayta topshirish"}
+                    {formOpen ? t("common.cancel") : t("scc.resubmit")}
                   </button>
                 )}
               </div>
@@ -284,11 +286,11 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                   border: formOpen ? "1px solid rgba(1,41,112,0.2)" : "none",
                   fontFamily: "var(--font-poppins)",
                 }}>
-                {formOpen ? <><X className="w-4 h-4" /> Bekor qilish</> : <><Send className="w-4 h-4" /> Topshirish</>}
+                {formOpen ? <><X className="w-4 h-4" /> {t("common.cancel")}</> : <><Send className="w-4 h-4" /> {t("scc.submit")}</>}
               </button>
             ) : (
               <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                Topshirish muddati tugagan — siz ulgurmadingiz.
+                {t("scc.deadlineMissed")}
               </p>
             )}
           </div>
@@ -302,14 +304,14 @@ export function StudentContentCard({ item, submittable = false }: Props) {
               <div className="flex items-center gap-2 py-2">
                 <CheckCircle2 className="w-5 h-5" style={{ color: "#22c55e" }} />
                 <p className="text-sm font-medium" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>
-                  Muvaffaqiyatli yuborildi!
+                  {t("scc.sentSuccess")}
                 </p>
               </div>
             ) : (
               <>
                 <div>
                   <p className="text-xs font-medium mb-1.5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                    Fayl (ixtiyoriy)
+                    {t("scc.fileOptional")}
                   </p>
                   <input ref={fileInputRef} type="file" className="hidden"
                     onChange={e => setSub(prev => ({ ...prev, file: e.target.files?.[0] ?? null, error: null }))} />
@@ -329,16 +331,16 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                       className="flex items-center gap-2 w-full px-3 py-2.5 rounded-[8px] text-sm transition-colors hover:opacity-80"
                       style={{ backgroundColor: "#fff", border: "1.5px dashed rgba(14,88,168,0.35)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                       <Paperclip className="w-4 h-4" />
-                      Fayl tanlash...
+                      {t("scc.chooseFile")}
                     </button>
                   )}
                 </div>
 
                 <div>
-                  <p className="text-xs font-medium mb-1.5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>Izoh (ixtiyoriy)</p>
+                  <p className="text-xs font-medium mb-1.5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("scc.commentOptional")}</p>
                   <textarea rows={2} value={sub.comment}
                     onChange={e => setSub(prev => ({ ...prev, comment: e.target.value }))}
-                    placeholder="Izoh qoldiring..."
+                    placeholder={t("scc.commentPh")}
                     className="w-full px-3 py-2 rounded-[8px] text-sm resize-none outline-none"
                     style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }} />
                 </div>
@@ -353,7 +355,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                 <button onClick={handleSubmit} disabled={sub.loading}
                   className="flex items-center justify-center gap-2 w-full py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-60"
                   style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-                  {sub.loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Yuborilmoqda...</> : <><Send className="w-4 h-4" /> Yuborish</>}
+                  {sub.loading ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("scc.sending")}</> : <><Send className="w-4 h-4" /> {t("common.send")}</>}
                 </button>
               </>
             )}

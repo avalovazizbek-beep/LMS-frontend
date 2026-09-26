@@ -1,3 +1,5 @@
+import { tr } from "@/lib/i18n/translations"
+
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 const PUBLIC_BASE = process.env.NEXT_PUBLIC_PUBLIC_API_URL || BASE
 const MEETING_BASE =
@@ -60,12 +62,12 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
     localStorage.removeItem("lms_token")
     localStorage.removeItem("lms_role")
     window.location.href = "/login"
-    throw new Error("Sessiya tugadi")
+    throw new Error(tr("api.sessionExpired"))
   }
 
   const data = await res.json()
   if (!res.ok) {
-    const error = new Error(readApiMessage(data) || "Xatolik yuz berdi") as Error & {
+    const error = new Error(readApiMessage(data) || tr("common.error")) as Error & {
       status?: number
       data?: unknown
     }
@@ -104,7 +106,7 @@ async function rawUpload<T>(path: string, file: File): Promise<T> {
     },
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(readApiMessage(data) || "Fayl yuklashda xatolik")
+  if (!res.ok) throw new Error(readApiMessage(data) || tr("api.uploadError"))
   return data
 }
 
@@ -128,10 +130,10 @@ function rawUploadWithProgress<T>(path: string, file: File, onProgress: (percent
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(data as T)
       } else {
-        reject(new Error(readApiMessage(data) || "Fayl yuklashda xatolik"))
+        reject(new Error(readApiMessage(data) || tr("api.uploadError")))
       }
     }
-    xhr.onerror = () => reject(new Error("Fayl yuklashda xatolik"))
+    xhr.onerror = () => reject(new Error(tr("api.uploadError")))
     xhr.send(file)
   })
 }
@@ -161,7 +163,7 @@ async function meetingRequest<T>(
     }
   }
 
-  if (!res.ok) throw new Error(readApiMessage(data) || "Meeting API xatoligi")
+  if (!res.ok) throw new Error(readApiMessage(data) || tr("api.meetingError"))
   return data as T
 }
 
@@ -193,7 +195,7 @@ async function meetingUpload<T>(path: string, blob: Blob, filename: string): Pro
       data = text
     }
   }
-  if (!res.ok) throw new Error(readApiMessage(data) || "Yozuvni yuklashda xatolik")
+  if (!res.ok) throw new Error(readApiMessage(data) || tr("api.recordingUploadError"))
   return data as T
 }
 
@@ -880,12 +882,18 @@ export interface JoinTokenResponse {
 }
 export interface Notif {
   id: string
-  type: "system" | "teacher" | "schedule" | "reminder"
+  type: "system" | "teacher" | "schedule" | "reminder" | "support"
+  /** O'zbekcha matn — i18nKey tarjimasi bo'lmasa shu ko'rsatiladi */
   title: string
   body: string
+  /** ISO vaqt */
   time: string
   read: boolean
-  userId: string
+  /** Bosilganda o'tiladigan sahifa */
+  link?: string | null
+  /** Lug'at kaliti: notif.<key>.title / notif.<key>.body */
+  i18nKey?: string | null
+  i18nParams?: Record<string, string | number> | null
 }
 export interface BoardPost {
   id: string
@@ -2597,22 +2605,26 @@ export const adminApi = {
 
   announcements: () => get<ListRes<AdminAnnouncement>>("/api/admin/announcements"),
 
-  createAnnouncement: (body: { title?: string; message?: string; audience: AnnouncementAudience }) =>
+  createAnnouncement: (body: { title?: string; message?: string; audience: AnnouncementAudience; requireReply?: boolean }) =>
     post<ItemRes<AdminAnnouncement>>("/api/admin/announcements", body),
 
   uploadAnnouncement: (
     file: File,
-    meta: { audience: AnnouncementAudience; title?: string; message?: string },
+    meta: { audience: AnnouncementAudience; title?: string; message?: string; requireReply?: boolean },
     onProgress?: (percent: number) => void
   ) => {
-    const q = new URLSearchParams(buildParams({ ...meta, filename: file.name })).toString()
+    const { requireReply, ...rest } = meta
+    const q = new URLSearchParams(buildParams({ ...rest, ...(requireReply ? { requireReply: "1" } : {}), filename: file.name })).toString()
     return onProgress
       ? rawUploadWithProgress<ItemRes<AdminAnnouncement>>(`/api/admin/announcements/upload?${q}`, file, onProgress)
       : rawUpload<ItemRes<AdminAnnouncement>>(`/api/admin/announcements/upload?${q}`, file)
   },
 
-  updateAnnouncement: (id: number, body: { title?: string | null; message?: string | null; audience?: AnnouncementAudience }) =>
+  updateAnnouncement: (id: number, body: { title?: string | null; message?: string | null; audience?: AnnouncementAudience; requireReply?: boolean }) =>
     put<MsgRes>(`/api/admin/announcements/${id}`, body),
+
+  /** "Javob talab qilinsin" e'loniga xodimlar yozgan javoblar */
+  announcementReplies: (id: number) => get<ListRes<AnnouncementReply>>(`/api/admin/announcements/${id}/replies`),
 
   toggleAnnouncement: (id: number) => patch<MsgRes>(`/api/admin/announcements/${id}/toggle`, {}),
 
@@ -2651,6 +2663,10 @@ export interface Announcement {
   title: string | null
   message: string | null
   audience: AnnouncementAudience
+  /** Javob yozmaguncha e'lon yopilmaydi (faqat xodimlarga e'lon) */
+  requireReply?: boolean
+  /** Joriy foydalanuvchi javob yozib bo'lganmi */
+  replied?: boolean
   file: AnnouncementFileInfo | null
   createdAt: string
 }
@@ -2659,6 +2675,16 @@ export interface AdminAnnouncement extends Announcement {
   isActive: boolean
   createdByName: string | null
   updatedAt: string
+  replyCount?: number
+}
+
+export interface AnnouncementReply {
+  id: number
+  userRole: string
+  userId: number
+  fullName: string | null
+  body: string
+  createdAt: string
 }
 
 export const announcementsApi = {
@@ -2667,6 +2693,7 @@ export const announcementsApi = {
   // ko'rinadigan, auditoriyaga mos barcha faol e'lonlar.
   guide: () => get<ListRes<Announcement>>("/api/announcements/guide"),
   dismiss: (ids: number[]) => post<MsgRes>("/api/announcements/dismiss", { ids }),
+  reply: (id: number, body: string) => post<MsgRes>(`/api/announcements/${id}/reply`, { body }),
   fileUrl: (id: number) => `${BASE}/api/announcements/${id}/file?token=${encodeURIComponent(getToken() ?? "")}`,
 }
 
