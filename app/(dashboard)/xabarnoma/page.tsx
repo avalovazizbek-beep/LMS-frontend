@@ -8,6 +8,7 @@ import { notificationsApi, Notif } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { notifBody, notifTime, notifTitle } from "@/lib/notifText"
 
 const typeConfig: Record<string, { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>, bg: string, color: string }> = {
   system:   { icon: Info,        bg: "#f0f5ff", color: "#0e58a8" },
@@ -21,29 +22,13 @@ export default function XabarnomPage() {
   const { t, locale } = useLanguage()
   const router = useRouter()
 
-  // Backend kalit yuborgan bo'lsa — tanlangan tilda; aks holda saqlangan (o'zbekcha) matn
-  const titleOf = (n: Notif) => {
-    const key = n.i18nKey ? `notif.${n.i18nKey}.title` : null
-    const text = key ? t(key, n.i18nParams ?? undefined) : ""
-    return key && text !== key ? text : n.title
-  }
-  const bodyOf = (n: Notif) => {
-    const key = n.i18nKey ? `notif.${n.i18nKey}.body` : null
-    const text = key ? t(key, n.i18nParams ?? undefined) : ""
-    return key && text !== key ? text : n.body
-  }
-  const timeOf = (n: Notif) => {
-    const d = new Date(n.time)
-    return Number.isNaN(d.getTime())
-      ? n.time
-      : d.toLocaleString(locale, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
-  }
   const filterTabs = [
     { key: "all",      label: t("xabarnoma.filter.all") },
     { key: "unread",   label: t("xabarnoma.filter.unread") },
     { key: "system",   label: t("xabarnoma.filter.system") },
     { key: "teacher",  label: t("xabarnoma.filter.teacher") },
     { key: "schedule", label: t("xabarnoma.filter.schedule") },
+    { key: "reminder", label: t("xabarnoma.filter.reminder") },
     { key: "support",  label: t("xabarnoma.filter.support") },
   ]
   const { data, loading, error, refetch } = useApi(() => notificationsApi.getAll())
@@ -117,15 +102,15 @@ export default function XabarnomPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-                        {titleOf(n)}
+                        {notifTitle(t, n)}
                         {!n.read && <span className="inline-block w-2 h-2 rounded-full ml-2 mb-0.5 align-middle" style={{ backgroundColor: "#1cc2dc" }} />}
                       </p>
                       <button onClick={(e) => { e.stopPropagation(); deleteNotif(n.id) }} className="p-1 rounded hover:bg-[#f6f9ff] shrink-0">
                         <Trash2 className="w-3.5 h-3.5" style={{ color: "#7293b9" }} />
                       </button>
                     </div>
-                    <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{bodyOf(n)}</p>
-                    <p className="text-xs mt-1.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{timeOf(n)}</p>
+                    <p className="text-sm mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{notifBody(t, n)}</p>
+                    <p className="text-xs mt-1.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{notifTime(n, locale)}</p>
                   </div>
                 </motion.div>
               )

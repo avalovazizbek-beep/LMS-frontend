@@ -30,6 +30,7 @@ import {
 import { adminApi } from "@/lib/api"
 import { IdleLogout } from "@/components/layout/IdleLogout"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
+import { NotificationBell } from "@/components/layout/NotificationBell"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 
@@ -210,6 +211,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           <div className="ml-auto shrink-0">
             <LanguageSwitcher />
+          </div>
+          <div className="shrink-0">
+            <NotificationBell />
           </div>
           <div className="hidden sm:block shrink-0 max-w-[220px] truncate text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
             {adminName}

@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Menu, ChevronDown, LogOut, User as UserIcon, Bell, ShieldCheck } from "lucide-react"
+import { Menu, ChevronDown, LogOut, User as UserIcon, ShieldCheck } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { authApi, hemisApi, adminApi, HemisEmployee, HemisStudent, notificationsApi } from "@/lib/api"
+import { authApi, hemisApi, adminApi, HemisEmployee, HemisStudent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
+import { NotificationBell } from "@/components/layout/NotificationBell"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 interface HeaderProps { onMenuClick?: () => void }
@@ -18,7 +19,6 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const [role, setRole] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [unread, setUnread] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
 
   // Bir odam ham o'qituvchi, ham admin bo'lishi mumkin (admin huquqi
@@ -26,18 +26,6 @@ export function Header({ onMenuClick }: HeaderProps) {
   // panelga o'tish tugmasi ham chiqishi kerak.
   useEffect(() => {
     adminApi.check().then(res => setIsAdmin(res.isAdmin)).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    const load = () => {
-      notificationsApi.getAll()
-        .then(r => { if (!cancelled) setUnread(r.unread ?? 0) })
-        .catch(() => {})
-    }
-    load()
-    const id = window.setInterval(load, 30000)
-    return () => { cancelled = true; window.clearInterval(id) }
   }, [])
 
   useEffect(() => {
@@ -110,16 +98,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         <ThemeToggle />
 
         {/* Bildirishnoma */}
-        <button type="button" aria-label={t("header.notifications")} onClick={() => router.push("/xabarnoma")}
-          className="relative flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--lms-bg)]">
-          <Bell className="h-[19px] w-[19px] text-[var(--lms-primary)]" />
-          {unread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-              style={{ backgroundColor: "#ef4444", fontFamily: "var(--font-poppins)" }}>
-              {unread > 9 ? "9+" : unread}
-            </span>
-          )}
-        </button>
+        <NotificationBell />
 
         {/* Foydalanuvchi dropdown */}
         <div ref={ref} className="relative">
