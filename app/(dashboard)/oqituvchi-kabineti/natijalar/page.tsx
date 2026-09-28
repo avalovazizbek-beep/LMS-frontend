@@ -150,7 +150,7 @@ function AttCell({ pct }: { pct: number | null }) {
 function NotifyModal({
   student, subjectName, onClose,
 }: {
-  student: { fullName: string; jn: number | null; on1: number | null; on2: number | null; yn: number | null; attendancePct: number | null }
+  student: { userId: number; fullName: string; jn: number | null; on1: number | null; on2: number | null; yn: number | null; attendancePct: number | null }
   subjectName: string
   onClose: () => void
 }) {
@@ -166,6 +166,7 @@ function NotifyModal({
     try {
       const res = await teachingApi.notifyStudent({
         studentName: student.fullName,
+        studentUserId: student.userId,
         message: message.trim(),
         stats: {
           subject: subjectName,
