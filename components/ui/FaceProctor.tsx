@@ -13,15 +13,41 @@ declare global {
 
 /* ── Config ─────────────────────────────────────────────────────────── */
 const MODEL_URL           = "/models"
-const TINY_CONF           = 0.30   // 0.25→0.30: kamroq soxta aniqlash
+const TINY_CONF           = 0.30   // 0.25→0.30: kamroq soxta aniqlash (identifikatsiya uchun)
+// Borlik (yuz kadrdami) uchun yumshoqroq aniqlagich: savolni o'qish uchun
+// boshini yon tomonga burgan talabaning yuzini ham topishi kerak — kichik
+// (160) kirish va 0.30 chegara burilgan yuzni ko'pincha "yo'q" deb bilardi.
+const PRESENCE_INPUT      = 224
+const PRESENCE_CONF       = 0.20
+const PRESENCE_INTERVAL   = 250    // aniqlagich har kadrda emas — CPU tejash
 const VERIFY_INTERVAL     = 6000   // 10s→6s: tezroq tekshiruv
-const ABSENT_LIMIT        = 10000
+const ABSENT_LIMIT        = 15000  // 10s→15s: qisqa burilish/egilish xatolik emas
 const DEFAULT_MAX_VIOLATIONS = 5   // admin "Face ID bloklash chegarasi" sozlamasi orqali o'zgartirilishi mumkin
 const LIVENESS_INTERVAL   = 400
 const EAR_THRESHOLD       = 0.22
-const BLINK_TIMEOUT       = 90000
-const VERIFY_FAIL_LIMIT   = 2
+const BLINK_TIMEOUT       = 120000 // faqat yuz to'g'ri ko'ringan vaqt hisoblanadi
+const VERIFY_FAIL_LIMIT   = 3      // ketma-ket 3 ta (to'g'ri qaragan) kadr mos kelmasa
 const MULTI_FACE_INTERVAL = 4000   // 8s→4s: tezroq ko'p-yuz tekshiruv
+
+/**
+ * Bosh to'g'ri qaraganmi (68 nuqtali landmark'lardan). Yon tomonga burilgan
+ * yoki pastga egilgan yuzning "izi" ro'yxatdagi to'g'ri yuzga o'xshamaydi va
+ * ko'z qisish ham noto'g'ri o'lchanadi — bunday kadrda solishtirish va
+ * jonlilik tekshiruvi o'tkazib yuboriladi (xatolik yozilmaydi). Savolni
+ * o'qish uchun boshni burish qoidabuzarlik emas.
+ */
+function isFrontal(landmarks: { positions?: { x: number; y: number }[] } | null | undefined): boolean {
+  const pts = landmarks?.positions
+  if (!pts || pts.length < 68) return false
+  const jawL = pts[0], jawR = pts[16], nose = pts[30], chin = pts[8]
+  const width = jawR.x - jawL.x
+  const eyeY = (pts[36].y + pts[45].y) / 2
+  const height = chin.y - eyeY
+  if (width <= 0 || height <= 0) return false
+  const yaw = (nose.x - jawL.x) / width     // ~0.5 — to'g'ri; 0.3/0.7 — ~30° burilgan
+  const pitch = (nose.y - eyeY) / height    // ~0.4 — to'g'ri
+  return yaw >= 0.32 && yaw <= 0.68 && pitch >= 0.18 && pitch <= 0.62
+}
 
 function eyeAspectRatio(eye: { x: number; y: number }[]): number {
   const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
@@ -64,7 +90,9 @@ export default function FaceProctor({
   const isVerifyingRef      = useRef(false)
   const lastLivenessCheck   = useRef(0)
   const eyesClosedRef       = useRef(false)
-  const lastBlinkTime       = useRef<number | null>(null)
+  const blinkWatchMs        = useRef(0)                      // ko'z qisishsiz, yuz to'g'ri ko'ringan vaqt
+  const lastLivenessSample  = useRef<number | null>(null)
+  const lastPresenceCheck   = useRef(0)
   const consecutiveVerifyFails = useRef(0)
   const firstVerifiedFiredRef  = useRef(false)
   const onFirstVerifiedRef     = useRef(onFirstVerified)
@@ -232,6 +260,8 @@ export default function FaceProctor({
         isVerifyingRef.current = false
         return
       }
+      // Bosh burilgan/egilgan — bu kadrni solishtirmaymiz (hisoblagich o'zgarmaydi)
+      if (!isFrontal(result.landmarks)) return
 
       const descriptor = Array.from(result.descriptor) as number[]
       const res = await faceApi.verify(descriptor)
@@ -280,10 +310,16 @@ export default function FaceProctor({
       return
     }
 
+    const now = Date.now()
+    if (now - lastPresenceCheck.current < PRESENCE_INTERVAL) {
+      rafRef.current = requestAnimationFrame(presenceLoop)
+      return
+    }
+    lastPresenceCheck.current = now
+
     try {
       const fa = window.faceapi
-      const tinyOptions = new fa.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: TINY_CONF })
-      const now = Date.now()
+      const tinyOptions = new fa.TinyFaceDetectorOptions({ inputSize: PRESENCE_INPUT, scoreThreshold: PRESENCE_CONF })
       const checkLiveness = now - lastLivenessCheck.current >= LIVENESS_INTERVAL
 
       let det: any = null
@@ -339,8 +375,8 @@ export default function FaceProctor({
 
       if (!det) {
         if (absentSince.current === null) absentSince.current = Date.now()
-        lastBlinkTime.current = null
         eyesClosedRef.current = false
+        lastLivenessSample.current = null
         const absentMs = Date.now() - absentSince.current
         if (absentMs >= ABSENT_LIMIT) {
           absentSince.current = null
@@ -357,8 +393,12 @@ export default function FaceProctor({
           setStatusSynced("ok")
           setStatusMsg({ key: "proctor.watching" })
         }
-        if (lastBlinkTime.current === null) lastBlinkTime.current = now
-        if (landmarks) {
+        // Jonlilik: faqat yuz to'g'ri ko'ringan kadrlar o'lchanadi va faqat
+        // shu vaqt "ko'z qisishsiz" hisobiga qo'shiladi.
+        if (landmarks && isFrontal(landmarks)) {
+          const prev = lastLivenessSample.current
+          lastLivenessSample.current = now
+          if (prev !== null) blinkWatchMs.current += Math.min(now - prev, 1500)
           const leftEAR  = eyeAspectRatio(landmarks.getLeftEye())
           const rightEAR = eyeAspectRatio(landmarks.getRightEye())
           const ear = (leftEAR + rightEAR) / 2
@@ -366,12 +406,14 @@ export default function FaceProctor({
             eyesClosedRef.current = true
           } else if (eyesClosedRef.current) {
             eyesClosedRef.current = false
-            lastBlinkTime.current = now
+            blinkWatchMs.current = 0
           }
-        }
-        if (now - lastBlinkTime.current >= BLINK_TIMEOUT) {
-          lastBlinkTime.current = now
-          addViolation("liveness", { key: "proctor.v.liveness" })
+          if (blinkWatchMs.current >= BLINK_TIMEOUT) {
+            blinkWatchMs.current = 0
+            addViolation("liveness", { key: "proctor.v.liveness" })
+          }
+        } else if (landmarks) {
+          lastLivenessSample.current = null
         }
       }
     } catch { /* ignore frame errors */ }

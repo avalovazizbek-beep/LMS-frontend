@@ -56,7 +56,11 @@ export class MeetingMediaClient {
   constructor(
     private socket: Socket,
     private onTrack: (peer: RemotePeerIdentity, track: MediaStreamTrack) => void,
-    private onProducerClosed: (socketId: string) => void
+    private onProducerClosed: (socketId: string) => void,
+    /** O'z foydalanuvchi ID'si — boshqa tab/qurilmadagi O'Z ulanishimiz
+     *  producer'ini qabul qilmaslik uchun (aks holda odam o'z ovozini
+     *  kechikish bilan qayta eshitadi). */
+    private selfUserId: number | null = null
   ) {}
 
   async init(rtpCapabilities: MediasoupClientTypes.RtpCapabilities, existingProducers: ProducerSummary[]): Promise<void> {
@@ -132,7 +136,14 @@ export class MeetingMediaClient {
       // page (localStreamRef), not by us, so stopping it here permanently
       // kills the local camera/mic and every future produce attempt fails
       // with "InvalidStateError: track ended".
-      const producer = await transport.produce({ track, appData: { source }, stopTracks: false })
+      const producer = await transport.produce({
+        track,
+        appData: { source },
+        stopTracks: false,
+        // Nutq uchun: mono, jimlikda paket yubormaslik (DTX — fon shovqini
+        // uzatilmaydi), yo'qolgan paketlarni tiklash (FEC).
+        ...(source === "mic" ? { codecOptions: { opusStereo: false, opusDtx: true, opusFec: true } } : {}),
+      })
       console.log(`[mediasoup] producing ${source} (${producer.kind}), id=${producer.id}`)
       this.producers.set(source, producer)
     } catch (issue) {
@@ -172,6 +183,7 @@ export class MeetingMediaClient {
   // a real, discussion-style meeting where every participant should see and
   // hear every other participant, not just the teacher.
   private async maybeConsume(producer: ProducerSummary): Promise<void> {
+    if (this.selfUserId && producer.userId && producer.userId === this.selfUserId) return
     if (this.consumedProducerIds.has(producer.producerId)) return
     this.consumedProducerIds.add(producer.producerId)
 

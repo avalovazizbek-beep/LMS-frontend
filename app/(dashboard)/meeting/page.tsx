@@ -8,6 +8,7 @@ import {
   type FormEvent,
 } from "react"
 import Link from "next/link"
+import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "framer-motion"
 import { io, type Socket } from "socket.io-client"
 import {
@@ -26,6 +27,10 @@ import {
   Minimize2,
   Mic,
   MicOff,
+  VolumeX,
+  PictureInPicture2,
+  ChevronsRight,
+  ChevronsLeft,
   MonitorUp,
   MoreHorizontal,
   PhoneOff,
@@ -52,6 +57,7 @@ import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
 import MeetingFaceAttendanceTracker from "@/components/meeting/MeetingFaceAttendanceTracker"
 import { useMeetingCall } from "@/components/layout/MeetingCallContext"
+import { applyNoiseFilter } from "@/lib/noiseFilter"
 import { RecordingCard } from "@/components/meeting/RecordingCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import type { Lang } from "@/lib/i18n/translations"
@@ -193,6 +199,17 @@ function getMeetingSocketOptions(joinToken: JoinTokenResponse | null): { url: st
 
 function stopStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((track) => track.stop())
+}
+
+// Nutq uchun mikrofon: aks-sado bekor qilish, shovqinni pasaytirish, ovoz
+// balandligini tekislash, mono. Aniq so'ralmasa ba'zi brauzer/qurilmalarda
+// bu filtrlar o'chiq qoladi — boshqalarning karnayidagi ovoz mikrofonga
+// qaytib, aks-sado va shovqin bo'lib eshitiladi.
+const MIC_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: 1,
 }
 
 function mediaErrorText(error: unknown) {
@@ -958,6 +975,119 @@ function RemoteAudioPlayer({ stream }: { stream: MediaStream }) {
   }, [hasAudio, stream])
 
   return <audio ref={audioRef} autoPlay className="hidden" />
+}
+
+/* ── Ekran ulashayotgan uchun suzuvchi panel (Zoom'dagi kabi) ─────────────
+   Taqdimot to'liq ekranda ochilganda meeting oynasi uning ortida qoladi —
+   Document Picture-in-Picture oynasi esa boshqa dasturlar USTIDA turadi:
+   tepada boshqaruv (mikrofon, kamera, ulashishni to'xtatish, chiqish),
+   pastida ishtirokchilar videolari (yashirish mumkin). Chrome/Edge'da. */
+
+type DocumentPipApi = { requestWindow: (opts?: { width?: number; height?: number }) => Promise<Window> }
+
+function documentPipApi(): DocumentPipApi | null {
+  return (window as unknown as { documentPictureInPicture?: DocumentPipApi }).documentPictureInPicture ?? null
+}
+
+/** Asosiy sahifa uslublari (Tailwind, shriftlar) PiP oynasiga ko'chiriladi. */
+function copyStylesInto(target: Window) {
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      const style = target.document.createElement("style")
+      style.textContent = Array.from(sheet.cssRules).map((rule) => rule.cssText).join("\n")
+      target.document.head.appendChild(style)
+    } catch {
+      if (sheet.href) {
+        const link = target.document.createElement("link")
+        link.rel = "stylesheet"
+        link.href = sheet.href
+        target.document.head.appendChild(link)
+      }
+    }
+  }
+  target.document.documentElement.className = document.documentElement.className
+  target.document.body.className = document.body.className
+  target.document.body.style.margin = "0"
+}
+
+function PipButton({ label, icon: Icon, active, danger, onClick }: {
+  label: string
+  icon: LucideIcon
+  active?: boolean
+  danger?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className={cn(
+        "grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors",
+        danger ? "bg-red-500 text-white hover:bg-red-600"
+          : active ? "bg-white/15 text-white hover:bg-white/25"
+          : "bg-red-500/85 text-white hover:bg-red-500"
+      )}
+    >
+      <Icon className="h-[18px] w-[18px]" />
+    </button>
+  )
+}
+
+function PresenterPipPanel({
+  pipWindow, remoteStreams, localStream, micEnabled, cameraEnabled, participantCount, unreadChatCount,
+  onToggleMic, onToggleCamera, onStopShare, onLeave,
+}: {
+  pipWindow: Window
+  remoteStreams: RemoteStream[]
+  localStream: MediaStream | null
+  micEnabled: boolean
+  cameraEnabled: boolean
+  participantCount: number
+  unreadChatCount: number
+  onToggleMic: () => void
+  onToggleCamera: () => void
+  onStopShare: () => void
+  onLeave: () => void
+}) {
+  const { t } = useLanguage()
+  const [showVideos, setShowVideos] = useState(true)
+  const toggleVideos = () => {
+    const next = !showVideos
+    setShowVideos(next)
+    // Faqat panel qolganda oyna ham kichrayadi (PiP ichidagi bosish — ruxsat bor)
+    try { pipWindow.resizeTo(pipWindow.outerWidth, next ? 540 : 120) } catch { /* brauzer ruxsat bermasa — o'lcham qo'lda */ }
+  }
+  // Kamerasi yoqilganlar tepada
+  const ordered = [...remoteStreams].sort((a, b) => Number(b.cameraEnabled !== false) - Number(a.cameraEnabled !== false))
+
+  return (
+    <div className="flex h-screen flex-col bg-[#10192a] text-white" style={{ fontFamily: "var(--font-poppins)" }}>
+      <div className="flex shrink-0 items-center gap-1.5 border-b border-white/10 px-2 py-2">
+        <PipButton label={micEnabled ? t("meetingPage.micMute") : t("meetingPage.micUnmute")} icon={micEnabled ? Mic : MicOff} active={micEnabled} onClick={onToggleMic} />
+        <PipButton label={cameraEnabled ? t("meetingPage.cameraTurnOff") : t("meetingPage.cameraTurnOn")} icon={cameraEnabled ? Video : VideoOff} active={cameraEnabled} onClick={onToggleCamera} />
+        <button type="button" onClick={onStopShare}
+          className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-full bg-red-500 px-3 text-xs font-semibold text-white hover:bg-red-600">
+          <MonitorUp className="h-4 w-4 shrink-0" /><span className="truncate">{t("meetingPage.stopShare")}</span>
+        </button>
+        <button type="button" onClick={toggleVideos} title={showVideos ? t("meetingPage.pipHideVideos") : t("meetingPage.pipShowVideos")}
+          className="relative flex h-9 shrink-0 items-center gap-1 rounded-full bg-white/15 px-2.5 text-xs font-semibold text-white hover:bg-white/25">
+          <Users2 className="h-4 w-4" />{participantCount}
+          {unreadChatCount > 0 && <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[9px]">{unreadChatCount}</span>}
+        </button>
+        <PipButton label={t("meetingPage.leave")} icon={PhoneOff} danger onClick={onLeave} />
+      </div>
+      {showVideos && (
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
+          <LocalVideoTile stream={localStream} label={t("meetingPage.you")} cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={false} active={false} onSelect={() => undefined} fill />
+          {ordered.map((remote) => (
+            <RemoteVideoTile key={remote.socketId} remote={remote} active={false} onSelect={() => undefined} fill />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /* ── Create Meeting Modal ────────────────────────────────────────────── */
@@ -1994,6 +2124,7 @@ function CallStage({
   onToggleCamera,
   onToggleScreen,
   onToggleRecording,
+  onMuteAll,
   onSelectVideo,
   onTogglePanel,
   onChatInputChange,
@@ -2034,6 +2165,7 @@ function CallStage({
   onToggleCamera: () => void
   onToggleScreen: () => void
   onToggleRecording: () => void
+  onMuteAll: () => void
   onSelectVideo: (videoId: ActiveVideoId) => void
   onTogglePanel: (panel: CallPanel) => void
   onChatInputChange: (value: string) => void
@@ -2047,6 +2179,47 @@ function CallStage({
   // at all, so requestFullscreen() silently no-ops there — fall back to a
   // CSS-only "fullscreen" (fixed, covers the viewport) that works everywhere.
   const [pseudoFullscreen, setPseudoFullscreen] = useState(false)
+  const [railHidden, setRailHidden] = useState(false)
+  const [pipWindow, setPipWindow] = useState<Window | null>(null)
+  const pipWindowRef = useRef<Window | null>(null)
+  const attachPipWindow = (win: Window) => {
+    copyStylesInto(win)
+    win.addEventListener("pagehide", () => { pipWindowRef.current = null; setPipWindow(null) }, { once: true })
+    pipWindowRef.current = win
+    setPipWindow(win)
+  }
+  const openPresenterPip = async () => {
+    if (pipWindowRef.current) { pipWindowRef.current.focus(); return }
+    const api = documentPipApi()
+    if (api) {
+      try { attachPipWindow(await api.requestWindow({ width: 340, height: 540 })) } catch { /* bekor qilindi */ }
+      return
+    }
+    // Zaxira (Firefox/Safari): oddiy video PiP — kamerasi yoniq birinchi ishtirokchi
+    const remote = remoteStreams.find((r) => r.stream.getVideoTracks().some((track) => track.readyState === "live"))
+    if (!remote || !document.pictureInPictureEnabled) { window.alert(t("meetingPage.pipUnsupported")); return }
+    try {
+      const video = document.createElement("video")
+      video.muted = true
+      video.playsInline = true
+      video.srcObject = remote.stream
+      await video.play()
+      await video.requestPictureInPicture()
+    } catch { window.alert(t("meetingPage.pipUnsupported")) }
+  }
+  // O'zi ekran ulasha boshlaganda panel avtomatik ochilishga urinadi (brauzer
+  // ruxsat bermasa — boshqaruvdagi tugma orqali), ulashish tugaganda yopiladi.
+  useEffect(() => {
+    if (screenSharing) {
+      const api = documentPipApi()
+      if (api && !pipWindowRef.current) void api.requestWindow({ width: 340, height: 540 }).then(attachPipWindow).catch(() => undefined)
+    } else {
+      // Oyna yopilganda "pagehide" holatni tozalaydi (attachPipWindow)
+      pipWindowRef.current?.close()
+      if (document.pictureInPictureElement) void document.exitPictureInPicture().catch(() => undefined)
+    }
+  }, [screenSharing])
+  useEffect(() => () => { pipWindowRef.current?.close() }, [])
   // Chat/participants panel is a slide-in drawer on every breakpoint (full-screen
   // overlay on mobile, a right-edge panel on desktop) so the video stays full-bleed
   // by default instead of permanently sharing width with a sidebar.
@@ -2151,7 +2324,15 @@ function CallStage({
   // is currently talking, instead of staying on whoever was last tapped.
   const activeVideoIdRef = useRef(activeVideoId)
   useEffect(() => { activeVideoIdRef.current = activeVideoId }, [activeVideoId])
+  // Kimdir ekran ulashsa — asosiy ekran shu ulashishga qotadi (taqdimot
+  // gapirgan odamning kamerasiga almashib ketmasligi uchun)
+  const sharerId = remoteStreams.find(r => r.screenSharing)?.socketId ?? null
   useEffect(() => {
+    if (sharerId) onSelectVideo(sharerId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharerId])
+  useEffect(() => {
+    if (remoteStreams.some(r => r.screenSharing)) return // ulashish paytida avtomatik almashtirish yo'q
     const streamsWithAudio = remoteStreams.filter(r => r.stream.getAudioTracks().length > 0)
     if (streamsWithAudio.length < 2) return // nothing to switch between
     const AudioCtxCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
@@ -2244,6 +2425,22 @@ function CallStage({
       {remoteStreams.map(remote => (
         <RemoteAudioPlayer key={remote.socketId} stream={remote.stream} />
       ))}
+      {pipWindow && createPortal(
+        <PresenterPipPanel
+          pipWindow={pipWindow}
+          remoteStreams={remoteStreams}
+          localStream={localStream}
+          micEnabled={micEnabled}
+          cameraEnabled={cameraEnabled}
+          participantCount={participantCount}
+          unreadChatCount={unreadChatCount}
+          onToggleMic={onToggleMic}
+          onToggleCamera={onToggleCamera}
+          onStopShare={onToggleScreen}
+          onLeave={onLeave}
+        />,
+        pipWindow.document.body
+      )}
       <div className="flex h-full min-h-0 flex-col bg-[#f6f9ff] p-2 xl:p-4">
 
         {/* Body — video is always full-width and full-height; there is no
@@ -2331,8 +2528,20 @@ function CallStage({
               </div>
 
               {/* Thumbnails — vertical strip along the right edge (desktop only; mobile gets a grid below the main video instead) */}
-              {(activeRemote || visibleRemoteStreams.length > 0) && (
+              {(activeRemote || visibleRemoteStreams.length > 0) && railHidden && (
+                <button type="button" onClick={() => setRailHidden(false)} title={t("meetingPage.participantsShow")}
+                  className="absolute right-4 top-16 z-10 hidden items-center gap-1.5 rounded-full bg-black/55 px-3 py-2 text-xs font-medium text-white hover:bg-black/70 xl:flex"
+                  style={{ fontFamily: "var(--font-poppins)" }}>
+                  <ChevronsLeft className="h-4 w-4" /><Users2 className="h-4 w-4" />{remoteStreams.length + 1}
+                </button>
+              )}
+              {(activeRemote || visibleRemoteStreams.length > 0) && !railHidden && (
                 <div className="absolute right-4 top-16 bottom-24 z-10 hidden w-32 flex-col gap-3 overflow-y-auto xl:flex">
+                  <button type="button" onClick={() => setRailHidden(true)} title={t("meetingPage.participantsHide")}
+                    className="flex h-7 shrink-0 items-center justify-center gap-1 rounded-full bg-black/55 text-[11px] font-medium text-white hover:bg-black/70"
+                    style={{ fontFamily: "var(--font-poppins)" }}>
+                    <ChevronsRight className="h-3.5 w-3.5" />{t("meetingPage.participantsHide")}
+                  </button>
                   {activeRemote && (
                     <LocalVideoTile stream={localPreviewStream} label={t("meetingPage.you")} cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
                   )}
@@ -2354,6 +2563,9 @@ function CallStage({
                   <CallControlButton label={micEnabled ? t("meetingPage.micMute") : t("meetingPage.micUnmute")} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
                   <CallControlButton label={cameraEnabled ? t("meetingPage.cameraTurnOff") : t("meetingPage.cameraTurnOn")} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
                   <CallControlButton label={screenSharing ? t("meetingPage.stopShare") : t("meetingPage.shareScreen")} icon={MonitorUp} tone="primary" active={screenSharing} onClick={onToggleScreen} />
+                  {screenSharing && (
+                    <CallControlButton label={t("meetingPage.pipOpen")} icon={PictureInPicture2} tone="primary" active={Boolean(pipWindow)} onClick={() => void openPresenterPip()} />
+                  )}
                   {isTeacher && (
                     <CallControlButton
                       label={isRecording ? t("meetingPage.stopRecording") : t("meetingPage.startRecording")}
@@ -2362,6 +2574,9 @@ function CallStage({
                       active={isRecording}
                       onClick={onToggleRecording}
                     />
+                  )}
+                  {isTeacher && (
+                    <CallControlButton label={t("meetingPage.muteAll")} icon={VolumeX} tone="primary" onClick={onMuteAll} />
                   )}
                   {isTeacher && attendanceModeManual && (
                     <CallControlButton label={t("meetingPage.attendance")} icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
@@ -2383,6 +2598,9 @@ function CallStage({
               <div className="flex flex-wrap items-center justify-center gap-2 rounded-full bg-white px-3 py-2 shadow-[0_2px_12px_rgba(1,41,112,0.1)] border border-[#d8e6f7]">
                 <CallControlButton label={micEnabled ? t("meetingPage.micMute") : t("meetingPage.micUnmute")} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
                 <CallControlButton label={cameraEnabled ? t("meetingPage.cameraTurnOff") : t("meetingPage.cameraTurnOn")} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
+                {isTeacher && (
+                  <CallControlButton label={t("meetingPage.muteAll")} icon={VolumeX} tone="primary" onClick={onMuteAll} />
+                )}
                 {isTeacher && attendanceModeManual && (
                   <CallControlButton label={t("meetingPage.attendance")} icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
                 )}
@@ -2867,7 +3085,7 @@ export default function MeetingPage() {
       throw new Error(tr("meetingPage.media.unsupported"))
     }
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints)
+    const stream = await applyNoiseFilter(await navigator.mediaDevices.getUserMedia(constraints))
     stream.getAudioTracks().forEach((track) => {
       track.enabled = micEnabled
     })
@@ -2884,7 +3102,7 @@ export default function MeetingPage() {
     if (!micEnabled && !cameraEnabled) return
     try {
       setMediaError(null)
-      await ensureLocalMedia({ audio: micEnabled, video: cameraEnabled })
+      await ensureLocalMedia({ audio: micEnabled ? MIC_CONSTRAINTS : false, video: cameraEnabled })
     } catch (mediaIssue) {
       setMediaError(mediaErrorText(mediaIssue))
     }
@@ -2902,10 +3120,11 @@ export default function MeetingPage() {
       throw new Error(tr("meetingPage.media.unsupported"))
     }
 
-    const nextTrackStream = await navigator.mediaDevices.getUserMedia({
-      audio: kind === "audio",
+    const rawTrackStream = await navigator.mediaDevices.getUserMedia({
+      audio: kind === "audio" ? MIC_CONSTRAINTS : false,
       video: kind === "video",
     })
+    const nextTrackStream = kind === "audio" ? await applyNoiseFilter(rawTrackStream) : rawTrackStream
     const nextStream = new MediaStream([
       ...(current?.getTracks() ?? []),
       ...nextTrackStream.getTracks(),
@@ -3225,7 +3444,8 @@ export default function MeetingPage() {
           mediaClientRef.current = new MeetingMediaClient(
             socket,
             onRemoteTrack,
-            (socketId) => closePeerConnection(socketId)
+            (socketId) => closePeerConnection(socketId),
+            socketNumber(recordValue(body.user).id) ?? null
           )
         }
         mediaClientRef.current
@@ -3329,6 +3549,22 @@ export default function MeetingPage() {
     socket.on("disconnect", () => {
       setSocketStatus("meetingPage.rt.disconnected")
     })
+    // Shu foydalanuvchi darsga boshqa oyna/qurilmadan qo'shildi — server bu
+    // ulanishni yopdi. Ikki ulanish bir-birining ovozini qayta uzatib aks-sado
+    // berardi, shuning uchun eski oyna darsdan chiqadi (qayta ulanmaydi).
+    socket.on("meeting:replaced", () => {
+      void leaveCall().then(() => setJoinError(tr("meetingPage.replaced")))
+    })
+    // O'qituvchi "Hammaning mikrofonini o'chirish"ni bosdi
+    socket.on("meeting:forceMute", () => {
+      setMicEnabled(false)
+      socket.emit("media:state", {
+        cameraEnabled: Boolean(localStreamRef.current?.getVideoTracks().some((track) => track.enabled)),
+        micEnabled: false,
+        screenSharing: Boolean(screenStreamRef.current),
+      })
+      setMediaError(tr("meetingPage.mutedByHost"))
+    })
 
     return () => {
       socket.emit("meeting:leave")
@@ -3357,6 +3593,9 @@ export default function MeetingPage() {
     setSocketError(null)
     setMediaError(null)
     setViewState({ stage: "prejoin", meetingId })
+    // Talabalar darsga mikrofoni o'chiq holda kiradi (gapirmoqchi bo'lsa
+    // o'zi yoqadi) — 20-30 ta ochiq mikrofon xona shovqini va aks-sado beradi.
+    setMicEnabled(isTeacher)
     if (navigator.mediaDevices?.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(stream => setPreviewStream(stream))
@@ -3445,6 +3684,7 @@ export default function MeetingPage() {
             onToggleCamera={toggleCamera}
             onToggleScreen={toggleScreenShare}
             onToggleRecording={toggleRecording}
+            onMuteAll={() => socketRef.current?.emit("meeting:muteAll")}
             onSelectVideo={setActiveVideoId}
             onTogglePanel={setActivePanel}
             onChatInputChange={setChatInput}
