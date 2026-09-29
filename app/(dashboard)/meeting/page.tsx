@@ -70,7 +70,11 @@ function readJwtPayload(): Record<string, unknown> {
     const token = localStorage.getItem("lms_token") ?? ""
     const part = token.split(".")[1]
     if (!part) return {}
-    return JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")))
+    // atob "binary" satr qaytaradi — o'zbekcha ʻ/ʼ kabi UTF-8 belgilar
+    // buzilmasligi uchun baytlarni TextDecoder orqali o'qiymiz
+    const binary = atob(part.replace(/-/g, "+").replace(/_/g, "/"))
+    const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0))
+    return JSON.parse(new TextDecoder().decode(bytes))
   } catch { return {} }
 }
 
@@ -212,13 +216,18 @@ const MIC_CONSTRAINTS: MediaTrackConstraints = {
   channelCount: 1,
 }
 
-// Kamera: HD (1280×720) — standart `video: true` 640×480 beradi va katta
-// ekranda xira ko'rinadi. Yuboriladigan sifat rolga qarab MeetingMediaClient'da.
-const CAMERA_CONSTRAINTS: MediaTrackConstraints = {
-  width: { ideal: 1280 },
-  height: { ideal: 720 },
-  frameRate: { ideal: 24, max: 30 },
-  facingMode: "user",
+// Kamera: avval STANDART kamera ochiladi (`video: true`), so'ng o'sha trekning
+// o'zida HD (1280×720) so'raladi. getUserMedia'ga to'g'ridan-to'g'ri o'lcham/
+// facingMode berilsa, brauzer boshqa qurilmani tanlashi mumkin (masalan Windows
+// Hello infraqizil kamerasi) va Windows uni bloklab "ruxsat berilmadi" beradi.
+// applyConstraints esa qurilmani almashtirmaydi; kamera HD'ni qo'llamasa —
+// standart o'lchamda qoladi. Yuboriladigan sifat rolga qarab MeetingMediaClient'da.
+async function upgradeCameraQuality(stream: MediaStream) {
+  const track = stream.getVideoTracks()[0]
+  if (!track) return
+  try {
+    await track.applyConstraints({ width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } })
+  } catch { /* kamera qo'llamaydi — standart o'lchamda davom etadi */ }
 }
 
 function mediaErrorText(error: unknown) {
@@ -3100,7 +3109,31 @@ export default function MeetingPage() {
       throw new Error(tr("meetingPage.media.unsupported"))
     }
 
-    const stream = await applyNoiseFilter(await navigator.mediaDevices.getUserMedia(constraints))
+    let raw: MediaStream
+    let partialIssue: unknown = null
+    try {
+      raw = await navigator.mediaDevices.getUserMedia(constraints)
+    } catch (issue) {
+      // Mikrofon va kamera birga so'ralgan bo'lsa — alohida urinamiz: kamera
+      // ochilmasa ham mikrofon (yoki aksincha) ishlasin
+      if (!constraints.audio || !constraints.video) throw issue
+      const [audioResult, videoResult] = await Promise.allSettled([
+        navigator.mediaDevices.getUserMedia({ audio: constraints.audio }),
+        navigator.mediaDevices.getUserMedia({ video: constraints.video }),
+      ])
+      const tracks = [
+        ...(audioResult.status === "fulfilled" ? audioResult.value.getTracks() : []),
+        ...(videoResult.status === "fulfilled" ? videoResult.value.getTracks() : []),
+      ]
+      if (!tracks.length) throw issue
+      raw = new MediaStream(tracks)
+      partialIssue = videoResult.status === "rejected" ? videoResult.reason : audioResult.status === "rejected" ? audioResult.reason : issue
+    }
+    await upgradeCameraQuality(raw)
+    const stream = await applyNoiseFilter(raw)
+    if (constraints.video && !stream.getVideoTracks().length) setCameraEnabled(false)
+    if (constraints.audio && !stream.getAudioTracks().length) setMicEnabled(false)
+    if (partialIssue) setMediaError(mediaErrorText(partialIssue))
     stream.getAudioTracks().forEach((track) => {
       track.enabled = micEnabled
     })
@@ -3117,7 +3150,7 @@ export default function MeetingPage() {
     if (!micEnabled && !cameraEnabled) return
     try {
       setMediaError(null)
-      await ensureLocalMedia({ audio: micEnabled ? MIC_CONSTRAINTS : false, video: cameraEnabled ? CAMERA_CONSTRAINTS : false })
+      await ensureLocalMedia({ audio: micEnabled ? MIC_CONSTRAINTS : false, video: cameraEnabled })
     } catch (mediaIssue) {
       setMediaError(mediaErrorText(mediaIssue))
     }
@@ -3137,8 +3170,9 @@ export default function MeetingPage() {
 
     const rawTrackStream = await navigator.mediaDevices.getUserMedia({
       audio: kind === "audio" ? MIC_CONSTRAINTS : false,
-      video: kind === "video" ? CAMERA_CONSTRAINTS : false,
+      video: kind === "video",
     })
+    if (kind === "video") await upgradeCameraQuality(rawTrackStream)
     const nextTrackStream = kind === "audio" ? await applyNoiseFilter(rawTrackStream) : rawTrackStream
     const nextStream = new MediaStream([
       ...(current?.getTracks() ?? []),
@@ -3615,8 +3649,8 @@ export default function MeetingPage() {
     // o'zi yoqadi) — 20-30 ta ochiq mikrofon xona shovqini va aks-sado beradi.
     setMicEnabled(isTeacher)
     if (navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: CAMERA_CONSTRAINTS, audio: false })
-        .then(stream => setPreviewStream(stream))
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(async (stream) => { await upgradeCameraQuality(stream); setPreviewStream(stream) })
         .catch(() => setPreviewStream(null))
     }
   }
