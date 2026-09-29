@@ -27,7 +27,6 @@ import {
   Minimize2,
   Mic,
   MicOff,
-  VolumeX,
   PictureInPicture2,
   ChevronsRight,
   ChevronsLeft,
@@ -228,6 +227,51 @@ async function upgradeCameraQuality(stream: MediaStream) {
   try {
     await track.applyConstraints({ width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } })
   } catch { /* kamera qo'llamaydi — standart o'lchamda davom etadi */ }
+}
+
+/* ── Dars yozuvi uchun video: brauzer ichidagi WebRTC "loopback" ──────────
+   Avval yozuv tabni ekran-yozish (getDisplayMedia) orqali olardi — Chrome
+   buning uchun doim "Демонстрация вкладки…" panelini ko'rsatadi va ruxsat
+   so'raydi. Endi o'qituvchining chiquvchi videosi (kamera YOKI ulashilgan
+   ekran) ikki mahalliy RTCPeerConnection orqali o'tkaziladi: qabul qiluvchi
+   tomondagi trek o'zgarmaydi, manba esa replaceTrack bilan uzilishsiz
+   almashadi — MediaRecorder bitta trekni to'xtovsiz yozadi. Fon tabda ham
+   ishlaydi (o'qituvchi PowerPoint'ga o'tsa ham yozuv to'xtamaydi). */
+type LoopbackVideo = {
+  track: MediaStreamTrack
+  setSource: (track: MediaStreamTrack | null) => void
+  close: () => void
+}
+
+async function createLoopbackVideo(initial: MediaStreamTrack | null): Promise<LoopbackVideo> {
+  const sender = new RTCPeerConnection()
+  const receiver = new RTCPeerConnection()
+  sender.onicecandidate = (e) => { if (e.candidate) void receiver.addIceCandidate(e.candidate).catch(() => undefined) }
+  receiver.onicecandidate = (e) => { if (e.candidate) void sender.addIceCandidate(e.candidate).catch(() => undefined) }
+  const transceiver = sender.addTransceiver(initial ?? "video", { direction: "sendonly" })
+  const received = new Promise<MediaStreamTrack>((resolve) => { receiver.ontrack = (e) => resolve(e.track) })
+  const offer = await sender.createOffer()
+  await sender.setLocalDescription(offer)
+  await receiver.setRemoteDescription(offer)
+  const answer = await receiver.createAnswer()
+  await receiver.setLocalDescription(answer)
+  await sender.setRemoteDescription(answer)
+  try {
+    const params = transceiver.sender.getParameters()
+    params.encodings = [{ ...(params.encodings?.[0] ?? {}), maxBitrate: 3_000_000 }]
+    await transceiver.sender.setParameters(params)
+  } catch { /* standart bitreyt */ }
+  const track = await received
+  let current = initial
+  return {
+    track,
+    setSource: (next) => {
+      if (next === current) return
+      current = next
+      void transceiver.sender.replaceTrack(next).catch(() => undefined)
+    },
+    close: () => { sender.close(); receiver.close() },
+  }
 }
 
 function mediaErrorText(error: unknown) {
@@ -1947,6 +1991,7 @@ function CallControlButton({
   icon: Icon,
   active,
   badge,
+  text,
   onClick,
 }: {
   label: string
@@ -1954,6 +1999,8 @@ function CallControlButton({
   icon: LucideIcon
   active?: boolean
   badge?: number
+  /** Belgi yonida ko'rinadigan qisqa matn (label — to'liq izoh, tooltip) */
+  text?: string
   onClick: () => void
 }) {
   const danger = tone === "danger"
@@ -1975,7 +2022,7 @@ function CallControlButton({
       style={{ fontFamily: "var(--font-poppins)" }}
     >
       <Icon className="h-5 w-5" />
-      {danger ? <span>{label}</span> : null}
+      {danger ? <span>{label}</span> : text ? <span>{text}</span> : null}
       {Boolean(badge) && (
         <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white">
           {badge && badge > 9 ? "9+" : badge}
@@ -2203,6 +2250,14 @@ function CallStage({
   // CSS-only "fullscreen" (fixed, covers the viewport) that works everywhere.
   const [pseudoFullscreen, setPseudoFullscreen] = useState(false)
   const [railHidden, setRailHidden] = useState(false)
+  const [muteNotice, setMuteNotice] = useState(false)
+  const muteNoticeTimerRef = useRef<number | null>(null)
+  const handleMuteAll = () => {
+    onMuteAll()
+    setMuteNotice(true)
+    if (muteNoticeTimerRef.current) window.clearTimeout(muteNoticeTimerRef.current)
+    muteNoticeTimerRef.current = window.setTimeout(() => setMuteNotice(false), 3000)
+  }
   const [pipWindow, setPipWindow] = useState<Window | null>(null)
   const pipWindowRef = useRef<Window | null>(null)
   const attachPipWindow = (win: Window) => {
@@ -2526,6 +2581,11 @@ function CallStage({
                       {recordingUploading && t("meetingPage.recordingUploading")}
                     </div>
                   )}
+                  {muteNotice && (
+                    <div className="rounded-[8px] border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700" style={{ fontFamily: "var(--font-poppins)" }}>
+                      {t("meetingPage.mutedAllDone")}
+                    </div>
+                  )}
                   {socketError && (
                     <div className="rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800" style={{ fontFamily: "var(--font-poppins)" }}>
                       {socketError}
@@ -2599,7 +2659,7 @@ function CallStage({
                     />
                   )}
                   {isTeacher && (
-                    <CallControlButton label={t("meetingPage.muteAll")} icon={VolumeX} tone="primary" onClick={onMuteAll} />
+                    <CallControlButton label={t("meetingPage.muteAll")} text={t("meetingPage.muteAllShort")} icon={MicOff} tone="primary" onClick={handleMuteAll} />
                   )}
                   {isTeacher && attendanceModeManual && (
                     <CallControlButton label={t("meetingPage.attendance")} icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
@@ -2622,7 +2682,7 @@ function CallStage({
                 <CallControlButton label={micEnabled ? t("meetingPage.micMute") : t("meetingPage.micUnmute")} icon={micEnabled ? Mic : MicOff} tone="primary" active={micEnabled} onClick={onToggleMic} />
                 <CallControlButton label={cameraEnabled ? t("meetingPage.cameraTurnOff") : t("meetingPage.cameraTurnOn")} icon={cameraEnabled ? Video : VideoOff} tone="primary" active={cameraEnabled} onClick={onToggleCamera} />
                 {isTeacher && (
-                  <CallControlButton label={t("meetingPage.muteAll")} icon={VolumeX} tone="primary" onClick={onMuteAll} />
+                  <CallControlButton label={t("meetingPage.muteAll")} text={t("meetingPage.muteAllShort")} icon={MicOff} tone="primary" onClick={handleMuteAll} />
                 )}
                 {isTeacher && attendanceModeManual && (
                   <CallControlButton label={t("meetingPage.attendance")} icon={ClipboardCheck} tone="primary" active={attendanceOpen} onClick={openAttendance} />
@@ -2955,8 +3015,8 @@ export default function MeetingPage() {
   const screenStreamRef = useRef<MediaStream | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordedChunksRef = useRef<Blob[]>([])
-  const recordingScreenStreamRef = useRef<MediaStream | null>(null)
-  const recordingAudioContextRef = useRef<AudioContext | null>(null)
+  // Yozuv: loopback video + barcha ovozlar aralashmasi (mikrofon va ishtirokchilar)
+  const recordingMixRef = useRef<{ ctx: AudioContext; destination: MediaStreamAudioDestinationNode; connected: Set<string>; video: LoopbackVideo } | null>(null)
   const remoteStreamsRef = useRef<Map<string, RemoteStream>>(new Map())
   const remotePeerStatesRef = useRef<Map<string, Partial<RemotePeer>>>(new Map())
   const mediaClientRef = useRef<MeetingMediaClient | null>(null)
@@ -3048,6 +3108,27 @@ export default function MeetingPage() {
 
   const refreshRemoteStreams = () => {
     setRemoteStreams(Array.from(remoteStreamsRef.current.values()))
+    feedRecordingMix()
+  }
+
+  // Yozuv davom etayotgan bo'lsa: yangi ovoz treklarini aralashmaga qo'shadi
+  // (yangi qo'shilgan ishtirokchi, qayta yoqilgan mikrofon), videoni esa
+  // hozirgi chiquvchi manbaga (kamera/ekran) o'tkazadi.
+  function feedRecordingMix() {
+    const mix = recordingMixRef.current
+    if (!mix) return
+    const audioTracks = [
+      ...(localStreamRef.current?.getAudioTracks() ?? []),
+      ...Array.from(remoteStreamsRef.current.values()).flatMap((remote) => remote.stream.getAudioTracks()),
+    ]
+    for (const track of audioTracks) {
+      if (track.readyState !== "live" || mix.connected.has(track.id)) continue
+      try {
+        mix.ctx.createMediaStreamSource(new MediaStream([track])).connect(mix.destination)
+        mix.connected.add(track.id)
+      } catch { /* trek hali tayyor emas — keyingi yangilanishda */ }
+    }
+    mix.video.setSource(currentOutboundVideoTrack())
   }
 
   // Removes one remote participant's tiles (their audio+video tracks combined
@@ -3077,6 +3158,7 @@ export default function MeetingPage() {
     const isScreen = Boolean(videoTrack && videoTrack === screenStreamRef.current?.getVideoTracks()[0])
     void mediaClientRef.current?.setCameraTrack(videoTrack, isScreen)
     void mediaClientRef.current?.setMicTrack(audioTrack)
+    feedRecordingMix()
   }
 
   const updateRemoteMediaState = (payload: unknown) => {
@@ -3292,12 +3374,9 @@ export default function MeetingPage() {
     })
     mediaRecorderRef.current = null
 
-    stopStream(recordingScreenStreamRef.current)
-    recordingScreenStreamRef.current = null
-    if (recordingAudioContextRef.current) {
-      void recordingAudioContextRef.current.close()
-      recordingAudioContextRef.current = null
-    }
+    recordingMixRef.current?.video.close()
+    void recordingMixRef.current?.ctx.close()
+    recordingMixRef.current = null
     setIsRecording(false)
 
     const chunks = recordedChunksRef.current
@@ -3318,40 +3397,17 @@ export default function MeetingPage() {
   const startRecording = async () => {
     try {
       setRecordingError(null)
-      if (!navigator.mediaDevices?.getDisplayMedia) {
+      if (typeof MediaRecorder === "undefined" || typeof RTCPeerConnection === "undefined") {
         throw new Error(tr("meetingPage.media.noRecording"))
       }
 
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: "browser" },
-        audio: true,
-        // @ts-ignore — Chrome/Edge specific: pre-selects current tab
-        preferCurrentTab: true,
-        selfBrowserSurface: "include",
-      })
-      recordingScreenStreamRef.current = screenStream
+      const ctx = new AudioContext()
+      const destination = ctx.createMediaStreamDestination()
+      const video = await createLoopbackVideo(currentOutboundVideoTrack())
+      recordingMixRef.current = { ctx, destination, connected: new Set(), video }
+      feedRecordingMix()
 
-      const screenAudioTracks = screenStream.getAudioTracks()
-      const micAudioTracks = localStreamRef.current?.getAudioTracks() ?? []
-      let audioTrack: MediaStreamTrack | null = null
-
-      if (screenAudioTracks.length && micAudioTracks.length) {
-        const audioContext = new AudioContext()
-        recordingAudioContextRef.current = audioContext
-        const destination = audioContext.createMediaStreamDestination()
-        audioContext.createMediaStreamSource(new MediaStream(screenAudioTracks)).connect(destination)
-        audioContext.createMediaStreamSource(new MediaStream(micAudioTracks)).connect(destination)
-        audioTrack = destination.stream.getAudioTracks()[0] ?? null
-      } else if (screenAudioTracks.length) {
-        audioTrack = screenAudioTracks[0]
-      } else if (micAudioTracks.length) {
-        audioTrack = micAudioTracks[0]
-      }
-
-      const tracks: MediaStreamTrack[] = [...screenStream.getVideoTracks()]
-      if (audioTrack) tracks.push(audioTrack)
-      const recordingStream = new MediaStream(tracks)
-
+      const recordingStream = new MediaStream([video.track, ...destination.stream.getAudioTracks()])
       const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
         ? "video/webm;codecs=vp9,opus"
         : "video/webm"
@@ -3363,15 +3419,11 @@ export default function MeetingPage() {
       recorder.start(1000)
       mediaRecorderRef.current = recorder
       setIsRecording(true)
-
-      screenStream.getVideoTracks()[0]?.addEventListener("ended", () => {
-        void stopRecording()
-      }, { once: true })
     } catch (issue) {
-      // Yozuv uchun tabni yozishga ruxsat berilmadi — bu kamera/mikrofon
-      // xatosi emas (kamera talabalarga baribir ko'rinadi)
-      const denied = issue instanceof DOMException && issue.name === "NotAllowedError"
-      setRecordingError(denied ? tr("meetingPage.recordingDenied") : mediaErrorText(issue))
+      recordingMixRef.current?.video.close()
+      void recordingMixRef.current?.ctx.close()
+      recordingMixRef.current = null
+      setRecordingError(mediaErrorText(issue))
     }
   }
 
@@ -3415,9 +3467,9 @@ export default function MeetingPage() {
       closePeerConnections()
       stopStream(localStreamRef.current)
       stopStream(screenStreamRef.current)
-      stopStream(recordingScreenStreamRef.current)
       mediaRecorderRef.current?.stop()
-      void recordingAudioContextRef.current?.close()
+      recordingMixRef.current?.video.close()
+      void recordingMixRef.current?.ctx.close()
     }
   }, [])
 
@@ -3678,10 +3730,8 @@ export default function MeetingPage() {
       setSocketError(null)
       setCallSeconds(0)
       setViewState({ stage: "call", meetingId: prejoinMeeting.id })
-      // O'qituvchi kirganda yozib olish qo'lda tugma bosmasdan avtomatik boshlanadi.
-      // Brauzer baribir "qaysi ekran/oyna" so'rovini ko'rsatadi (xavfsizlik siyosati
-      // tufayli buni chetlab o'tib bo'lmaydi) — lekin ilovaning o'z "Yozishni
-      // boshlash" tugmasini bosish shart bo'lmay qoladi.
+      // O'qituvchi kirganda dars yozuvi avtomatik boshlanadi — ekran-yozish
+      // ishlatilmaydi, shuning uchun brauzer hech narsa so'ramaydi va panel chiqarmaydi.
       if (isTeacher) void startRecording()
     } catch (e) {
       setJoinError(e instanceof Error ? e.message : tr("meetingPage.joinTokenError"))
