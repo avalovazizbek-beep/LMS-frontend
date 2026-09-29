@@ -3127,7 +3127,8 @@ export default function MeetingPage() {
       ]
       if (!tracks.length) throw issue
       raw = new MediaStream(tracks)
-      partialIssue = videoResult.status === "rejected" ? videoResult.reason : audioResult.status === "rejected" ? audioResult.reason : issue
+      // Faqat haqiqatan ochilmagan qurilma haqida xabar beriladi
+      partialIssue = videoResult.status === "rejected" ? videoResult.reason : audioResult.status === "rejected" ? audioResult.reason : null
     }
     await upgradeCameraQuality(raw)
     const stream = await applyNoiseFilter(raw)
@@ -3367,7 +3368,10 @@ export default function MeetingPage() {
         void stopRecording()
       }, { once: true })
     } catch (issue) {
-      setRecordingError(mediaErrorText(issue))
+      // Yozuv uchun tabni yozishga ruxsat berilmadi — bu kamera/mikrofon
+      // xatosi emas (kamera talabalarga baribir ko'rinadi)
+      const denied = issue instanceof DOMException && issue.name === "NotAllowedError"
+      setRecordingError(denied ? tr("meetingPage.recordingDenied") : mediaErrorText(issue))
     }
   }
 
