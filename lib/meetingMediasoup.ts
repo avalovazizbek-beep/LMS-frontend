@@ -15,6 +15,15 @@ export interface ProducerSummary {
   source: ProducerSource
 }
 
+/** Video yuborish sifati: maksimal bitreyt va (ixtiyoriy) o'lchamni kichraytirish. */
+export interface VideoEncodingProfile {
+  maxBitrate: number
+  scaleResolutionDownBy?: number
+}
+
+// Ekran ulashish — matn tiniq chiqishi uchun to'liq o'lcham, yuqori bitreyt
+const SCREEN_ENCODING: VideoEncodingProfile = { maxBitrate: 2_500_000, scaleResolutionDownBy: 1 }
+
 export interface RemotePeerIdentity {
   socketId: string
   name: string
@@ -60,8 +69,14 @@ export class MeetingMediaClient {
     /** O'z foydalanuvchi ID'si — boshqa tab/qurilmadagi O'Z ulanishimiz
      *  producer'ini qabul qilmaslik uchun (aks holda odam o'z ovozini
      *  kechikish bilan qayta eshitadi). */
-    private selfUserId: number | null = null
+    private selfUserId: number | null = null,
+    /** Kamera sifati (o'qituvchi — yuqori, talaba — kichik plitkalar uchun past) */
+    private cameraEncoding: VideoEncodingProfile = { maxBitrate: 1_000_000 }
   ) {}
+
+  // "camera" producer'i kamera va ekran ulashish o'rtasida trek almashtiradi —
+  // qaysi sifat profili qo'llanganini eslab, faqat o'zgarganda yangilaymiz.
+  private cameraProfileIsScreen: boolean | null = null
 
   async init(rtpCapabilities: MediasoupClientTypes.RtpCapabilities, existingProducers: ProducerSummary[]): Promise<void> {
     if (!this.setupPromise) {
@@ -121,12 +136,13 @@ export class MeetingMediaClient {
     return transport
   }
 
-  private async produceTrack(source: ProducerSource, track: MediaStreamTrack | null): Promise<void> {
+  private async produceTrack(source: ProducerSource, track: MediaStreamTrack | null, encoding?: VideoEncodingProfile): Promise<void> {
     if (!track || !this.device.loaded) return
     try {
       const existing = this.producers.get(source)
       if (existing) {
         await existing.replaceTrack({ track })
+        if (encoding) await existing.setRtpEncodingParameters({ ...encoding }).catch(() => undefined)
         return
       }
       const transport = await this.ensureSendTransport()
@@ -143,6 +159,8 @@ export class MeetingMediaClient {
         // Nutq uchun: mono, jimlikda paket yubormaslik (DTX — fon shovqini
         // uzatilmaydi), yo'qolgan paketlarni tiklash (FEC).
         ...(source === "mic" ? { codecOptions: { opusStereo: false, opusDtx: true, opusFec: true } } : {}),
+        // Video: sifat profili + boshidanoq yaxshi sifat (past bitreytdan sekin ko'tarilmasin)
+        ...(encoding ? { encodings: [{ ...encoding }], codecOptions: { videoGoogleStartBitrate: 1000 } } : {}),
       })
       console.log(`[mediasoup] producing ${source} (${producer.kind}), id=${producer.id}`)
       this.producers.set(source, producer)
@@ -151,8 +169,12 @@ export class MeetingMediaClient {
     }
   }
 
-  async setCameraTrack(track: MediaStreamTrack | null): Promise<void> {
-    await this.produceTrack("camera", track)
+  async setCameraTrack(track: MediaStreamTrack | null, isScreen = false): Promise<void> {
+    if (track && isScreen) track.contentHint = "detail"   // matn/slayd: o'lcham saqlanadi, kadr soni kamayadi
+    const changed = this.cameraProfileIsScreen !== isScreen
+    if (track) this.cameraProfileIsScreen = isScreen
+    const exists = this.producers.has("camera")
+    await this.produceTrack("camera", track, !exists || changed ? (isScreen ? SCREEN_ENCODING : this.cameraEncoding) : undefined)
   }
 
   async setMicTrack(track: MediaStreamTrack | null): Promise<void> {
@@ -233,6 +255,7 @@ export class MeetingMediaClient {
     this.consumers.clear()
     this.consumerIdByProducerId.clear()
     this.consumedProducerIds.clear()
+    this.cameraProfileIsScreen = null
     this.sendTransport?.close()
     this.recvTransport?.close()
     this.sendTransport = null

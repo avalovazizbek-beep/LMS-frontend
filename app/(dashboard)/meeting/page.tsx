@@ -212,6 +212,15 @@ const MIC_CONSTRAINTS: MediaTrackConstraints = {
   channelCount: 1,
 }
 
+// Kamera: HD (1280×720) — standart `video: true` 640×480 beradi va katta
+// ekranda xira ko'rinadi. Yuboriladigan sifat rolga qarab MeetingMediaClient'da.
+const CAMERA_CONSTRAINTS: MediaTrackConstraints = {
+  width: { ideal: 1280 },
+  height: { ideal: 720 },
+  frameRate: { ideal: 24, max: 30 },
+  facingMode: "user",
+}
+
 function mediaErrorText(error: unknown) {
   if (error instanceof DOMException) {
     if (error.name === "NotAllowedError") return tr("meetingPage.media.denied")
@@ -733,12 +742,15 @@ function LiveVideoPreview({
   cameraEnabled,
   screenSharing,
   mediaError,
+  mirror = false,
 }: {
   stream: MediaStream | null
   label: string
   cameraEnabled: boolean
   screenSharing: boolean
   mediaError: string | null
+  /** O'zining kamerasi — ko'zgudagidek (o'ngga qimirlasa, ekranda ham o'ngga) */
+  mirror?: boolean
 }) {
   const { t } = useLanguage()
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -795,6 +807,7 @@ function LiveVideoPreview({
         playsInline
         autoPlay
         className="h-full min-h-[360px] w-full object-cover"
+        style={mirror ? { transform: "scaleX(-1)" } : undefined}
       />
       <div
         className="absolute left-5 top-5 rounded-full bg-white/95 px-4 py-2 text-xs font-medium text-[#012970] shadow-[0_6px_18px_rgba(1,41,112,0.16)]"
@@ -863,6 +876,7 @@ function LocalVideoTile({
           playsInline
           autoPlay
           className="h-full w-full object-cover"
+          style={screenSharing ? undefined : { transform: "scaleX(-1)" }}
         />
       ) : (
         <div className="flex h-full items-center justify-center">
@@ -1823,7 +1837,7 @@ function PrejoinStage({
             <SourceBadge label="Pre-join" tone="success" />
           </div>
           {previewStream && cameraEnabled
-            ? <LiveVideoPreview stream={previewStream} label={meeting.host || meeting.title} cameraEnabled={cameraEnabled} screenSharing={false} mediaError={null} />
+            ? <LiveVideoPreview stream={previewStream} label={meeting.host || meeting.title} cameraEnabled={cameraEnabled} screenSharing={false} mediaError={null} mirror />
             : <VideoPreview label={meeting.host || meeting.title} />
           }
         </section>
@@ -2462,7 +2476,7 @@ function CallStage({
             <div className="relative min-h-[360px] flex-1 overflow-hidden rounded-[8px] bg-[#10192a]">
               {/* Camera/screen ON */}
               {activeCameraEnabled || activeScreenSharing ? (
-                <LiveVideoPreview stream={activeStream} label={activeLabel} cameraEnabled={activeCameraEnabled} screenSharing={activeScreenSharing} mediaError={mediaError} />
+                <LiveVideoPreview stream={activeStream} label={activeLabel} cameraEnabled={activeCameraEnabled} screenSharing={activeScreenSharing} mediaError={mediaError} mirror={!activeRemote && !screenSharing} />
               ) : (
                 /* Camera OFF — to'liq ism, rol, guruh */
                 <div className="flex h-full min-h-[360px] flex-col items-center justify-center gap-3 p-6">
@@ -3051,7 +3065,8 @@ export default function MeetingPage() {
   const syncPeerMediaTracks = () => {
     const videoTrack = currentOutboundVideoTrack()
     const audioTrack = localStreamRef.current?.getAudioTracks()[0] ?? null
-    void mediaClientRef.current?.setCameraTrack(videoTrack)
+    const isScreen = Boolean(videoTrack && videoTrack === screenStreamRef.current?.getVideoTracks()[0])
+    void mediaClientRef.current?.setCameraTrack(videoTrack, isScreen)
     void mediaClientRef.current?.setMicTrack(audioTrack)
   }
 
@@ -3102,7 +3117,7 @@ export default function MeetingPage() {
     if (!micEnabled && !cameraEnabled) return
     try {
       setMediaError(null)
-      await ensureLocalMedia({ audio: micEnabled ? MIC_CONSTRAINTS : false, video: cameraEnabled })
+      await ensureLocalMedia({ audio: micEnabled ? MIC_CONSTRAINTS : false, video: cameraEnabled ? CAMERA_CONSTRAINTS : false })
     } catch (mediaIssue) {
       setMediaError(mediaErrorText(mediaIssue))
     }
@@ -3122,7 +3137,7 @@ export default function MeetingPage() {
 
     const rawTrackStream = await navigator.mediaDevices.getUserMedia({
       audio: kind === "audio" ? MIC_CONSTRAINTS : false,
-      video: kind === "video",
+      video: kind === "video" ? CAMERA_CONSTRAINTS : false,
     })
     const nextTrackStream = kind === "audio" ? await applyNoiseFilter(rawTrackStream) : rawTrackStream
     const nextStream = new MediaStream([
@@ -3445,7 +3460,10 @@ export default function MeetingPage() {
             socket,
             onRemoteTrack,
             (socketId) => closePeerConnection(socketId),
-            socketNumber(recordValue(body.user).id) ?? null
+            socketNumber(recordValue(body.user).id) ?? null,
+            // O'qituvchi — to'liq HD; talaba — asosan kichik plitkada ko'rinadi,
+            // 640×360 yetarli (30 kishilik darsda hammaning interneti ko'tarsin)
+            isTeacher ? { maxBitrate: 1_500_000 } : { maxBitrate: 600_000, scaleResolutionDownBy: 2 }
           )
         }
         mediaClientRef.current
@@ -3597,7 +3615,7 @@ export default function MeetingPage() {
     // o'zi yoqadi) — 20-30 ta ochiq mikrofon xona shovqini va aks-sado beradi.
     setMicEnabled(isTeacher)
     if (navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      navigator.mediaDevices.getUserMedia({ video: CAMERA_CONSTRAINTS, audio: false })
         .then(stream => setPreviewStream(stream))
         .catch(() => setPreviewStream(null))
     }
