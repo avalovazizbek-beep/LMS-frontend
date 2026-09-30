@@ -22,6 +22,7 @@ import {
   type PlagiarismResult,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
+import { sortByName } from "@/lib/utils"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -1855,7 +1856,7 @@ function ContentFormModal({
 function GradingModal({ content, onClose, readOnly = false }: { content: TeacherContent; onClose: () => void; readOnly?: boolean }) {
   const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => teachingApi.submissions(content.id), [content.id])
-  const submissions: TeachingSubmission[] = data?.data ?? []
+  const submissions: TeachingSubmission[] = useMemo(() => sortByName(data?.data ?? [], (s) => s.studentFullName), [data?.data])
   const [viewSub, setViewSub] = useState<TeachingSubmission | null>(null)
 
   // Imtihon davomidagi buzilishlar (fullscreen/tab/Face ID) — faqat "exam" turida

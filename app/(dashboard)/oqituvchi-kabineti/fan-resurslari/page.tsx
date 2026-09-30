@@ -16,6 +16,7 @@ import {
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
+import { RetakeTable } from "@/components/teaching/RetakeTable"
 import RichTextEditor from "@/components/ui/RichTextEditor"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -606,7 +607,7 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
   const { t } = useLanguage()
   const [selectedSub, setSelectedSub] = useState<TeachingSubmission | null>(null)
 
-  const { data: subsData, loading: lSubs } = useApi(
+  const { data: subsData, loading: lSubs, refetch: refetchSubs } = useApi(
     () => teachingApi.submissions(test.id), [test.id]
   )
   const { data: qData, loading: lQ } = useApi(
@@ -724,62 +725,16 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
               })}
             </div>
           ) : (
-            /* ── Talabalar ro'yxati ── */
-            submissions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-14 gap-3">
-                <Users className="w-10 h-10" style={{ color: "#d8e6f7" }} />
-                <p className="text-sm" style={labelStyle}>{t("fanResurslariOq.results.noSubmissions")}</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f8fafc" }}>
-                    {["#", t("fanResurslariOq.results.colStudent"), t("fanResurslariOq.results.colScore"), t("fanResurslariOq.results.colPercent"), t("fanResurslariOq.results.colSubmitted"), t("fanResurslariOq.results.colView")].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold" style={titleStyle}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {submissions.sort((a, b) => (b.grade ?? 0) - (a.grade ?? 0)).map((sub, i) => {
-                    const pct = test.maxScore && sub.grade !== null
-                      ? Math.round((sub.grade / test.maxScore) * 100) : null
-                    const pc = pct === null ? "#445b7a" : pct >= 85 ? "#15803d" : pct >= 55 ? "#d97706" : "#b91c1c"
-                    return (
-                      <tr key={sub.id} className="hover:bg-[#f6f9ff]"
-                        style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-                        <td className="px-4 py-3 text-sm" style={labelStyle}>{i + 1}</td>
-                        <td className="px-4 py-3 text-sm font-medium" style={titleStyle}>{sub.studentFullName}</td>
-                        <td className="px-4 py-3 text-sm font-bold" style={{ color: pc, fontFamily: "var(--font-poppins)" }}>
-                          {sub.grade ?? "—"}{test.maxScore ? `/${test.maxScore}` : ""}
-                        </td>
-                        <td className="px-4 py-3">
-                          {pct !== null ? (
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-[4px]"
-                              style={{ color: pc, backgroundColor: `${pc}18`, fontFamily: "var(--font-poppins)" }}>
-                              {pct}%
-                            </span>
-                          ) : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-xs whitespace-nowrap" style={labelStyle}>
-                          {fmtDate(sub.submittedAt)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {sub.answers?.length ? (
-                            <button onClick={() => setSelectedSub(sub)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#0e58a8] hover:text-white"
-                              style={{ border: "1px solid rgba(14,88,168,0.3)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                              <BarChart3 className="w-3 h-3" /> {t("fanResurslariOq.results.viewBtn")}
-                            </button>
-                          ) : <span className="text-xs" style={labelStyle}>—</span>}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              </div>
-            )
+            /* ── Talabalar ro'yxati (F.I.Sh. bo'yicha) + qayta urinish ruxsati ── */
+            <RetakeTable
+              submissions={submissions}
+              maxScore={test.maxScore}
+              attemptsCount={test.attemptsCount}
+              grant={(ids) => teachingApi.grantRetake(test.id, ids)}
+              revoke={(studentUserId) => teachingApi.revokeRetake(test.id, studentUserId)}
+              onChanged={refetchSubs}
+              onView={setSelectedSub}
+            />
           )}
         </div>
 

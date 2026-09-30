@@ -9,6 +9,7 @@ import {
   type PlagiarismResult,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
+import { compareNames } from "@/lib/utils"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -81,11 +82,11 @@ function SubmissionsList({
 
   const submissions: TeachingSubmission[] = useMemo(() => {
     const list = data?.data ?? []
-    // Ungraded first (grade === null), then graded
+    // Baholanmaganlar oldin, keyin baholanganlar — har biri ichida F.I.Sh. bo'yicha
     return [...list].sort((a, b) => {
       if (a.grade === null && b.grade !== null) return -1
       if (a.grade !== null && b.grade === null) return 1
-      return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+      return compareNames(a.studentFullName, b.studentFullName)
     })
   }, [data?.data])
 

@@ -59,7 +59,9 @@ export function StudentContentCard({ item, submittable = false }: Props) {
   const [sub, setSub] = useState<SubmitState>(defaultSubmit())
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const canSubmit = submittable && item.status === "open"
+  // Mavzu qayta ochilgan bo'lsa (admin/o'qituvchi) — muddat o'tgan bo'lsa ham topshirsa bo'ladi
+  const reopened = item.isReopened === true
+  const canSubmit = submittable && (item.status === "open" || (item.status === "closed" && reopened))
 
   async function handleSubmit() {
     if (!sub.file && !sub.comment.trim()) {
@@ -183,7 +185,12 @@ export function StudentContentCard({ item, submittable = false }: Props) {
               const used = mySubmission.attemptsUsed ?? 1
               const passThreshold = (item.maxScore && item.maxScore > 0) ? item.maxScore * 0.6 : 60
               const alreadyPassed = mySubmission.grade !== null && mySubmission.grade !== undefined && mySubmission.grade >= passThreshold
-              const canRetry = !alreadyPassed && item.status === "open" && (maxAttempts === null || used < maxAttempts)
+              // Admin/o'qituvchi shu talabaga qo'shimcha urinish bergan bo'lsa (retake grant)
+              // yoki mavzu qayta ochilgan bo'lsa — muddat/urinishlar tugagan bo'lsa ham ochiq
+              const retakeGranted = mySubmission.retakeGranted === true
+              const openNow = item.status === "open" || (item.status === "closed" && (reopened || retakeGranted))
+              const hasRegularAttempt = maxAttempts === null || used < maxAttempts
+              const canRetry = !alreadyPassed && openNow && (hasRegularAttempt || reopened || retakeGranted)
               return (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -198,7 +205,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                     {maxAttempts !== null && (
                       <span className="text-xs px-2 py-0.5 rounded-full"
                         style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                        {t("scc.attempts", { used, max: maxAttempts })}
+                        {t("scc.attempts", { used, max: Math.max(maxAttempts, used) })}
                       </span>
                     )}
                   </div>
@@ -206,7 +213,10 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                     <Link href={`/imtihonlar/${item.id}`}
                       className="flex items-center gap-2 w-fit px-4 py-2 rounded-[8px] text-sm font-medium"
                       style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-                      <Send className="w-4 h-4" /> {t("scc.retake", { n: maxAttempts! - used })}
+                      <Send className="w-4 h-4" />{" "}
+                      {maxAttempts !== null && used < maxAttempts
+                        ? t("scc.retake", { n: maxAttempts - used })
+                        : retakeGranted ? t("scc.retakeExtra") : t("scc.retakeNoLimit")}
                     </Link>
                   )}
                   {!canRetry && alreadyPassed && (
@@ -216,7 +226,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                   )}
                   {!canRetry && !alreadyPassed && maxAttempts !== null && used >= maxAttempts && (
                     <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                      {t("scc.allAttemptsUsed", { n: maxAttempts })}
+                      {t("scc.allAttemptsUsed", { n: Math.max(maxAttempts, used) })}
                     </p>
                   )}
                 </div>

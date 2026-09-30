@@ -26,14 +26,21 @@ export default function ImtihonTopshirish() {
   const { data: subRes, loading: lSub, refetch: refetchSub } = useApi(() => teachingApi.mySubmission(id), [id])
   const mySubmission = subRes?.data ?? null
 
+  // Muddat o'tgan bo'lsa ham shu talaba uchun ochiq: mavzu qayta ochilgan
+  // yoki admin/o'qituvchi aynan unga qo'shimcha urinish bergan (retake grant)
+  const retakeGranted = mySubmission?.retakeGranted === true
+  const topicReopened = content?.isReopened === true
+  const openForMe = content?.status === "open" ||
+    (content?.status === "closed" && (topicReopened || retakeGranted))
+
   const { data: settingsRes } = useApi(() => teachingApi.examSettings(), [])
   const examSettings = settingsRes?.data ?? null
 
   const [attemptKey, setAttemptKey]   = useState(0)
 
   const { data: questionsRes, loading: lQuestions } = useApi(
-    () => (attemptKey > 0 && content?.status === "open" ? teachingApi.questions(id) : Promise.resolve({ success: true, data: [] })),
-    [id, content?.status, attemptKey]
+    () => (attemptKey > 0 && openForMe ? teachingApi.questions(id) : Promise.resolve({ success: true, data: [] })),
+    [id, openForMe, attemptKey]
   )
   const questions = (questionsRes?.data ?? []) as ExamQuestionPublic[]
 
@@ -74,9 +81,10 @@ export default function ImtihonTopshirish() {
 
   const maxAttempts  = content?.attemptsCount && content.attemptsCount > 0 ? content.attemptsCount : null
   const attemptsUsed = mySubmission?.attemptsUsed ?? 0
-  // Admin "Qayta urinish" orqali maxsus ruxsat bergan bo'lsa, limitga qaramasdan qayta urinishga ruxsat beriladi
-  const canRetry     = content?.status === "open" && mySubmission !== null &&
-    (maxAttempts === null || attemptsUsed < maxAttempts || mySubmission?.retakeGranted === true)
+  // Admin/o'qituvchi shu talabaga qo'shimcha urinish bergan bo'lsa (retake grant)
+  // yoki mavzu qayta ochilgan bo'lsa — limitga va muddatga qaramasdan qayta urinish mumkin
+  const canRetry     = openForMe && mySubmission !== null &&
+    (maxAttempts === null || attemptsUsed < maxAttempts || retakeGranted || topicReopened)
 
   /* ── To'liq ekran lock ────────────────────────────────────────────── */
   useEffect(() => {
@@ -309,7 +317,9 @@ export default function ImtihonTopshirish() {
     // o'zgarmagan holicha qoladi, aks holda talaba "qolgan urinish yo'q"
     // holatiga tushib qolib, qayta kira olmay qolardi.
     const usedNow      = result?.attemptsUsed ?? attemptsUsed
-    const canRetryNow  = content.status === "open" && (maxAttempts === null || usedNow < maxAttempts)
+    // Qo'shimcha urinish ruxsati bir martalik — topshirilgach sarflangan bo'ladi
+    const canRetryNow  = (content.status === "open" || (content.status === "closed" && topicReopened)) &&
+      (maxAttempts === null || usedNow < maxAttempts || topicReopened)
     return (
       <div className="min-h-full flex items-center justify-center p-[30px]">
         <div className="bg-white rounded-[10px] p-10 text-center max-w-md w-full"
@@ -338,7 +348,7 @@ export default function ImtihonTopshirish() {
                 className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-[5px] text-white font-medium"
                 style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                 <RefreshCw className="w-4 h-4" />
-                {maxAttempts !== null ? t("examTake.retryWithLeft", { n: maxAttempts - usedNow }) : t("examTake.retry")}
+                {maxAttempts !== null && usedNow < maxAttempts ? t("examTake.retryWithLeft", { n: maxAttempts - usedNow }) : t("examTake.retry")}
               </button>
             )}
             <button onClick={() => router.push("/imtihonlar")}
@@ -424,7 +434,7 @@ export default function ImtihonTopshirish() {
   }
 
   /* ── Imtihon hali ochiq emas ──────────────────────────────────────── */
-  if (content.status !== "open") {
+  if (!openForMe) {
     return (
       <div className="min-h-full flex items-center justify-center p-[30px]">
         <div className="bg-white rounded-[10px] p-10 text-center max-w-md w-full"

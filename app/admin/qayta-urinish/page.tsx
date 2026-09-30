@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react"
 import {
   RefreshCw, Search, Clock, CheckCircle2, AlertCircle, Lock,
-  FileText, HelpCircle, ShieldAlert,
+  FileText, HelpCircle, ShieldAlert, Users, ChevronDown, ChevronUp,
 } from "lucide-react"
 import { adminApi, type AdminTeacherStat, type AdminTopicRow } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { RetakeTable } from "@/components/teaching/RetakeTable"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { tr } from "@/lib/i18n/translations"
 
@@ -22,12 +23,38 @@ function fmtDeadline(iso: string | null) {
   return d.toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
 }
 
+/* Bitta mavzu testining natijalari: kim o'tdi / yiqildi, aynan tanlangan
+   talabalarga bittadan qo'shimcha urinish berish */
+function TopicTestResults({ topic }: { topic: AdminTopicRow }) {
+  const testId = topic.testId!
+  const { data, loading, error, refetch } = useApi(() => adminApi.contentSubmissions(testId), [testId])
+  if (loading) {
+    return (
+      <div className="py-6 flex justify-center">
+        <div className="w-6 h-6 border-2 border-[#0e58a8] border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+  if (error) return <ApiError message={error} onRetry={refetch} />
+  return (
+    <RetakeTable
+      submissions={data?.data ?? []}
+      maxScore={topic.testMaxScore}
+      attemptsCount={topic.testAttemptsCount}
+      grant={(ids) => adminApi.grantRetake(testId, ids)}
+      revoke={(studentUserId) => adminApi.revokeRetake(testId, studentUserId)}
+      onChanged={refetch}
+    />
+  )
+}
+
 export default function AdminQaytaUrinish() {
   const { t } = useLanguage()
   const [teacherId, setTeacherId] = useState<number | "">("")
   const [subjectName, setSubjectName] = useState("")
   const [groupId, setGroupId] = useState<number | "">("")
   const [toggling, setToggling] = useState<string | null>(null)
+  const [resultsFor, setResultsFor] = useState<string | null>(null)
   const [toggleErr, setToggleErr] = useState<string | null>(null)
   const [search, setSearch] = useState("")
 
@@ -160,12 +187,14 @@ export default function AdminQaytaUrinish() {
           <div className="flex flex-col gap-3">
             {filtered.map(topic => {
               const isBusy = toggling === topic.topicKey
+              const showResults = resultsFor === topic.topicKey
               return (
-                <div key={topic.topicKey} className="rounded-[10px] bg-white p-4 flex items-center justify-between gap-4 flex-wrap"
+                <div key={topic.topicKey} className="rounded-[10px] bg-white p-4 flex flex-col gap-4"
                   style={{
                     border: `1px solid ${topic.isReopened ? "rgba(21,128,61,0.25)" : "rgba(1,41,112,0.1)"}`,
                     boxShadow: "0px 0px 5px rgba(1,41,112,0.05)",
                   }}>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold" style={T}>{topic.title}</div>
                     <div className="flex items-center gap-3 mt-1 flex-wrap text-xs" style={L}>
@@ -194,6 +223,16 @@ export default function AdminQaytaUrinish() {
                     )}
                   </div>
 
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  {topic.hasTest && topic.testId !== null && (
+                    <button onClick={() => setResultsFor(showResults ? null : topic.topicKey)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-colors hover:bg-[#f0f5ff]"
+                      style={{ border: "1px solid #d8e6f7", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                      <Users className="w-4 h-4" />
+                      {t("retake.showResults")}
+                      {showResults ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  )}
                   {!topic.hasTest && !topic.hasAssignment ? (
                     <span className="shrink-0 text-xs px-3 py-2 rounded-[6px]" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>
                       {t("adminRetry.cannot")}
@@ -210,6 +249,9 @@ export default function AdminQaytaUrinish() {
                       {topic.isReopened ? t("adminRetry.close") : t("adminRetry.enable")}
                     </button>
                   )}
+                  </div>
+                </div>
+                {showResults && <TopicTestResults topic={topic} />}
                 </div>
               )
             })}

@@ -11,6 +11,7 @@ import {
   type AttendanceRosterItem,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
+import { sortByName } from "@/lib/utils"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -107,7 +108,7 @@ export default function DavomatJurnaliPage() {
     setSaveMsg(null)
     try {
       const res = await attendanceApi.roster(groupId, subjectName, date)
-      setRoster(res.data)
+      setRoster(sortByName(res.data, (s) => s.fullName))
       if (!trainingType) setTrainingType(res.trainingType || "")
       setLoadedOnce(true)
     } catch (e) {

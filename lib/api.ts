@@ -1674,6 +1674,13 @@ export const teachingApi = {
   submissions: (contentId: number | string) =>
     get<ListRes<TeachingSubmission>>(`/api/teaching/content/${contentId}/submissions`),
 
+  /** O'qituvchi: o'z testida tanlangan talabalarga bittadan qo'shimcha urinish */
+  grantRetake: (contentId: number | string, studentUserIds: number[], reason?: string) =>
+    post<MsgRes>(`/api/teaching/content/${contentId}/retake-grants`, { studentUserIds, reason }),
+
+  revokeRetake: (contentId: number | string, studentUserId: number | string) =>
+    del<MsgRes>(`/api/teaching/content/${contentId}/retake-grants/${studentUserId}`),
+
   grade: (submissionId: number | string, body: { grade: number; feedback?: string }) =>
     put<ItemRes<TeachingSubmission>>(`/api/teaching/submissions/${submissionId}/grade`, body),
 
@@ -2454,6 +2461,8 @@ export interface AdminTopicRow {
   reopenedBy: string | null
   hasTest: boolean
   testId: number | null
+  testMaxScore: number | null
+  testAttemptsCount: number | null
   hasAssignment: boolean
   assignmentId: number | null
 }
