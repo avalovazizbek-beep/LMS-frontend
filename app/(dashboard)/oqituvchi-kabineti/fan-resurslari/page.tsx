@@ -495,30 +495,31 @@ function MeetingSection({
             <input
               value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              className="px-3 py-2 rounded-[5px] text-sm outline-none"
+              className="w-full min-w-0 px-3 py-2 rounded-[5px] text-base sm:text-sm outline-none"
               style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }}
             />
           </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="flex flex-col gap-1">
+          {/* Telefonda: sana to'liq kenglikda, boshlanish/tugash yonma-yon */}
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+            <div className="col-span-2 flex flex-col gap-1">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.meeting.dateLabel")}</label>
               <input type="date" value={form.date}
                 onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className="px-3 py-2 rounded-[5px] text-sm outline-none"
+                className="w-full min-w-0 appearance-none bg-white px-3 py-2 rounded-[5px] text-base sm:text-sm outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.meeting.startLabel")}</label>
               <input type="time" value={form.startTime}
                 onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
-                className="px-3 py-2 rounded-[5px] text-sm outline-none"
+                className="w-full min-w-0 appearance-none bg-white px-3 py-2 rounded-[5px] text-base sm:text-sm outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.meeting.endLabel")}</label>
               <input type="time" value={form.endTime}
                 onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
-                className="px-3 py-2 rounded-[5px] text-sm outline-none"
+                className="w-full min-w-0 appearance-none bg-white px-3 py-2 rounded-[5px] text-base sm:text-sm outline-none"
                 style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
             </div>
           </div>
@@ -569,7 +570,7 @@ function MeetingSection({
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={handleCreate} disabled={loading}
               className="flex items-center gap-2 px-4 py-2 rounded-[6px] text-sm font-medium text-white disabled:opacity-60"
               style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>

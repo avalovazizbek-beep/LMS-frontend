@@ -474,11 +474,11 @@ function InfoPill({
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-[5px] bg-[#f6f9ff] px-2.5 py-1.5 text-xs text-[#104475]"
+      className="inline-flex max-w-full items-center gap-1.5 rounded-[5px] bg-[#f6f9ff] px-2.5 py-1.5 text-xs text-[#104475]"
       style={{ fontFamily: "var(--font-poppins)" }}
     >
-      <Icon className="h-3.5 w-3.5 text-[#7293b9]" />
-      {label}
+      <Icon className="h-3.5 w-3.5 shrink-0 text-[#7293b9]" />
+      <span className="min-w-0 break-words">{label}</span>
     </span>
   )
 }
@@ -560,16 +560,16 @@ function MeetingCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="rounded-[8px] border border-[#d8e6f7] bg-white p-5 shadow-[0_2px_12px_rgba(1,41,112,0.06)]"
+      className="rounded-[8px] border border-[#d8e6f7] bg-white p-4 shadow-[0_2px_12px_rgba(1,41,112,0.06)] sm:p-5"
     >
       <div className="flex flex-col gap-4">
-        <div className="flex min-w-0 items-start gap-4">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[8px] bg-[#e8fbff]">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] bg-[#e8fbff] sm:h-12 sm:w-12">
             <Video className="h-5 w-5 text-[#1cc2dc]" />
           </div>
           <div className="min-w-0">
             <h3
-              className="text-[17px] font-semibold text-[#012970]"
+              className="break-words text-[17px] font-semibold text-[#012970]"
               style={{ fontFamily: "var(--font-poppins)" }}
             >
               {meeting.title}
@@ -1277,16 +1277,18 @@ function CreateMeetingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.4)", backdropFilter: "blur(4px)" }}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" style={{ backgroundColor: "rgba(1,41,112,0.4)", backdropFilter: "blur(4px)" }}>
+      {/* Telefonda pastdan chiqadigan panel: balandligi ekrandan oshmaydi, forma
+          ichida aylantiriladi, "Yaratish" tugmasi esa pastda doim ko'rinib turadi */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: 0.18 }}
-        className="w-full max-w-lg rounded-[12px] bg-white shadow-[0_20px_60px_rgba(1,41,112,0.2)]"
+        className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[16px] bg-white shadow-[0_20px_60px_rgba(1,41,112,0.2)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-[12px]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+        <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <div>
             <h2 className="text-lg font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
               {t("meetingPage.create.title")}
@@ -1301,7 +1303,8 @@ function CreateMeetingModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 sm:p-6">
           {/* Title */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>
@@ -1311,7 +1314,7 @@ function CreateMeetingModal({
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder={t("meetingPage.create.titlePh")}
-              className="h-10 rounded-[8px] border border-[#d8e6f7] px-3 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors"
+              className="h-10 w-full min-w-0 appearance-none rounded-[8px] border border-[#d8e6f7] bg-white px-3 text-base text-[#012970] sm:text-sm outline-none focus:border-[#0e58a8] transition-colors"
               style={{ fontFamily: "var(--font-poppins)" }}
             />
           </div>
@@ -1325,7 +1328,7 @@ function CreateMeetingModal({
               value={subjectName}
               onChange={e => setSubjectName(e.target.value)}
               placeholder={t("meetingPage.create.subjectPh")}
-              className="h-10 rounded-[8px] border border-[#d8e6f7] px-3 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors"
+              className="h-10 w-full min-w-0 appearance-none rounded-[8px] border border-[#d8e6f7] bg-white px-3 text-base text-[#012970] sm:text-sm outline-none focus:border-[#0e58a8] transition-colors"
               style={{ fontFamily: "var(--font-poppins)" }}
             />
           </div>
@@ -1340,7 +1343,7 @@ function CreateMeetingModal({
               onChange={e => setDescription(e.target.value)}
               placeholder={t("meetingPage.create.descPh")}
               rows={2}
-              className="rounded-[8px] border border-[#d8e6f7] px-3 py-2 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors resize-none"
+              className="w-full rounded-[8px] border border-[#d8e6f7] px-3 py-2 text-base text-[#012970] outline-none focus:border-[#0e58a8] transition-colors resize-none sm:text-sm"
               style={{ fontFamily: "var(--font-poppins)" }}
             />
           </div>
@@ -1355,7 +1358,7 @@ function CreateMeetingModal({
               value={date}
               min={today}
               onChange={e => setDate(e.target.value)}
-              className="h-10 rounded-[8px] border border-[#d8e6f7] px-3 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors"
+              className="h-10 w-full min-w-0 appearance-none rounded-[8px] border border-[#d8e6f7] bg-white px-3 text-base text-[#012970] sm:text-sm outline-none focus:border-[#0e58a8] transition-colors"
               style={{ fontFamily: "var(--font-poppins)" }}
             />
           </div>
@@ -1370,7 +1373,7 @@ function CreateMeetingModal({
                 type="time"
                 value={startTime}
                 onChange={e => setStartTime(e.target.value)}
-                className="h-10 rounded-[8px] border border-[#d8e6f7] px-3 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors"
+                className="h-10 w-full min-w-0 appearance-none rounded-[8px] border border-[#d8e6f7] bg-white px-3 text-base text-[#012970] sm:text-sm outline-none focus:border-[#0e58a8] transition-colors"
                 style={{ fontFamily: "var(--font-poppins)" }}
               />
             </div>
@@ -1382,7 +1385,7 @@ function CreateMeetingModal({
                 type="time"
                 value={endTime}
                 onChange={e => setEndTime(e.target.value)}
-                className="h-10 rounded-[8px] border border-[#d8e6f7] px-3 text-sm text-[#012970] outline-none focus:border-[#0e58a8] transition-colors"
+                className="h-10 w-full min-w-0 appearance-none rounded-[8px] border border-[#d8e6f7] bg-white px-3 text-base text-[#012970] sm:text-sm outline-none focus:border-[#0e58a8] transition-colors"
                 style={{ fontFamily: "var(--font-poppins)" }}
               />
             </div>
@@ -1441,7 +1444,7 @@ function CreateMeetingModal({
 
           {/* Google Meet */}
           <div className="flex flex-col gap-1.5 rounded-[8px] border border-[#d2e3fc] bg-[#f8fafe] px-3 py-3">
-            <label className="flex cursor-pointer items-center gap-2.5 text-sm" style={{ fontFamily: "var(--font-poppins)" }}>
+            <label className="flex cursor-pointer flex-wrap items-center gap-2.5 text-sm" style={{ fontFamily: "var(--font-poppins)" }}>
               <input
                 type="checkbox"
                 checked={wantsGoogleMeet}
@@ -1485,8 +1488,10 @@ function CreateMeetingModal({
             </div>
           )}
 
+          </div>
+
           {/* Actions */}
-          <div className="flex gap-3 pt-1">
+          <div className="flex shrink-0 gap-3 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-4" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
             <button
               type="submit"
               disabled={loading}
@@ -1601,7 +1606,7 @@ function LobbyStage({
       transition={{ duration: 0.25 }}
       className="h-full overflow-y-auto"
     >
-      <div className="mx-auto w-full max-w-[1540px] px-6 py-6">
+      <div className="mx-auto w-full max-w-[1540px] px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1
@@ -1617,7 +1622,7 @@ function LobbyStage({
               {t("meetingPage.subtitle")}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <SourceBadge label={sourceLabel} tone={sourceTone} />
             {isTeacher && (
               <button
