@@ -7,6 +7,7 @@ import { GraduationCap, RefreshCw } from "lucide-react"
 import { hemisApi, adminApi, faceApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
+import { AFTER_LOGIN_KEY, ZOOM_SETUP_PATH } from "@/components/public/ZoomAddButton"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { tr } from "@/lib/i18n/translations"
 
@@ -571,10 +572,17 @@ function OAuthCallbackContent() {
     // yo'lida umuman yo'q edi, shuning uchun OAuth orqali kirgan
     // talabalar Face ID'ni hech qachon so'ralmasdan o'tib ketayotgan edi.
     async function redirectAfterLogin(role: string) {
+      // /zoom landing sahifasidan kelgan xodim — to'g'ri Integratsiyalar kartasiga
+      let afterLogin: string | null = null
+      try {
+        afterLogin = sessionStorage.getItem(AFTER_LOGIN_KEY)
+        sessionStorage.removeItem(AFTER_LOGIN_KEY)
+      } catch { /* storage yopiq */ }
       try {
         const adminCheck = await adminApi.check()
         if (adminCheck.isAdmin) { router.replace("/admin"); return }
       } catch { /* not admin */ }
+      if (role === "employee" && afterLogin === ZOOM_SETUP_PATH) { router.replace(ZOOM_SETUP_PATH); return }
       if (role === "student") {
         try {
           const faceStatus = await faceApi.status()

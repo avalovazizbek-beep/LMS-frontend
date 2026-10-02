@@ -2897,7 +2897,7 @@ export interface ZoomConnectionStatus {
 export const zoomApi = {
   status: () => get<ItemRes<ZoomConnectionStatus>>("/api/integrations/zoom/status"),
 
-  connect: () => get<ItemRes<{ url: string }>>("/api/integrations/zoom/connect"),
+  connect: () => get<ItemRes<{ url: string }>>("/api/integrations/zoom/connect?ageConfirmed=1"),
 
   disconnect: () => post<MsgRes>("/api/integrations/zoom/disconnect", {}),
 }
