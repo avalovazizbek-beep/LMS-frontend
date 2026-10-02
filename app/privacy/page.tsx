@@ -31,7 +31,7 @@ function English() {
       </Section>
 
       <Section title="4. How the data is stored and protected">
-        <p>Zoom access and refresh tokens and host start links are encrypted on our server with AES-256-GCM and are never stored in plain text. They are used only by our own backend, only on behalf of the teacher who connected the account. All traffic to the System uses HTTPS (TLS 1.2 or higher).</p>
+        <p>Zoom access and refresh tokens and host start links are encrypted on our server with AES-256-GCM and are never stored in plain text. They are used only by our own backend, only on behalf of the teacher who connected the account. All traffic to the System is encrypted with HTTPS.</p>
       </Section>
 
       <Section title="5. Sharing">
@@ -78,7 +78,7 @@ function Uzbek() {
       </Section>
 
       <Section title="4. Saqlash va himoya">
-        <p>Zoom tokenlari va host havolalari serverda AES-256-GCM bilan shifrlangan holda saqlanadi, ochiq matnda hech qayerda saqlanmaydi. Ular faqat Tizimning o&apos;z backend&apos;i orqali, faqat hisobni ulagan o&apos;qituvchi nomidan ishlatiladi. Tizim bilan barcha aloqa HTTPS (TLS 1.2 va undan yuqori) orqali.</p>
+        <p>Zoom tokenlari va host havolalari serverda AES-256-GCM bilan shifrlangan holda saqlanadi, ochiq matnda hech qayerda saqlanmaydi. Ular faqat Tizimning o&apos;z backend&apos;i orqali, faqat hisobni ulagan o&apos;qituvchi nomidan ishlatiladi. Tizim bilan barcha aloqa HTTPS orqali shifrlanadi.</p>
       </Section>
 
       <Section title="5. Ma'lumotlarni uzatish">
