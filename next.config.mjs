@@ -2,12 +2,27 @@
 const nextConfig = {
   typescript: { ignoreBuildErrors: true },
   images: { unoptimized: true },
-  // face-api.js model fayllari (~7MB) statik va hech qachon o'zgarmaydi —
-  // brauzer ularni uzoq muddat keshda saqlasin, mobil tarmoqda har safar
-  // qayta yuklamasin (agar model fayllari kelajakda almashtirilsa, fayl
-  // nomlari ham o'zgarishi kerak, aks holda eski versiya keshda qolib ketadi).
+  // "X-Powered-By: Next.js" texnologiyani oshkor qiladi — xavfsizlik
+  // skanerlari (audit) buni kamchilik deb belgilaydi.
+  poweredByHeader: false,
   async headers() {
     return [
+      // Barcha sahifalar uchun asosiy xavfsizlik sarlavhalari (audit talabi).
+      // X-Frame-Options SAMEORIGIN: saytni begona sayt iframe'iga joylab
+      // bo'lmaydi (clickjacking), o'z ichidagi iframe'lar ishlayveradi.
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+      // face-api.js model fayllari (~7MB) statik va hech qachon o'zgarmaydi —
+      // brauzer ularni uzoq muddat keshda saqlasin, mobil tarmoqda har safar
+      // qayta yuklamasin (agar model fayllari kelajakda almashtirilsa, fayl
+      // nomlari ham o'zgarishi kerak, aks holda eski versiya keshda qolib ketadi).
       {
         source: "/models/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
