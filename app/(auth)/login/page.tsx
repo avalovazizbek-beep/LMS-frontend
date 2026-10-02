@@ -7,6 +7,7 @@ import { hemisApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { AFTER_LOGIN_KEY, ZOOM_SETUP_PATH } from "@/components/public/ZoomAddButton"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -35,7 +36,14 @@ export default function LoginPage() {
       const res = await hemisApi.autoLogin(demoLogin.trim(), demoPassword)
       localStorage.setItem("lms_token", res.token)
       localStorage.setItem("lms_role", res.role)
-      router.push("/dashboard")
+      // /zoom landing sahifasidan kelgan xodim — OAuth callback'dagidek
+      // to'g'ri Integratsiyalar kartasiga
+      let afterLogin: string | null = null
+      try {
+        afterLogin = sessionStorage.getItem(AFTER_LOGIN_KEY)
+        sessionStorage.removeItem(AFTER_LOGIN_KEY)
+      } catch { /* storage yopiq */ }
+      router.push(res.role === "employee" && afterLogin === ZOOM_SETUP_PATH ? ZOOM_SETUP_PATH : "/dashboard")
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t("login.error"))
       setDemoLoading(false)
