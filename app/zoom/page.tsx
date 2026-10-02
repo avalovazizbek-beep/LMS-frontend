@@ -22,8 +22,8 @@ function English() {
           Service who are <b>18 years of age or older</b>.
         </p>
         <p>
-          The System has no public sign-up. Sign-in is possible only through HEMIS, the national higher-education
-          information system, with an account issued by the institute. Only employee accounts can open the Zoom
+          The System has no public sign-up. Sign-in is possible only with an account issued by the institute, through
+          HEMIS, the national higher-education information system. Only employee accounts can open the Zoom
           connection page; students cannot connect Zoom, and the server rejects any connection attempt from a student
           account.
         </p>

@@ -91,7 +91,7 @@ export function Step({ n, children }: { n: number; children: ReactNode }) {
   )
 }
 
-export const SUPPORT_EMAIL = "azizbekavalov132@gmail.com"
+export const SUPPORT_EMAIL = "lms_zoom@sies.uz"
 
 export function MailLink() {
   return <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "#0e58a8" }}>{SUPPORT_EMAIL}</a>
