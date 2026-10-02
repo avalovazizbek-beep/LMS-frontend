@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/lib/i18n/LanguageContext"
 import { DEFAULT_LANG, LANG_COOKIE, isLang, languageInfo } from "@/lib/i18n/translations"
 import { cn } from "@/lib/utils"
 import SplashScreen from "@/components/SplashScreen"
+import DevtoolsGuard from "@/components/DevtoolsGuard"
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -98,6 +99,7 @@ export default async function RootLayout({
         />
         <LanguageProvider initialLang={initialLang}>
           <SplashScreen />
+          <DevtoolsGuard />
           <ThemeProvider>{children}</ThemeProvider>
         </LanguageProvider>
       </body>
