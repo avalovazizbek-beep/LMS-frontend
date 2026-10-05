@@ -1,13 +1,16 @@
 "use client"
 
 import { Fragment, useMemo, useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   Search, ClipboardCheck, ChevronDown, ChevronUp, Users, Loader2, CalendarDays,
   CheckCircle2, XCircle, Video, User, FileSpreadsheet, FileText, Send,
+  Clock, PencilLine, RefreshCw, Info,
 } from "lucide-react"
 import {
   adminApi, type AdminAttendanceRow, type AdminAttendanceDetailRow, type AdminAttendanceStudentRow,
   type AdminAttendanceStudentDetailRow, type PlatformAttendanceDay, type AdminTeacherStat,
+  type AttendanceEditRequest, type AttendanceEditStatus,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -737,10 +740,217 @@ function PlatformAttendance() {
   )
 }
 
+/* ── O'qituvchilarning saqlangan (qulflangan) davomatni o'zgartirish so'rovlari ── */
+const REQ_STATUS: Record<AttendanceEditStatus, { labelKey: string; bg: string; color: string; icon: typeof Clock }> = {
+  pending:  { labelKey: "adminDavomatlar.req.statusPending",  bg: "#fffbeb", color: "#92400e", icon: Clock },
+  approved: { labelKey: "adminDavomatlar.req.statusApproved", bg: "#f0fdf4", color: "#15803d", icon: CheckCircle2 },
+  used:     { labelKey: "adminDavomatlar.req.statusUsed",     bg: "#eef4ff", color: "#0e58a8", icon: PencilLine },
+  rejected: { labelKey: "adminDavomatlar.req.statusRejected", bg: "#fef2f2", color: "#b91c1c", icon: XCircle },
+}
+
+function fmtDay(value: string) {
+  const d = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
+}
+
+function fmtStamp(iso: string | null) {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+}
+
+function EditRequests({ onPendingCount }: { onPendingCount: (n: number) => void }) {
+  const { t } = useLanguage()
+  const [status, setStatus] = useState<AttendanceEditStatus>("pending")
+  const [rows, setRows] = useState<AttendanceEditRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  const [actingId, setActingId] = useState<number | null>(null)
+  const [actionError, setActionError] = useState<Record<number, string>>({})
+  const [openSheet, setOpenSheet] = useState<number | null>(null)
+
+  function load(s: AttendanceEditStatus = status) {
+    setLoading(true)
+    setError(null)
+    adminApi.attendanceEditRequests(s)
+      .then((res) => { setRows(res.data ?? []); onPendingCount(res.pendingCount ?? 0) })
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.error")))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load(status) }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function review(id: number, action: "approve" | "reject") {
+    setActingId(id)
+    setActionError((prev) => ({ ...prev, [id]: "" }))
+    try {
+      await adminApi.reviewAttendanceEditRequest(id, action, notes[id]?.trim() || undefined)
+      load(status)
+    } catch (e) {
+      setActionError((prev) => ({ ...prev, [id]: e instanceof Error ? e.message : t("common.error") }))
+    } finally {
+      setActingId(null)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start gap-2 px-3 py-2 rounded-[8px] text-xs" style={{ backgroundColor: "#f0f7ff", color: "#0e58a8", border: "1px solid rgba(14,88,168,0.15)", fontFamily: "var(--font-poppins)" }}>
+        <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
+        {t("adminDavomatlar.req.hint")}
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        {(Object.keys(REQ_STATUS) as AttendanceEditStatus[]).map((s) => {
+          const cfg = REQ_STATUS[s]
+          const Icon = cfg.icon
+          return (
+            <button key={s} type="button" onClick={() => setStatus(s)}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors"
+              style={{
+                backgroundColor: status === s ? "#0e58a8" : "#f0f5ff",
+                color: status === s ? "#fff" : "#0e58a8",
+                fontFamily: "var(--font-poppins)",
+              }}>
+              <Icon className="w-3.5 h-3.5" />
+              {t(cfg.labelKey)}
+            </button>
+          )
+        })}
+        <button type="button" onClick={() => load(status)}
+          className="ml-auto text-xs flex items-center gap-1.5 px-3 py-2 rounded-[8px]"
+          style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+          <RefreshCw className="w-3 h-3" /> {t("adminDavomatlar.req.refresh")}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} />
+        </div>
+      ) : error ? (
+        <ApiError message={error} onRetry={() => load(status)} />
+      ) : rows.length === 0 ? (
+        <div className="bg-white rounded-[10px] p-12 text-center" style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
+          <ClipboardCheck className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
+          <p className="text-sm" style={L}>{t("adminDavomatlar.req.empty")}</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {rows.map((r) => {
+            const cfg = REQ_STATUS[r.status]
+            const Icon = cfg.icon
+            const acting = actingId === r.id
+            return (
+              <div key={r.id} className="bg-white rounded-[10px] p-5 flex flex-col gap-3"
+                style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
+                <div className="flex items-start gap-3 flex-wrap">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
+                    <User className="w-5 h-5" style={{ color: "#0e58a8" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold" style={T}>{r.teacherName}</span>
+                      <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: cfg.bg, color: cfg.color, fontFamily: "var(--font-poppins)" }}>
+                        <Icon className="w-3 h-3" />
+                        {t(cfg.labelKey)}
+                      </span>
+                    </div>
+                    <div className="text-sm mt-1" style={T}>
+                      {r.groupName ?? `#${r.groupId}`} · {r.subjectName}
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap text-xs mt-1" style={L}>
+                      <span className="flex items-center gap-1 font-medium" style={{ color: "#012970" }}>
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        {t("adminDavomatlar.req.lessonDate", { date: fmtDay(r.lessonDate) })}
+                      </span>
+                      <span>{t("adminDavomatlar.req.sentAt", { date: fmtStamp(r.createdAt) })}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-sm px-3 py-2 rounded-[8px]" style={{ backgroundColor: "#f8fbff", color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                  {t("adminDavomatlar.req.reason", { reason: r.reason })}
+                </div>
+
+                <div>
+                  <button type="button" onClick={() => setOpenSheet(openSheet === r.id ? null : r.id)}
+                    className="flex items-center gap-1 text-xs font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    {openSheet === r.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    {openSheet === r.id ? t("adminDavomatlar.req.hideSheet") : t("adminDavomatlar.req.showSheet")}
+                  </button>
+                  {openSheet === r.id && (
+                    <div className="mt-2 rounded-[8px]" style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
+                      <DateDetailRows groupId={r.groupId} subject={r.subjectName} date={r.lessonDate} />
+                    </div>
+                  )}
+                </div>
+
+                {r.status === "pending" ? (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      value={notes[r.id] ?? ""}
+                      onChange={(e) => setNotes((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                      placeholder={t("adminDavomatlar.req.notePlaceholder")}
+                      maxLength={1000}
+                      className="w-full px-3 py-2 text-sm rounded-[6px] outline-none"
+                      style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)" }}
+                    />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button type="button" onClick={() => review(r.id, "approve")} disabled={acting}
+                        className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-[8px] disabled:opacity-60"
+                        style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                        {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                        {t("adminDavomatlar.req.approve")}
+                      </button>
+                      <button type="button" onClick={() => review(r.id, "reject")} disabled={acting}
+                        className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-[8px] disabled:opacity-60"
+                        style={{ backgroundColor: "#fef2f2", color: "#b91c1c", border: "1px solid rgba(185,28,28,0.3)", fontFamily: "var(--font-poppins)" }}>
+                        {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                        {t("adminDavomatlar.req.reject")}
+                      </button>
+                      {actionError[r.id] && (
+                        <span className="text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{actionError[r.id]}</span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1 text-xs" style={L}>
+                    {r.reviewedAt && (
+                      <span>{t("adminDavomatlar.req.reviewed", { name: r.reviewedByName ?? "—", date: fmtStamp(r.reviewedAt) })}</span>
+                    )}
+                    {r.adminNote && <span>{t("adminDavomatlar.req.adminNote", { note: r.adminNote })}</span>}
+                    {r.usedAt && <span style={{ color: "#0e58a8" }}>{t("adminDavomatlar.req.usedAt", { date: fmtStamp(r.usedAt) })}</span>}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Main page ────────────────────────────────────────────────────────── */
+type AdminDavomatTab = "manual" | "platform" | "requests"
+
 export default function AdminDavomatlar() {
   const { t } = useLanguage()
-  const [tab, setTab] = useState<"manual" | "platform">("manual")
+  const searchParams = useSearchParams()
+  // Bildirishnomadagi havola (?tab=requests) to'g'ridan-to'g'ri so'rovlarni ochadi
+  const [tab, setTab] = useState<AdminDavomatTab>(searchParams.get("tab") === "requests" ? "requests" : "manual")
+  const [pendingCount, setPendingCount] = useState(0)
+
+  useEffect(() => {
+    adminApi.attendanceEditRequests("pending")
+      .then((res) => setPendingCount(res.pendingCount ?? 0))
+      .catch(() => { /* ruxsat yo'q yoki xato — nishonsiz qoladi */ })
+  }, [])
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
@@ -754,9 +964,10 @@ export default function AdminDavomatlar() {
         {([
           { key: "manual",   label: t("adminDavomatlar.tabManual") },
           { key: "platform", label: t("adminDavomatlar.tabPlatform") },
-        ] as { key: "manual" | "platform"; label: string }[]).map(tabItem => (
+          { key: "requests", label: t("adminDavomatlar.tabRequests") },
+        ] as { key: AdminDavomatTab; label: string }[]).map(tabItem => (
           <button key={tabItem.key} type="button" onClick={() => setTab(tabItem.key)}
-            className="px-4 py-2 rounded-[6px] text-sm font-medium transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-[6px] text-sm font-medium transition-all"
             style={{
               backgroundColor: tab === tabItem.key ? "#fff" : "transparent",
               color: tab === tabItem.key ? "#012970" : "#7293b9",
@@ -764,12 +975,19 @@ export default function AdminDavomatlar() {
               boxShadow: tab === tabItem.key ? "0 1px 3px rgba(1,41,112,0.12)" : "none",
             }}>
             {tabItem.label}
+            {tabItem.key === "requests" && pendingCount > 0 && (
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center"
+                style={{ backgroundColor: "#b91c1c", color: "#fff" }}>
+                {pendingCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {tab === "manual"   && <ManualAttendance />}
       {tab === "platform" && <PlatformAttendance />}
+      {tab === "requests" && <EditRequests onPendingCount={setPendingCount} />}
     </div>
   )
 }

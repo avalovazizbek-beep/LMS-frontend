@@ -1859,11 +1859,43 @@ export interface StudentAttendanceEntry {
   comment: string | null
 }
 
+export type AttendanceEditStatus = "pending" | "approved" | "rejected" | "used"
+
+/** Saqlangan (qulflangan) davomatni o'zgartirish uchun o'qituvchi → admin so'rovi */
+export interface AttendanceEditRequest {
+  id: number
+  groupId: number
+  groupName: string | null
+  subjectName: string
+  lessonDate: string
+  teacherUserId: number
+  teacherName: string
+  reason: string
+  status: AttendanceEditStatus
+  adminNote: string | null
+  reviewedByName: string | null
+  reviewedAt: string | null
+  usedAt: string | null
+  createdAt: string
+}
+
+export type AttendanceRosterRes = ListRes<AttendanceRosterItem> & {
+  trainingType: string | null
+  /** O'qituvchi bu kunni saqlagan */
+  saved?: boolean
+  /** Saqlangan va admin ruxsati yo'q — o'zgartirib bo'lmaydi */
+  locked?: boolean
+  editRequest?: AttendanceEditRequest | null
+}
+
 export const attendanceApi = {
   roster: (groupId: number | string, subject: string, date: string) => {
     const q = new URLSearchParams(buildParams({ groupId, subject, date })).toString()
-    return get<ListRes<AttendanceRosterItem> & { trainingType: string | null }>(`/api/teaching/attendance/roster?${q}`)
+    return get<AttendanceRosterRes>(`/api/teaching/attendance/roster?${q}`)
   },
+
+  requestEdit: (body: { groupId: number | string; subjectName: string; date: string; reason: string }) =>
+    post<MsgRes & { data: AttendanceEditRequest }>("/api/teaching/attendance/edit-requests", body),
 
   save: (body: {
     groupId: number | string
@@ -2506,6 +2538,14 @@ export const adminApi = {
 
   reviewFaceRequest: (id: string, action: "approve" | "reject", note?: string) =>
     patch<MsgRes>(`/api/admin/face-requests/${id}`, { action, note }),
+
+  attendanceEditRequests: (status: AttendanceEditStatus) =>
+    get<{ success: boolean; data: AttendanceEditRequest[]; pendingCount: number }>(
+      `/api/admin/attendance-edit-requests?status=${encodeURIComponent(status)}`
+    ),
+
+  reviewAttendanceEditRequest: (id: number, action: "approve" | "reject", note?: string) =>
+    patch<MsgRes>(`/api/admin/attendance-edit-requests/${id}`, { action, note }),
 
   sessions: (limit?: number) => {
     const q = limit ? `?limit=${limit}` : ""

@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, ChevronDown, ChevronRight, Save, History, Users, RefreshCw, Eye } from "lucide-react"
+import { ChevronLeft, ChevronDown, ChevronRight, Save, History, Users, RefreshCw, Info, Lock, Unlock, Clock, Send, CheckCheck } from "lucide-react"
 import {
   teachingApi,
   attendanceApi,
   type AttendanceStatus,
   type AttendanceRosterItem,
+  type AttendanceEditRequest,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { sortByName } from "@/lib/utils"
@@ -37,6 +38,20 @@ function fmtDate(value: string) {
   if (Number.isNaN(d.getTime())) return value
   return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
+
+function fmtDateTime(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+}
+
+/** Saqlangan kun qulflanadi; o'zgartirish faqat admin tasdiqlagan so'rov bilan */
+interface SheetState {
+  saved: boolean
+  locked: boolean
+  editRequest: AttendanceEditRequest | null
+}
+const EMPTY_SHEET: SheetState = { saved: false, locked: false, editRequest: null }
 
 const TRAINING_TYPE_OPTIONS = [
   { value: "Ma'ruza", labelKey: "xodimFanResurslariYaratish.trainingType.lecture" },
@@ -91,6 +106,17 @@ export default function DavomatJurnaliPage() {
   const [loadedOnce, setLoadedOnce] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
+  const [saveOk, setSaveOk] = useState(false)
+  const [confirmingSave, setConfirmingSave] = useState(false)
+  const [sheet, setSheet] = useState<SheetState>(EMPTY_SHEET)
+  const [requestOpen, setRequestOpen] = useState(false)
+  const [requestReason, setRequestReason] = useState("")
+  const [requestSending, setRequestSending] = useState(false)
+  const [requestMsg, setRequestMsg] = useState<string | null>(null)
+  const [requestOk, setRequestOk] = useState(false)
+  // Bugun yoki istalgan o'tgan kun belgilanadi; saqlangan kun — faqat admin
+  // ruxsati (tasdiqlangan so'rov) bilan bir marta o'zgartiriladi
+  const editable = loadedOnce && !sheet.locked && !isFuture
 
   const { data: historyRes, loading: lHistory, refetch: refetchHistory } = useApi(
     () =>
@@ -101,15 +127,30 @@ export default function DavomatJurnaliPage() {
   )
   const history = historyRes?.data ?? []
 
-  async function loadRoster() {
-    if (groupId === "" || !subjectName || !date || isFuture) return
+  // Sana/guruh/fan o'zgarganda — oldingi kunning ro'yxati va holati tozalanadi
+  function resetSheet() {
+    setRoster([])
+    setLoadedOnce(false)
+    setSheet(EMPTY_SHEET)
+    setConfirmingSave(false)
+    setRequestOpen(false)
+    setRequestReason("")
+    setRequestMsg(null)
+    setSaveMsg(null)
+  }
+
+  async function loadRoster(forDate: string = date, keepMsg = false) {
+    if (groupId === "" || !subjectName || !forDate || forDate > today) return
     setLoadingRoster(true)
     setRosterError(null)
-    setSaveMsg(null)
+    if (!keepMsg) setSaveMsg(null)
+    setConfirmingSave(false)
     try {
-      const res = await attendanceApi.roster(groupId, subjectName, date)
+      const res = await attendanceApi.roster(groupId, subjectName, forDate)
       setRoster(sortByName(res.data, (s) => s.fullName))
-      if (!trainingType) setTrainingType(res.trainingType || "")
+      // Saqlangan kunda — o'sha kunning mashg'ulot turi ko'rsatiladi
+      if (res.saved || !trainingType) setTrainingType(res.trainingType || (res.saved ? "" : trainingType))
+      setSheet({ saved: !!res.saved, locked: !!res.locked, editRequest: res.editRequest ?? null })
       setLoadedOnce(true)
     } catch (e) {
       setRosterError(e instanceof Error ? e.message : t("oqBaholash.error"))
@@ -118,25 +159,51 @@ export default function DavomatJurnaliPage() {
     }
   }
 
-  // Guruh/fan/sana tayyor holda (masalan meeting kartasidan yoki jurnal
-  // ro'yxatidan) kelganda ro'yxatni darhol ochib beradi.
+  // Guruh/fan/sana tayyor holda (masalan meeting kartasidan, jurnal
+  // ro'yxatidan yoki admin javobi haqidagi xabardan) kelganda ro'yxatni
+  // darhol ochib beradi.
   useEffect(() => {
     if (initialGroup && initialSubject) loadRoster()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function setStatus(studentUserId: number, status: AttendanceStatus) {
-    if (!isToday) return
+    if (!editable) return
     setRoster((prev) => prev.map((r) => (r.studentUserId === studentUserId ? { ...r, status } : r)))
   }
 
+  function markAllPresent() {
+    if (!editable) return
+    setRoster((prev) => prev.map((r) => ({ ...r, status: "present" })))
+  }
+
   function setComment(studentUserId: number, comment: string) {
-    if (!isToday) return
+    if (!editable) return
     setRoster((prev) => prev.map((r) => (r.studentUserId === studentUserId ? { ...r, comment } : r)))
   }
 
+  async function sendEditRequest() {
+    if (groupId === "" || !subjectName || !requestReason.trim()) return
+    setRequestSending(true)
+    setRequestMsg(null)
+    try {
+      const res = await attendanceApi.requestEdit({ groupId, subjectName, date, reason: requestReason.trim() })
+      setSheet((prev) => ({ ...prev, editRequest: res.data }))
+      setRequestOpen(false)
+      setRequestReason("")
+      setRequestOk(true)
+      setRequestMsg(t("davomatJurnaliOq.requestSent"))
+    } catch (e) {
+      setRequestOk(false)
+      setRequestMsg(e instanceof Error ? e.message : t("oqBaholash.error"))
+    } finally {
+      setRequestSending(false)
+    }
+  }
+
   async function handleSave() {
-    if (groupId === "" || !subjectName || !date || !isToday) return
+    if (groupId === "" || !subjectName || !date || !editable) return
+    setConfirmingSave(false)
     setSaving(true)
     setSaveMsg(null)
     try {
@@ -152,10 +219,16 @@ export default function DavomatJurnaliPage() {
           comment: r.comment ?? undefined,
         })),
       })
+      setSaveOk(true)
       setSaveMsg(t("oqDavomat.attendanceSaved"))
       refetchHistory()
+      // Saqlangach kun qulflanadi — holatni serverdan qayta o'qiymiz
+      await loadRoster(date, true)
     } catch (e) {
+      setSaveOk(false)
       setSaveMsg(e instanceof Error ? e.message : t("oqBaholash.error"))
+      // 409 — kun allaqachon qulflangan (masalan boshqa oynada saqlangan)
+      if ((e as { status?: number }).status === 409) await loadRoster(date, true)
     } finally {
       setSaving(false)
     }
@@ -191,7 +264,7 @@ export default function DavomatJurnaliPage() {
             <div className="relative">
               <select
                 value={groupId}
-                onChange={(e) => { setGroupId(e.target.value ? Number(e.target.value) : ""); setSubjectName(""); setRoster([]); setLoadedOnce(false) }}
+                onChange={(e) => { setGroupId(e.target.value ? Number(e.target.value) : ""); setSubjectName(""); resetSheet() }}
                 className={`${inputCls} appearance-none pr-8`}
                 style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                 <option value="">{t("oqBaholash.selectGroup")}</option>
@@ -207,7 +280,7 @@ export default function DavomatJurnaliPage() {
               <div className="relative">
                 <select
                   value={subjectName}
-                  onChange={(e) => { setSubjectName(e.target.value); setRoster([]); setLoadedOnce(false) }}
+                  onChange={(e) => { setSubjectName(e.target.value); resetSheet() }}
                   className={`${inputCls} appearance-none pr-8`}
                   style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                   <option value="">{t("oqBaholash.selectSubject")}</option>
@@ -219,7 +292,7 @@ export default function DavomatJurnaliPage() {
               <input
                 type="text"
                 value={subjectName}
-                onChange={(e) => { setSubjectName(e.target.value); setRoster([]); setLoadedOnce(false) }}
+                onChange={(e) => { setSubjectName(e.target.value); resetSheet() }}
                 placeholder={t("oqBaholash.subjectPlaceholder")}
                 className={inputCls}
                 style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
@@ -233,7 +306,8 @@ export default function DavomatJurnaliPage() {
               <select
                 value={trainingType}
                 onChange={(e) => setTrainingType(e.target.value)}
-                className={`${inputCls} appearance-none pr-8`}
+                disabled={loadedOnce && !editable}
+                className={`${inputCls} appearance-none pr-8 disabled:bg-[#f6f9ff] disabled:cursor-not-allowed`}
                 style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                 <option value="">{t("oqDavomat.trainingTypePlaceholder")}</option>
                 {TRAINING_TYPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>)}
@@ -247,7 +321,7 @@ export default function DavomatJurnaliPage() {
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => { setDate((d) => addDays(d, -1)); setRoster([]); setLoadedOnce(false) }}
+                onClick={() => { setDate((d) => addDays(d, -1)); resetSheet() }}
                 className="shrink-0 rounded-[8px] border border-[#d8e6f7] p-2.5 hover:bg-[#f6f9ff]"
                 title={t("davomatJurnaliOq.prevDay")}>
                 <ChevronLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
@@ -256,13 +330,13 @@ export default function DavomatJurnaliPage() {
                 type="date"
                 value={date}
                 max={today}
-                onChange={(e) => { const v = e.target.value || today; setDate(v > today ? today : v); setRoster([]); setLoadedOnce(false) }}
+                onChange={(e) => { const v = e.target.value || today; setDate(v > today ? today : v); resetSheet() }}
                 className={inputCls}
                 style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
               />
               <button
                 type="button"
-                onClick={() => { if (!isToday) { setDate((d) => addDays(d, 1)); setRoster([]); setLoadedOnce(false) } }}
+                onClick={() => { if (!isToday) { setDate((d) => addDays(d, 1)); resetSheet() } }}
                 disabled={isToday}
                 className="shrink-0 rounded-[8px] border border-[#d8e6f7] p-2.5 hover:bg-[#f6f9ff] disabled:opacity-40 disabled:cursor-not-allowed"
                 title={t("davomatJurnaliOq.nextDay")}>
@@ -272,16 +346,14 @@ export default function DavomatJurnaliPage() {
           </div>
         </div>
 
-        {!isToday && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-xs" style={{ backgroundColor: "#f0f7ff", color: "#0e58a8", border: "1px solid rgba(14,88,168,0.15)", fontFamily: "var(--font-poppins)" }}>
-            <Eye className="w-3.5 h-3.5 shrink-0" />
-            {t("davomatJurnaliOq.pastReadOnlyNotice")}
-          </div>
-        )}
+        <div className="flex items-start gap-2 px-3 py-2 rounded-[8px] text-xs" style={{ backgroundColor: "#f0f7ff", color: "#0e58a8", border: "1px solid rgba(14,88,168,0.15)", fontFamily: "var(--font-poppins)" }}>
+          <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
+          {t("davomatJurnaliOq.manualNotice")}
+        </div>
 
         <div>
           <button
-            onClick={loadRoster}
+            onClick={() => loadRoster()}
             disabled={groupId === "" || !subjectName || !date || loadingRoster}
             className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
@@ -292,7 +364,97 @@ export default function DavomatJurnaliPage() {
       </div>
 
       {/* Ro'yxat */}
-      {rosterError && <ApiError message={rosterError} onRetry={loadRoster} />}
+      {rosterError && <ApiError message={rosterError} onRetry={() => loadRoster()} />}
+
+      {/* Qulf holati: saqlangan kun faqat admin ruxsati bilan o'zgaradi */}
+      {!rosterError && loadedOnce && sheet.saved && (
+        sheet.locked ? (
+          <div className="rounded-[10px] p-4 flex flex-col gap-3" style={{ backgroundColor: "#fffbeb", border: "1px solid rgba(146,64,14,0.2)" }}>
+            <div className="flex items-start gap-2 text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+              <Lock className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{t("davomatJurnaliOq.lockedNotice", { date: fmtDate(date) })}</span>
+            </div>
+
+            {sheet.editRequest?.status === "pending" ? (
+              <div className="flex items-start gap-2 text-xs px-3 py-2 rounded-[8px] bg-white" style={{ color: "#0e58a8", border: "1px solid rgba(14,88,168,0.15)", fontFamily: "var(--font-poppins)" }}>
+                <Clock className="w-3.5 h-3.5 shrink-0 mt-px" />
+                <span>
+                  {t("davomatJurnaliOq.pendingNotice", { date: fmtDateTime(sheet.editRequest.createdAt) })}
+                  <span className="block mt-0.5" style={{ color: "#7293b9" }}>{t("davomatJurnaliOq.yourReason", { reason: sheet.editRequest.reason })}</span>
+                </span>
+              </div>
+            ) : (
+              <>
+                {sheet.editRequest?.status === "rejected" && (
+                  <div className="text-xs px-3 py-2 rounded-[8px] bg-white" style={{ color: "#b91c1c", border: "1px solid rgba(185,28,28,0.2)", fontFamily: "var(--font-poppins)" }}>
+                    {t("davomatJurnaliOq.rejectedNotice")}
+                    {sheet.editRequest.adminNote && (
+                      <span className="block mt-0.5" style={{ color: "#7293b9" }}>{t("davomatJurnaliOq.adminNote", { note: sheet.editRequest.adminNote })}</span>
+                    )}
+                  </div>
+                )}
+                {requestOpen ? (
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-medium block" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                      {t("davomatJurnaliOq.reasonLabel")}
+                    </label>
+                    <textarea
+                      value={requestReason}
+                      onChange={(e) => setRequestReason(e.target.value)}
+                      rows={3}
+                      maxLength={1000}
+                      placeholder={t("davomatJurnaliOq.reasonPlaceholder")}
+                      className={`${inputCls} bg-white resize-y`}
+                      style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
+                    />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={sendEditRequest}
+                        disabled={requestSending || !requestReason.trim()}
+                        className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm font-medium disabled:opacity-50"
+                        style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                        <Send className="w-4 h-4" />
+                        {requestSending ? t("oqBaholash.saving") : t("davomatJurnaliOq.sendRequest")}
+                      </button>
+                      <button
+                        onClick={() => { setRequestOpen(false); setRequestReason("") }}
+                        className="px-4 py-2 rounded-[8px] text-sm font-medium"
+                        style={{ backgroundColor: "#fff", color: "#7293b9", border: "1px solid rgba(1,41,112,0.12)", fontFamily: "var(--font-poppins)" }}>
+                        {t("davomatJurnaliOq.cancel")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <button
+                      onClick={() => { setRequestOpen(true); setRequestMsg(null) }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm font-medium"
+                      style={{ backgroundColor: "#92400e", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                      <Send className="w-4 h-4" />
+                      {t("davomatJurnaliOq.requestEditBtn")}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {requestMsg && (
+              <span className="text-xs" style={{ color: requestOk ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                {requestMsg}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-start gap-2 rounded-[10px] px-4 py-3 text-sm" style={{ backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.2)", fontFamily: "var(--font-poppins)" }}>
+            <Unlock className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              {t("davomatJurnaliOq.approvedNotice")}
+              {sheet.editRequest?.adminNote && (
+                <span className="block text-xs mt-0.5" style={{ color: "#7293b9" }}>{t("davomatJurnaliOq.adminNote", { note: sheet.editRequest.adminNote })}</span>
+              )}
+            </span>
+          </div>
+        )
+      )}
 
       {!rosterError && loadedOnce && (
         <div className="bg-white rounded-[10px] overflow-hidden"
@@ -328,7 +490,7 @@ export default function DavomatJurnaliPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {isToday ? (
+                      {editable ? (
                         <div className="flex flex-wrap gap-1.5">
                           {STATUS_OPTIONS.map((opt) => {
                             const active = (s.status ?? "absent") === opt.value
@@ -360,7 +522,7 @@ export default function DavomatJurnaliPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {isToday ? (
+                      {editable ? (
                         <input
                           type="text"
                           value={s.comment ?? ""}
@@ -379,22 +541,53 @@ export default function DavomatJurnaliPage() {
             </table>
           </div>
 
-          {roster.length > 0 && isToday && (
+          {roster.length > 0 && (editable || saveMsg) && (
             <div className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap"
               style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
               {saveMsg && (
-                <span className="text-sm" style={{ color: saveMsg === t("oqDavomat.attendanceSaved") ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                <span className="text-sm" style={{ color: saveOk ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                   {saveMsg}
                 </span>
               )}
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50 ml-auto"
-                style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-                <Save className="w-4 h-4" />
-                {saving ? t("oqBaholash.saving") : t("oqBaholash.save")}
-              </button>
+              {editable && (confirmingSave ? (
+                <div className="flex items-center gap-2 flex-wrap ml-auto">
+                  <span className="text-xs font-medium" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                    {t("davomatJurnaliOq.confirmSave")}
+                  </span>
+                  <button
+                    onClick={() => setConfirmingSave(false)}
+                    className="px-3 py-2 rounded-[8px] text-sm font-medium"
+                    style={{ backgroundColor: "#fff", color: "#7293b9", border: "1px solid rgba(1,41,112,0.12)", fontFamily: "var(--font-poppins)" }}>
+                    {t("davomatJurnaliOq.cancel")}
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm font-medium disabled:opacity-50"
+                    style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                    <Save className="w-4 h-4" />
+                    {saving ? t("oqBaholash.saving") : t("davomatJurnaliOq.confirmSaveBtn")}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap ml-auto">
+                  <button
+                    onClick={markAllPresent}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium"
+                    style={{ backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.25)", fontFamily: "var(--font-poppins)" }}>
+                    <CheckCheck className="w-4 h-4" />
+                    {t("davomatJurnaliOq.markAllPresent")}
+                  </button>
+                  <button
+                    onClick={() => { setConfirmingSave(true); setSaveMsg(null) }}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50"
+                    style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                    <Save className="w-4 h-4" />
+                    {saving ? t("oqBaholash.saving") : t("oqBaholash.save")}
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -427,7 +620,7 @@ export default function DavomatJurnaliPage() {
                 return (
                   <button
                     key={`${h.lessonDate}-${h.subjectName}`}
-                    onClick={() => { setDate(h.lessonDate); setRoster([]); setLoadedOnce(false) }}
+                    onClick={() => { setDate(h.lessonDate); resetSheet(); void loadRoster(h.lessonDate) }}
                     className="w-full text-left px-5 py-3 flex items-center gap-3 flex-wrap hover:bg-[#f6f9ff]/50 transition-colors"
                   >
                     <span className="text-sm font-medium w-28 shrink-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>

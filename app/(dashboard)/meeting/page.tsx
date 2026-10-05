@@ -22,6 +22,7 @@ import {
   ClipboardCheck,
   Clock3,
   Loader2,
+  Lock,
   Maximize2,
   MessageSquareText,
   Minimize2,
@@ -2332,6 +2333,10 @@ function CallStage({
   const [attendanceError, setAttendanceError] = useState<string | null>(null)
   const [attendanceSaving, setAttendanceSaving] = useState(false)
   const [attendanceSaveMsg, setAttendanceSaveMsg] = useState<string | null>(null)
+  const [attendanceSaveOk, setAttendanceSaveOk] = useState(false)
+  // Saqlangan kun qulflanadi — o'zgartirish faqat Davomat jurnali orqali
+  // adminga so'rov yuborib, ruxsat olingandan keyin
+  const [attendanceLocked, setAttendanceLocked] = useState(false)
 
   async function loadAttendanceRoster(groupId: number) {
     setAttendanceLoading(true)
@@ -2341,6 +2346,7 @@ function CallStage({
       const res = await attendanceApi.roster(groupId, meeting.subjectName || meeting.subject, meetingDateStr)
       setAttendanceRoster(res.data)
       setAttendanceGroupId(groupId)
+      setAttendanceLocked(!!res.locked)
     } catch (e) {
       setAttendanceError(e instanceof Error ? e.message : tr("meetingPage.att.loadError"))
     } finally {
@@ -2359,11 +2365,12 @@ function CallStage({
   }
 
   function setAttendanceStatus(studentUserId: number, status: AttendanceStatus) {
+    if (attendanceLocked) return
     setAttendanceRoster(prev => prev?.map(r => r.studentUserId === studentUserId ? { ...r, status } : r) ?? prev)
   }
 
   async function saveAttendance() {
-    if (!attendanceRoster || attendanceGroupId == null) return
+    if (!attendanceRoster || attendanceGroupId == null || attendanceLocked) return
     setAttendanceSaving(true)
     setAttendanceSaveMsg(null)
     try {
@@ -2378,9 +2385,13 @@ function CallStage({
           comment: r.comment ?? undefined,
         })),
       })
+      setAttendanceSaveOk(true)
       setAttendanceSaveMsg(tr("meetingPage.att.saved"))
+      setAttendanceLocked(true)
     } catch (e) {
+      setAttendanceSaveOk(false)
       setAttendanceSaveMsg(e instanceof Error ? e.message : tr("meetingPage.att.saveError"))
+      if ((e as { status?: number }).status === 409) setAttendanceLocked(true)
     } finally {
       setAttendanceSaving(false)
     }
@@ -2889,6 +2900,20 @@ function CallStage({
               </div>
             )}
 
+            {attendanceLocked && attendanceRoster !== null && attendanceGroupId != null && (
+              <div className="px-5 py-3 flex items-start gap-2 text-xs" style={{ backgroundColor: "#fffbeb", color: "#92400e", borderBottom: "1px solid rgba(146,64,14,0.15)", fontFamily: "var(--font-poppins)" }}>
+                <Lock className="w-3.5 h-3.5 shrink-0 mt-px" />
+                <span>
+                  {t("meetingPage.att.locked")}{" "}
+                  <Link
+                    href={`/oqituvchi-kabineti/davomat-jurnali?group=${attendanceGroupId}&subject=${encodeURIComponent(meeting.subjectName || meeting.subject)}&date=${meetingDateStr}`}
+                    className="font-semibold underline">
+                    {t("meetingPage.att.openJournal")}
+                  </Link>
+                </span>
+              </div>
+            )}
+
             <div className="overflow-y-auto flex-1">
               {attendanceError ? (
                 <div className="p-6 text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{attendanceError}</div>
@@ -2910,10 +2935,10 @@ function CallStage({
                         </td>
                         <td className="px-5 py-3 text-right">
                           <div className="flex flex-wrap gap-1.5 justify-end">
-                            {ATTENDANCE_STATUS_OPTIONS.map(opt => {
+                            {ATTENDANCE_STATUS_OPTIONS.filter(opt => !attendanceLocked || (s.status ?? "absent") === opt.value).map(opt => {
                               const active = (s.status ?? "absent") === opt.value
                               return (
-                                <button key={opt.value} onClick={() => setAttendanceStatus(s.studentUserId, opt.value)}
+                                <button key={opt.value} onClick={() => setAttendanceStatus(s.studentUserId, opt.value)} disabled={attendanceLocked}
                                   className="text-xs font-medium px-2.5 py-1 rounded-full transition-all"
                                   style={{
                                     backgroundColor: active ? opt.bg : "transparent",
@@ -2937,16 +2962,18 @@ function CallStage({
             {attendanceRoster !== null && attendanceRoster.length > 0 && (
               <div className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
                 {attendanceSaveMsg && (
-                  <span className="text-sm" style={{ color: attendanceSaveMsg.includes("saqland") ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                  <span className="text-sm" style={{ color: attendanceSaveOk ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                     {attendanceSaveMsg}
                   </span>
                 )}
-                <button onClick={saveAttendance} disabled={attendanceSaving}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50 ml-auto"
-                  style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
-                  <ClipboardCheck className="w-4 h-4" />
-                  {attendanceSaving ? t("common.saving") : t("common.save")}
-                </button>
+                {!attendanceLocked && (
+                  <button onClick={saveAttendance} disabled={attendanceSaving}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50 ml-auto"
+                    style={{ backgroundColor: "#15803d", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                    <ClipboardCheck className="w-4 h-4" />
+                    {attendanceSaving ? t("common.saving") : t("common.save")}
+                  </button>
+                )}
               </div>
             )}
           </div>
