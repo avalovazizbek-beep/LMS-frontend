@@ -165,7 +165,7 @@ export class MeetingMediaClient {
       console.log(`[mediasoup] producing ${source} (${producer.kind}), id=${producer.id}`)
       this.producers.set(source, producer)
     } catch (issue) {
-      console.error(`[mediasoup] Failed to produce ${source}:`, issue)
+      console.error("[mediasoup] Failed to produce %s:", source, issue)
     }
   }
 
@@ -232,7 +232,7 @@ export class MeetingMediaClient {
         consumer.track
       )
     } catch (issue) {
-      console.error(`[mediasoup] Failed to consume producer ${producer.producerId} (${producer.kind}/${producer.source}):`, issue)
+      console.error("[mediasoup] Failed to consume producer %s (%s/%s):", producer.producerId, producer.kind, producer.source, issue)
       this.consumedProducerIds.delete(producer.producerId)
     }
   }

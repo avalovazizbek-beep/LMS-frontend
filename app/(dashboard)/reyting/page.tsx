@@ -17,22 +17,33 @@ function gradeColor(grade: number | null): string {
   return "#b91c1c"
 }
 
+/* HEMIS'dan kelgan matn chop etish oynasiga HTML sifatida yoziladi —
+   ichidagi < > & " ' belgilar teg bo'lib ketmasligi (XSS) uchun */
+function escapeHtml(value: unknown): string {
+  return String(value ?? "—")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 function downloadPdf(semesterCode: number, groupName: string, rows: HemisGrade[], lang: Lang) {
   const win = window.open("", "_blank")
   if (!win) return
-  const tt = (key: string) => translate(lang, key)
+  const tt = (key: string) => escapeHtml(translate(lang, key))
   const rowsHtml = rows.map((r, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td>${r.subject_name ?? "—"}</td>
-      <td>${r.subject_type ?? "—"}</td>
-      <td style="text-align:center">${r.total_acload ?? "—"}</td>
-      <td style="text-align:center">${r.credit ?? "—"}</td>
-      <td style="text-align:center;font-weight:600">${r.total_point ?? "—"}</td>
-      <td style="text-align:center;font-weight:700;color:${r.grade != null && r.grade >= 4 ? "#15803d" : r.grade != null && r.grade >= 3 ? "#0e58a8" : "#b91c1c"}">${r.grade ?? "—"}</td>
+      <td>${escapeHtml(r.subject_name)}</td>
+      <td>${escapeHtml(r.subject_type)}</td>
+      <td style="text-align:center">${escapeHtml(r.total_acload)}</td>
+      <td style="text-align:center">${escapeHtml(r.credit)}</td>
+      <td style="text-align:center;font-weight:600">${escapeHtml(r.total_point)}</td>
+      <td style="text-align:center;font-weight:700;color:${r.grade != null && r.grade >= 4 ? "#15803d" : r.grade != null && r.grade >= 3 ? "#0e58a8" : "#b91c1c"}">${escapeHtml(r.grade)}</td>
     </tr>`).join("")
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>${tt("reyting.title")} ${semesterCode}-semestr</title>
+    <title>${tt("reyting.title")} ${escapeHtml(semesterCode)}-semestr</title>
     <style>
       body{font-family:Arial,sans-serif;margin:24px;color:#111}
       h2{color:#012970;margin-bottom:4px}p{margin:0 0 14px;color:#555;font-size:13px}
@@ -43,7 +54,7 @@ function downloadPdf(semesterCode: number, groupName: string, rows: HemisGrade[]
       @media print{@page{margin:12mm}button{display:none}}
     </style></head><body>
     <h2>${tt("reyting.title")}</h2>
-    <p>${tt("reyting.group")} <strong>${groupName}</strong> &nbsp;|&nbsp; ${semesterCode}-semestr</p>
+    <p>${tt("reyting.group")} <strong>${escapeHtml(groupName)}</strong> &nbsp;|&nbsp; ${escapeHtml(semesterCode)}-semestr</p>
     <table><thead><tr>
       <th>${tt("reyting.col.hash")}</th><th>${tt("reyting.col.subjects")}</th><th>${tt("reyting.col.subjectType")}</th><th>${tt("reyting.col.load")}</th><th>${tt("reyting.col.credit")}</th><th>${tt("reyting.col.ratingScore")}</th><th>${tt("reyting.col.grade")}</th>
     </tr></thead><tbody>${rowsHtml}</tbody></table>
