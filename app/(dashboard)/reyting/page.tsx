@@ -58,9 +58,11 @@ function downloadPdf(semesterCode: number, groupName: string, rows: HemisGrade[]
     <table><thead><tr>
       <th>${tt("reyting.col.hash")}</th><th>${tt("reyting.col.subjects")}</th><th>${tt("reyting.col.subjectType")}</th><th>${tt("reyting.col.load")}</th><th>${tt("reyting.col.credit")}</th><th>${tt("reyting.col.ratingScore")}</th><th>${tt("reyting.col.grade")}</th>
     </tr></thead><tbody>${rowsHtml}</tbody></table>
-    <script>window.onload=function(){window.print()}<\/script>
     </body></html>`)
   win.document.close()
+  // Chop etish oynasi ichiga skript yozilmaydi — shu oynaning o'zidan chaqiriladi
+  win.focus()
+  win.print()
 }
 
 export default function Reyting() {
