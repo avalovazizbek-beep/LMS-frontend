@@ -390,20 +390,27 @@ export default function AdminOqituvchilar() {
     }
   }
 
+  const lectureLabel = t("fanResurslariOq.trainingType.lecture")
+  const practiceLabel = t("fanResurslariOq.trainingType.practice")
+  const independentLabel = t("fanResurslariOq.trainingType.independentStudy")
+
   const reportColumns = [
     t("adminOqituvchilar.colIndex"), t("adminOqituvchilar.reportColTeacher"), t("adminOqituvchilar.reportColTopics"),
+    lectureLabel, practiceLabel, independentLabel,
     t("adminOqituvchilar.reportColVideos"), t("adminOqituvchilar.reportColAudios"), t("adminOqituvchilar.reportColTests"),
     t("adminOqituvchilar.reportColGroups"), t("adminOqituvchilar.reportColMeetings"), t("adminOqituvchilar.reportColStudents"),
     t("adminOqituvchilar.reportColLastActivity"),
   ]
   const reportRows = (): (string | number)[][] =>
-    filtered.map((s, i) => [i + 1, s.fullName, s.mavzular, s.videolar, s.audiolar, s.testlar, s.guruhlar, s.meetingCount, s.studentsCompleted, fmtDate(s.lastSeen)])
+    filtered.map((s, i) => [i + 1, s.fullName, s.mavzular, s.mavzuMaruza ?? 0, s.mavzuAmaliyot ?? 0, s.mavzuMustaqil ?? 0, s.videolar, s.audiolar, s.testlar, s.guruhlar, s.meetingCount, s.studentsCompleted, fmtDate(s.lastSeen)])
 
   function doExportExcel() {
     exportToExcel("oqituvchi-hisoboti", [{
       name: t("adminOqituvchilar.exportSheetName"),
       rows: filtered.map((s, i) => ({
-        [t("adminOqituvchilar.colIndex")]: i + 1, [t("adminOqituvchilar.reportColTeacher")]: s.fullName, [t("adminOqituvchilar.reportColTopics")]: s.mavzular, [t("adminOqituvchilar.reportColVideos")]: s.videolar, [t("adminOqituvchilar.reportColAudios")]: s.audiolar,
+        [t("adminOqituvchilar.colIndex")]: i + 1, [t("adminOqituvchilar.reportColTeacher")]: s.fullName, [t("adminOqituvchilar.reportColTopics")]: s.mavzular,
+        [lectureLabel]: s.mavzuMaruza ?? 0, [practiceLabel]: s.mavzuAmaliyot ?? 0, [independentLabel]: s.mavzuMustaqil ?? 0,
+        [t("adminOqituvchilar.reportColVideos")]: s.videolar, [t("adminOqituvchilar.reportColAudios")]: s.audiolar,
         [t("adminOqituvchilar.reportColTests")]: s.testlar, [t("adminOqituvchilar.reportColGroups")]: s.guruhlar, [t("adminOqituvchilar.reportColMeetings")]: s.meetingCount, [t("adminOqituvchilar.reportColStudents")]: s.studentsCompleted,
         [t("adminOqituvchilar.reportColLastActivity")]: fmtDate(s.lastSeen),
       })),
@@ -555,6 +562,19 @@ export default function AdminOqituvchilar() {
                               style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                               {s.mavzular}
                             </span>
+                            {/* Mashg'ulot turi bo'yicha bo'linish */}
+                            <div className="mt-1 flex flex-col items-center gap-0.5 text-[10px] leading-tight" style={L}>
+                              {[
+                                { n: s.mavzuMaruza, label: lectureLabel, color: "#0e58a8" },
+                                { n: s.mavzuAmaliyot, label: practiceLabel, color: "#15803d" },
+                                { n: s.mavzuMustaqil, label: independentLabel, color: "#7c3aed" },
+                                { n: s.mavzuTurisiz, label: t("adminOqituvchilar.topicTypeNone"), color: "#b45309" },
+                              ].filter(x => x.n > 0).map(x => (
+                                <span key={x.label} className="whitespace-nowrap">
+                                  <span className="font-semibold" style={{ color: x.color }}>{x.n}</span> {x.label}
+                                </span>
+                              ))}
+                            </div>
                           </td>
 
                           <td className="px-4 py-3.5 text-center">

@@ -2409,6 +2409,11 @@ export interface AdminTeacherStat {
   fullName: string
   lastSeen: string
   mavzular: number
+  /** Mavzular mashg'ulot turi bo'yicha; turisiz = turi belgilanmaganlar */
+  mavzuMaruza: number
+  mavzuAmaliyot: number
+  mavzuMustaqil: number
+  mavzuTurisiz: number
   videolar: number
   audiolar: number
   taqdimotlar: number
