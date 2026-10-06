@@ -1294,6 +1294,10 @@ export const dictionary: Record<string, DictEntry> = {
   "baholashPageOq.notFoundHint":    { uz: "Bu guruh va fan uchun hali topshiriq yuklanmagan", ru: "Для этой группы и предмета задания ещё не загружены", en: "No assignments have been uploaded for this group and subject yet", kaa: "Bu gruppa hám pán ushın háli tapsırma júklenbegen" },
   "baholashPageOq.finalizedBadge":  { uz: "Yakunlangan",                       ru: "Завершено",                              en: "Finalized",                          kaa: "Juwmaqlandı" },
   "baholashPageOq.activeBadge":     { uz: "Faol",                              ru: "Активно",                                en: "Active",                             kaa: "Aktiv" },
+  "baholashPageOq.pendingTitle":    { uz: "Baholash kutilmoqda — jami {n} ta ish", ru: "Ожидают оценки — всего {n}", en: "Waiting to be graded — {n} in total", kaa: "Bahalaw kútilmekte — jámi {n} jumıs" },
+  "baholashPageOq.newWorks":        { uz: "{n} ta yangi ish",                  ru: "новых работ: {n}",      en: "{n} new",                  kaa: "{n} jańa jumıs" },
+  "baholashPageOq.lastStudent":     { uz: "oxirgisi: {name}",                  ru: "последний: {name}",     en: "latest: {name}",           kaa: "aqırǵısı: {name}" },
+  "baholashPageOq.groupsWithNew":   { uz: "{n} ta guruhda yangi ish",          ru: "новые работы в группах: {n}", en: "new work in {n} group(s)", kaa: "{n} gruppada jańa jumıs" },
 
   // ── Imtihon topshirish sahifasi ──────────────────────────────────────
   "examTake.notFound":       { uz: "Imtihon topilmadi",         ru: "Экзамен не найден",                 en: "Exam not found",              kaa: "Emtihan tabılmadı" },
@@ -3220,6 +3224,8 @@ export const dictionary: Record<string, DictEntry> = {
   "notif.deadline1h.body":           { uz: "{title} — {time} gacha",               ru: "{title} — до {time}",                     en: "{title} — due {time}",                     kaa: "{title} — {time} ge shekem" },
   "notif.gradePending.title":        { uz: "Baholash kutilmoqda",                  ru: "Ожидает оценки",                          en: "Waiting to be graded",                     kaa: "Bahalaw kútilmekte" },
   "notif.gradePending.body":         { uz: "{title}: {n} ta ish baholashni kutmoqda", ru: "{title}: работ, ожидающих оценки — {n}", en: "{title}: {n} submission(s) waiting to be graded", kaa: "{title}: {n} jumıs bahalawdı kútpekte" },
+  "notif.gradePendingFrom.title":    { uz: "Baholash kutilmoqda — {group}",      ru: "Ожидает оценки — {group}",               en: "Waiting to be graded — {group}",           kaa: "Bahalaw kútilmekte — {group}" },
+  "notif.gradePendingFrom.body":     { uz: "{group} · {subject} — {title}: {n} ta ish baholashni kutmoqda (oxirgisi: {student})", ru: "{group} · {subject} — {title}: работ, ожидающих оценки — {n} (последний: {student})", en: "{group} · {subject} — {title}: {n} submission(s) waiting to be graded (latest: {student})", kaa: "{group} · {subject} — {title}: {n} jumıs bahalawdı kútpekte (aqırǵısı: {student})" },
   "notif.announcementReplies.title": { uz: "E'longa javoblar keldi",               ru: "Ответы на объявление",                    en: "Replies to your announcement",             kaa: "Xabarlandırıwǵa juwaplar keldi" },
   "notif.announcementReplies.body":  { uz: "{title}: {n} ta javob",                ru: "{title}: ответов — {n}",                  en: "{title}: {n} replies",                     kaa: "{title}: {n} juwap" },
   "notif.faceRequests.title":        { uz: "Yangi Face ID arizalari",              ru: "Новые заявки Face ID",                    en: "New Face ID requests",                     kaa: "Jańa Face ID arzaları" },

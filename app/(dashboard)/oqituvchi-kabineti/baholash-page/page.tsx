@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState, useCallback } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { ChevronLeft, FileText, Download, CheckCircle, Lock, AlertCircle, ShieldAlert, ExternalLink } from "lucide-react"
 import {
   teachingApi,
@@ -36,6 +37,22 @@ function fmtDate(iso: string) {
   const d = new Date(iso)
   if (isNaN(d.getTime())) return iso
   return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+}
+
+/* ── Miltillovchi nuqta — baholanmagan ish borligini ko'rsatadi ──────── */
+function PulseDot({ color = "#ea580c" }: { color?: string }) {
+  return (
+    <span className="relative flex w-2.5 h-2.5 shrink-0">
+      <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ backgroundColor: color }} />
+      <span className="relative inline-flex w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+    </span>
+  )
+}
+
+// Mavzular o'sish tartibida: "8_Mavzu…", "9-Mavzu…", "10-Mavzu…" (raqam bo'yicha)
+function byTopicNumber(a: TeacherContent, b: TeacherContent) {
+  return a.title.localeCompare(b.title, undefined, { numeric: true }) ||
+    (a.topicKey ?? "").localeCompare(b.topicKey ?? "", undefined, { numeric: true })
 }
 
 /* ── Submissions list ────────────────────────────────────────────────── */
@@ -385,13 +402,44 @@ function SubmissionsList({
 /* ── Main page ───────────────────────────────────────────────────────── */
 export default function BaholashPage() {
   const { t } = useLanguage()
+  const searchParams = useSearchParams()
   const [groupId, setGroupId] = useState<number | "">("")
   const [academicYear, setAcademicYear] = useState("")
   const [subjectName, setSubjectName] = useState("")
   const [selectedContent, setSelectedContent] = useState<TeacherContent | null>(null)
+  // Ro'yxat yuklangach avtomatik ochiladigan topshiriq (bildirishnoma/panel orqali)
+  const [openContentId, setOpenContentId] = useState<number | null>(null)
 
   const { data: groupsRes, loading: lGroups, error: eGroups } = useApi(() => teachingApi.groups(), [])
   const groups = groupsRes?.data ?? []
+
+  const { data: pendingRes, refetch: refetchPending } = useApi(() => teachingApi.gradingPending(), [])
+  const pending = useMemo(() => pendingRes?.data ?? [], [pendingRes])
+  const pendingTotal = pending.reduce((s, p) => s + p.count, 0)
+  const pendingByGroup = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const p of pending) if (p.groupId != null) m.set(p.groupId, (m.get(p.groupId) ?? 0) + p.count)
+    return m
+  }, [pending])
+  const pendingByContent = useMemo(() => new Map(pending.map(p => [p.contentId, p.count])), [pending])
+
+  function openPending(p: { groupId: number | null; subjectName: string; contentId: number }) {
+    if (p.groupId == null) return
+    setAcademicYear("")
+    setGroupId(p.groupId)
+    setSubjectName(p.subjectName)
+    setSelectedContent(null)
+    setOpenContentId(p.contentId)
+  }
+
+  // Bildirishnomadan kelganda (?group=&subject=&content=) — o'sha topshiriq ochiladi
+  useEffect(() => {
+    const g = Number(searchParams.get("group"))
+    const s = searchParams.get("subject")
+    if (!g || !s) return
+    openPending({ groupId: g, subjectName: s, contentId: Number(searchParams.get("content")) || 0 })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   // Faqat aniq bir yil tanlanganda HEMIS'dan so'raladi — o'sha yilda dars
   // bergan guruhlar, o'tganlari ham (joriy /groups faqat so'nggi
@@ -407,10 +455,24 @@ export default function BaholashPage() {
     return [...yearGroups].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
   }, [academicYear, groups, yearGroups])
 
+  // Baholanmagan ishi bor, lekin joriy ro'yxatda yo'q (o'tgan yilgi) guruh ham tanlovda chiqadi
+  const groupOptions = useMemo(() => {
+    const list = displayGroups.map(g => ({ id: g.id, name: g.name }))
+    if (academicYear) return list
+    const known = new Set(list.map(g => g.id))
+    for (const p of pending) {
+      if (p.groupId == null || known.has(p.groupId)) continue
+      known.add(p.groupId)
+      list.push({ id: p.groupId, name: p.groupName ?? String(p.groupId) })
+    }
+    return list
+  }, [displayGroups, academicYear, pending])
+
   function handleYearChange(val: string) {
     setAcademicYear(val)
     setGroupId("")
     setSubjectName("")
+    setOpenContentId(null)
   }
 
   const { data: subjectsRes } = useApi(
@@ -422,8 +484,15 @@ export default function BaholashPage() {
     const fromHemis = academicYear
       ? (yearGroups.find(g => g.id === groupId)?.subjects ?? [])
       : []
-    return [...new Set([...fromContent, ...fromHemis])].sort()
-  }, [subjectsRes, academicYear, yearGroups, groupId])
+    const fromPending = pending.filter(p => p.groupId === groupId).map(p => p.subjectName)
+    return [...new Set([...fromContent, ...fromHemis, ...fromPending])].sort()
+  }, [subjectsRes, academicYear, yearGroups, groupId, pending])
+
+  const pendingBySubject = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const p of pending) if (p.groupId === groupId) m.set(p.subjectName, (m.get(p.subjectName) ?? 0) + p.count)
+    return m
+  }, [pending, groupId])
 
   const ready = groupId !== "" && subjectName !== ""
 
@@ -431,7 +500,20 @@ export default function BaholashPage() {
     () => ready ? teachingApi.content({ type: "assignment", group: groupId as number, subject: subjectName }) : Promise.resolve(null),
     [groupId, subjectName, ready]
   )
-  const assignments = contentRes?.data ?? []
+  const assignments = useMemo(() => [...(contentRes?.data ?? [])].sort(byTopicNumber), [contentRes])
+
+  useEffect(() => {
+    if (openContentId == null) return
+    const found = assignments.find(a => a.id === openContentId)
+    if (!found) return
+    setSelectedContent(found)
+    setOpenContentId(null)
+  }, [openContentId, assignments])
+
+  function backToList() {
+    setSelectedContent(null)
+    refetchPending()
+  }
 
   if (lGroups) return <Loading />
   if (eGroups) return <ApiError message={eGroups} onRetry={() => window.location.reload()} />
@@ -444,7 +526,7 @@ export default function BaholashPage() {
           <h1 className="text-[28px] font-medium" style={T}>{t("baholashPageOq.pageTitle")}</h1>
           <p className="text-sm mt-1" style={L}>{t("baholashPageOq.subtitleSubmissions")}</p>
         </div>
-        <SubmissionsList content={selectedContent} onBack={() => setSelectedContent(null)} />
+        <SubmissionsList content={selectedContent} onBack={backToList} />
       </div>
     )
   }
@@ -455,6 +537,41 @@ export default function BaholashPage() {
         <h1 className="text-[28px] font-medium" style={T}>{t("baholashPageOq.pageTitle")}</h1>
         <p className="text-sm mt-1" style={L}>{t("baholashPageOq.subtitleMain")}</p>
       </div>
+
+      {/* Baholash kutayotgan ishlar — guruh, fan, topshiriq; bosilsa o'sha ochiladi */}
+      {pending.length > 0 && (
+        <div className="rounded-[10px] p-4 flex flex-col gap-3"
+          style={{ backgroundColor: "#fff7ed", border: "1px solid rgba(234,88,12,0.25)" }}>
+          <div className="flex items-center gap-2">
+            <PulseDot />
+            <span className="text-sm font-semibold" style={{ color: "#9a3412", fontFamily: "var(--font-poppins)" }}>
+              {t("baholashPageOq.pendingTitle", { n: pendingTotal })}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto">
+            {pending.map(p => (
+              <button key={p.contentId} onClick={() => openPending(p)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-[8px] bg-white text-left transition-colors hover:bg-[#fffaf5]"
+                style={{ border: "1px solid rgba(234,88,12,0.2)" }}>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0"
+                  style={{ backgroundColor: "#ea580c", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+                  {p.groupName ?? "—"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate" style={T}>{p.title}</div>
+                  <div className="text-xs truncate" style={L}>
+                    {p.subjectName}{p.lastStudent ? ` · ${t("baholashPageOq.lastStudent", { name: p.lastStudent })}` : ""}
+                  </div>
+                </div>
+                <span className="text-xs font-semibold shrink-0" style={{ color: "#c2410c", fontFamily: "var(--font-poppins)" }}>
+                  {t("baholashPageOq.newWorks", { n: p.count })}
+                </span>
+                <span className="text-xs shrink-0" style={{ color: "#c2410c" }}>→</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="rounded-[10px] bg-white p-4" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -468,22 +585,35 @@ export default function BaholashPage() {
             </select>
           </div>
           <div className="flex flex-col gap-1 min-w-[200px] flex-1">
-            <label className="text-xs font-medium" style={L}>{t("baholashPageOq.group")}</label>
+            <label className="flex items-center gap-2 text-xs font-medium" style={L}>
+              {t("baholashPageOq.group")}
+              {pendingByGroup.size > 0 && (
+                <span className="flex items-center gap-1.5 font-semibold" style={{ color: "#c2410c" }}>
+                  <PulseDot /> {t("baholashPageOq.groupsWithNew", { n: pendingByGroup.size })}
+                </span>
+              )}
+            </label>
             <select value={groupId}
-              onChange={e => { setGroupId(Number(e.target.value) || ""); setSubjectName("") }}
+              onChange={e => { setGroupId(Number(e.target.value) || ""); setSubjectName(""); setOpenContentId(null) }}
               className={sel} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
               <option value="">{t("baholashPageOq.selectGroup")}</option>
-              {displayGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              {groupOptions.map(g => {
+                const n = pendingByGroup.get(g.id)
+                return <option key={g.id} value={g.id}>{n ? `🔴 ${g.name} — ${t("baholashPageOq.newWorks", { n })}` : g.name}</option>
+              })}
             </select>
           </div>
           <div className="flex flex-col gap-1 min-w-[220px] flex-1">
             <label className="text-xs font-medium" style={L}>{t("baholashPageOq.subject")}</label>
-            <select value={subjectName} onChange={e => setSubjectName(e.target.value)}
+            <select value={subjectName} onChange={e => { setSubjectName(e.target.value); setOpenContentId(null) }}
               disabled={groupId === ""}
               className={sel}
               style={{ color: "#012970", fontFamily: "var(--font-poppins)", opacity: groupId === "" ? 0.5 : 1 }}>
               <option value="">{t("baholashPageOq.selectSubject")}</option>
-              {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+              {subjects.map(s => {
+                const n = pendingBySubject.get(s)
+                return <option key={s} value={s}>{n ? `🔴 ${s} — ${t("baholashPageOq.newWorks", { n })}` : s}</option>
+              })}
             </select>
           </div>
         </div>
@@ -510,12 +640,17 @@ export default function BaholashPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {assignments.map(content => (
+          {assignments.map(content => {
+            const newCount = pendingByContent.get(content.id) ?? 0
+            return (
             <button
               key={content.id}
               onClick={() => setSelectedContent(content)}
               className="rounded-[10px] bg-white p-4 text-left flex items-center justify-between gap-4 hover:bg-[#f6f9ff] transition-colors"
-              style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}
+              style={{
+                border: newCount ? "1px solid rgba(234,88,12,0.45)" : "1px solid rgba(1,41,112,0.1)",
+                boxShadow: "0px 0px 5px rgba(1,41,112,0.05)",
+              }}
             >
               <div>
                 <div className="text-sm font-semibold" style={T}>{content.title}</div>
@@ -526,6 +661,12 @@ export default function BaholashPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {newCount > 0 && (
+                  <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold"
+                    style={{ backgroundColor: "#fff7ed", color: "#c2410c", fontFamily: "var(--font-poppins)" }}>
+                    <PulseDot /> {t("baholashPageOq.newWorks", { n: newCount })}
+                  </span>
+                )}
                 {content.isActive === false ? (
                   <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                     {t("baholashPageOq.finalizedBadge")}
@@ -538,7 +679,8 @@ export default function BaholashPage() {
                 <span className="text-xs" style={{ color: "#0e58a8" }}>→</span>
               </div>
             </button>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

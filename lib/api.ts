@@ -1313,6 +1313,18 @@ export interface TeacherContent {
   updatedAt: string
 }
 
+export interface PendingGradingItem {
+  contentId: number
+  title: string
+  groupId: number | null
+  groupName: string | null
+  subjectName: string
+  /** Baholanmagan ishlar soni */
+  count: number
+  lastStudent: string | null
+  lastAt: string | null
+}
+
 export interface TeachingSubmission {
   id: number
   contentId: number
@@ -1726,6 +1738,10 @@ export const teachingApi = {
 
   submissions: (contentId: number | string) =>
     get<ListRes<TeachingSubmission>>(`/api/teaching/content/${contentId}/submissions`),
+
+  /** O'qituvchi: baholanmagan ishlar — guruh/fan/topshiriq bo'yicha */
+  gradingPending: () =>
+    get<ListRes<PendingGradingItem>>("/api/teaching/grading-pending"),
 
   /** O'qituvchi: o'z testida tanlangan talabalarga bittadan qo'shimcha urinish */
   grantRetake: (contentId: number | string, studentUserIds: number[], reason?: string) =>
