@@ -29,7 +29,7 @@ function SettingCard({ icon, iconBg, title, desc, children, className = "" }: {
   className?: string
 }) {
   return (
-    <div className={`bg-white rounded-[12px] p-6 flex flex-col gap-4 ${className}`}
+    <div className={`bg-white rounded-[12px] p-4 sm:p-6 flex flex-col gap-4 ${className}`}
       style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
       <div className="flex items-start gap-4">
         <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: iconBg }}>
@@ -164,7 +164,7 @@ export default function AdminSozlamalar() {
   const smallBtn = "flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-[8px] transition-opacity disabled:opacity-60"
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-8 max-w-[1200px]">
+    <div className="flex flex-col gap-6 p-4 sm:p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-semibold" style={{ color: "#012970", ...font }}>
@@ -188,7 +188,7 @@ export default function AdminSozlamalar() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
             <SettingCard icon={<ShieldAlert className="w-5 h-5" style={{ color: "#b91c1c" }} />} iconBg="#fef2f2"
               title={t("adminSozlamalar.faceThresholdTitle")}
               desc={<>{t("adminSozlamalar.faceThresholdDesc")}{current("face_block_threshold", "3")}</>}>
@@ -246,7 +246,8 @@ export default function AdminSozlamalar() {
           {/* Tashakkurnoma */}
           <SettingCard icon={<Award className="w-5 h-5" style={{ color: "#b8862f" }} />} iconBg="#fdf6e7"
             title={t("adminSozlamalar.cert.title")} desc={t("adminSozlamalar.cert.desc")}>
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-6">
+            {/* Keng ekranda shablon ko'rinishi haddan tashqari kattalashmasin */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,760px)] gap-6">
               <div className="flex flex-col gap-5">
                 <div className="flex items-start gap-3">
                   <button type="button" role="switch" aria-checked={certAuto} onClick={() => setCertAuto(v => !v)}

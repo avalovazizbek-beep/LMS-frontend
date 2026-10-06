@@ -224,7 +224,7 @@ export default function AdminElonlar() {
   ]
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-8 max-w-[900px]">
+    <div className="flex flex-col gap-6 p-4 sm:p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-semibold flex items-center gap-2.5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
@@ -256,9 +256,11 @@ export default function AdminElonlar() {
 
       {tab === "replies" ? (
         <RepliesPanel items={items} selectedId={replyTargetId} onSelect={setReplyTargetId} />
-      ) : (<>
+      ) : (
+      // Keng ekranda: chapda forma (sahifa surilganda ham ko'rinib turadi), o'ngda ro'yxat
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)] gap-6 items-start">
       {/* Create form */}
-      <div className="bg-white rounded-[12px] p-6 flex flex-col gap-4"
+      <div className="bg-white rounded-[12px] p-4 sm:p-6 flex flex-col gap-4 xl:sticky xl:top-6"
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
 
         <div className="flex flex-col gap-1">
@@ -292,7 +294,7 @@ export default function AdminElonlar() {
           <label className="text-xs font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
             {t("adminElonlar.audienceLabel")}
           </label>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {audienceOptions.map(opt => {
               const active = audience === opt.value
               const color = audienceBadgeColor(opt.value)
@@ -391,7 +393,7 @@ export default function AdminElonlar() {
       </div>
 
       {/* List */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 min-w-0">
         <div className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
           {t("adminElonlar.listTitle")}
         </div>
@@ -413,7 +415,8 @@ export default function AdminElonlar() {
               : a.audience === "employee" ? "adminElonlar.audienceEmployee"
               : "adminElonlar.audienceAll"
             return (
-              <div key={a.id} className="bg-white rounded-[12px] p-5 flex items-start gap-4"
+              // Telefonda tugmalar (javoblar/yoqish/o'chirish) alohida qatorga tushadi
+              <div key={a.id} className="bg-white rounded-[12px] p-4 sm:p-5 flex flex-wrap sm:flex-nowrap items-start gap-x-4 gap-y-3"
                 style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0px 0px 6px rgba(1,41,112,0.04)" }}>
                 <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0f5ff" }}>
                   <MediaIcon className="w-5 h-5" style={{ color: "#0e58a8" }} />
@@ -444,7 +447,7 @@ export default function AdminElonlar() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center justify-end gap-3 shrink-0 w-full sm:w-auto">
                   {a.requireReply && (
                     <button
                       onClick={() => { setReplyTargetId(a.id); setTab("replies") }}
@@ -473,7 +476,8 @@ export default function AdminElonlar() {
           })
         )}
       </div>
-      </>)}
+      </div>
+      )}
 
       <Modal open={confirmDeleteId != null} title={t("adminElonlar.deleteConfirmTitle")} onClose={() => setConfirmDeleteId(null)}>
         <p className="text-sm mb-5" style={{ color: "#516a8f", fontFamily: "var(--font-poppins)" }}>

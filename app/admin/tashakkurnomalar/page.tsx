@@ -58,7 +58,7 @@ export default function AdminTashakkurnomalar() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-8 max-w-[1200px]">
+    <div className="flex flex-col gap-6 p-4 sm:p-8">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[28px] font-semibold" style={{ color: "#012970", ...font }}>{t("adminCertificates.pageTitle")}</h1>
@@ -91,7 +91,8 @@ export default function AdminTashakkurnomalar() {
         <ApiError message={error} onRetry={refetch} />
       ) : (
         <div className="bg-white rounded-[12px] overflow-x-auto" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <table className="w-full text-sm" style={font}>
+          {/* Telefonda ustunlar ezilmasin — jadval gorizontal suriladi */}
+          <table className="w-full min-w-[760px] text-sm" style={font}>
             <thead>
               <tr style={{ backgroundColor: "#f6f9ff", color: "#445b7a" }}>
                 <th className="text-left font-semibold px-4 py-3">{t("adminCertificates.col.teacher")}</th>
