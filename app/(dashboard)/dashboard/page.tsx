@@ -10,6 +10,7 @@ import Link from "next/link"
 import { usersApi, hemisApi, type HemisEmployee } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { TeacherCertificateCard } from "@/components/teaching/TeacherCertificate"
 
 const staggerContainer = { hidden: {}, visible: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } } }
 const cardItem = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } }
@@ -313,6 +314,8 @@ function TeacherDashboard() {
           </div>
         </motion.div>
       )}
+
+      <TeacherCertificateCard />
 
       <section className="bg-white rounded-[10px] p-5" style={{ borderTop: "4px solid #1cc2dc", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <h2 className="text-[22px] font-medium mb-5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>

@@ -17,6 +17,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
 import { RetakeTable } from "@/components/teaching/RetakeTable"
+import { TeacherCertificateCard } from "@/components/teaching/TeacherCertificate"
 import RichTextEditor from "@/components/ui/RichTextEditor"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -2450,6 +2451,8 @@ export default function FanResurslariPage() {
         /* ── Mavzular gridi ── */
         <div className="flex-1 px-4 sm:px-8 py-5 sm:py-6">
           <div className="max-w-[1200px] mx-auto flex flex-col gap-5">
+            <TeacherCertificateCard refreshKey={allItems} />
+
             <div className="flex items-end justify-between gap-3 flex-wrap">
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold" style={titleStyle}>{t("mavzularOq.topics")}</h2>

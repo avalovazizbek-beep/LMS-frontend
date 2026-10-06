@@ -1232,6 +1232,16 @@ export interface TeacherScheduleItem {
   syncedAt: string
 }
 
+/** To'liq mavzu qismlari: video/audio, taqdimot, qo'llanma, test/topshiriq */
+export type CertificateTopicPart = "media" | "presentation" | "guide" | "check"
+
+export interface TeacherCertificateStatus {
+  goal: number
+  completedTopics: number
+  incomplete: { subjectName: string; title: string; trainingType: string | null; missing: CertificateTopicPart[] }[]
+  certificate: { fullName: string; completedTopics: number; issuedAt: string } | null
+}
+
 export interface TeacherContent {
   id: number
   uuid: string
@@ -1504,6 +1514,9 @@ export const teachingApi = {
     const q = new URLSearchParams(buildParams(params)).toString()
     return get<ListRes<TeacherContent>>(`/api/teaching/content/by-topic?${q}`)
   },
+
+  /** O'qituvchi: tashakkurnoma holati — 15 ta to'liq mavzuga yetganda server shu so'rovda beradi */
+  certificate: () => get<ItemRes<TeacherCertificateStatus>>("/api/teaching/certificate"),
 
   /** O'qituvchi: mavzuni qayta ochish (muddat o'tgan bo'lsa ham) */
   reopenTopic: (topicKey: string) => post<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}/reopen`, {}),
