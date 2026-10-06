@@ -214,7 +214,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   return (
     <aside
-      className="flex flex-col w-[300px] max-w-[85vw] h-screen bg-[var(--lms-cell)] shrink-0"
+      className="flex flex-col w-[300px] max-w-[85vw] h-dvh bg-[var(--lms-cell)] shrink-0"
       style={{ boxShadow: "var(--lms-shadow)" }}
     >
       {/* Logo + Search — qotgan, scroll bo'lmaydi */}
@@ -257,7 +257,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
       </div>
 
       {/* Nav — scrollable */}
-      <div className="flex-1 overflow-y-auto px-[25px] pb-4 min-h-0">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-[25px] pb-4 min-h-0">
         <nav className="flex flex-col gap-0.5">
 
           {/* Dashboard */}

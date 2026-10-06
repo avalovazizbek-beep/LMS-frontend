@@ -75,7 +75,7 @@ function DashboardLayoutInner({
 
   return (
     <div
-      className="flex h-screen overflow-hidden"
+      className="flex h-dvh overflow-hidden"
       style={{ backgroundColor: "var(--lms-bg)" }}
     >
       <IdleLogout paused={idlePaused} />
@@ -113,7 +113,7 @@ function DashboardLayoutInner({
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -300, opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className={isMobile ? "fixed inset-y-0 left-0 z-50 h-screen" : "h-screen shrink-0"}
+              className={isMobile ? "fixed inset-y-0 left-0 z-50 h-dvh" : "h-dvh shrink-0"}
             >
               <Sidebar onNavigate={() => isMobile && setSidebarOpen(false)} />
             </motion.div>
@@ -122,7 +122,7 @@ function DashboardLayoutInner({
       )}
 
       {/* Main content вЂ” fills remaining width, scrolls independently */}
-      <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
         {!isMeetingRoute && <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />}
         <AnimatePresence mode="wait">
           <motion.main

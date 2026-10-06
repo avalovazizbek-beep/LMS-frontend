@@ -102,7 +102,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!checked) {
     return (
-      <div className="flex h-screen items-center justify-center" style={{ backgroundColor: "#f0f5ff" }}>
+      <div className="flex h-dvh items-center justify-center" style={{ backgroundColor: "#f0f5ff" }}>
         <div className="flex flex-col items-center gap-3">
           <ShieldCheck className="w-10 h-10 animate-pulse" style={{ color: "#0e58a8" }} />
           <span className="text-sm font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
@@ -120,7 +120,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "#f0f5ff" }}>
+    <div className="flex h-dvh overflow-hidden" style={{ backgroundColor: "#f0f5ff" }}>
       <IdleLogout />
       {/* Mobilda sidebar ochiq bo'lsa — orqa fon, bosilsa yopiladi */}
       {isMobile && sidebarOpen && (
@@ -130,11 +130,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar — desktopda kontentni suradi, mobilda ustidan qoplaydi (drawer) */}
       {sidebarOpen && (
         <aside
-          className={`h-screen w-[240px] shrink-0 flex flex-col ${isMobile ? "fixed inset-y-0 left-0 z-50" : ""}`}
+          className={`h-dvh w-[240px] shrink-0 flex flex-col ${isMobile ? "fixed inset-y-0 left-0 z-50" : ""}`}
           style={{ backgroundColor: "#012970" }}
         >
           {/* Logo */}
-          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <div className="shrink-0 flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
             <div className="flex items-center gap-2 min-w-0">
               <Image src="/logo.png" alt="SamISI" width={32} height={32} className="w-8 h-8 object-contain shrink-0" />
               <div className="flex flex-col min-w-0">
@@ -149,8 +149,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </button>
           </div>
 
-          {/* Nav */}
-          <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-1">
+          {/* Nav — faqat shu qism suriladi; logo va pastki qism (chiqish) doim
+              ko'rinadi. h-dvh: iPhone Safari'da pastki panel ostida qolmaydi. */}
+          <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 flex flex-col gap-1">
             {NAV.map(({ href, labelKey, icon: Icon }) => {
               const active = pathname.startsWith(href)
               return (
@@ -173,7 +174,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
 
           {/* User footer */}
-          <div className="px-4 py-4 flex flex-col gap-1" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+          <div className="shrink-0 px-4 py-4 flex flex-col gap-1" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
             <div className="text-xs font-medium mb-2 truncate" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-poppins)" }}>
               {adminName || t("header.roleAdmin")}
             </div>
@@ -198,7 +199,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       )}
 
       {/* Main */}
-      <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 h-dvh overflow-hidden">
         {/* Topbar */}
         <header className="shrink-0 flex items-center gap-2 px-3 py-3 bg-white sm:gap-3 sm:px-6"
           style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 1px 4px rgba(1,41,112,0.06)" }}>
