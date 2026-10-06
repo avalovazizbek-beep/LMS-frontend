@@ -1253,6 +1253,8 @@ export interface TeacherCertificate {
   fullName: string
   completedTopics: number
   issuedAt: string
+  /** O'qituvchi ko'rganmi — yo'q bo'lsa saytga kirganda o'zi ochiladi */
+  seen: boolean
 }
 
 export interface CertificateConfig {
@@ -1544,6 +1546,8 @@ export const teachingApi = {
 
   /** O'qituvchi: berilgan tashakkurnoma (yoki null) — progress ataylab ko'rsatilmaydi */
   certificate: () => get<ItemRes<{ certificate: TeacherCertificate | null }>>("/api/teaching/certificate"),
+  /** O'qituvchi tashakkurnomani ko'rdi — keyin o'zi ochilmaydi */
+  markCertificateSeen: () => post<{ success: boolean }>("/api/teaching/certificate/seen", {}),
   /** Admin yuklagan tashakkurnoma shabloni (yo'q bo'lsa null — standart shablon ishlatiladi) */
   certificateTemplate: () => getBlob("/api/teaching/certificate/template"),
 

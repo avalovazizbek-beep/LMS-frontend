@@ -163,9 +163,11 @@ export function CertificatePreview({ fullName, version }: { fullName: string; ve
   return <CertificateImage preview={preview} error={error} />
 }
 
-export function CertificateModal({ fullName, issuedAt, onClose }: {
+export function CertificateModal({ fullName, issuedAt, title, onClose }: {
   fullName: string
   issuedAt: string
+  /** Avtomatik ochilganda — tabrik sarlavhasi */
+  title?: string
   onClose: () => void
 }) {
   const { t } = useLanguage()
@@ -208,7 +210,7 @@ export function CertificateModal({ fullName, issuedAt, onClose }: {
   const btn = "flex items-center justify-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-semibold transition-opacity disabled:opacity-60"
 
   return (
-    <Modal open title={t("certificate.title")} onClose={onClose} maxWidth={920}>
+    <Modal open title={title ?? t("certificate.title")} onClose={onClose} maxWidth={920}>
       <div className="flex flex-col gap-4">
         <CertificateImage preview={preview} error={error ?? saveError} />
         <div className="flex flex-wrap gap-2 justify-end">
@@ -228,6 +230,43 @@ export function CertificateModal({ fullName, issuedAt, onClose }: {
   )
 }
 
+/* Hali ko'rilmagan tashakkurnoma bir sahifa yuklanishida faqat BIR marta o'zi
+   ochiladi — layout'dagi CertificateAutoOpen va sahifalardagi karta bir vaqtda
+   ko'rsa ham ikkita oyna chiqmasligi uchun. Ochilishi bilan serverda "ko'rildi"
+   deb belgilanadi — keyingi kirishlarda (boshqa qurilmada ham) o'zi ochilmaydi. */
+let autoOpenClaimed = false
+
+function claimAutoOpen(certificate: TeacherCertificate): boolean {
+  if (autoOpenClaimed || certificate.seen) return false
+  autoOpenClaimed = true
+  teachingApi.markCertificateSeen().catch(() => {})
+  return true
+}
+
+/** Layout uchun: tashakkurnoma berilgach o'qituvchi saytga birinchi kirganda o'zi ochiladi */
+export function CertificateAutoOpen() {
+  const { t } = useLanguage()
+  const [certificate, setCertificate] = useState<TeacherCertificate | null>(null)
+  useEffect(() => {
+    let role: string | null = null
+    try { role = localStorage.getItem("lms_role") } catch { /* storage yo'q */ }
+    if (role !== "employee") return
+    let cancelled = false
+    teachingApi.certificate()
+      .then((res) => {
+        const cert = res.data?.certificate
+        if (!cancelled && cert && claimAutoOpen(cert)) setCertificate(cert)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  if (!certificate) return null
+  return (
+    <CertificateModal fullName={certificate.fullName} issuedAt={certificate.issuedAt}
+      title={t("certificate.issued")} onClose={() => setCertificate(null)} />
+  )
+}
+
 /** O'qituvchi: faqat tashakkurnoma BERILGANDA ko'rinadi. Progress ataylab
     ko'rsatilmaydi — tashakkurnoma kutilmagan sovg'a bo'lib chiqishi kerak.
     `refreshKey` o'zgarsa qayta so'raladi (resurs yuklangach darhol chiqishi uchun). */
@@ -235,7 +274,15 @@ export function TeacherCertificateCard({ refreshKey }: { refreshKey?: unknown })
   const { t } = useLanguage()
   const { data } = useApi(() => teachingApi.certificate(), [refreshKey])
   const [open, setOpen] = useState(false)
+  const [congratulate, setCongratulate] = useState(false)
   const certificate: TeacherCertificate | null | undefined = data?.data?.certificate
+  // Sahifada ishlayotgan paytda berilsa (masalan 15-mavzu yuklangach) — shu yerning o'zida ochiladi
+  useEffect(() => {
+    if (certificate && claimAutoOpen(certificate)) {
+      setCongratulate(true)
+      setOpen(true)
+    }
+  }, [certificate])
   if (!certificate) return null
 
   return (
@@ -255,7 +302,11 @@ export function TeacherCertificateCard({ refreshKey }: { refreshKey?: unknown })
         style={{ ...fontStyle, backgroundColor: "#b8862f" }}>
         <Download className="w-4 h-4" /> {t("certificate.open")}
       </button>
-      {open && <CertificateModal fullName={certificate.fullName} issuedAt={certificate.issuedAt} onClose={() => setOpen(false)} />}
+      {open && (
+        <CertificateModal fullName={certificate.fullName} issuedAt={certificate.issuedAt}
+          title={congratulate ? t("certificate.issued") : undefined}
+          onClose={() => { setOpen(false); setCongratulate(false) }} />
+      )}
     </div>
   )
 }

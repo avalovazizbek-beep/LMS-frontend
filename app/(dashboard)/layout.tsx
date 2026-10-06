@@ -10,6 +10,7 @@ import { AnnouncementModal } from "@/components/layout/AnnouncementModal"
 import { FaceReregisterModal } from "@/components/layout/FaceReregisterModal"
 import { MeetingCallProvider, useMeetingCall } from "@/components/layout/MeetingCallContext"
 import { IdleLogout } from "@/components/layout/IdleLogout"
+import { CertificateAutoOpen } from "@/components/teaching/TeacherCertificate"
 
 export default function DashboardLayout({
   children,
@@ -84,6 +85,7 @@ function DashboardLayoutInner({
           turgani uchun ustida chiqadi. */}
       {!isMeetingRoute && <AnnouncementModal />}
       {!isMeetingRoute && <FaceReregisterModal />}
+      {!isMeetingRoute && <CertificateAutoOpen />}
 
       {/* Mobilda menyu ochiq bo'lsa — orqa fon (backdrop), bosilsa yopiladi */}
       {!isMeetingRoute && (
