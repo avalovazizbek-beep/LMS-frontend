@@ -250,7 +250,6 @@ function TeacherDashboard() {
     { label: t("dashboard.subjectResources"), href: "/xodim/fan-resurslari", icon: BookOpen },
     { label: t("dashboard.subjectTasks"), href: "/xodim/fan-topshiriqlari", icon: ClipboardList },
     { label: t("dashboard.calendarPlan"), href: "/xodim/kalendar-reja", icon: CalendarDays },
-    { label: t("dashboard.personalRecord"), href: "/xodim/shaxsiy-qaydnoma-kiritish", icon: ClipboardCheck },
   ]
 
   const renderCards = (items: typeof cards) => (

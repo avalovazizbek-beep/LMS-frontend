@@ -122,8 +122,6 @@ export const dictionary: Record<string, DictEntry> = {
   "sidebar.item.finalControl":     { uz: "Yakuniy nazorat",       ru: "Итоговый контроль",               en: "Final Control",             kaa: "Juwmaqlaw baqlawı" },
   "sidebar.item.subjectExams":     { uz: "Fan imtihonlari",       ru: "Экзамены по предмету",            en: "Subject Exams",             kaa: "Pán emtihanları" },
 
-  "sidebar.item.personalRecordEntry": { uz: "Shaxsiy qaydnoma kiritish", ru: "Ввод личной записи",       en: "Enter Personal Record",     kaa: "Jeke jazba kirgiziw" },
-  "sidebar.item.gradingRequests":  { uz: "Baholash so'rovlari",   ru: "Запросы на оценивание",           en: "Grading Requests",          kaa: "Bahalaw sorawları" },
 
   "sidebar.section.lessons":       { uz: "Mashg'ulotlar",         ru: "Занятия",                         en: "Lessons",                   kaa: "Sabaqlar" },
 
@@ -206,7 +204,6 @@ export const dictionary: Record<string, DictEntry> = {
   "dashboard.subjectResources": { uz: "Fan resurslari",        ru: "Ресурсы предмета",     en: "Subject resources", kaa: "Pán resursları" },
   "dashboard.subjectTasks":   { uz: "Fan topshiriqlari",       ru: "Задания по предмету",  en: "Subject tasks",   kaa: "Pán tapsırmaları" },
   "dashboard.calendarPlan":   { uz: "Kalendar reja",           ru: "Календарный план",     en: "Calendar plan",   kaa: "Kalendar josparı" },
-  "dashboard.personalRecord": { uz: "Shaxsiy qaydnoma",        ru: "Личная запись",        en: "Personal record", kaa: "Jeke jazba" },
 
   // ── Dars jadvali sahifasi ────────────────────────────────────────────
   "darsJadvali.title":       { uz: "Dars jadvali",              ru: "Расписание занятий",              en: "Class Schedule",             kaa: "Sabaq kestesi" },
@@ -1226,19 +1223,22 @@ export const dictionary: Record<string, DictEntry> = {
   "natijalarOq.sendToTelegram": { uz: "Telegram ga yuborish",               ru: "Отправить в Telegram",                  en: "Send to Telegram",                   kaa: "Telegram ga jiberiw" },
   "natijalarOq.totalStudents":  { uz: "Jami talabalar",                     ru: "Всего студентов",                       en: "Total students",                     kaa: "Barlıq studentler" },
   "natijalarOq.avgJn":          { uz: "O'rtacha JN",                        ru: "Средний ТК",                            en: "Average current control",            kaa: "Ortasha JN" },
-  "natijalarOq.topicsCount":    { uz: "Mavzular soni",                      ru: "Количество тем",                        en: "Number of topics",                   kaa: "Temalar sanı" },
   "natijalarOq.passed":         { uz: "O'tgan",                             ru: "Прошли",                                 en: "Passed",                              kaa: "Ótken" },
   "natijalarOq.journalTitle":   { uz: "Talabalar ballari jurnali",          ru: "Журнал баллов студентов",               en: "Student score journal",              kaa: "Studentler ballları jurnalı" },
-  "natijalarOq.journalHint":    { uz: "· JN = topshirilgan mavzular o'rtachasi (%) · ON/YN katakchalarini bosib tahrirlang", ru: "· ТК = среднее по сданным темам (%) · Нажмите на ячейки ПК/ЯН для редактирования", en: "· Current control = average of submitted topics (%) · Click ON/Final cells to edit", kaa: "· JN = tapsırılǵan temalardıń ortashası (%) · ON/YN uyaların basıp redaktorlań" },
+  "natijalarOq.journalHint":    { uz: "· JN = amaliyot mavzulari o'rtachasi (100 ballik) → {jn} ballga · Ma'ruza bahosi oraliq nazoratdan · ON/YN katakchalarini bosib tahrirlang", ru: "· ТК = среднее по практическим темам (из 100) → в {jn} баллов · Лекции оцениваются промежуточным контролем · Нажмите на ячейки ПК/ЯН для редактирования", en: "· CC = average of practice topics (out of 100) → scaled to {jn} points · Lectures are graded via midterm control · Click ON/Final cells to edit", kaa: "· JN = ámeliyat temalarınıń ortashası (100 ballıq) → {jn} ballǵa · Lekciya bahası aralıq qadaǵalawdan · ON/YN uyaların basıp redaktorlań" },
   "natijalarOq.export":         { uz: "Eksport",                            ru: "Экспорт",                                en: "Export",                              kaa: "Eksport" },
   "natijalarOq.refresh":        { uz: "Yangilash",                          ru: "Обновить",                               en: "Refresh",                             kaa: "Jańalaw" },
   "natijalarOq.colStudent":     { uz: "TALABA",                             ru: "СТУДЕНТ",                                en: "STUDENT",                             kaa: "STUDENT" },
-  "natijalarOq.colTopicScores": { uz: "MAVZULAR BO'YICHA BALL",             ru: "БАЛЛЫ ПО ТЕМАМ",                        en: "SCORES BY TOPIC",                    kaa: "TEMALAR BOYINSHA BALL" },
+  "natijalarOq.colPracticeTopics": { uz: "AMALIYOT MAVZULARI (BALL)",   ru: "ПРАКТИЧЕСКИЕ ТЕМЫ (БАЛЛЫ)",            en: "PRACTICE TOPICS (SCORES)",           kaa: "ÁMELIYAT TEMALARI (BALL)" },
+  "natijalarOq.colTotal":       { uz: "UMUMIY",                             ru: "ОБЩИЙ",                                  en: "TOTAL",                               kaa: "ULÍWMA" },
+  "natijalarOq.colBall":        { uz: "BALL",                               ru: "БАЛЛ",                                   en: "SCORE",                               kaa: "BALL" },
+  "natijalarOq.practiceTopicsCount": { uz: "Amaliyot mavzulari",           ru: "Практических тем",                       en: "Practice topics",                     kaa: "Ámeliyat temaları" },
+  "natijalarOq.noPracticeTopics": { uz: "Bu fanning amaliyot mavzularida hali test yoki topshiriq yo'q — JN hisoblanmaydi. Oraliq va yakuniy ballar jadvalda.", ru: "В практических темах этого предмета пока нет тестов или заданий — ТК не рассчитывается. Промежуточные и итоговые баллы — в таблице.", en: "Practice topics of this subject have no tests or assignments yet — CC is not calculated. Midterm and final scores are in the table.", kaa: "Bul pánniń ámeliyat temalarında áli test yamasa tapsırma joq — JN esaplanbaydı. Aralıq hám jakunlawshı balllar kestede." },
+  "natijalarOq.untypedTopics":  { uz: "{n} ta mavzuning mashg'ulot turi belgilanmagan — ular JN'ga kirmadi. \"Mavzu va resurslar\" bo'limida turini (Amaliyot) belgilang.", ru: "У {n} тем не указан вид занятия — они не вошли в ТК. Укажите вид (Практика) в разделе «Темы и ресурсы».", en: "{n} topics have no class type set — they were not counted in CC. Set the type (Practice) in \"Topics and resources\".", kaa: "{n} temanıń sabaq túri belgilenbegen — olar JN'ge kirmedi. \"Tema hám resurslar\" bóliminde túrin (Ámeliyat) belgileń." },
   "natijalarOq.colJn":          { uz: "JN",                                 ru: "ТК",                                     en: "CC",                                  kaa: "JN" },
   "natijalarOq.colOn":          { uz: "ORALIQ (ON)",                        ru: "ПРОМЕЖУТОЧНЫЙ (ПК)",                    en: "INTERMEDIATE (ON)",                  kaa: "ARALIQ (ON)" },
   "natijalarOq.colYn":          { uz: "YAKUNIY",                            ru: "ИТОГОВЫЙ",                               en: "FINAL",                               kaa: "JAKUNLAWSHI" },
   "natijalarOq.colAttendance":  { uz: "DAVOMAT",                            ru: "ПОСЕЩАЕМОСТЬ",                          en: "ATTENDANCE",                          kaa: "QATNASIW" },
-  "natijalarOq.colJnPct":       { uz: "JN %",                               ru: "ТК %",                                   en: "CC %",                                kaa: "JN %" },
   "natijalarOq.colAttendanceShort": { uz: "Davomat",                        ru: "Посещ.",                                 en: "Attend.",                             kaa: "Qatnasıw" },
   "natijalarOq.noResults":      { uz: "Hech qanday natija topilmadi",       ru: "Результаты не найдены",                 en: "No results found",                   kaa: "Hesh qanday nátiyje tabılmadı" },
   "natijalarOq.sendMessage":    { uz: "Xabar yuborish",                     ru: "Отправить сообщение",                   en: "Send message",                       kaa: "Xabar jiberiw" },
@@ -1253,11 +1253,8 @@ export const dictionary: Record<string, DictEntry> = {
   "natijalarOq.selectGroupSubject": { uz: "Guruh va fanni tanlang",         ru: "Выберите группу и предмет",             en: "Select a group and subject",         kaa: "Gruppa hám pándi tańlań" },
   "natijalarOq.selectHint":     { uz: "Talabalarning mavzu bo'yicha test ballari va davomat chiqadi", ru: "Отобразятся баллы по темам и посещаемость студентов", en: "Students' topic test scores and attendance will be shown", kaa: "Studentlerdiń tema boyınsha test ballları hám qatnasıwı shıǵadı" },
   "natijalarOq.journalLoading": { uz: "Jurnal yuklanmoqda...",              ru: "Загрузка журнала...",                   en: "Loading journal...",                 kaa: "Jurnal júklenmekte..." },
-  "natijalarOq.topicsNotFound": { uz: "Mavzular topilmadi",                 ru: "Темы не найдены",                       en: "Topics not found",                   kaa: "Temalar tabılmadı" },
-  "natijalarOq.noTopicsHint":   { uz: "Bu guruh va fan uchun hali mavzu yaratilmagan", ru: "Для этой группы и предмета темы ещё не созданы", en: "No topics have been created for this group and subject yet", kaa: "Bu gruppa hám pán ushın háli tema jaratılmaǵan" },
   "natijalarOq.csvTopicCol":    { uz: "{n}-mavzu",                          ru: "тема-{n}",                               en: "topic-{n}",                          kaa: "{n}-tema" },
   "natijalarOq.csvStudent":     { uz: "Talaba",                             ru: "Студент",                                en: "Student",                             kaa: "Student" },
-  "natijalarOq.csvJnPct":       { uz: "JN (%)",                             ru: "ТК (%)",                                 en: "CC (%)",                              kaa: "JN (%)" },
   "natijalarOq.csvAttendancePct": { uz: "Davomat %",                        ru: "Посещаемость %",                        en: "Attendance %",                       kaa: "Qatnasıw %" },
 
   // ── O'qituvchi kabineti: Baholash (amaliy topshiriqlar) ──────────────

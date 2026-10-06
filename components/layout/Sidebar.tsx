@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   BookOpen, RefreshCw, Wallet, User, Video,
   Settings, Search, ChevronDown, GraduationCap, LayoutDashboard, ScanFace,
-  CalendarDays, ClipboardCheck, ClipboardList, UserCog, ShieldCheck, HelpCircle,
+  CalendarDays, ClipboardList, UserCog, ShieldCheck, HelpCircle,
   MessageSquareText,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
@@ -130,15 +130,6 @@ const employeeSections: Section[] = [
     icon: RefreshCw,
     items: [
       { label: "Qayta o'qish ro'yxati", href: "/xodim/qayta-oqish", tKey: "sidebar.item.retakeList" },
-    ],
-  },
-  {
-    title: "O'zlashtirish",
-    tKey: "sidebar.item.performance",
-    icon: ClipboardCheck,
-    items: [
-      { label: "Shaxsiy qaydnoma kiritish", href: "/xodim/shaxsiy-qaydnoma-kiritish", tKey: "sidebar.item.personalRecordEntry" },
-      { label: "Baholash so'rovlari", href: "/xodim/baholash-sorovlari",              tKey: "sidebar.item.gradingRequests" },
     ],
   },
   {

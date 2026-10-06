@@ -1384,6 +1384,7 @@ export interface JournalStudent {
   fullName: string
   studentIdNumber: string | null
   topicScores: Record<string, number | null>
+  /** Ballar — har biri o'z maksimaliga (JournalData.scale) nisbatan butun son */
   jn: number | null
   on1: number | null
   on2: number | null
@@ -1391,9 +1392,15 @@ export interface JournalStudent {
   attendancePct: number | null
 }
 
+export interface JournalScale { jn: number; on1: number; on2: number; yn: number }
+
 export interface JournalData {
+  /** Faqat amaliyot mavzulari (test/topshirig'i borlari) */
   topics: JournalTopic[]
   students: JournalStudent[]
+  scale: JournalScale
+  /** Test/topshirig'i bor, lekin mashg'ulot turi belgilanmagan mavzular — JN'ga kirmaydi */
+  untypedTopicCount: number
 }
 
 export interface PptxRun { t: string; b: boolean; i: boolean; sz: number; c: string | null }

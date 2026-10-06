@@ -6,6 +6,7 @@ import {
   teachingApi,
   type JournalTopic,
   type JournalStudent,
+  type JournalScale,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -73,7 +74,7 @@ function EditCell({
 
   async function commit() {
     const parsed = draft.trim() === "" ? null : Number(draft.replace(",", "."))
-    const val = parsed === null ? null : isNaN(parsed) ? value : Math.min(maxVal, Math.max(0, parsed))
+    const val = parsed === null ? null : isNaN(parsed) ? value : Math.min(maxVal, Math.max(0, Math.round(parsed)))
     setEditing(false)
     if (val === value) return
     setSaving(true)
@@ -109,19 +110,20 @@ function EditCell({
   )
 }
 
-/* ─── Joriy Nazorat cell ─────────────────────────────────────────────── */
-function JnCell({ jn }: { jn: number | null }) {
-  if (jn === null) return (
+/* ─── Hisoblangan ball katagi (JN / Umumiy / Ball) ───────────────────── */
+function BallCell({ value, max }: { value: number | null; max: number }) {
+  if (value === null) return (
     <td className="text-center px-2 py-2 border-r border-[rgba(1,41,112,0.1)]">
       <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
     </td>
   )
-  const c = pctColor(jn); const bg = pctBg(jn)
+  const pct = (value / max) * 100
+  const c = pctColor(pct); const bg = pctBg(pct)
   return (
     <td className="text-center px-2 py-2 border-r border-[rgba(1,41,112,0.1)]">
       <span className="inline-block px-1.5 py-0.5 rounded-[4px] text-xs font-bold"
         style={{ color: c, backgroundColor: bg, fontFamily: "var(--font-poppins)" }}>
-        {jn.toFixed(1)}%
+        {value}
       </span>
     </td>
   )
@@ -148,10 +150,11 @@ function AttCell({ pct }: { pct: number | null }) {
 
 /* ─── Telegram xabar modal ───────────────────────────────────────────── */
 function NotifyModal({
-  student, subjectName, onClose,
+  student, subjectName, scale, onClose,
 }: {
   student: { userId: number; fullName: string; jn: number | null; on1: number | null; on2: number | null; yn: number | null; attendancePct: number | null }
   subjectName: string
+  scale: JournalScale
   onClose: () => void
 }) {
   const { t } = useLanguage()
@@ -202,10 +205,10 @@ function NotifyModal({
           <div className="text-xs font-semibold" style={T}>{student.fullName}</div>
           <div className="text-xs flex flex-wrap gap-2 mt-1">
             {subjectName && <span style={L}>{subjectName}</span>}
-            {student.jn != null && <span style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>JN: {student.jn}%</span>}
-            {student.on1 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON1: {student.on1}</span>}
-            {student.on2 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON2: {student.on2}</span>}
-            {student.yn  != null && <span style={{ color: "#0891b2", fontFamily: "var(--font-poppins)" }}>YN: {student.yn}</span>}
+            {student.jn != null && <span style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>JN: {student.jn}/{scale.jn}</span>}
+            {student.on1 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON1: {student.on1}/{scale.on1}</span>}
+            {student.on2 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON2: {student.on2}/{scale.on2}</span>}
+            {student.yn  != null && <span style={{ color: "#0891b2", fontFamily: "var(--font-poppins)" }}>YN: {student.yn}/{scale.yn}</span>}
             {student.attendancePct != null && <span style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{t("natijalarOq.attendanceLabel")}: {student.attendancePct}%</span>}
           </div>
         </div>
@@ -231,11 +234,17 @@ function NotifyModal({
 }
 
 /* ─── Asosiy jurnal jadvali ──────────────────────────────────────────── */
+// Jami ball (0-100) shu chegaradan boshlab "o'tgan" hisoblanadi — rang
+// shkalasidagi (86/71/56) qoniqarli chegarasi bilan bir xil.
+const PASS_BALL = 55
+
 function GradeJournal({
-  topics, students, groupId, subjectName, onRefresh, refreshing,
+  topics, students, scale, untypedTopicCount, groupId, subjectName, onRefresh, refreshing,
 }: {
   topics: JournalTopic[]
   students: JournalStudent[]
+  scale: JournalScale
+  untypedTopicCount: number
   groupId: number
   subjectName: string
   onRefresh: () => void
@@ -245,47 +254,61 @@ function GradeJournal({
   const [overrides, setOverrides] = useState<Record<string, number | null>>({})
   const [notifyStudent, setNotifyStudent] = useState<JournalStudent | null>(null)
 
+  const totalMax = scale.jn + scale.on1 + scale.on2
+  const ballMax = totalMax + scale.yn
+
   function getVal(userId: number, field: "on1" | "on2" | "yn", s: JournalStudent): number | null {
     const k = `${userId}:${field}`
     return k in overrides ? overrides[k] : s[field]
   }
 
+  // Umumiy = JN + ON1 + ON2 (yakuniyga qadar), Ball = Umumiy + YN
+  function totals(s: JournalStudent) {
+    const on1 = getVal(s.userId, "on1", s)
+    const on2 = getVal(s.userId, "on2", s)
+    const yn = getVal(s.userId, "yn", s)
+    const parts = [s.jn, on1, on2]
+    const total = parts.every(v => v === null) ? null : parts.reduce<number>((a, v) => a + (v ?? 0), 0)
+    const ball = total === null && yn === null ? null : (total ?? 0) + (yn ?? 0)
+    return { on1, on2, yn, total, ball }
+  }
+
+  // Katakka ball (masalan 0-17) kiritiladi, bazada esa foiz saqlanadi —
+  // imtihondan avtomatik kelgan ON/YN bilan bir xil ko'rinishda.
   const save = useCallback(async (
     userId: number, gradeType: "ON1" | "ON2" | "YN", val: number | null
   ) => {
     setOverrides(prev => ({ ...prev, [`${userId}:${gradeType.toLowerCase()}`]: val }))
-    await teachingApi.savePeriodGrade({ groupId, subjectName, studentUserId: userId, gradeType, grade: val })
-  }, [groupId, subjectName])
+    const max = gradeType === "ON1" ? scale.on1 : gradeType === "ON2" ? scale.on2 : scale.yn
+    const pct = val === null ? null : Math.round((val / max) * 1000) / 10
+    await teachingApi.savePeriodGrade({ groupId, subjectName, studentUserId: userId, gradeType, grade: pct })
+  }, [groupId, subjectName, scale])
 
-  const totalMax = topics.reduce((s, t) => s + t.maxScore, 0)
+  const passed = students.filter(s => (totals(s).ball ?? 0) >= PASS_BALL).length
 
-  const passed  = students.filter(s => {
-    const jn = s.jn ?? 0
-    const on = ((getVal(s.userId, "on1", s) ?? 0) + (getVal(s.userId, "on2", s) ?? 0)) / 2
-    const yn = getVal(s.userId, "yn", s) ?? 0
-    return jn + on + yn >= 55
-  }).length
-
-  const avgJn = students.length
-    ? (students.reduce((sum, s) => sum + (s.jn ?? 0), 0) / students.length).toFixed(1)
+  const withJn = students.filter(s => s.jn !== null)
+  const avgJn = withJn.length
+    ? `${Math.round(withJn.reduce((sum, s) => sum + (s.jn ?? 0), 0) / withJn.length)}/${scale.jn}`
     : "—"
 
   function exportCsv() {
     const header = [
       "#", t("natijalarOq.csvStudent"),
       ...topics.map(tp => t("natijalarOq.csvTopicCol", { n: tp.idx })),
-      t("natijalarOq.csvJnPct"), "ON1", "ON2", "YN", t("natijalarOq.csvAttendancePct"),
+      `JN (/${scale.jn})`, `ON1 (/${scale.on1})`, `ON2 (/${scale.on2})`,
+      `${t("natijalarOq.colTotal")} (/${totalMax})`, `YN (/${scale.yn})`, `${t("natijalarOq.colBall")} (/${ballMax})`,
+      t("natijalarOq.csvAttendancePct"),
     ]
-    const rows = students.map((s, i) => [
-      i + 1,
-      s.fullName,
-      ...topics.map(tp => s.topicScores[tp.key] ?? ""),
-      s.jn !== null ? `${s.jn}%` : "",
-      getVal(s.userId, "on1", s) ?? "",
-      getVal(s.userId, "on2", s) ?? "",
-      getVal(s.userId, "yn", s) ?? "",
-      s.attendancePct !== null ? `${s.attendancePct}%` : "",
-    ])
+    const rows = students.map((s, i) => {
+      const r = totals(s)
+      return [
+        i + 1,
+        s.fullName,
+        ...topics.map(tp => s.topicScores[tp.key] ?? ""),
+        s.jn ?? "", r.on1 ?? "", r.on2 ?? "", r.total ?? "", r.yn ?? "", r.ball ?? "",
+        s.attendancePct !== null ? `${s.attendancePct}%` : "",
+      ]
+    })
     const csv = [header, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n")
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" })
     const url = URL.createObjectURL(blob)
@@ -300,8 +323,8 @@ function GradeJournal({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { icon: <Users className="w-5 h-5" style={{ color: "#0e58a8" }} />, val: students.length, label: t("natijalarOq.totalStudents"), bg: "#eef4ff" },
-          { icon: <BarChart3 className="w-5 h-5" style={{ color: "#15803d" }} />, val: `${avgJn}%`, label: t("natijalarOq.avgJn"), bg: "#f0fdf4" },
-          { icon: <BookOpen className="w-5 h-5" style={{ color: "#d97706" }} />, val: topics.length, label: t("natijalarOq.topicsCount"), bg: "#fffbeb" },
+          { icon: <BarChart3 className="w-5 h-5" style={{ color: "#15803d" }} />, val: avgJn, label: t("natijalarOq.avgJn"), bg: "#f0fdf4" },
+          { icon: <BookOpen className="w-5 h-5" style={{ color: "#d97706" }} />, val: topics.length, label: t("natijalarOq.practiceTopicsCount"), bg: "#fffbeb" },
           { icon: <CheckCircle className="w-5 h-5" style={{ color: "#7c3aed" }} />, val: `${passed}/${students.length}`, label: t("natijalarOq.passed"), bg: "#f5f3ff" },
         ].map(c => (
           <div key={c.label} className="rounded-[10px] bg-white p-4 flex items-center gap-3"
@@ -315,6 +338,14 @@ function GradeJournal({
         ))}
       </div>
 
+      {(topics.length === 0 || untypedTopicCount > 0) && (
+        <div className="flex flex-col gap-1 text-xs px-4 py-3 rounded-[10px]"
+          style={{ backgroundColor: "#fff7ed", color: "#92400e", border: "1px solid rgba(146,64,14,0.15)", fontFamily: "var(--font-poppins)" }}>
+          {topics.length === 0 && <span>{t("natijalarOq.noPracticeTopics")}</span>}
+          {untypedTopicCount > 0 && <span>{t("natijalarOq.untypedTopics", { n: untypedTopicCount })}</span>}
+        </div>
+      )}
+
       {/* Jadval */}
       <div className="rounded-[10px] bg-white overflow-hidden"
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
@@ -322,7 +353,7 @@ function GradeJournal({
           style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
           <div>
             <span className="text-sm font-semibold" style={T}>{t("natijalarOq.journalTitle")}</span>
-            <span className="ml-2 text-xs" style={L}>{t("natijalarOq.journalHint")}</span>
+            <span className="ml-2 text-xs" style={L}>{t("natijalarOq.journalHint", { jn: scale.jn })}</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={exportCsv}
@@ -347,26 +378,25 @@ function GradeJournal({
                   style={{ ...T, backgroundColor: "#e8f0fe", minWidth: 190, borderRight: "2px solid rgba(1,41,112,0.15)" }}>
                   {t("natijalarOq.colStudent")}
                 </th>
-                <th colSpan={topics.length} className="px-2 py-1.5 text-center text-xs font-semibold"
-                  style={{ ...T, borderRight: "2px solid rgba(1,41,112,0.15)", backgroundColor: "#dbeafe" }}>
-                  {t("natijalarOq.colTopicScores")}
-                </th>
-                <th colSpan={1} className="px-2 py-1.5 text-center text-xs font-semibold"
-                  style={{ ...T, borderRight: "1px solid rgba(1,41,112,0.12)", backgroundColor: "#dcfce7" }}>
-                  {t("natijalarOq.colJn")}
-                </th>
-                <th colSpan={2} className="px-2 py-1.5 text-center text-xs font-semibold"
-                  style={{ ...T, borderRight: "1px solid rgba(1,41,112,0.12)", backgroundColor: "#fef9c3" }}>
-                  {t("natijalarOq.colOn")}
-                </th>
-                <th colSpan={1} className="px-2 py-1.5 text-center text-xs font-semibold"
-                  style={{ ...T, borderRight: "1px solid rgba(1,41,112,0.12)", backgroundColor: "#fce7f3" }}>
-                  {t("natijalarOq.colYn")}
-                </th>
-                <th colSpan={1} className="px-2 py-1.5 text-center text-xs font-semibold"
-                  style={{ ...T, backgroundColor: "#f0fdf4" }}>
-                  {t("natijalarOq.colAttendance")}
-                </th>
+                {topics.length > 0 && (
+                  <th colSpan={topics.length} className="px-2 py-1.5 text-center text-xs font-semibold"
+                    style={{ ...T, borderRight: "2px solid rgba(1,41,112,0.15)", backgroundColor: "#dbeafe" }}>
+                    {t("natijalarOq.colPracticeTopics")}
+                  </th>
+                )}
+                {[
+                  { label: t("natijalarOq.colJn"),    span: 1, bg: "#dcfce7" },
+                  { label: t("natijalarOq.colOn"),    span: 2, bg: "#fef9c3" },
+                  { label: t("natijalarOq.colTotal"), span: 1, bg: "#e0e7ff" },
+                  { label: t("natijalarOq.colYn"),    span: 1, bg: "#fce7f3" },
+                  { label: t("natijalarOq.colBall"),  span: 1, bg: "#ede9fe" },
+                  { label: t("natijalarOq.colAttendance"), span: 2, bg: "#f0fdf4" },
+                ].map(g => (
+                  <th key={g.label} colSpan={g.span} className="px-2 py-1.5 text-center text-xs font-semibold"
+                    style={{ ...T, borderRight: "1px solid rgba(1,41,112,0.12)", backgroundColor: g.bg }}>
+                    {g.label}
+                  </th>
+                ))}
               </tr>
               {/* 2-qator: har bir ustun */}
               <tr style={{ backgroundColor: "#f0f5ff", borderBottom: "2px solid rgba(1,41,112,0.12)" }}>
@@ -382,14 +412,16 @@ function GradeJournal({
                   </th>
                 ))}
                 {[
-                  { label: t("natijalarOq.colJnPct"),           bg: "#f0fdf4", br: "rgba(1,41,112,0.12)" },
-                  { label: "ON1",                                bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
-                  { label: "ON2",                                bg: "#fefce8", br: "rgba(1,41,112,0.12)" },
-                  { label: "YN",                                 bg: "#fdf2f8", br: "rgba(1,41,112,0.12)" },
-                  { label: t("natijalarOq.colAttendanceShort"),  bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" },
-                  { label: "📣",                                 bg: "#fff7ed", br: "transparent" },
+                  { key: "jn",    label: `/${scale.jn}`,        bg: "#f0fdf4", br: "rgba(1,41,112,0.12)" },
+                  { key: "on1",   label: `ON1 /${scale.on1}`,   bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
+                  { key: "on2",   label: `ON2 /${scale.on2}`,   bg: "#fefce8", br: "rgba(1,41,112,0.12)" },
+                  { key: "total", label: `/${totalMax}`,        bg: "#eef2ff", br: "rgba(1,41,112,0.12)" },
+                  { key: "yn",    label: `/${scale.yn}`,        bg: "#fdf2f8", br: "rgba(1,41,112,0.12)" },
+                  { key: "ball",  label: `/${ballMax}`,         bg: "#f5f3ff", br: "rgba(1,41,112,0.12)" },
+                  { key: "att",   label: t("natijalarOq.colAttendanceShort"), bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" },
+                  { key: "bell",  label: "📣",                  bg: "#fff7ed", br: "transparent" },
                 ].map(col => (
-                  <th key={col.label} className="px-2 py-2 text-center text-[10px] font-semibold"
+                  <th key={col.key} className="px-2 py-2 text-center text-[10px] font-semibold"
                     style={{ ...T, minWidth: 50, backgroundColor: col.bg, borderRight: `1px solid ${col.br}` }}>
                     {col.label}
                   </th>
@@ -399,10 +431,12 @@ function GradeJournal({
 
             <tbody>
               {students.length === 0 ? (
-                <tr><td colSpan={topics.length + 7} className="px-4 py-14 text-center text-sm" style={L}>
+                <tr><td colSpan={topics.length + 9} className="px-4 py-14 text-center text-sm" style={L}>
                   {t("natijalarOq.noResults")}
                 </td></tr>
-              ) : students.map((s, idx) => (
+              ) : students.map((s, idx) => {
+                const r = totals(s)
+                return (
                 <tr key={s.userId} className="hover:bg-[#f8faff]"
                   style={{ borderBottom: "1px solid rgba(1,41,112,0.05)" }}>
                   {/* Talaba ismi — sticky */}
@@ -424,14 +458,20 @@ function GradeJournal({
                   ))}
 
                   {/* JN */}
-                  <JnCell jn={s.jn} />
+                  <BallCell value={s.jn} max={scale.jn} />
 
                   {/* ON1, ON2 */}
-                  <EditCell value={getVal(s.userId, "on1", s)} onSave={v => save(s.userId, "ON1", v)} />
-                  <EditCell value={getVal(s.userId, "on2", s)} onSave={v => save(s.userId, "ON2", v)} />
+                  <EditCell value={r.on1} maxVal={scale.on1} onSave={v => save(s.userId, "ON1", v)} />
+                  <EditCell value={r.on2} maxVal={scale.on2} onSave={v => save(s.userId, "ON2", v)} />
+
+                  {/* Umumiy = JN + ON1 + ON2 */}
+                  <BallCell value={r.total} max={totalMax} />
 
                   {/* YN */}
-                  <EditCell value={getVal(s.userId, "yn", s)} onSave={v => save(s.userId, "YN", v)} />
+                  <EditCell value={r.yn} maxVal={scale.yn} onSave={v => save(s.userId, "YN", v)} />
+
+                  {/* Ball = Umumiy + YN */}
+                  <BallCell value={r.ball} max={ballMax} />
 
                   {/* Davomat */}
                   <AttCell pct={s.attendancePct} />
@@ -446,7 +486,8 @@ function GradeJournal({
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -462,6 +503,7 @@ function GradeJournal({
         <NotifyModal
           student={{ ...notifyStudent, on1: getVal(notifyStudent.userId, "on1", notifyStudent), on2: getVal(notifyStudent.userId, "on2", notifyStudent), yn: getVal(notifyStudent.userId, "yn", notifyStudent) }}
           subjectName={subjectName}
+          scale={scale}
           onClose={() => setNotifyStudent(null)}
         />
       )}
@@ -470,6 +512,9 @@ function GradeJournal({
 }
 
 /* ─── Sahifa ─────────────────────────────────────────────────────────── */
+// Backend shkalani har doim yuboradi; bu faqat eski javob kelib qolsa
+const DEFAULT_SCALE: JournalScale = { jn: 35, on1: 17, on2: 18, yn: 30 }
+
 export default function NatijalarPage() {
   const { t } = useLanguage()
   const { data: groupsRes, loading: lGroups, error: eGroups } = useApi(() => teachingApi.groups(), [])
@@ -498,6 +543,7 @@ export default function NatijalarPage() {
 
   const topics   = data?.data?.topics   ?? []
   const students = data?.data?.students ?? []
+  const scale    = data?.data?.scale    ?? DEFAULT_SCALE
 
   if (lGroups) return <Loading />
   if (eGroups) return <ApiError message={eGroups} onRetry={() => window.location.reload()} />
@@ -552,17 +598,12 @@ export default function NatijalarPage() {
         </div>
       ) : error ? (
         <ApiError message={error} onRetry={refetch} />
-      ) : topics.length === 0 ? (
-        <div className="rounded-[10px] bg-white p-14 text-center"
-          style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <BookOpen className="w-10 h-10 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
-          <p className="text-sm font-medium" style={T}>{t("natijalarOq.topicsNotFound")}</p>
-          <p className="text-xs mt-1" style={L}>{t("natijalarOq.noTopicsHint")}</p>
-        </div>
       ) : (
         <GradeJournal
           topics={topics}
           students={students}
+          scale={scale}
+          untypedTopicCount={data?.data?.untypedTopicCount ?? 0}
           groupId={groupId as number}
           subjectName={subjectName}
           onRefresh={refetch}
