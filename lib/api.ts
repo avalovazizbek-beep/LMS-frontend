@@ -1268,6 +1268,9 @@ export interface AdminCertificateItem {
   teacherUserId: number
   fullName: string
   completedTopics: number
+  /** Kamida bitta materiali bor mavzular va har bir qism nechta mavzuda borligi */
+  totalTopics: number
+  partCounts: Record<CertificateTopicPart, number>
   certificate: { issuedAt: string; issuedBy: string | null; revoked: boolean } | null
 }
 

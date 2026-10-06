@@ -115,9 +115,25 @@ export default function AdminTashakkurnomalar() {
                         <span className="font-medium" style={{ color: "#012970" }}>{item.fullName || `#${item.teacherUserId}`}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="font-semibold" style={{ color: reached ? "#15803d" : "#0e58a8" }}>{item.completedTopics}</span>
-                      {config && <span style={{ color: "#94a3b8" }}> / {config.goal}</span>}
+                    <td className="px-4 py-3">
+                      <div className="whitespace-nowrap">
+                        <span className="font-semibold" style={{ color: reached ? "#15803d" : "#0e58a8" }}>{item.completedTopics}</span>
+                        {config && <span style={{ color: "#94a3b8" }}> / {config.goal}</span>}
+                      </div>
+                      {/* Nima yetishmayotgani: jami mavzu va har bir majburiy qism nechta mavzuda bor */}
+                      {config && item.partCounts && item.totalTopics > 0 && (
+                        <div className="mt-1 text-[11px] leading-snug" style={{ color: "#7293b9" }}>
+                          {t("adminCertificates.topicsTotal", { n: item.totalTopics })}
+                          {config.parts.map(p => {
+                            const n = item.partCounts[p] ?? 0
+                            return (
+                              <span key={p}> · {t(`certificate.part.${p}`)}{" "}
+                                <span className="font-semibold" style={{ color: n === 0 ? "#b91c1c" : n < item.totalTopics ? "#b45309" : "#15803d" }}>{n}</span>
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs">{statusOf(item)}</td>
                     <td className="px-4 py-3">

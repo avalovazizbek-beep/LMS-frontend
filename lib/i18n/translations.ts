@@ -3039,6 +3039,7 @@ export const dictionary: Record<string, DictEntry> = {
   "adminCertificates.autoOff": { uz: "Avtomatik berish o'chirilgan", ru: "Автоматическая выдача выключена", en: "Automatic awarding is off", kaa: "Avtomat beriw óshirilgen" },
   "adminCertificates.col.teacher": { uz: "O'qituvchi", ru: "Преподаватель", en: "Teacher", kaa: "Oqıtıwshı" },
   "adminCertificates.col.topics": { uz: "To'liq mavzular", ru: "Полные темы", en: "Full topics", kaa: "Tolıq temalar" },
+  "adminCertificates.topicsTotal": { uz: "{n} ta mavzu", ru: "тем: {n}", en: "{n} topics", kaa: "{n} tema" },
   "adminCertificates.col.status": { uz: "Holat", ru: "Статус", en: "Status", kaa: "Jaǵday" },
   "adminCertificates.col.actions": { uz: "Amallar", ru: "Действия", en: "Actions", kaa: "Ámeller" },
   "adminCertificates.status.none": { uz: "Berilmagan", ru: "Не выдано", en: "Not awarded", kaa: "Berilmegen" },
