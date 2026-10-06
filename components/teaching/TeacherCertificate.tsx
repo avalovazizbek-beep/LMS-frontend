@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { Playfair_Display } from "next/font/google"
-import { Award, ChevronDown, Download, FileDown, Loader2 } from "lucide-react"
-import { teachingApi, type CertificateTopicPart, type TeacherCertificateStatus } from "@/lib/api"
+import { Award, Download, FileDown, Loader2 } from "lucide-react"
+import { teachingApi, type TeacherCertificate } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Modal } from "@/components/ui/Modal"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -11,13 +11,13 @@ import { tr } from "@/lib/i18n/translations"
 
 const nameFont = Playfair_Display({ subsets: ["latin", "latin-ext"], weight: "700", preload: false })
 
-/* Shablon 1220×864 — koordinatalar shu o'lchamda, eksport SCALE barobar katta
-   chiziladi. Asl rasmdagi namuna sana (05.10.2026) va "Saria" yozuvi shablondan
-   o'chirilgan: sana ham, "Sana" yorlig'i ham shu yerda yoziladi. */
-const TEMPLATE_SRC = "/certificates/tashakkurnoma.jpg"
+/* Joylashuv standart shablon (1220×864) o'lchamida beriladi va rasmning haqiqiy
+   o'lchamiga nisbatan qo'llanadi — admin yuklagan shablon ham shu tartibda
+   bo'lishi kerak. Standart shablondagi namuna sana (05.10.2026) va "Saria"
+   yozuvi rasmdan o'chirilgan: sana ham, "Sana" yorlig'i ham shu yerda yoziladi. */
+const DEFAULT_TEMPLATE_SRC = "/certificates/tashakkurnoma.jpg"
 const W = 1220
 const H = 864
-const SCALE = 2
 // "Hurmatli" so'zidan keyin, oltin chiziq ustida
 const NAME = { cx: 724, baseline: 331, maxWidth: 336, size: 34, minSize: 18, color: "#0b2849" }
 // Kalendar belgisi yonida, pastki chiziq ustida
@@ -33,7 +33,22 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
-function formatDate(iso: string) {
+/** Admin yuklagan shablon, bo'lmasa standart shablon */
+async function loadTemplate(): Promise<HTMLImageElement> {
+  const blob = await teachingApi.certificateTemplate().catch(() => null)
+  if (!blob) return loadImage(DEFAULT_TEMPLATE_SRC)
+  const url = URL.createObjectURL(blob)
+  try {
+    return await loadImage(url)
+  } catch {
+    return loadImage(DEFAULT_TEMPLATE_SRC)
+  } finally {
+    // Rasm decode bo'lgach URL kerak emas — canvas'ga chizish img elementidan
+    setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
+}
+
+export function formatCertificateDate(iso: string) {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, "0")
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`
@@ -42,46 +57,50 @@ function formatDate(iso: string) {
 // HEMIS ismlaridagi oʻ/gʻ belgilari (U+02BB) shriftda bo'lmasligi mumkin — tipografik qo'shtirnoqqa
 const typographicApostrophes = (s: string) => s.replace(/[ʻ`‘]/g, "‘").replace(/[ʼ´’]/g, "’")
 
-async function drawCertificate(fullName: string, issuedAt: string): Promise<HTMLCanvasElement> {
+export async function drawCertificate(fullName: string, issuedAt: string): Promise<HTMLCanvasElement> {
   const sans = getComputedStyle(document.documentElement).getPropertyValue("--font-poppins").trim() || "sans-serif"
   const serif = nameFont.style.fontFamily
   const name = typographicApostrophes(fullName.trim())
   const [img] = await Promise.all([
-    loadImage(TEMPLATE_SRC),
+    loadTemplate(),
     document.fonts.load(`700 ${NAME.size}px ${serif}`, name),
     document.fonts.load(`500 ${DATE.size}px ${sans}`),
     document.fonts.load(`400 ${DATE_LABEL.size}px ${sans}`),
   ])
 
+  // Kamida 2 barobar (bosmaga yaroqli), katta shablonda o'z o'lchamida
+  const outW = Math.min(4000, Math.max(W * 2, img.naturalWidth))
+  const outH = Math.round(outW * (img.naturalHeight / img.naturalWidth))
+  const sx = outW / W
+  const sy = outH / H
   const canvas = document.createElement("canvas")
-  canvas.width = W * SCALE
-  canvas.height = H * SCALE
+  canvas.width = outW
+  canvas.height = outH
   const ctx = canvas.getContext("2d")
   if (!ctx) throw new Error("Canvas mavjud emas")
-  ctx.scale(SCALE, SCALE)
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = "high"
-  ctx.drawImage(img, 0, 0, W, H)
+  ctx.drawImage(img, 0, 0, outW, outH)
   ctx.textAlign = "center"
   ctx.textBaseline = "alphabetic"
 
   // Uzun ism chiziqqa sig'guncha kichrayadi
   let size = NAME.size
-  ctx.font = `700 ${size}px ${serif}`
-  while (size > NAME.minSize && ctx.measureText(name).width > NAME.maxWidth) {
+  ctx.font = `700 ${size * sx}px ${serif}`
+  while (size > NAME.minSize && ctx.measureText(name).width > NAME.maxWidth * sx) {
     size -= 1
-    ctx.font = `700 ${size}px ${serif}`
+    ctx.font = `700 ${size * sx}px ${serif}`
   }
   ctx.fillStyle = NAME.color
-  ctx.fillText(name, NAME.cx, NAME.baseline, NAME.maxWidth)
+  ctx.fillText(name, NAME.cx * sx, NAME.baseline * sy, NAME.maxWidth * sx)
 
-  ctx.font = `500 ${DATE.size}px ${sans}`
+  ctx.font = `500 ${DATE.size * sx}px ${sans}`
   ctx.fillStyle = DATE.color
-  ctx.fillText(formatDate(issuedAt), DATE.cx, DATE.baseline)
+  ctx.fillText(formatCertificateDate(issuedAt), DATE.cx * sx, DATE.baseline * sy)
 
-  ctx.font = `400 ${DATE_LABEL.size}px ${sans}`
+  ctx.font = `400 ${DATE_LABEL.size * sx}px ${sans}`
   ctx.fillStyle = DATE_LABEL.color
-  ctx.fillText(DATE_LABEL.text, DATE_LABEL.cx, DATE_LABEL.baseline)
+  ctx.fillText(DATE_LABEL.text, DATE_LABEL.cx * sx, DATE_LABEL.baseline * sy)
   return canvas
 }
 
@@ -98,28 +117,62 @@ function saveBlob(blob: Blob, filename: string) {
 
 const fontStyle = { fontFamily: "var(--font-poppins)" } as const
 
-function CertificateModal({ certificate, onClose }: {
-  certificate: NonNullable<TeacherCertificateStatus["certificate"]>
-  onClose: () => void
-}) {
-  const { t } = useLanguage()
+/** Tashakkurnoma rasmi (canvas'dan) — `version` o'zgarsa qayta chiziladi */
+function useCertificateCanvas(fullName: string, issuedAt: string, version = 0) {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState<"png" | "pdf" | null>(null)
-  const filename = `Tashakkurnoma - ${certificate.fullName}`
-
   useEffect(() => {
     let cancelled = false
-    drawCertificate(certificate.fullName, certificate.issuedAt)
+    setError(null)
+    drawCertificate(fullName, issuedAt)
       .then((c) => {
         if (cancelled) return
         setCanvas(c)
-        setPreview(c.toDataURL("image/jpeg", 0.92))
+        setPreview(c.toDataURL("image/jpeg", 0.9))
       })
       .catch(() => { if (!cancelled) setError(tr("certificate.renderError")) })
     return () => { cancelled = true }
-  }, [certificate.fullName, certificate.issuedAt])
+  }, [fullName, issuedAt, version])
+  return { canvas, preview, error }
+}
+
+function CertificateImage({ preview, error }: { preview: string | null; error: string | null }) {
+  const { t } = useLanguage()
+  return (
+    <div className="w-full rounded-[8px] overflow-hidden flex items-center justify-center"
+      style={{ aspectRatio: `${W} / ${H}`, backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
+      {preview ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={preview} alt={t("certificate.title")} className="w-full h-full object-contain" />
+      ) : error ? (
+        <p className="text-sm" style={{ ...fontStyle, color: "#b91c1c" }}>{error}</p>
+      ) : (
+        <span className="flex items-center gap-2 text-sm" style={{ ...fontStyle, color: "#7293b9" }}>
+          <Loader2 className="w-4 h-4 animate-spin" /> {t("certificate.preparing")}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** Admin sozlamalaridagi namuna: namunaviy ism va bugungi sana bilan */
+export function CertificatePreview({ fullName, version }: { fullName: string; version: number }) {
+  const [issuedAt] = useState(() => new Date().toISOString())
+  const { preview, error } = useCertificateCanvas(fullName, issuedAt, version)
+  return <CertificateImage preview={preview} error={error} />
+}
+
+export function CertificateModal({ fullName, issuedAt, onClose }: {
+  fullName: string
+  issuedAt: string
+  onClose: () => void
+}) {
+  const { t } = useLanguage()
+  const { canvas, preview, error } = useCertificateCanvas(fullName, issuedAt)
+  const [busy, setBusy] = useState<"png" | "pdf" | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const filename = `Tashakkurnoma - ${fullName}`
 
   function downloadPng() {
     if (!canvas) return
@@ -133,18 +186,20 @@ function CertificateModal({ certificate, onClose }: {
   async function downloadPdf() {
     if (!canvas) return
     setBusy("pdf")
+    setSaveError(null)
     try {
       const { jsPDF } = await import("jspdf")
       const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" })
       const pw = pdf.internal.pageSize.getWidth()
       const ph = pdf.internal.pageSize.getHeight()
+      const ratio = canvas.height / canvas.width
       let w = pw
-      let h = pw * (H / W)
-      if (h > ph) { h = ph; w = ph * (W / H) }
+      let h = pw * ratio
+      if (h > ph) { h = ph; w = ph / ratio }
       pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", (pw - w) / 2, (ph - h) / 2, w, h)
       pdf.save(`${filename}.pdf`)
     } catch {
-      setError(t("certificate.renderError"))
+      setSaveError(t("certificate.renderError"))
     } finally {
       setBusy(null)
     }
@@ -155,19 +210,7 @@ function CertificateModal({ certificate, onClose }: {
   return (
     <Modal open title={t("certificate.title")} onClose={onClose} maxWidth={920}>
       <div className="flex flex-col gap-4">
-        <div className="w-full rounded-[8px] overflow-hidden flex items-center justify-center"
-          style={{ aspectRatio: `${W} / ${H}`, backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
-          {preview ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview} alt={t("certificate.title")} className="w-full h-full object-contain" />
-          ) : error ? (
-            <p className="text-sm" style={{ ...fontStyle, color: "#b91c1c" }}>{error}</p>
-          ) : (
-            <span className="flex items-center gap-2 text-sm" style={{ ...fontStyle, color: "#7293b9" }}>
-              <Loader2 className="w-4 h-4 animate-spin" /> {t("certificate.preparing")}
-            </span>
-          )}
-        </div>
+        <CertificateImage preview={preview} error={error ?? saveError} />
         <div className="flex flex-wrap gap-2 justify-end">
           <button onClick={downloadPng} disabled={!canvas || busy !== null} className={btn}
             style={{ ...fontStyle, border: "1px solid rgba(14,88,168,0.35)", color: "#0e58a8", backgroundColor: "white" }}>
@@ -185,94 +228,34 @@ function CertificateModal({ certificate, onClose }: {
   )
 }
 
-const PART_KEYS: Record<CertificateTopicPart, string> = {
-  media: "certificate.part.media",
-  presentation: "certificate.part.presentation",
-  guide: "certificate.part.guide",
-  check: "certificate.part.check",
-}
-
-/** O'qituvchi: tashakkurnoma sari progress (n / 15 to'liq mavzu) yoki berilgan
-    tashakkurnomani ko'rish/yuklab olish. `refreshKey` o'zgarsa qayta so'raladi —
-    resurs yuklangach progress darhol yangilanishi uchun. */
+/** O'qituvchi: faqat tashakkurnoma BERILGANDA ko'rinadi. Progress ataylab
+    ko'rsatilmaydi — tashakkurnoma kutilmagan sovg'a bo'lib chiqishi kerak.
+    `refreshKey` o'zgarsa qayta so'raladi (resurs yuklangach darhol chiqishi uchun). */
 export function TeacherCertificateCard({ refreshKey }: { refreshKey?: unknown }) {
   const { t } = useLanguage()
   const { data } = useApi(() => teachingApi.certificate(), [refreshKey])
   const [open, setOpen] = useState(false)
-  const [showIncomplete, setShowIncomplete] = useState(false)
-  const status = data?.data
-  if (!status) return null
-
-  const { goal, completedTopics, incomplete, certificate } = status
-  const pct = Math.min(100, Math.round((completedTopics / goal) * 100))
-
-  if (certificate) {
-    return (
-      <div className="rounded-[12px] bg-white px-5 py-4 flex items-center gap-4 flex-wrap"
-        style={{ border: "1px solid rgba(184,134,47,0.35)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
-        <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#fdf6e7" }}>
-          <Award className="w-6 h-6" style={{ color: "#b8862f" }} />
-        </div>
-        <div className="flex-1 min-w-[200px]">
-          <p className="text-sm font-semibold" style={{ ...fontStyle, color: "#012970" }}>{t("certificate.issued")}</p>
-          <p className="text-xs mt-0.5" style={{ ...fontStyle, color: "#7293b9" }}>
-            {t("certificate.issuedOn", { date: formatDate(certificate.issuedAt) })}
-          </p>
-        </div>
-        <button onClick={() => setOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ ...fontStyle, backgroundColor: "#b8862f" }}>
-          <Download className="w-4 h-4" /> {t("certificate.open")}
-        </button>
-        {open && <CertificateModal certificate={certificate} onClose={() => setOpen(false)} />}
-      </div>
-    )
-  }
+  const certificate: TeacherCertificate | null | undefined = data?.data?.certificate
+  if (!certificate) return null
 
   return (
-    <div className="rounded-[12px] bg-white px-5 py-4 flex flex-col gap-3"
-      style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
-      <div className="flex items-start gap-4">
-        <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
-          <Award className="w-6 h-6" style={{ color: "#0e58a8" }} />
-        </div>
-        <div className="flex-1 min-w-0 flex flex-col gap-2">
-          <div className="flex items-baseline justify-between gap-3 flex-wrap">
-            <p className="text-sm font-semibold" style={{ ...fontStyle, color: "#012970" }}>{t("certificate.title")}</p>
-            <p className="text-xs font-medium" style={{ ...fontStyle, color: "#0e58a8" }}>
-              {t("certificate.progress", { n: completedTopics, goal })}
-            </p>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#eef4ff" }}>
-            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: "#0e58a8" }} />
-          </div>
-          <p className="text-xs" style={{ ...fontStyle, color: "#7293b9" }}>{t("certificate.rule", { goal })}</p>
-        </div>
+    <div className="rounded-[12px] bg-white px-5 py-4 flex items-center gap-4 flex-wrap"
+      style={{ border: "1px solid rgba(184,134,47,0.35)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
+      <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#fdf6e7" }}>
+        <Award className="w-6 h-6" style={{ color: "#b8862f" }} />
       </div>
-
-      {incomplete.length > 0 && (
-        <div className="flex flex-col gap-2 sm:pl-[60px]">
-          <button onClick={() => setShowIncomplete((v) => !v)}
-            className="flex items-center gap-1 text-xs font-semibold w-fit" style={{ ...fontStyle, color: "#b45309" }}>
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showIncomplete ? "rotate-180" : ""}`} />
-            {t("certificate.incomplete", { n: incomplete.length })}
-          </button>
-          {showIncomplete && (
-            <ul className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto pr-1">
-              {incomplete.map((topic, i) => (
-                <li key={`${topic.subjectName}|${topic.trainingType}|${topic.title}|${i}`}
-                  className="text-xs px-3 py-2 rounded-[8px]" style={{ ...fontStyle, backgroundColor: "#fffbeb" }}>
-                  <span className="font-semibold break-words" style={{ color: "#012970" }}>{topic.title}</span>
-                  <span style={{ color: "#7293b9" }}> · {topic.subjectName}</span>
-                  <span className="block mt-0.5" style={{ color: "#b45309" }}>
-                    {t("certificate.missing", { parts: topic.missing.map((p) => t(PART_KEYS[p])).join(", ") })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      <div className="flex-1 min-w-[200px]">
+        <p className="text-sm font-semibold" style={{ ...fontStyle, color: "#012970" }}>{t("certificate.issued")}</p>
+        <p className="text-xs mt-0.5" style={{ ...fontStyle, color: "#7293b9" }}>
+          {t("certificate.issuedOn", { date: formatCertificateDate(certificate.issuedAt) })}
+        </p>
+      </div>
+      <button onClick={() => setOpen(true)}
+        className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-semibold text-white transition-opacity hover:opacity-90"
+        style={{ ...fontStyle, backgroundColor: "#b8862f" }}>
+        <Download className="w-4 h-4" /> {t("certificate.open")}
+      </button>
+      {open && <CertificateModal fullName={certificate.fullName} issuedAt={certificate.issuedAt} onClose={() => setOpen(false)} />}
     </div>
   )
 }

@@ -26,6 +26,7 @@ import {
   ShieldHalf,
   History,
   MessageSquareText,
+  Award,
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 import { IdleLogout } from "@/components/layout/IdleLogout"
@@ -49,6 +50,7 @@ const NAV = [
   { href: "/admin/murojaatlar", labelKey: "adminNav.support", icon: MessageSquareText },
   { href: "/admin/ruxsatlar", labelKey: "adminNav.permissions", icon: ShieldHalf },
   { href: "/admin/audit-log", labelKey: "adminNav.auditLog", icon: History },
+  { href: "/admin/tashakkurnomalar", labelKey: "adminNav.certificates", icon: Award },
   { href: "/admin/sozlamalar", labelKey: "adminNav.settings", icon: Settings },
 ]
 

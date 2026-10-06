@@ -45,7 +45,7 @@ const EXACT: Record<string, string> = {
 // o'zbekcha deb hisoblanadi: "TALABA" -> "ТАЛАБА", "JN/ON/YN" -> "ЖН/ОН/ЯН".
 const ACRONYMS = new Set([
   "HEMIS", "GPA", "ID", "PDF", "PPT", "PPTX", "DOC", "DOCX", "XLS", "XLSX", "CSV",
-  "TXT", "ZIP", "RAR", "AVI", "MOV", "MP", "MP3", "MP4", "PNG", "JPG", "JPEG",
+  "TXT", "ZIP", "RAR", "AVI", "MOV", "MP", "MP3", "MP4", "PNG", "JPG", "JPEG", "WEBP",
   "API", "AI", "LMS", "MCQ", "OK", "PIN", "GB", "MB", "KB", "DD", "MM", "YYYY",
   "HH", "URL", "IT", "SIES", "QR", "UZ", "RU", "EN", "HTML", "IP", "USB", "SMS",
   "OTP", "CSE", "KEY", "CX", "GR", "PC", "UTC", "GMT", "OAUTH", "JWT", "IOS",

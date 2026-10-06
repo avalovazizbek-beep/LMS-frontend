@@ -94,6 +94,20 @@ const patch = <T>(path: string, body?: unknown) =>
   })
 const del = <T>(path: string) => request<T>(path, { method: "DELETE" })
 
+/** Faylni Blob sifatida olish (token bilan) — 404 bo'lsa null */
+async function getBlob(path: string): Promise<Blob | null> {
+  const token = getToken()
+  const res = await fetch(`${BASE}${path}`, {
+    headers: {
+      "ngrok-skip-browser-warning": "true",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(tr("common.error"))
+  return res.blob()
+}
+
 async function rawUpload<T>(path: string, file: File): Promise<T> {
   const token = getToken()
   const res = await fetch(`${BASE}${path}`, {
@@ -1235,11 +1249,24 @@ export interface TeacherScheduleItem {
 /** To'liq mavzu qismlari: video/audio, taqdimot, qo'llanma, test/topshiriq */
 export type CertificateTopicPart = "media" | "presentation" | "guide" | "check"
 
-export interface TeacherCertificateStatus {
-  goal: number
+export interface TeacherCertificate {
+  fullName: string
   completedTopics: number
-  incomplete: { subjectName: string; title: string; trainingType: string | null; missing: CertificateTopicPart[] }[]
-  certificate: { fullName: string; completedTopics: number; issuedAt: string } | null
+  issuedAt: string
+}
+
+export interface CertificateConfig {
+  auto: boolean
+  goal: number
+  parts: CertificateTopicPart[]
+  hasCustomTemplate: boolean
+}
+
+export interface AdminCertificateItem {
+  teacherUserId: number
+  fullName: string
+  completedTopics: number
+  certificate: { issuedAt: string; issuedBy: string | null; revoked: boolean } | null
 }
 
 export interface TeacherContent {
@@ -1515,8 +1542,10 @@ export const teachingApi = {
     return get<ListRes<TeacherContent>>(`/api/teaching/content/by-topic?${q}`)
   },
 
-  /** O'qituvchi: tashakkurnoma holati — 15 ta to'liq mavzuga yetganda server shu so'rovda beradi */
-  certificate: () => get<ItemRes<TeacherCertificateStatus>>("/api/teaching/certificate"),
+  /** O'qituvchi: berilgan tashakkurnoma (yoki null) — progress ataylab ko'rsatilmaydi */
+  certificate: () => get<ItemRes<{ certificate: TeacherCertificate | null }>>("/api/teaching/certificate"),
+  /** Admin yuklagan tashakkurnoma shabloni (yo'q bo'lsa null — standart shablon ishlatiladi) */
+  certificateTemplate: () => getBlob("/api/teaching/certificate/template"),
 
   /** O'qituvchi: mavzuni qayta ochish (muddat o'tgan bo'lsa ham) */
   reopenTopic: (topicKey: string) => post<MsgRes>(`/api/teaching/topics/${encodeURIComponent(topicKey)}/reopen`, {}),
@@ -2551,6 +2580,16 @@ export const adminApi = {
 
   reviewFaceRequest: (id: string, action: "approve" | "reject", note?: string) =>
     patch<MsgRes>(`/api/admin/face-requests/${id}`, { action, note }),
+
+  /** Tashakkurnomalar: o'qituvchilar (to'liq mavzular soni, holat) va joriy sozlamalar */
+  certificates: (q?: string) =>
+    get<ItemRes<{ items: AdminCertificateItem[]; config: CertificateConfig }>>(
+      `/api/admin/certificates${q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : ""}`
+    ),
+  issueCertificate: (teacherUserId: number) => post<MsgRes>(`/api/admin/certificates/${teacherUserId}`, {}),
+  revokeCertificate: (teacherUserId: number) => del<MsgRes>(`/api/admin/certificates/${teacherUserId}`),
+  uploadCertificateTemplate: (file: File) => rawUpload<MsgRes>("/api/admin/certificates/template", file),
+  resetCertificateTemplate: () => del<MsgRes>("/api/admin/certificates/template"),
 
   attendanceEditRequests: (status: AttendanceEditStatus) =>
     get<{ success: boolean; data: AttendanceEditRequest[]; pendingCount: number }>(
