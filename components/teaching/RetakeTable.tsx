@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react"
 import { BarChart3, CheckCircle2, Loader2, RefreshCw, Users, XCircle } from "lucide-react"
-import type { TeachingSubmission } from "@/lib/api"
+import type { TeachingSubmission, ViolationSummaryRow } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { sortByName } from "@/lib/utils"
+import { ViolationChips } from "./ViolationChips"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -32,6 +33,8 @@ interface Props {
   onChanged: () => Promise<unknown> | void
   /** Talaba javoblarini ko'rish (o'qituvchi oynasida) */
   onView?: (sub: TeachingSubmission) => void
+  /** Imtihon paytidagi qoidabuzarliklar (talaba bo'yicha) — berilsa alohida ustun chiqadi */
+  violations?: ViolationSummaryRow[]
 }
 
 /**
@@ -39,7 +42,7 @@ interface Props {
  * aynan ularga qayta urinish ruxsatini berish. Ruxsat bir martalik —
  * talaba testni yana bir marta topshiradi (muddat o'tgan bo'lsa ham).
  */
-export function RetakeTable({ submissions, maxScore, attemptsCount, grant, revoke, onChanged, onView }: Props) {
+export function RetakeTable({ submissions, maxScore, attemptsCount, grant, revoke, onChanged, onView, violations }: Props) {
   const { t } = useLanguage()
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [busy, setBusy] = useState(false)
@@ -49,6 +52,7 @@ export function RetakeTable({ submissions, maxScore, attemptsCount, grant, revok
   const rows = useMemo(() => sortByName(submissions, (s) => s.studentFullName), [submissions])
   const selectable = rows.filter((s) => !isPassed(s.grade, maxScore) && !s.retakeGranted)
   const maxAttempts = attemptsCount && attemptsCount > 0 ? attemptsCount : null
+  const violationsByStudent = useMemo(() => new Map((violations ?? []).map((v) => [v.studentUserId, v.counts])), [violations])
 
   function toggle(id: number) {
     setSelected((prev) => {
@@ -137,7 +141,7 @@ export function RetakeTable({ submissions, maxScore, attemptsCount, grant, revok
         <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              {["", "#", t("retake.colStudent"), t("retake.colScore"), t("retake.colAttempts"), t("retake.colStatus"), t("retake.colSubmitted"), ...(onView ? [""] : [])].map((h, i) => (
+              {["", "#", t("retake.colStudent"), t("retake.colScore"), t("retake.colAttempts"), t("retake.colStatus"), ...(violations ? [t("viol.column")] : []), t("retake.colSubmitted"), ...(onView ? [""] : [])].map((h, i) => (
                 <th key={i} className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap" style={T}>{h}</th>
               ))}
             </tr>
@@ -187,6 +191,11 @@ export function RetakeTable({ submissions, maxScore, attemptsCount, grant, revok
                       </span>
                     )}
                   </td>
+                  {violations && (
+                    <td className="px-3 py-2.5">
+                      <ViolationChips counts={violationsByStudent.get(sub.studentUserId)} />
+                    </td>
+                  )}
                   <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={L}>{fmtDate(sub.submittedAt)}</td>
                   {onView && (
                     <td className="px-3 py-2.5">

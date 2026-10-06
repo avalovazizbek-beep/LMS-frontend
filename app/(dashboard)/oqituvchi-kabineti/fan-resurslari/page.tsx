@@ -615,6 +615,10 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
   const { data: qData, loading: lQ } = useApi(
     () => teachingApi.questions(test.id), [test.id]
   )
+  // Qoidabuzarliklar ustuni ixtiyoriy — so'rov xato bersa ham jadval chiqaveradi
+  const { data: violData } = useApi(
+    () => teachingApi.violations(test.id).catch(() => ({ success: true, data: [] })), [test.id]
+  )
 
   const submissions = (subsData?.data ?? []) as TeachingSubmission[]
   const allQuestions = (qData?.data ?? []) as ExamQuestion[]
@@ -736,6 +740,7 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
               revoke={(studentUserId) => teachingApi.revokeRetake(test.id, studentUserId)}
               onChanged={refetchSubs}
               onView={setSelectedSub}
+              violations={violData?.data ?? []}
             />
           )}
         </div>

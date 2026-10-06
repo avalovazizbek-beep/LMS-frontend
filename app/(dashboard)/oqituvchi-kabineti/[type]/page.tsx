@@ -25,6 +25,7 @@ import { useApi } from "@/hooks/useApi"
 import { sortByName } from "@/lib/utils"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
+import { ViolationChips } from "@/components/teaching/ViolationChips"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
@@ -2008,7 +2009,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                 <tr style={{ backgroundColor: "#f6f9ff", borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
                   {[
                     "#", t("typeContentOq.grading.colStudent"), t("typeContentOq.grading.colScore"), t("typeContentOq.grading.colPercent"),
-                    ...(content.type === "exam" ? ["Buzilishlar"] : []),
+                    ...(content.type === "exam" ? [t("viol.column")] : []),
                     ...(isPlagiarismCheckable ? ["Antiplagiat"] : []),
                     t("typeContentOq.grading.colSubmitted"), t("typeContentOq.grading.colView"),
                   ].map(h => (
@@ -2040,18 +2041,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                       <td className="px-4 py-3" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{pct}</td>
                       {content.type === "exam" && (
                         <td className="px-4 py-3">
-                          {(() => {
-                            const v = violationsByStudent.get(sub.studentUserId)
-                            if (!v || v.total === 0) {
-                              return <span className="text-xs" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>—</span>
-                            }
-                            return (
-                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full" title={Object.entries(v.counts).map(([k, n]) => `${k}: ${n}`).join(", ")}
-                                style={{ backgroundColor: "#fff0f0", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                                {v.total}
-                              </span>
-                            )
-                          })()}
+                          <ViolationChips counts={violationsByStudent.get(sub.studentUserId)?.counts} />
                         </td>
                       )}
                       {isPlagiarismCheckable && (

@@ -9,6 +9,7 @@ import {
 import { teachingApi, type TeacherContent, type TeachingSubmission, type ContentStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { ViolationChips } from "./ViolationChips"
 
 const STATUS_CONFIG: Record<ContentStatus, { labelKey: string; color: string; bg: string; Icon: typeof Lock }> = {
   locked: { labelKey: "scc.status.locked", color: "#b91c1c", bg: "#fef2f2", Icon: Lock },
@@ -209,6 +210,13 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                       </span>
                     )}
                   </div>
+                  {/* Imtihon paytida qayd etilgan qoidabuzarliklar — test nega to'xtaganini talaba ham ko'rsin */}
+                  {mySubmission.violationCounts && Object.keys(mySubmission.violationCounts).length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("viol.mine")}</span>
+                      <ViolationChips counts={mySubmission.violationCounts} compact />
+                    </div>
+                  )}
                   {canRetry && (
                     <Link href={`/imtihonlar/${item.id}`}
                       className="flex items-center gap-2 w-fit px-4 py-2 rounded-[8px] text-sm font-medium"

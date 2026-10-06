@@ -1348,6 +1348,8 @@ export interface TeachingSubmission {
   optionPerms: Record<number, number[]> | null
   retakeGranted: boolean
   retakeGrantedAt: string | null
+  /** Faqat talabaning o'z natijasida (submissions/me): imtihon paytidagi qoidabuzarliklar soni, tur bo'yicha */
+  violationCounts?: Record<string, number> | null
 }
 
 export interface AdminExamListItem {
@@ -1504,7 +1506,7 @@ export interface AdaptiveAnswerResult extends AdaptiveNextResult {
   score?: number
 }
 
-export type ViolationType = "fullscreen_exit" | "tab_blur" | "screenshot_attempt" | "face_mismatch" | "no_face" | "multi_face" | "liveness"
+export type ViolationType = "fullscreen_exit" | "tab_blur" | "screenshot_attempt" | "face_mismatch" | "no_face" | "multi_face" | "liveness" | "proctor_terminated"
 export interface ViolationSummaryRow {
   studentUserId: number
   studentFullName: string

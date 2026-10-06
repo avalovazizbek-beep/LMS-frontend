@@ -55,6 +55,7 @@ export default function ImtihonTopshirish() {
   const [result,        setResult]        = useState<{ grade: number | null; maxScore: number | null; attemptsUsed: number } | null>(null)
   const [fsExited,      setFsExited]      = useState(false)   // to'liq ekrandan chiqildi
   const [winHidden,     setWinHidden]     = useState(false)   // Alt+Tab: oyna yashirildi
+  const [proctorEnded,  setProctorEnded]  = useState(false)   // Face ID xatoliklari chegarasi — avtomatik yuborildi
   const [isMobile,      setIsMobile]      = useState(false)
 
   // Moslashuvchan (adaptive) test — bitta-bittalab savol, sinovga qarab qiyinlik moslashadi
@@ -204,6 +205,7 @@ export default function ImtihonTopshirish() {
     setTimeLeft(content?.durationMinutes ? content.durationMinutes * 60 : null)
     setFsExited(false)
     setWinHidden(false)
+    setProctorEnded(false)
     requestFS()
     setPhase("face_scan")
   }
@@ -238,8 +240,12 @@ export default function ImtihonTopshirish() {
   }, [questions, answers, id, refetchSub])
 
   const handleTerminate = useCallback(() => {
-    if (phase === "exam" || phase === "face_scan") handleSubmit()
-  }, [phase, handleSubmit])
+    if (phase !== "exam" && phase !== "face_scan") return
+    // O'qituvchi natijalar jadvalida "Face ID sababli yakunlangan" deb ko'rishi uchun
+    teachingApi.reportViolation(id, "proctor_terminated").catch(() => {})
+    setProctorEnded(true)
+    handleSubmit()
+  }, [phase, handleSubmit, id])
 
   /* ── Moslashuvchan test: fazaga kirganda birinchi savolni yuklash ──── */
   useEffect(() => {
@@ -337,6 +343,15 @@ export default function ImtihonTopshirish() {
                 <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                   {t("examTake.attemptsUsedOf", { used: usedNow, max: maxAttempts })}
                 </p>
+              )}
+              {proctorEnded && (
+                <div className="mt-4 px-4 py-3 rounded-[8px] text-sm flex items-start gap-2 text-left"
+                  style={{ backgroundColor: "#fef2f2", border: "1px solid rgba(185,28,28,0.2)" }}>
+                  <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#b91c1c" }} />
+                  <p style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)", margin: 0 }}>
+                    {t("examTake.terminatedNotice")}
+                  </p>
+                </div>
               )}
             </>
           ) : (
@@ -478,6 +493,12 @@ export default function ImtihonTopshirish() {
             style={{ backgroundColor: "#f0f5ff", border: "1px solid rgba(14,88,168,0.15)" }}>
             <p style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)", margin: 0 }}>
               {t("examTake.fullscreenNotice")}
+            </p>
+          </div>
+          <div className="mt-3 px-4 py-3 rounded-[8px] text-sm text-left"
+            style={{ backgroundColor: "#fff7ed", border: "1px solid rgba(234,88,12,0.25)" }}>
+            <p style={{ color: "#9a3412", fontFamily: "var(--font-poppins)", margin: 0 }}>
+              {t("examTake.cameraTips")}
             </p>
           </div>
           <button onClick={startExam}

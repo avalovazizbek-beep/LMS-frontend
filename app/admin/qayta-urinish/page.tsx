@@ -5,7 +5,7 @@ import {
   RefreshCw, Search, Clock, CheckCircle2, AlertCircle, Lock,
   FileText, HelpCircle, ShieldAlert, Users, ChevronDown, ChevronUp,
 } from "lucide-react"
-import { adminApi, type AdminTeacherStat, type AdminTopicRow } from "@/lib/api"
+import { adminApi, teachingApi, type AdminTeacherStat, type AdminTopicRow } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { RetakeTable } from "@/components/teaching/RetakeTable"
@@ -28,6 +28,9 @@ function fmtDeadline(iso: string | null) {
 function TopicTestResults({ topic }: { topic: AdminTopicRow }) {
   const testId = topic.testId!
   const { data, loading, error, refetch } = useApi(() => adminApi.contentSubmissions(testId), [testId])
+  const { data: violData } = useApi(
+    () => teachingApi.violations(testId).catch(() => ({ success: true, data: [] })), [testId]
+  )
   if (loading) {
     return (
       <div className="py-6 flex justify-center">
@@ -44,6 +47,7 @@ function TopicTestResults({ topic }: { topic: AdminTopicRow }) {
       grant={(ids) => adminApi.grantRetake(testId, ids)}
       revoke={(studentUserId) => adminApi.revokeRetake(testId, studentUserId)}
       onChanged={refetch}
+      violations={violData?.data ?? []}
     />
   )
 }

@@ -21,7 +21,10 @@ const PRESENCE_INPUT      = 224
 const PRESENCE_CONF       = 0.20
 const PRESENCE_INTERVAL   = 250    // aniqlagich har kadrda emas — CPU tejash
 const VERIFY_INTERVAL     = 6000   // 10s→6s: tezroq tekshiruv
-const ABSENT_LIMIT        = 15000  // 10s→15s: qisqa burilish/egilish xatolik emas
+const ABSENT_LIMIT        = 15000  // shuncha vaqt yuz ko'rinmasa "no_face" qayd etiladi (testni tugatmaydi)
+// Xira/qorong'i telefon kamerasida aniqlagich ba'zi kadrlarda yuzni "yo'qotadi" —
+// bir lahzalik yo'qolishda savollar yopilib-ochilib (tugma bosilmay) qolmasligi uchun
+const ABSENT_GRACE        = 1500
 const DEFAULT_MAX_VIOLATIONS = 5   // admin "Face ID bloklash chegarasi" sozlamasi orqali o'zgartirilishi mumkin
 const LIVENESS_INTERVAL   = 400
 const EAR_THRESHOLD       = 0.22
@@ -124,6 +127,8 @@ export default function FaceProctor({
   const [statusMsg,    setStatusMsg]    = useState<ProctorMsg>({ key: "proctor.loading" })
   const [examBlocked,      setExamBlocked]      = useState(false)
   const [multiPersonBlocked, setMultiPersonBlocked] = useState(false)
+  const [faceMissing,  setFaceMissing]  = useState(false)
+  const faceMissingRef = useRef(false)   // har kadrda setState chaqirmaslik uchun
   const [confidence,   setConfidence]   = useState<number | null>(null)
   const [violationSnap,    setViolationSnap]    = useState<string | null>(null)
   const [violationHistory, setViolationHistory] = useState<{ msg: ProctorMsg; time: string }[]>([])
@@ -193,6 +198,13 @@ export default function FaceProctor({
 
   const violationsRef = useRef(0)  // state updater ichida ishlatish uchun ref
 
+  const pushHistory = useCallback((type: FaceViolationType, reason: ProctorMsg) => {
+    const now = new Date()
+    const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`
+    setViolationHistory(h => [...h, { msg: reason, time: timeStr }])
+    onViolation?.(type, translate("uz", reason.key, reason.params))
+  }, [onViolation])
+
   const addViolation = useCallback((type: FaceViolationType, reason: ProctorMsg) => {
     // Xatolik paytidagi video kadr
     try {
@@ -212,10 +224,7 @@ export default function FaceProctor({
       }
     } catch { /* ignore */ }
 
-    const now = new Date()
-    const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`
-    setViolationHistory(h => [...h, { msg: reason, time: timeStr }])
-    onViolation?.(type, translate("uz", reason.key, reason.params))
+    pushHistory(type, reason)
 
     // ref orqali hisoblash — state updater ichida setState chaqirishdan qochish
     violationsRef.current += 1
@@ -238,7 +247,7 @@ export default function FaceProctor({
         setStatusMsg({ key: "proctor.continuing" })
       }, 4000)
     }
-  }, [onTerminate, onViolation, setStatusSynced])
+  }, [onTerminate, pushHistory, setStatusSynced])
 
   const runVerify = useCallback(async () => {
     if (isVerifyingRef.current) return
@@ -378,16 +387,24 @@ export default function FaceProctor({
         eyesClosedRef.current = false
         lastLivenessSample.current = null
         const absentMs = Date.now() - absentSince.current
+        // Yuz ko'rinmasligi — ko'pincha kamera sifati/yorug'lik muammosi, ko'chirish
+        // emas: savollar yuz qaytguncha yopiq turadi va o'qituvchi uchun qayd
+        // etiladi, lekin xatoliklar hisobiga qo'shilmaydi (testni tugatmaydi).
+        if (absentMs >= ABSENT_GRACE) {
+          if (!faceMissingRef.current) { faceMissingRef.current = true; setFaceMissing(true) }
+          if (statusRef.current !== "warning" && statusRef.current !== "violation") {
+            setStatusSynced("warning")
+            setStatusMsg({ key: "proctor.faceMissing" })
+          }
+        }
         if (absentMs >= ABSENT_LIMIT) {
-          absentSince.current = null
-          addViolation("no_face", { key: "proctor.v.noFace" })
-        } else {
-          const secs = Math.ceil((ABSENT_LIMIT - absentMs) / 1000)
-          setStatusSynced("warning")
-          setStatusMsg({ key: "proctor.faceMissing", params: { secs } })
+          // Keyingi qayd yana ABSENT_LIMIT dan keyin; savollar yopiqligicha qoladi
+          absentSince.current = Date.now()
+          pushHistory("no_face", { key: "proctor.v.noFace" })
         }
       } else {
         absentSince.current = null
+        if (faceMissingRef.current) { faceMissingRef.current = false; setFaceMissing(false) }
         // statusRef.current — fresh qiymat (stale closure muammosi yo'q)
         if (statusRef.current !== "ok" && statusRef.current !== "loading") {
           setStatusSynced("ok")
@@ -419,7 +436,7 @@ export default function FaceProctor({
     } catch { /* ignore frame errors */ }
 
     rafRef.current = requestAnimationFrame(presenceLoop)
-  }, [addViolation, setStatusSynced])
+  }, [addViolation, pushHistory, setStatusSynced])
 
   useEffect(() => {
     if (!cameraReady) return
@@ -578,6 +595,28 @@ export default function FaceProctor({
     </div>
   ) : null
 
+  // Yuz ko'rinmayapti — savollar yopilgan; nima qilish kerakligini ekran
+  // markazida aytamiz (telefonda kichik kamera vidgetidagi yozuv ko'rinmay qoladi)
+  const faceMissingBanner = faceMissing && !examBlocked && violations < MAX_VIOLATIONS ? (
+    <div style={{
+      position: fixed ? "fixed" : "absolute", left: 0, right: 0, top: "38%", zIndex: fixed ? 10000 : 40,
+      display: "flex", justifyContent: "center", padding: "0 16px", pointerEvents: "none",
+    }}>
+      <div style={{
+        maxWidth: 420, padding: "14px 18px", borderRadius: 12, textAlign: "center",
+        backgroundColor: "#fff7ed", border: "1.5px solid rgba(234,88,12,0.45)",
+        boxShadow: "0 6px 24px rgba(0,0,0,0.15)",
+      }}>
+        <p style={{ fontSize: 15, fontWeight: 700, color: "#c2410c", margin: "0 0 6px", fontFamily: "var(--font-poppins)" }}>
+          {t("proctor.faceMissingTitle")}
+        </p>
+        <p style={{ fontSize: 12.5, color: "#9a3412", margin: 0, lineHeight: 1.45, fontFamily: "var(--font-poppins)" }}>
+          {t("proctor.faceMissingTips")}
+        </p>
+      </div>
+    </div>
+  ) : null
+
   const contentBlocked = status !== "ok" || examBlocked || violations >= MAX_VIOLATIONS
   const childrenWrapper = (
     <div style={{
@@ -685,6 +724,7 @@ export default function FaceProctor({
         </div>
         {blockedOverlay}
         {terminatedOverlay}
+        {faceMissingBanner}
         {childrenWrapper}
       </>
     )
@@ -698,6 +738,7 @@ export default function FaceProctor({
         <div className="self-end">{cameraWidget}</div>
         {blockedOverlay}
         {terminatedOverlay}
+        {faceMissingBanner}
         <div className="relative" style={{
           pointerEvents: examBlocked || violations >= MAX_VIOLATIONS ? "none" : "auto",
           opacity: examBlocked ? 0.4 : 1,
