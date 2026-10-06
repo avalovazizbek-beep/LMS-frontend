@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import {
   RefreshCw, Save, ShieldAlert, FileText, CheckCircle2, Video, ClipboardCheck, Award, Upload, RotateCcw, ArrowRight, Loader2,
+  MonitorCheck,
 } from "lucide-react"
 import { adminApi, type CertificateTopicPart } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -74,6 +75,8 @@ export default function AdminSozlamalar() {
   const [testAttempts, setTestAttempts] = useState("1")
   const [meetingMinutes, setMeetingMinutes] = useState("70")
   const [attendanceMode, setAttendanceMode] = useState<"auto" | "manual">("auto")
+  const [platformMinutes, setPlatformMinutes] = useState("40")
+  const [platformMeetingPct, setPlatformMeetingPct] = useState("100")
 
   const [certAuto, setCertAuto] = useState(true)
   const [certGoal, setCertGoal] = useState("15")
@@ -93,6 +96,8 @@ export default function AdminSozlamalar() {
         setTestAttempts(d.test_max_attempts ?? "1")
         setMeetingMinutes(d.meeting_attendance_minutes ?? "70")
         setAttendanceMode(d.attendance_mode === "manual" ? "manual" : "auto")
+        setPlatformMinutes(d.platform_attendance_minutes ?? "40")
+        setPlatformMeetingPct(d.platform_meeting_percent ?? "100")
         setCertAuto(d.certificate_auto !== "0")
         setCertGoal(d.certificate_topic_goal ?? "15")
         setCertParts(parseParts(d.certificate_parts))
@@ -117,6 +122,8 @@ export default function AdminSozlamalar() {
         test_max_attempts: testAttempts,
         meeting_attendance_minutes: meetingMinutes,
         attendance_mode: attendanceMode,
+        platform_attendance_minutes: platformMinutes,
+        platform_meeting_percent: platformMeetingPct,
         certificate_auto: certAuto ? "1" : "0",
         certificate_topic_goal: certGoal,
         certificate_parts: certParts.join(","),
@@ -220,6 +227,18 @@ export default function AdminSozlamalar() {
                     </button>
                   )
                 })}
+              </div>
+            </SettingCard>
+
+            {/* Admin → Davomatlar: platforma asosidagi davomat qoidasi */}
+            <SettingCard icon={<MonitorCheck className="w-5 h-5" style={{ color: "#7c3aed" }} />} iconBg="#f5f3ff"
+              title={t("adminSozlamalar.platformAttendanceTitle")}
+              desc={t("adminSozlamalar.platformAttendanceDesc")}>
+              <div className="flex flex-col gap-4">
+                <NumberField label={t("adminSozlamalar.platformMinutesLabel")} value={platformMinutes} onChange={setPlatformMinutes}
+                  min={1} max={600} hint={t("adminSozlamalar.platformMinutesHint")} />
+                <NumberField label={t("adminSozlamalar.platformMeetingPctLabel")} value={platformMeetingPct} onChange={setPlatformMeetingPct}
+                  min={1} max={100} hint={t("adminSozlamalar.platformMeetingPctHint")} />
               </div>
             </SettingCard>
           </div>

@@ -459,6 +459,11 @@ function PlatformAttendance() {
   const { data: teacherData } = useApi(() => adminApi.teacherStats(), [])
   const teachers: AdminTeacherStat[] = teacherData?.data ?? []
 
+  // Qoida Sozlamalardan (backend hisobida ham shu qiymatlar ishlatiladi)
+  const { data: settingsData } = useApi(() => adminApi.getSettings(), [])
+  const ruleMinutes = settingsData?.data?.platform_attendance_minutes ?? "40"
+  const rulePct = settingsData?.data?.platform_meeting_percent ?? "100"
+
   useEffect(() => {
     if (!selectedTeacher) { setGroups([]); setSubjects([]); setGroupId(""); setSubject(""); return }
     setInfoLoading(true)
@@ -492,7 +497,7 @@ function PlatformAttendance() {
       <div className="bg-white rounded-[10px] p-5 flex flex-col gap-4"
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
         <p className="text-xs" style={L}>
-          {t("adminDavomatlar.platformHint")}
+          {t("adminDavomatlar.platformHint", { min: ruleMinutes, pct: rulePct })}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Teacher */}
