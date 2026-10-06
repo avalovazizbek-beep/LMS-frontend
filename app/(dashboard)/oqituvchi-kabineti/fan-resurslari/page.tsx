@@ -868,6 +868,8 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
   const [opErr, setOpErr] = useState<string | null>(null)
   const [showQuestions, setShowQuestions] = useState(false)
   const [showTestResults, setShowTestResults] = useState(false)
+  const [confirmDeleteTest, setConfirmDeleteTest] = useState(false)
+  const [deletingTest, setDeletingTest] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsErr, setSettingsErr] = useState<string | null>(null)
   const [settingsOk, setSettingsOk] = useState(false)
@@ -1087,6 +1089,15 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
     }
   }
 
+  // Test↔topshiriq bir-birini istisno qiladi — o'qituvchi adashib test
+  // yaratgan bo'lsa, uni o'chirib o'rniga topshiriq yuklay olishi kerak.
+  async function deleteTest() {
+    setDeletingTest(true)
+    await remove(test)
+    setDeletingTest(false)
+    setConfirmDeleteTest(false)
+  }
+
   async function replace(item: TeacherContent, kind: string, type: "mavzu" | "exam" | "assignment", file: File) {
     setOpErr(null)
     setUploadingKind(kind)
@@ -1283,10 +1294,16 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
           </div>
         ) : activeTab === "exam" ? (
           examDisabled ? (
-            <p className="text-xs px-3 py-2 rounded-[6px]"
-              style={{ backgroundColor: "#fff7ed", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-              {t("fanResurslariOq.test.disabledMessage")}
-            </p>
+            <div className="flex items-center gap-3 flex-wrap px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fff7ed" }}>
+              <p className="text-xs flex-1" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                {t("fanResurslariOq.test.disabledMessage")}
+              </p>
+              <button onClick={() => setActiveTab("assignment")}
+                className="text-xs font-medium px-3 py-1.5 rounded-[6px] bg-white"
+                style={{ border: "1px solid rgba(146,64,14,0.3)", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                {t("fanResurslariOq.test.goToAssignment")}
+              </button>
+            </div>
           ) : !test ? (
             <button onClick={() => upload("test", "exam", null)} disabled={uploadingKind === "test"}
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
@@ -1314,7 +1331,34 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
                   <BarChart3 className="w-4 h-4" />
                   {t("fanResurslariOq.test.resultsBtn")}
                 </button>
+                <button onClick={() => setConfirmDeleteTest(true)} disabled={confirmDeleteTest}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#fef2f2] disabled:opacity-60"
+                  style={{ border: "1px solid rgba(220,38,38,0.3)", color: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+                  <Trash2 className="w-4 h-4" />
+                  {t("fanResurslariOq.test.deleteBtn")}
+                </button>
               </div>
+              {confirmDeleteTest && (
+                <div className="flex flex-col gap-2 px-4 py-3 rounded-[10px]"
+                  style={{ backgroundColor: "#fef2f2", border: "1px solid rgba(220,38,38,0.25)" }}>
+                  <p className="text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                    {t("fanResurslariOq.test.deleteConfirm")}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button onClick={deleteTest} disabled={deletingTest}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-[6px] text-xs font-semibold text-white disabled:opacity-60"
+                      style={{ backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+                      {deletingTest && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      {t("mavzularOq.yesDelete")}
+                    </button>
+                    <button onClick={() => setConfirmDeleteTest(false)} disabled={deletingTest}
+                      className="px-3 py-2 rounded-[6px] text-xs font-medium bg-white"
+                      style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                      {t("mavzularOq.cancel")}
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.maxScoreLabel")}</label>
@@ -1418,10 +1462,16 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.fileLabel")}</label>
               {activeTab === "assignment" && assignmentDisabled ? (
-                <p className="text-xs px-3 py-2 rounded-[6px]"
-                  style={{ backgroundColor: "#fff7ed", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                  {t("fanResurslariOq.assignment.disabledMessage")}
-                </p>
+                <div className="flex items-center gap-3 flex-wrap px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fff7ed" }}>
+                  <p className="text-xs flex-1" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                    {t("fanResurslariOq.assignment.disabledMessage")}
+                  </p>
+                  <button onClick={() => setActiveTab("exam")}
+                    className="text-xs font-medium px-3 py-1.5 rounded-[6px] bg-white"
+                    style={{ border: "1px solid rgba(146,64,14,0.3)", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                    {t("fanResurslariOq.assignment.goToTest")}
+                  </button>
+                </div>
               ) : (
                 <FileDropZone
                   item={activeItem}
