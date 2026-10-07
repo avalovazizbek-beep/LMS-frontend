@@ -62,7 +62,12 @@ export function StudentContentCard({ item, submittable = false }: Props) {
 
   // Mavzu qayta ochilgan bo'lsa (admin/o'qituvchi) — muddat o'tgan bo'lsa ham topshirsa bo'ladi
   const reopened = item.isReopened === true
-  const canSubmit = submittable && (item.status === "open" || (item.status === "closed" && reopened))
+  // Topshiriq testdek: baho maksimalning 60% idan kam bo'lmasa keyingi mavzu ochiladi.
+  // O'tgach qayta yuklash yopiq — qayta yuklash bahoni o'chirib, mavzularni qulflaydi
+  const isAssignment = item.type === "assignment"
+  const assignmentThreshold = (item.maxScore && item.maxScore > 0) ? item.maxScore * 0.6 : 60
+  const assignmentPassed = isAssignment && mySubmission?.grade != null && mySubmission.grade >= assignmentThreshold
+  const canSubmit = submittable && !assignmentPassed && (item.status === "open" || (item.status === "closed" && reopened))
 
   async function handleSubmit() {
     if (!sub.file && !sub.comment.trim()) {
@@ -266,11 +271,28 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                   </span>
                   {mySubmission.grade != null && (
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                      style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                      style={isAssignment && !assignmentPassed
+                        ? { backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }
+                        : { backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
                       {t("scc.grade", { score: `${mySubmission.grade}${item.maxScore ? ` / ${item.maxScore}` : ""}` })}
                     </span>
                   )}
                 </div>
+                {isAssignment && mySubmission.grade == null && (
+                  <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                    {t("scc.assignmentPending")}
+                  </p>
+                )}
+                {isAssignment && mySubmission.grade != null && !assignmentPassed && (
+                  <p className="text-xs font-medium" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                    {t(canSubmit ? "scc.assignmentFailed" : "scc.assignmentFailedClosed", { min: Math.ceil(assignmentThreshold) })}
+                  </p>
+                )}
+                {assignmentPassed && (
+                  <p className="text-xs font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                    {t("scc.assignmentPassed")}
+                  </p>
+                )}
                 {mySubmission.comment && (
                   <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{mySubmission.comment}</p>
                 )}
@@ -315,7 +337,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
         )}
       </div>
 
-      {canSubmit && formOpen && !mySubmission && (
+      {canSubmit && formOpen && (!mySubmission || isAssignment) && (
         <div className="px-5 pb-5">
           <div className="rounded-[10px] p-4 flex flex-col gap-3" style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
             {sub.success ? (
