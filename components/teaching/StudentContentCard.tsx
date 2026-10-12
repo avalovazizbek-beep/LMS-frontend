@@ -62,8 +62,9 @@ export function StudentContentCard({ item, submittable = false }: Props) {
 
   // Mavzu qayta ochilgan bo'lsa (admin/o'qituvchi) — muddat o'tgan bo'lsa ham topshirsa bo'ladi
   const reopened = item.isReopened === true
-  // Topshiriq testdek: baho maksimalning 60% idan kam bo'lmasa keyingi mavzu ochiladi.
-  // O'tgach qayta yuklash yopiq — qayta yuklash bahoni o'chirib, mavzularni qulflaydi
+  // Topshiriq yuklangach keyingi mavzu ochiladi (baho kutilmaydi). Baho 60% dan
+  // past bo'lsa — bahoni oshirish uchun qayta yuklash mumkin; o'tgach qayta
+  // yuklash yopiq, qo'yilgan baho o'chib ketmasligi uchun
   const isAssignment = item.type === "assignment"
   const assignmentThreshold = (item.maxScore && item.maxScore > 0) ? item.maxScore * 0.6 : 60
   const assignmentPassed = isAssignment && mySubmission?.grade != null && mySubmission.grade >= assignmentThreshold

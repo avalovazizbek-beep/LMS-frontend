@@ -15,6 +15,7 @@ import { useApi } from "@/hooks/useApi"
 import { sortByName } from "@/lib/utils"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { ATTENDANCE_TRAINING_TYPES, normalizeTrainingType, trainingTypeLabelKey } from "@/lib/attendanceTrainingTypes"
 
 const inputCls =
   "w-full px-3 py-2.5 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none transition-colors"
@@ -45,21 +46,17 @@ function fmtDateTime(iso: string) {
   return d.toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
 }
 
-/** Saqlangan kun qulflanadi; o'zgartirish faqat admin tasdiqlagan so'rov bilan */
+/** Davomat varag'i — guruh + fan + sana + mashg'ulot turi (ma'ruza va amaliy
+    bir kunda alohida). Saqlangan varaq qulflanadi; o'zgartirish faqat admin
+    tasdiqlagan so'rov bilan */
 interface SheetState {
   saved: boolean
   locked: boolean
   editRequest: AttendanceEditRequest | null
+  /** Shu kunda saqlangan mashg'ulot turlari */
+  savedTypes: string[]
 }
-const EMPTY_SHEET: SheetState = { saved: false, locked: false, editRequest: null }
-
-const TRAINING_TYPE_OPTIONS = [
-  { value: "Ma'ruza", labelKey: "xodimFanResurslariYaratish.trainingType.lecture" },
-  { value: "Amaliy", labelKey: "xodimFanResurslariYaratish.trainingType.practice" },
-  { value: "Laboratoriya", labelKey: "xodimFanResurslariYaratish.trainingType.laboratory" },
-  { value: "Seminar", labelKey: "xodimFanResurslariYaratish.trainingType.seminar" },
-  { value: "Mustaqil ta'lim", labelKey: "xodimFanResurslariYaratish.trainingType.independentStudy" },
-] as const
+const EMPTY_SHEET: SheetState = { saved: false, locked: false, editRequest: null, savedTypes: [] }
 
 export default function DavomatJurnaliPage() {
   const { t } = useLanguage()
@@ -75,7 +72,7 @@ export default function DavomatJurnaliPage() {
   const today = todayStr()
   const initialGroup = searchParams.get("group")
   const initialSubject = searchParams.get("subject") ?? ""
-  const initialTraining = searchParams.get("training") ?? ""
+  const initialTraining = normalizeTrainingType(searchParams.get("training"))
   const initialDate = (() => {
     const d = searchParams.get("date")
     return d && d <= today ? d : today
@@ -114,9 +111,15 @@ export default function DavomatJurnaliPage() {
   const [requestSending, setRequestSending] = useState(false)
   const [requestMsg, setRequestMsg] = useState<string | null>(null)
   const [requestOk, setRequestOk] = useState(false)
-  // Bugun yoki istalgan o'tgan kun belgilanadi; saqlangan kun — faqat admin
-  // ruxsati (tasdiqlangan so'rov) bilan bir marta o'zgartiriladi
-  const editable = loadedOnce && !sheet.locked && !isFuture
+  // Bugun yoki istalgan o'tgan kun belgilanadi; saqlangan varaq — faqat admin
+  // ruxsati (tasdiqlangan so'rov) bilan bir marta o'zgartiriladi. Yangi varaq
+  // faqat mashg'ulot turi tanlanganda (turi yo'q eski varaqni tahrirlash mumkin)
+  const editable = loadedOnce && !sheet.locked && !isFuture && (!!trainingType || sheet.saved)
+  const typeLabel = (value: string | null | undefined) => {
+    const key = trainingTypeLabelKey(value)
+    return key ? t(key) : (value ?? "")
+  }
+  const otherSavedTypes = sheet.savedTypes.filter((x) => x && x !== trainingType)
 
   const { data: historyRes, loading: lHistory, refetch: refetchHistory } = useApi(
     () =>
@@ -139,18 +142,16 @@ export default function DavomatJurnaliPage() {
     setSaveMsg(null)
   }
 
-  async function loadRoster(forDate: string = date, keepMsg = false) {
+  async function loadRoster(forDate: string = date, forType: string = trainingType, keepMsg = false) {
     if (groupId === "" || !subjectName || !forDate || forDate > today) return
     setLoadingRoster(true)
     setRosterError(null)
     if (!keepMsg) setSaveMsg(null)
     setConfirmingSave(false)
     try {
-      const res = await attendanceApi.roster(groupId, subjectName, forDate)
+      const res = await attendanceApi.roster(groupId, subjectName, forDate, forType || undefined)
       setRoster(sortByName(res.data, (s) => s.fullName))
-      // Saqlangan kunda — o'sha kunning mashg'ulot turi ko'rsatiladi
-      if (res.saved || !trainingType) setTrainingType(res.trainingType || (res.saved ? "" : trainingType))
-      setSheet({ saved: !!res.saved, locked: !!res.locked, editRequest: res.editRequest ?? null })
+      setSheet({ saved: !!res.saved, locked: !!res.locked, editRequest: res.editRequest ?? null, savedTypes: res.savedTypes ?? [] })
       setLoadedOnce(true)
     } catch (e) {
       setRosterError(e instanceof Error ? e.message : t("oqBaholash.error"))
@@ -159,11 +160,11 @@ export default function DavomatJurnaliPage() {
     }
   }
 
-  // Guruh/fan/sana tayyor holda (masalan meeting kartasidan, jurnal
-  // ro'yxatidan yoki admin javobi haqidagi xabardan) kelganda ro'yxatni
-  // darhol ochib beradi.
+  // Guruh/fan/sana/tur tayyor holda (masalan jurnal ro'yxatidan yoki admin
+  // javobi haqidagi xabardan) kelganda ro'yxatni darhol ochib beradi. Tur
+  // bo'lmasa — o'qituvchi avval ma'ruza/amaliyni tanlaydi.
   useEffect(() => {
-    if (initialGroup && initialSubject) loadRoster()
+    if (initialGroup && initialSubject && initialTraining) loadRoster()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -187,7 +188,7 @@ export default function DavomatJurnaliPage() {
     setRequestSending(true)
     setRequestMsg(null)
     try {
-      const res = await attendanceApi.requestEdit({ groupId, subjectName, date, reason: requestReason.trim() })
+      const res = await attendanceApi.requestEdit({ groupId, subjectName, date, trainingType: trainingType || undefined, reason: requestReason.trim() })
       setSheet((prev) => ({ ...prev, editRequest: res.data }))
       setRequestOpen(false)
       setRequestReason("")
@@ -222,13 +223,13 @@ export default function DavomatJurnaliPage() {
       setSaveOk(true)
       setSaveMsg(t("oqDavomat.attendanceSaved"))
       refetchHistory()
-      // Saqlangach kun qulflanadi — holatni serverdan qayta o'qiymiz
-      await loadRoster(date, true)
+      // Saqlangach varaq qulflanadi — holatni serverdan qayta o'qiymiz
+      await loadRoster(date, trainingType, true)
     } catch (e) {
       setSaveOk(false)
       setSaveMsg(e instanceof Error ? e.message : t("oqBaholash.error"))
       // 409 — kun allaqachon qulflangan (masalan boshqa oynada saqlangan)
-      if ((e as { status?: number }).status === 409) await loadRoster(date, true)
+      if ((e as { status?: number }).status === 409) await loadRoster(date, trainingType, true)
     } finally {
       setSaving(false)
     }
@@ -303,14 +304,20 @@ export default function DavomatJurnaliPage() {
           <div>
             <label className={labelCls} style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("oqDavomat.trainingType")}</label>
             <div className="relative">
+              {/* Tur almashsa — boshqa varaq (shu kungi ma'ruza yoki amaliy) ochiladi */}
               <select
                 value={trainingType}
-                onChange={(e) => setTrainingType(e.target.value)}
-                disabled={loadedOnce && !editable}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setTrainingType(next)
+                  resetSheet()
+                  if (next && groupId !== "" && subjectName) void loadRoster(date, next)
+                }}
+                disabled={saving}
                 className={`${inputCls} appearance-none pr-8 disabled:bg-[#f6f9ff] disabled:cursor-not-allowed`}
                 style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                 <option value="">{t("oqDavomat.trainingTypePlaceholder")}</option>
-                {TRAINING_TYPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>)}
+                {ATTENDANCE_TRAINING_TYPES.map((opt) => <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>)}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "#7293b9" }} />
             </div>
@@ -351,28 +358,41 @@ export default function DavomatJurnaliPage() {
           {t("davomatJurnaliOq.manualNotice")}
         </div>
 
-        <div>
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={() => loadRoster()}
-            disabled={groupId === "" || !subjectName || !date || loadingRoster}
+            disabled={groupId === "" || !subjectName || !date || !trainingType || loadingRoster}
             className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium transition-opacity disabled:opacity-50"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
             <Users className="w-4 h-4" />
             {loadingRoster ? t("oqBaholash.loading") : t("oqBaholash.loadRoster")}
           </button>
+          {!trainingType && !loadedOnce && (
+            <span className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+              {t("davomatJurnaliOq.chooseTypeHint")}
+            </span>
+          )}
         </div>
       </div>
 
       {/* Ro'yxat */}
       {rosterError && <ApiError message={rosterError} onRetry={() => loadRoster()} />}
 
-      {/* Qulf holati: saqlangan kun faqat admin ruxsati bilan o'zgaradi */}
+      {/* Shu kunning boshqa mashg'ulot(lar)i alohida saqlangan */}
+      {!rosterError && loadedOnce && otherSavedTypes.length > 0 && (
+        <div className="flex items-start gap-2 rounded-[10px] px-4 py-3 text-sm" style={{ backgroundColor: "#f0f7ff", color: "#0e58a8", border: "1px solid rgba(14,88,168,0.15)", fontFamily: "var(--font-poppins)" }}>
+          <Info className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{t("davomatJurnaliOq.otherTypesSaved", { types: otherSavedTypes.map(typeLabel).join(", ") })}</span>
+        </div>
+      )}
+
+      {/* Qulf holati: saqlangan varaq faqat admin ruxsati bilan o'zgaradi */}
       {!rosterError && loadedOnce && sheet.saved && (
         sheet.locked ? (
           <div className="rounded-[10px] p-4 flex flex-col gap-3" style={{ backgroundColor: "#fffbeb", border: "1px solid rgba(146,64,14,0.2)" }}>
             <div className="flex items-start gap-2 text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
               <Lock className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{t("davomatJurnaliOq.lockedNotice", { date: fmtDate(date) })}</span>
+              <span>{t("davomatJurnaliOq.lockedNotice", { date: trainingType ? `${fmtDate(date)} (${typeLabel(trainingType)})` : fmtDate(date) })}</span>
             </div>
 
             {sheet.editRequest?.status === "pending" ? (
@@ -619,8 +639,14 @@ export default function DavomatJurnaliPage() {
                 h.records.forEach((r) => { counts[r.status]++ })
                 return (
                   <button
-                    key={`${h.lessonDate}-${h.subjectName}`}
-                    onClick={() => { setDate(h.lessonDate); resetSheet(); void loadRoster(h.lessonDate) }}
+                    key={`${h.lessonDate}-${h.subjectName}-${h.trainingType ?? ""}`}
+                    onClick={() => {
+                      const type = h.trainingType ?? ""
+                      setDate(h.lessonDate)
+                      setTrainingType(type)
+                      resetSheet()
+                      void loadRoster(h.lessonDate, type)
+                    }}
                     className="w-full text-left px-5 py-3 flex items-center gap-3 flex-wrap hover:bg-[#f6f9ff]/50 transition-colors"
                   >
                     <span className="text-sm font-medium w-28 shrink-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
@@ -628,7 +654,7 @@ export default function DavomatJurnaliPage() {
                     </span>
                     {h.trainingType && (
                       <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                        {h.trainingType}
+                        {typeLabel(h.trainingType)}
                       </span>
                     )}
                     <div className="flex flex-wrap gap-1.5">

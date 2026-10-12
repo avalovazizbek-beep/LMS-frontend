@@ -524,9 +524,8 @@ function SectionAccordion({
 function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: () => void }) {
   const { t } = useLanguage()
   const { video, audio, theory, qollanma, test, assignment, youtube } = topic.sections
-  // Topshiriq ham testdek 60% bilan o'tiladi — yuklangani yetmaydi
-  const assignmentPassed = !!assignment && assignment.submission?.grade != null &&
-    assignment.submission.grade >= ((assignment.maxScore && assignment.maxScore > 0) ? assignment.maxScore * 0.6 : 60)
+  // Topshiriq yuklangani yetarli — baholanishini kutmasdan keyingi mavzu ochiladi
+  const assignmentDone = !!assignment?.submission
 
   // First unlocked + incomplete section is opened by default; falls back to first existing section
   function pickFirstOpen() {
@@ -540,7 +539,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
     ]
     // Prefer first unlocked and not-yet-completed
     for (const [id, sec] of seq) {
-      const done = id === "assignment" ? assignmentPassed : !!sec?.progress?.completed || !!(sec && "submission" in sec && sec.submission)
+      const done = id === "assignment" ? assignmentDone : !!sec?.progress?.completed || !!(sec && "submission" in sec && sec.submission)
       if (sec && !sec.sectionLocked && !done) return id
     }
     // Fallback: first existing section
@@ -678,7 +677,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
           title={t("fanResurslari.assignment")}
           icon={<ClipboardList className="w-4 h-4" style={{ color: assignment.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={assignment.sectionLocked}
-          completed={assignmentPassed}
+          completed={assignmentDone}
           defaultOpen={firstOpen === "assignment"}>
           <StudentContentCard item={assignment} submittable />
         </SectionAccordion>

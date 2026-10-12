@@ -16,6 +16,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { trainingTypeLabelKey } from "@/lib/attendanceTrainingTypes"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -34,6 +35,23 @@ const STATUS_COLOR: Record<string, string> = {
   present: "#15803d", absent: "#b91c1c", excused: "#7293b9", late: "#d97706",
 }
 
+/* Mashg'ulot turi (ma'ruza/amaliy...) — bir kunda har biri alohida davomat */
+function TrainingTypeBadge({ value }: { value?: string | null }) {
+  const { t } = useLanguage()
+  if (!value) return null
+  const key = trainingTypeLabelKey(value)
+  return (
+    <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+      {key ? t(key) : value}
+    </span>
+  )
+}
+
+/** Eksport uchun: "2026-10-12 (Amaliy)" */
+function dateWithType(date: string, type?: string | null) {
+  return type ? `${date} (${type})` : date
+}
+
 function StatusBadge({ status }: { status: string }) {
   const { t } = useLanguage()
   return (
@@ -45,8 +63,8 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-/* ── Bitta sananing ichidagi talabalar ro'yxati (ism-familiya + holat) ─── */
-function DateDetailRows({ groupId, subject, date }: { groupId: number; subject: string; date: string }) {
+/* ── Bitta varaqning (sana + mashg'ulot turi) talabalar ro'yxati ─────────── */
+function DateDetailRows({ groupId, subject, date, trainingType }: { groupId: number; subject: string; date: string; trainingType?: string | null }) {
   const { t } = useLanguage()
   const [rows, setRows] = useState<AdminAttendanceDetailRow[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -54,12 +72,12 @@ function DateDetailRows({ groupId, subject, date }: { groupId: number; subject: 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    adminApi.attendanceDetail({ groupId, subject, date })
+    adminApi.attendanceDetail({ groupId, subject, date, trainingType })
       .then(r => { if (!cancelled) setRows(r.data ?? []) })
       .catch(() => { if (!cancelled) setRows([]) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [groupId, subject, date])
+  }, [groupId, subject, date, trainingType])
 
   if (loading) return <div className="flex items-center justify-center py-5"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
   if (!rows || rows.length === 0) return <p className="text-xs py-4 px-4" style={L}>{t("adminDavomatlar.noStudentDataForDate")}</p>
@@ -169,8 +187,10 @@ function StudentAttendanceView({ groupId, subject }: { groupId: number; subject:
                         <table className="w-full text-xs mt-1">
                           <tbody>
                             {detail[s.studentId].map(d => (
-                              <tr key={d.lessonDate} style={{ borderBottom: "1px solid rgba(1,41,112,0.04)" }}>
-                                <td className="py-1 px-2" style={T}>{d.lessonDate}</td>
+                              <tr key={`${d.lessonDate}-${d.trainingType ?? ""}`} style={{ borderBottom: "1px solid rgba(1,41,112,0.04)" }}>
+                                <td className="py-1 px-2" style={T}>
+                                  <span className="inline-flex items-center gap-1.5 flex-wrap">{d.lessonDate} <TrainingTypeBadge value={d.trainingType} /></span>
+                                </td>
                                 <td className="py-1 px-2 text-right"><StatusBadge status={d.status} /></td>
                               </tr>
                             ))}
@@ -268,15 +288,17 @@ function GroupAttendanceCard({ g, isOpen, onToggle }: { g: AttGroup; isOpen: boo
                 </thead>
                 <tbody>
                   {g.rows.map((r, i) => {
-                    const dateOpen = expandedDate === r.lessonDate
+                    const sheetKey = `${r.lessonDate}|${r.trainingType ?? ""}`
+                    const dateOpen = expandedDate === sheetKey
                     return (
-                      <Fragment key={r.lessonDate}>
+                      <Fragment key={sheetKey}>
                         <tr className="cursor-pointer hover:bg-[#f6f9ff]/60 transition-colors"
                           style={{ borderBottom: dateOpen ? "none" : (i < g.rows.length - 1 ? "1px solid rgba(1,41,112,0.05)" : "none") }}
-                          onClick={() => setExpandedDate(dateOpen ? null : r.lessonDate)}>
-                          <td className="px-4 py-2 flex items-center gap-1.5" style={T}>
+                          onClick={() => setExpandedDate(dateOpen ? null : sheetKey)}>
+                          <td className="px-4 py-2 flex items-center gap-1.5 flex-wrap" style={T}>
                             {dateOpen ? <ChevronUp className="w-3.5 h-3.5" style={L} /> : <ChevronDown className="w-3.5 h-3.5" style={L} />}
                             {r.lessonDate}
+                            <TrainingTypeBadge value={r.trainingType} />
                           </td>
                           <td className="px-3 py-2 text-center" style={L}>{r.total}</td>
                           <td className="px-3 py-2 text-center font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{r.present}</td>
@@ -290,7 +312,7 @@ function GroupAttendanceCard({ g, isOpen, onToggle }: { g: AttGroup; isOpen: boo
                         {dateOpen && (
                           <tr>
                             <td colSpan={7} style={{ backgroundColor: "#f8fbff", borderBottom: i < g.rows.length - 1 ? "1px solid rgba(1,41,112,0.08)" : "none" }}>
-                              <DateDetailRows groupId={g.groupId} subject={g.subjectName} date={r.lessonDate} />
+                              <DateDetailRows groupId={g.groupId} subject={g.subjectName} date={r.lessonDate} trainingType={r.trainingType} />
                             </td>
                           </tr>
                         )}
@@ -345,7 +367,7 @@ function ManualAttendance() {
     exportToExcel("davomat-hisoboti", [{
       name: sheetName,
       rows: filtered.map(r => ({
-        [colGroup]: r.groupName, [colSubject]: r.subjectName, [colDate]: r.lessonDate,
+        [colGroup]: r.groupName, [colSubject]: r.subjectName, [colDate]: dateWithType(r.lessonDate, r.trainingType),
         [colTotal]: r.total, [colPresent]: r.present, [colAbsent]: r.absent, [colLate]: r.late, [colExcused]: r.excused,
         [colPercent]: r.presentPct,
       })),
@@ -356,7 +378,7 @@ function ManualAttendance() {
     exportToPdf(
       "davomat-hisoboti", t("adminDavomatlar.exportPdfTitle"),
       [t("adminDavomatlar.exportColGroup"), t("adminDavomatlar.exportColSubject"), t("adminDavomatlar.exportColDate"), t("adminDavomatlar.exportColTotal"), t("adminDavomatlar.exportColPresent"), t("adminDavomatlar.exportColAbsent"), t("adminDavomatlar.exportColLate"), t("adminDavomatlar.exportColExcused"), t("adminDavomatlar.exportColPercent")],
-      filtered.map(r => [r.groupName, r.subjectName, r.lessonDate, r.total, r.present, r.absent, r.late, r.excused, `${r.presentPct}%`])
+      filtered.map(r => [r.groupName, r.subjectName, dateWithType(r.lessonDate, r.trainingType), r.total, r.present, r.absent, r.late, r.excused, `${r.presentPct}%`])
     )
   }
 
@@ -370,7 +392,7 @@ function ManualAttendance() {
       const pdfBase64 = buildPdfBase64(
         t("adminDavomatlar.exportPdfTitle"),
         [t("adminDavomatlar.exportColGroup"), t("adminDavomatlar.exportColSubject"), t("adminDavomatlar.exportColDate"), t("adminDavomatlar.exportColTotal"), t("adminDavomatlar.exportColPresent"), t("adminDavomatlar.exportColAbsent"), t("adminDavomatlar.exportColLate"), t("adminDavomatlar.exportColExcused"), t("adminDavomatlar.exportColPercent")],
-        filtered.map(r => [r.groupName, r.subjectName, r.lessonDate, r.total, r.present, r.absent, r.late, r.excused, `${r.presentPct}%`])
+        filtered.map(r => [r.groupName, r.subjectName, dateWithType(r.lessonDate, r.trainingType), r.total, r.present, r.absent, r.late, r.excused, `${r.presentPct}%`])
       )
       const res = await adminApi.sendReportTelegram({ filename: "davomat-hisoboti.pdf", caption: t("adminDavomatlar.exportPdfTitle"), pdfBase64 })
       setTelegramMsg({ ok: true, text: res.message || t("adminDavomatlar.telegramSent") })
@@ -873,6 +895,7 @@ function EditRequests({ onPendingCount }: { onPendingCount: (n: number) => void 
                         <CalendarDays className="w-3.5 h-3.5" />
                         {t("adminDavomatlar.req.lessonDate", { date: fmtDay(r.lessonDate) })}
                       </span>
+                      <TrainingTypeBadge value={r.trainingType} />
                       <span>{t("adminDavomatlar.req.sentAt", { date: fmtStamp(r.createdAt) })}</span>
                     </div>
                   </div>
@@ -890,7 +913,7 @@ function EditRequests({ onPendingCount }: { onPendingCount: (n: number) => void 
                   </button>
                   {openSheet === r.id && (
                     <div className="mt-2 rounded-[8px]" style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
-                      <DateDetailRows groupId={r.groupId} subject={r.subjectName} date={r.lessonDate} />
+                      <DateDetailRows groupId={r.groupId} subject={r.subjectName} date={r.lessonDate} trainingType={r.trainingType} />
                     </div>
                   )}
                 </div>

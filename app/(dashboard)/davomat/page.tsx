@@ -8,6 +8,7 @@ import { Loading, ApiError } from "@/components/ui/ApiState"
 import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { trainingTypeLabelKey } from "@/lib/attendanceTrainingTypes"
 
 function getAbsenceType(r: HemisAttendance): "excused" | "absent" {
   if (r.explicable === true) return "excused"
@@ -250,7 +251,14 @@ export default function Davomat() {
                       style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
                       <td className="px-4 py-3 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
                       <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{formatIso(r.lessonDate)}</td>
-                      <td className="px-4 py-3 text-sm" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{r.subjectName}</td>
+                      <td className="px-4 py-3 text-sm" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                        {r.subjectName}
+                        {r.trainingType && (
+                          <span className="block text-xs" style={{ color: "#7293b9" }}>
+                            {trainingTypeLabelKey(r.trainingType) ? t(trainingTypeLabelKey(r.trainingType)!) : r.trainingType}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full w-fit"
                           style={{

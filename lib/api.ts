@@ -1929,6 +1929,7 @@ export interface AttendanceHistoryEntry {
 export interface StudentAttendanceEntry {
   lessonDate: string
   subjectName: string
+  trainingType?: string | null
   status: AttendanceStatus
   comment: string | null
 }
@@ -1942,6 +1943,8 @@ export interface AttendanceEditRequest {
   groupName: string | null
   subjectName: string
   lessonDate: string
+  /** Mashg'ulot turi (ma'ruza/amaliy...) — bir kunda har biri alohida varaq */
+  trainingType?: string | null
   teacherUserId: number
   teacherName: string
   reason: string
@@ -1955,6 +1958,8 @@ export interface AttendanceEditRequest {
 
 export type AttendanceRosterRes = ListRes<AttendanceRosterItem> & {
   trainingType: string | null
+  /** Shu kunda o'qituvchi saqlagan mashg'ulot turlari (masalan ["Amaliy"]) */
+  savedTypes?: string[]
   /** O'qituvchi bu kunni saqlagan */
   saved?: boolean
   /** Saqlangan va admin ruxsati yo'q — o'zgartirib bo'lmaydi */
@@ -1963,12 +1968,13 @@ export type AttendanceRosterRes = ListRes<AttendanceRosterItem> & {
 }
 
 export const attendanceApi = {
-  roster: (groupId: number | string, subject: string, date: string) => {
-    const q = new URLSearchParams(buildParams({ groupId, subject, date })).toString()
+  /** trainingType bo'sh — turi belgilanmagan (eski) varaq */
+  roster: (groupId: number | string, subject: string, date: string, trainingType?: string) => {
+    const q = new URLSearchParams(buildParams({ groupId, subject, date, trainingType })).toString()
     return get<AttendanceRosterRes>(`/api/teaching/attendance/roster?${q}`)
   },
 
-  requestEdit: (body: { groupId: number | string; subjectName: string; date: string; reason: string }) =>
+  requestEdit: (body: { groupId: number | string; subjectName: string; date: string; trainingType?: string; reason: string }) =>
     post<MsgRes & { data: AttendanceEditRequest }>("/api/teaching/attendance/edit-requests", body),
 
   save: (body: {
@@ -2477,6 +2483,7 @@ export interface AdminAttendanceRow {
   groupName: string
   subjectName: string
   lessonDate: string
+  trainingType?: string | null
   total: number
   present: number
   absent: number
@@ -2505,6 +2512,7 @@ export interface AdminAttendanceStudentRow {
 
 export interface AdminAttendanceStudentDetailRow {
   lessonDate: string
+  trainingType?: string | null
   status: string
   comment: string | null
 }
@@ -2683,7 +2691,7 @@ export const adminApi = {
     return get<{ data: AdminAttendanceRow[] }>(`/api/admin/attendance${q ? `?${q}` : ""}`)
   },
 
-  attendanceDetail: (params: { groupId: number; subject: string; date: string }) => {
+  attendanceDetail: (params: { groupId: number; subject: string; date: string; trainingType?: string | null }) => {
     const q = new URLSearchParams(buildParams(params)).toString()
     return get<{ data: AdminAttendanceDetailRow[] }>(`/api/admin/attendance/detail?${q}`)
   },

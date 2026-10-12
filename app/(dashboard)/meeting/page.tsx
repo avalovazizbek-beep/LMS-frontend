@@ -60,6 +60,7 @@ import { useMeetingCall } from "@/components/layout/MeetingCallContext"
 import { applyNoiseFilter } from "@/lib/noiseFilter"
 import { RecordingCard } from "@/components/meeting/RecordingCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { ATTENDANCE_TRAINING_TYPES } from "@/lib/attendanceTrainingTypes"
 import type { Lang } from "@/lib/i18n/translations"
 import { translate, tr } from "@/lib/i18n/translations"
 
@@ -2337,21 +2338,35 @@ function CallStage({
   // Saqlangan kun qulflanadi — o'zgartirish faqat Davomat jurnali orqali
   // adminga so'rov yuborib, ruxsat olingandan keyin
   const [attendanceLocked, setAttendanceLocked] = useState(false)
+  // Mashg'ulot turi — bir kunda ma'ruza va amaliy alohida davomat varag'i
+  const [attendanceType, setAttendanceType] = useState("")
 
-  async function loadAttendanceRoster(groupId: number) {
+  async function loadAttendanceRoster(groupId: number, type: string = attendanceType) {
+    setAttendanceGroupId(groupId)
+    // Tur tanlanmaguncha ro'yxat ochilmaydi
+    if (!type) return
     setAttendanceLoading(true)
     setAttendanceError(null)
     setAttendanceSaveMsg(null)
     try {
-      const res = await attendanceApi.roster(groupId, meeting.subjectName || meeting.subject, meetingDateStr)
+      const res = await attendanceApi.roster(groupId, meeting.subjectName || meeting.subject, meetingDateStr, type)
       setAttendanceRoster(res.data)
-      setAttendanceGroupId(groupId)
       setAttendanceLocked(!!res.locked)
     } catch (e) {
       setAttendanceError(e instanceof Error ? e.message : tr("meetingPage.att.loadError"))
     } finally {
       setAttendanceLoading(false)
     }
+  }
+
+  function chooseAttendanceType(type: string) {
+    if (type === attendanceType) return
+    setAttendanceType(type)
+    setAttendanceRoster(null)
+    setAttendanceLocked(false)
+    setAttendanceSaveMsg(null)
+    const groupId = attendanceGroupId ?? meetingGroupIds[0] ?? localGroupId
+    if (groupId) void loadAttendanceRoster(groupId, type)
   }
 
   function openAttendance() {
@@ -2370,7 +2385,7 @@ function CallStage({
   }
 
   async function saveAttendance() {
-    if (!attendanceRoster || attendanceGroupId == null || attendanceLocked) return
+    if (!attendanceRoster || attendanceGroupId == null || attendanceLocked || !attendanceType) return
     setAttendanceSaving(true)
     setAttendanceSaveMsg(null)
     try {
@@ -2378,6 +2393,7 @@ function CallStage({
         groupId: attendanceGroupId,
         subjectName: meeting.subjectName || meeting.subject,
         date: meetingDateStr,
+        trainingType: attendanceType,
         records: attendanceRoster.map(r => ({
           studentUserId: r.studentUserId,
           fullName: r.fullName,
@@ -2900,13 +2916,28 @@ function CallStage({
               </div>
             )}
 
+            <div className="px-5 py-3 flex items-center gap-1.5 flex-wrap" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+              <span className="text-xs font-medium mr-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("oqDavomat.trainingType")}:</span>
+              {ATTENDANCE_TRAINING_TYPES.map(opt => (
+                <button key={opt.value} onClick={() => chooseAttendanceType(opt.value)} disabled={attendanceSaving}
+                  className="text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors"
+                  style={{
+                    backgroundColor: attendanceType === opt.value ? "#0e58a8" : "#eef4ff",
+                    color: attendanceType === opt.value ? "#fff" : "#0e58a8",
+                    fontFamily: "var(--font-poppins)",
+                  }}>
+                  {t(opt.labelKey)}
+                </button>
+              ))}
+            </div>
+
             {attendanceLocked && attendanceRoster !== null && attendanceGroupId != null && (
               <div className="px-5 py-3 flex items-start gap-2 text-xs" style={{ backgroundColor: "#fffbeb", color: "#92400e", borderBottom: "1px solid rgba(146,64,14,0.15)", fontFamily: "var(--font-poppins)" }}>
                 <Lock className="w-3.5 h-3.5 shrink-0 mt-px" />
                 <span>
                   {t("meetingPage.att.locked")}{" "}
                   <Link
-                    href={`/oqituvchi-kabineti/davomat-jurnali?group=${attendanceGroupId}&subject=${encodeURIComponent(meeting.subjectName || meeting.subject)}&date=${meetingDateStr}`}
+                    href={`/oqituvchi-kabineti/davomat-jurnali?group=${attendanceGroupId}&subject=${encodeURIComponent(meeting.subjectName || meeting.subject)}&date=${meetingDateStr}&training=${encodeURIComponent(attendanceType)}`}
                     className="font-semibold underline">
                     {t("meetingPage.att.openJournal")}
                   </Link>
@@ -2917,6 +2948,10 @@ function CallStage({
             <div className="overflow-y-auto flex-1">
               {attendanceError ? (
                 <div className="p-6 text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{attendanceError}</div>
+              ) : !attendanceType ? (
+                <div className="p-10 text-center text-sm" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                  {t("davomatJurnaliOq.chooseTypeHint")}
+                </div>
               ) : attendanceLoading || attendanceRoster === null ? (
                 <div className="flex items-center justify-center py-14">
                   <RefreshCw className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} />
