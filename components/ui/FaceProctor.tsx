@@ -27,8 +27,15 @@ const ABSENT_LIMIT        = 15000  // shuncha vaqt yuz ko'rinmasa "no_face" qayd
 const ABSENT_GRACE        = 1500
 const DEFAULT_MAX_VIOLATIONS = 5   // admin "Face ID bloklash chegarasi" sozlamasi orqali o'zgartirilishi mumkin
 const LIVENESS_INTERVAL   = 400
-const EAR_THRESHOLD       = 0.22
-const BLINK_TIMEOUT       = 120000 // faqat yuz to'g'ri ko'ringan vaqt hisoblanadi
+// Ko'z qisish shu talabaning o'z "ochiq ko'z" darajasiga nisbatan aniqlanadi.
+// Avvalgi mutlaq 0.22 chegarasi telefonda ishlamasdi: ekranga pastga
+// qaraganda qovoq tushib EAR doim ~0.2 atrofida turadi, ko'z "doim yumuq"
+// deb hisoblanib, ko'z qisish umuman ko'rilmasdi.
+const EAR_HISTORY         = 40     // oxirgi namunalar (~20-40 s)
+const EAR_MIN_SAMPLES     = 8
+const BLINK_CLOSED_RATIO  = 0.75   // ochiq ko'z darajasining 75% idan past — yumuq
+const BLINK_OPEN_RATIO    = 0.88   // 88% dan yuqori — qayta ochildi
+const BLINK_TIMEOUT       = 180000 // faqat yuz to'g'ri ko'ringan vaqt hisoblanadi
 const VERIFY_FAIL_LIMIT   = 3      // ketma-ket 3 ta (to'g'ri qaragan) kadr mos kelmasa
 const MULTI_FACE_INTERVAL = 4000   // 8s→4s: tezroq ko'p-yuz tekshiruv
 
@@ -57,8 +64,15 @@ function eyeAspectRatio(eye: { x: number; y: number }[]): number {
     Math.hypot(a.x - b.x, a.y - b.y)
   const vertical = dist(eye[1], eye[5]) + dist(eye[2], eye[4])
   const horizontal = dist(eye[0], eye[3])
-  if (horizontal === 0) return EAR_THRESHOLD
+  if (horizontal === 0) return NaN
   return vertical / (2 * horizontal)
+}
+
+/* Ochiq ko'z darajasi — oxirgi namunalarning 75-persentili (ko'z qisish
+   lahzalari va shovqin pastga tortmasligi uchun o'rtacha emas) */
+function openEyeLevel(samples: number[]): number {
+  const sorted = [...samples].sort((a, b) => a - b)
+  return sorted[Math.floor(sorted.length * 0.75)]
 }
 
 type ProcStatus = "loading" | "ready" | "ok" | "warning" | "violation" | "error"
@@ -93,6 +107,7 @@ export default function FaceProctor({
   const isVerifyingRef      = useRef(false)
   const lastLivenessCheck   = useRef(0)
   const eyesClosedRef       = useRef(false)
+  const earHistory          = useRef<number[]>([])
   const blinkWatchMs        = useRef(0)                      // ko'z qisishsiz, yuz to'g'ri ko'ringan vaqt
   const lastLivenessSample  = useRef<number | null>(null)
   const lastPresenceCheck   = useRef(0)
@@ -202,6 +217,12 @@ export default function FaceProctor({
     const now = new Date()
     const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`
     setViolationHistory(h => [...h, { msg: reason, time: timeStr }])
+    onViolation?.(type, translate("uz", reason.key, reason.params))
+  }, [onViolation])
+
+  /* Faqat serverdagi hisobotga (o'qituvchi ko'radi) — talaba ekranidagi
+     tarixga ham, xatoliklar hisobiga ham tushmaydi */
+  const reportSilently = useCallback((type: FaceViolationType, reason: ProctorMsg) => {
     onViolation?.(type, translate("uz", reason.key, reason.params))
   }, [onViolation])
 
@@ -419,15 +440,28 @@ export default function FaceProctor({
           const leftEAR  = eyeAspectRatio(landmarks.getLeftEye())
           const rightEAR = eyeAspectRatio(landmarks.getRightEye())
           const ear = (leftEAR + rightEAR) / 2
-          if (ear < EAR_THRESHOLD) {
-            eyesClosedRef.current = true
-          } else if (eyesClosedRef.current) {
-            eyesClosedRef.current = false
-            blinkWatchMs.current = 0
+          if (Number.isFinite(ear) && ear > 0) {
+            const hist = earHistory.current
+            hist.push(ear)
+            if (hist.length > EAR_HISTORY) hist.shift()
+            if (hist.length >= EAR_MIN_SAMPLES) {
+              const open = openEyeLevel(hist)
+              if (ear < open * BLINK_CLOSED_RATIO) {
+                eyesClosedRef.current = true
+              } else if (eyesClosedRef.current && ear > open * BLINK_OPEN_RATIO) {
+                eyesClosedRef.current = false
+                blinkWatchMs.current = 0
+              }
+            }
           }
           if (blinkWatchMs.current >= BLINK_TIMEOUT) {
             blinkWatchMs.current = 0
-            addViolation("liveness", { key: "proctor.v.liveness" })
+            // Faqat o'qituvchi hisobotiga — testni to'xtatmaydi, xatoliklar
+            // hisobiga qo'shilmaydi va talabaga ko'rsatilmaydi. Telefonda
+            // kadrlar siyrak (~1-2/s), ko'z qisish ko'pincha ikki kadr orasiga
+            // tushib qoladi: halol talabalar shu sabab testdan chiqarilardi
+            // va "ko'zini o'ynatib" o'tirishga majbur bo'lardi (2026-10-13).
+            reportSilently("liveness", { key: "proctor.v.liveness" })
           }
         } else if (landmarks) {
           lastLivenessSample.current = null
@@ -436,7 +470,7 @@ export default function FaceProctor({
     } catch { /* ignore frame errors */ }
 
     rafRef.current = requestAnimationFrame(presenceLoop)
-  }, [addViolation, pushHistory, setStatusSynced])
+  }, [addViolation, pushHistory, reportSilently, setStatusSynced])
 
   useEffect(() => {
     if (!cameraReady) return

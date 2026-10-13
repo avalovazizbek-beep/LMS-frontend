@@ -54,6 +54,7 @@ export default function ImtihonTopshirish() {
   const [submitError,   setSubmitError]   = useState<string | null>(null)
   const [result,        setResult]        = useState<{ grade: number | null; maxScore: number | null; attemptsUsed: number } | null>(null)
   const [fsExited,      setFsExited]      = useState(false)   // to'liq ekrandan chiqildi
+  const [fsHint,        setFsHint]        = useState(false)   // telefonda: savollarni yopmaydigan "qaytish" tugmasi
   const [winHidden,     setWinHidden]     = useState(false)   // Alt+Tab: oyna yashirildi
   const [proctorEnded,  setProctorEnded]  = useState(false)   // Face ID xatoliklari chegarasi — avtomatik yuborildi
   const [isMobile,      setIsMobile]      = useState(false)
@@ -89,16 +90,47 @@ export default function ImtihonTopshirish() {
 
   /* ── To'liq ekran lock ────────────────────────────────────────────── */
   useEffect(() => {
+    // Telefon/planshet: to'liq ekrandan chiqish (ko'pincha chetdan "orqaga"
+    // surish tasodifan) boshqa ilova yoki oynani ko'rsatmaydi — ilova
+    // almashtirish "Oynadan chiqdi" bilan alohida ushlanadi. Shuning uchun
+    // u yerda savollar yopilmaydi: qayd etiladi va kichik qaytish tugmasi chiqadi.
+    const coarse = window.matchMedia("(pointer: coarse)").matches
     const onFsChange = () => {
-      if (!document.fullscreenElement &&
-          (phaseRef.current === "exam" || phaseRef.current === "face_scan")) {
-        setFsExited(true)
+      if (document.fullscreenElement) { setFsHint(false); return }
+      if (phaseRef.current === "exam" || phaseRef.current === "face_scan") {
+        if (coarse) setFsHint(true)
+        else setFsExited(true)
         teachingApi.reportViolation(id, "fullscreen_exit").catch(() => {})
       }
     }
     document.addEventListener("fullscreenchange", onFsChange)
     return () => document.removeEventListener("fullscreenchange", onFsChange)
   }, [])
+
+  /* ── Ekran o'chib qolmasin ────────────────────────────────────────────
+     Telefonda savolni o'qib, ekranga tegmay turganda 30 s–1 daqiqada ekran
+     o'chardi: bu "Oynadan chiqdi" + "To'liq ekrandan chiqdi" deb yozilib,
+     qaytganda savollar yopiq turardi. Wake Lock brauzer sahifa yashirilganda
+     o'zi bo'shatadi — qaytganda qayta olinadi. */
+  const inExam = phase === "exam" || phase === "face_scan"
+  useEffect(() => {
+    if (!inExam || !("wakeLock" in navigator)) return
+    let sentinel: WakeLockSentinel | null = null
+    let cancelled = false
+    const acquire = () => {
+      if (document.visibilityState !== "visible" || (sentinel && !sentinel.released)) return
+      navigator.wakeLock.request("screen")
+        .then(s => { if (cancelled) s.release().catch(() => {}); else sentinel = s })
+        .catch(() => { /* quvvat tejash rejimi va h.k. — ekran odatdagidek o'chadi */ })
+    }
+    acquire()
+    document.addEventListener("visibilitychange", acquire)
+    return () => {
+      cancelled = true
+      document.removeEventListener("visibilitychange", acquire)
+      sentinel?.release().catch(() => {})
+    }
+  }, [inExam])
 
   // iOS Safari doesn't implement the Fullscreen API for non-<video> elements —
   // requestFullscreen is simply undefined there, and calling it throws a
@@ -108,6 +140,7 @@ export default function ImtihonTopshirish() {
   function requestFS() {
     document.documentElement.requestFullscreen?.()?.catch(() => {})
     setFsExited(false)
+    setFsHint(false)
   }
   function exitFS() {
     if (document.fullscreenElement) document.exitFullscreen?.()?.catch(() => {})
@@ -567,6 +600,19 @@ export default function ImtihonTopshirish() {
             <Maximize className="w-5 h-5" /> {t("examTake.returnFullscreen")}
           </button>
         </div>
+      )}
+
+      {/* Telefonda to'liq ekrandan chiqilgan — savollar ochiq qoladi */}
+      {fsHint && !fsExited && (
+        <button onClick={requestFS} style={{
+          position: "fixed", left: 12, bottom: 12, zIndex: 10002,
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "8px 14px", borderRadius: 999, backgroundColor: "rgba(1,41,112,0.88)",
+          color: "#fff", fontFamily: "var(--font-poppins)", fontWeight: 600, fontSize: 12,
+          border: "none", cursor: "pointer", boxShadow: "0 4px 14px rgba(0,0,0,0.2)",
+        }}>
+          <Maximize className="w-4 h-4" /> {t("examTake.returnFullscreen")}
+        </button>
       )}
 
       {/* Alt+Tab / Snipping Tool — ref orqali darhol DOM (React re-render kutilmaydi, Snipping Tool uchun kritik) */}
