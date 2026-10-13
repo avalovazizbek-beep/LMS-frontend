@@ -1354,32 +1354,21 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {test && test.questionCount === 0 && (
-                <p className="text-xs px-3 py-2 rounded-[6px]"
-                  style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                  {t("fanResurslariOq.test.noQuestionsWarn")}
-                </p>
-              )}
-              {/* Test yaratilgandan keyin ham shu joyda qoladi — "yuklandi"
-                  xabari yo'qolib ketmasligi uchun */}
-              <TestFileImport
-                existingCount={test?.questionCount ?? 0}
-                settingsLocked={!!test && deadlinePassed}
-                compact={!!test && test.questionCount > 0}
-                onImport={importTestFile}
-              />
               {!test ? (
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xs" style={labelStyle}>{t("testImport.or")}</span>
-                  <button onClick={() => upload("test", "exam", null)} disabled={uploadingKind === "test"}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
-                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                    {uploadingKind === "test" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
-                    {uploadingKind === "test" ? t("fanResurslariOq.upload.creating") : t("testImport.createManual")}
-                  </button>
-                </div>
+                <button onClick={() => upload("test", "exam", null)} disabled={uploadingKind === "test"}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
+                  style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {uploadingKind === "test" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {uploadingKind === "test" ? t("fanResurslariOq.upload.creating") : t("fanResurslariOq.upload.createTest")}
+                </button>
               ) : (
                 <>
+                {test.questionCount === 0 && (
+                  <p className="text-xs px-3 py-2 rounded-[6px]"
+                    style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                    {t("fanResurslariOq.test.noQuestionsWarn")}
+                  </p>
+                )}
                 <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => setShowQuestions(true)}
                     className="px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
@@ -1490,6 +1479,18 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
                 )}
                 </>
               )}
+              {/* Qo'shimcha usul — oddiy (qo'lda) usul tepada o'zgarishsiz qoladi.
+                  Test yaratilgandan keyin ham shu joyda turadi — "yuklandi"
+                  xabari yo'qolib ketmasligi uchun. */}
+              <div className="flex flex-col gap-2 pt-4" style={{ borderTop: "1px solid rgba(1,41,112,0.1)" }}>
+                <span className="text-xs font-semibold" style={titleStyle}>{t("testImport.sectionTitle")}</span>
+                <TestFileImport
+                  existingCount={test?.questionCount ?? 0}
+                  settingsLocked={!!test && deadlinePassed}
+                  compact={!!test && test.questionCount > 0}
+                  onImport={importTestFile}
+                />
+              </div>
             </div>
           )
         ) : (
