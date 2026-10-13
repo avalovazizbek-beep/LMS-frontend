@@ -570,7 +570,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
           id="video"
           title={t("fanResurslari.video")}
           icon={<Video className="w-4 h-4" style={{ color: video.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
-          locked={video.sectionLocked}
+          locked={!!video.sectionLocked}
           completed={!!video.progress?.completed}
           defaultOpen={firstOpen === "video"}>
           <LockedMediaPlayer
@@ -615,7 +615,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
           id="audio"
           title={t("fanResurslari.audio")}
           icon={<Play className="w-4 h-4" style={{ color: audio.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
-          locked={audio.sectionLocked}
+          locked={!!audio.sectionLocked}
           completed={!!audio.progress?.completed}
           defaultOpen={firstOpen === "audio"}>
           <LockedMediaPlayer
@@ -634,7 +634,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
           id="theory"
           title={t("fanResurslari.presentation")}
           icon={<BookOpen className="w-4 h-4" style={{ color: theory.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
-          locked={theory.sectionLocked}
+          locked={!!theory.sectionLocked}
           completed={!!theory.progress?.completed}
           defaultOpen={firstOpen === "theory"}>
           <TheoryViewer
@@ -652,7 +652,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
           id="qollanma"
           title={t("fanResurslari.guide")}
           icon={<Library className="w-4 h-4" style={{ color: qollanma.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
-          locked={qollanma.sectionLocked}
+          locked={!!qollanma.sectionLocked}
           completed={!!qollanma.progress?.completed}
           defaultOpen={firstOpen === "qollanma"}>
           <QollanmaSection qollanma={qollanma} onProgress={onProgress} />
@@ -664,7 +664,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
           id="test"
           title={`${t("fanResurslari.test")}${test.submission?.grade != null && test.maxScore ? ` · ${t("fanResurslari.scoreOf", { grade: test.submission.grade, max: test.maxScore })}` : test.submission?.grade != null ? ` · ${t("fanResurslari.score", { grade: test.submission.grade })}` : ""}`}
           icon={<HelpCircle className="w-4 h-4" style={{ color: test.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
-          locked={test.sectionLocked}
+          locked={!!test.sectionLocked}
           completed={test.submission?.grade != null}
           defaultOpen={firstOpen === "test"}>
           <StudentContentCard item={test} submittable />
@@ -676,7 +676,7 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
           id="assignment"
           title={t("fanResurslari.assignment")}
           icon={<ClipboardList className="w-4 h-4" style={{ color: assignment.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
-          locked={assignment.sectionLocked}
+          locked={!!assignment.sectionLocked}
           completed={assignmentDone}
           defaultOpen={firstOpen === "assignment"}>
           <StudentContentCard item={assignment} submittable />

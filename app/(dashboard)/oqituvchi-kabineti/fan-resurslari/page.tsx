@@ -16,6 +16,7 @@ import {
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
+import { TestFileImport, type ExamSettingsPatch, type TestImportMode } from "@/components/teaching/TestFileImport"
 import { RetakeTable } from "@/components/teaching/RetakeTable"
 import { TeacherCertificateCard } from "@/components/teaching/TeacherCertificate"
 import RichTextEditor from "@/components/ui/RichTextEditor"
@@ -1040,37 +1041,49 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
 
   const now = () => new Date().toISOString()
 
+  /* Asosiy guruhda yaratadi va tanlangan parallel guruhlarga nusxalaydi;
+     asosiy guruhdagi yangi yozuvni qaytaradi (test importi savollarini
+     shunga yozadi). `extra` — test sozlamalari kabi qo'shimcha maydonlar. */
+  async function createResource(
+    kind: string, type: "mavzu" | "exam" | "assignment", file: File | null, extra: ExamSettingsPatch = {}
+  ): Promise<TeacherContent | undefined> {
+    const created = await teachingApi.createContent({
+      type, groupId: sel.groupId, subjectName: sel.subjectName,
+      topicKey: sel.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
+      trainingType: trainingType || undefined,
+      availableFrom: now(), deadline: topicDeadline, docFile: file,
+      onUploadProgress: file ? setUploadProgress : undefined,
+      ...extra,
+    })
+    // Tanlangan qo'shimcha guruhlarga ham xuddi shunday qo'shiladi (test
+    // ham — savollari "Savollarni tahrirlash"da saqlanganda nusxalanadi;
+    // kerak bo'lsa o'sha guruhda shu nomdagi mavzu ham avtomatik yaratiladi).
+    for (const gid of extraGroupIds) {
+      const groupTopicKey = await ensureTopicKeyForGroup(gid, sel.subjectName, sel.topicTitle, topicDeadline, trainingType)
+      const existing = (await teachingApi.contentByTopic({ topicKey: groupTopicKey, groupId: gid })).data ?? []
+      const old = existing.filter(o => sameSlot(o, { type, kind, meetingLink: null }))
+      // Test/topshiriqqa talaba natijalari bog'langan — o'sha guruhda allaqachon
+      // bo'lsa (yoki test↔topshiriq bir-birini istisno qilsa) tegmaymiz.
+      if (type !== "mavzu" && (old.length || existing.some(o => o.type === (type === "exam" ? "assignment" : "exam")))) continue
+      await teachingApi.createContent({
+        type, groupId: gid, subjectName: sel.subjectName,
+        topicKey: groupTopicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
+        trainingType: trainingType || undefined,
+        availableFrom: now(), deadline: topicDeadline, docFile: file,
+        ...extra,
+      })
+      // Video/audio/taqdimot/qo'llanma — eski nusxa bo'lsa yangisi bilan almashadi
+      for (const o of old) await teachingApi.removeContent(o.id)
+    }
+    return created.data
+  }
+
   async function upload(kind: string, type: "mavzu" | "exam" | "assignment", file: File | null) {
     setOpErr(null)
     setUploadingKind(kind)
     setUploadProgress(file ? 0 : null)
     try {
-      await teachingApi.createContent({
-        type, groupId: sel.groupId, subjectName: sel.subjectName,
-        topicKey: sel.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
-        trainingType: trainingType || undefined,
-        availableFrom: now(), deadline: topicDeadline, docFile: file,
-        onUploadProgress: file ? setUploadProgress : undefined,
-      })
-      // Tanlangan qo'shimcha guruhlarga ham xuddi shunday qo'shiladi (test
-      // ham — savollari "Savollarni tahrirlash"da saqlanganda nusxalanadi;
-      // kerak bo'lsa o'sha guruhda shu nomdagi mavzu ham avtomatik yaratiladi).
-      for (const gid of extraGroupIds) {
-        const groupTopicKey = await ensureTopicKeyForGroup(gid, sel.subjectName, sel.topicTitle, topicDeadline, trainingType)
-        const existing = (await teachingApi.contentByTopic({ topicKey: groupTopicKey, groupId: gid })).data ?? []
-        const old = existing.filter(o => sameSlot(o, { type, kind, meetingLink: null }))
-        // Test/topshiriqqa talaba natijalari bog'langan — o'sha guruhda allaqachon
-        // bo'lsa (yoki test↔topshiriq bir-birini istisno qilsa) tegmaymiz.
-        if (type !== "mavzu" && (old.length || existing.some(o => o.type === (type === "exam" ? "assignment" : "exam")))) continue
-        await teachingApi.createContent({
-          type, groupId: gid, subjectName: sel.subjectName,
-          topicKey: groupTopicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
-          trainingType: trainingType || undefined,
-          availableFrom: now(), deadline: topicDeadline, docFile: file,
-        })
-        // Video/audio/taqdimot/qo'llanma — eski nusxa bo'lsa yangisi bilan almashadi
-        for (const o of old) await teachingApi.removeContent(o.id)
-      }
+      await createResource(kind, type, file)
       await refetch()
     } catch (err) {
       setOpErr(err instanceof Error ? err.message : t("fanResurslariOq.errors.uploadError"))
@@ -1078,6 +1091,36 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
       setUploadingKind(null)
       setUploadProgress(null)
     }
+  }
+
+  /* Test faylidan import: test yo'q bo'lsa sozlamalari bilan yaratiladi,
+     bor bo'lsa sozlamalari yangilanadi; savollar asosiy va parallel
+     guruhlardagi testga yoziladi (onQuestionsSaved bilan bir xil). Xato
+     TestFileImport'ga qaytadi va o'sha yerda ko'rsatiladi. */
+  async function importTestFile(questions: ExamQuestion[], patch: ExamSettingsPatch, mode: TestImportMode) {
+    let target = test
+    if (!target) {
+      target = await createResource("test", "exam", null, patch)
+      if (!target) throw new Error(t("fanResurslariOq.errors.uploadError"))
+    } else if (Object.keys(patch).length) {
+      await teachingApi.updateContent(target.id, patch)
+      await forEachExtraMatch(target, other => teachingApi.updateContent(other.id, patch))
+    }
+    let all = questions
+    if (mode === "append" && test) {
+      const res = await teachingApi.questions(test.id)
+      all = [...((res.data ?? []) as ExamQuestion[]).map(({ id: _id, ...q }) => q), ...questions]
+    }
+    await teachingApi.saveQuestions(target.id, all)
+    await forEachExtraMatch(target, other => teachingApi.saveQuestions(other.id, all))
+    // Sozlama maydonlari test.id o'zgarmasa qayta sinxronlanmaydi
+    setSettings(s => ({
+      testMaxScore:     "maxScore" in patch ? patch.maxScore ?? 0 : s.testMaxScore,
+      testDuration:     "durationMinutes" in patch ? patch.durationMinutes ?? 0 : s.testDuration,
+      testAttempts:     "attemptsCount" in patch ? patch.attemptsCount ?? 0 : s.testAttempts,
+      testDisplayCount: "questionDisplayCount" in patch ? patch.questionDisplayCount ?? 0 : s.testDisplayCount,
+    }))
+    await refetch()
   }
 
   async function remove(item?: TeacherContent) {
@@ -1309,128 +1352,143 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
                 {t("fanResurslariOq.test.goToAssignment")}
               </button>
             </div>
-          ) : !test ? (
-            <button onClick={() => upload("test", "exam", null)} disabled={uploadingKind === "test"}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
-              style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              {uploadingKind === "test" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              {uploadingKind === "test" ? t("fanResurslariOq.upload.creating") : t("fanResurslariOq.upload.createTest")}
-            </button>
           ) : (
             <div className="flex flex-col gap-4">
-              {test.questionCount === 0 && (
+              {test && test.questionCount === 0 && (
                 <p className="text-xs px-3 py-2 rounded-[6px]"
                   style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                   {t("fanResurslariOq.test.noQuestionsWarn")}
                 </p>
               )}
-              <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => setShowQuestions(true)}
-                  className="px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
-                  style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  {t("fanResurslariOq.test.editQuestions")}
-                </button>
-                <button onClick={() => setShowTestResults(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
-                  style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  <BarChart3 className="w-4 h-4" />
-                  {t("fanResurslariOq.test.resultsBtn")}
-                </button>
-                <button onClick={() => setConfirmDeleteTest(true)} disabled={confirmDeleteTest}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#fef2f2] disabled:opacity-60"
-                  style={{ border: "1px solid rgba(220,38,38,0.3)", color: "#dc2626", fontFamily: "var(--font-poppins)" }}>
-                  <Trash2 className="w-4 h-4" />
-                  {t("fanResurslariOq.test.deleteBtn")}
-                </button>
-              </div>
-              {confirmDeleteTest && (
-                <div className="flex flex-col gap-2 px-4 py-3 rounded-[10px]"
-                  style={{ backgroundColor: "#fef2f2", border: "1px solid rgba(220,38,38,0.25)" }}>
-                  <p className="text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                    {t("fanResurslariOq.test.deleteConfirm")}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button onClick={deleteTest} disabled={deletingTest}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-[6px] text-xs font-semibold text-white disabled:opacity-60"
-                      style={{ backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
-                      {deletingTest && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                      {t("mavzularOq.yesDelete")}
-                    </button>
-                    <button onClick={() => setConfirmDeleteTest(false)} disabled={deletingTest}
-                      className="px-3 py-2 rounded-[6px] text-xs font-medium bg-white"
-                      style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      {t("mavzularOq.cancel")}
-                    </button>
+              {/* Test yaratilgandan keyin ham shu joyda qoladi — "yuklandi"
+                  xabari yo'qolib ketmasligi uchun */}
+              <TestFileImport
+                existingCount={test?.questionCount ?? 0}
+                settingsLocked={!!test && deadlinePassed}
+                compact={!!test && test.questionCount > 0}
+                onImport={importTestFile}
+              />
+              {!test ? (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-xs" style={labelStyle}>{t("testImport.or")}</span>
+                  <button onClick={() => upload("test", "exam", null)} disabled={uploadingKind === "test"}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
+                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    {uploadingKind === "test" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+                    {uploadingKind === "test" ? t("fanResurslariOq.upload.creating") : t("testImport.createManual")}
+                  </button>
+                </div>
+              ) : (
+                <>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button onClick={() => setShowQuestions(true)}
+                    className="px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
+                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    {t("fanResurslariOq.test.editQuestions")}
+                  </button>
+                  <button onClick={() => setShowTestResults(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]"
+                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    <BarChart3 className="w-4 h-4" />
+                    {t("fanResurslariOq.test.resultsBtn")}
+                  </button>
+                  <button onClick={() => setConfirmDeleteTest(true)} disabled={confirmDeleteTest}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#fef2f2] disabled:opacity-60"
+                    style={{ border: "1px solid rgba(220,38,38,0.3)", color: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+                    <Trash2 className="w-4 h-4" />
+                    {t("fanResurslariOq.test.deleteBtn")}
+                  </button>
+                </div>
+                {confirmDeleteTest && (
+                  <div className="flex flex-col gap-2 px-4 py-3 rounded-[10px]"
+                    style={{ backgroundColor: "#fef2f2", border: "1px solid rgba(220,38,38,0.25)" }}>
+                    <p className="text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                      {t("fanResurslariOq.test.deleteConfirm")}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button onClick={deleteTest} disabled={deletingTest}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-[6px] text-xs font-semibold text-white disabled:opacity-60"
+                        style={{ backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+                        {deletingTest && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {t("mavzularOq.yesDelete")}
+                      </button>
+                      <button onClick={() => setConfirmDeleteTest(false)} disabled={deletingTest}
+                        className="px-3 py-2 rounded-[6px] text-xs font-medium bg-white"
+                        style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                        {t("mavzularOq.cancel")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.maxScoreLabel")}</label>
+                    <input type="number" min={0} max={1000} value={settings.testMaxScore} disabled={deadlinePassed}
+                      onChange={e => setSt("testMaxScore", Math.max(0, Number(e.target.value) || 0))}
+                      className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
+                      style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.durationLabel")}</label>
+                    <input type="number" min={0} max={300} value={settings.testDuration} disabled={deadlinePassed}
+                      onChange={e => setSt("testDuration", Math.max(0, Number(e.target.value) || 0))}
+                      className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
+                      style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.attemptsLabel")}</label>
+                    <input type="number" min={0} max={10} value={settings.testAttempts} disabled={deadlinePassed}
+                      onChange={e => setSt("testAttempts", Math.max(0, Number(e.target.value) || 0))}
+                      className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
+                      style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium" style={labelStyle}>
+                      {t("fanResurslariOq.test.questionCountLabel", {
+                        extra: test?.questionCount ? t("fanResurslariOq.test.questionCountExtra", { n: test.questionCount }) : "",
+                      })}
+                    </label>
+                    <input type="number" min={0} max={test?.questionCount || 9999} value={settings.testDisplayCount} disabled={deadlinePassed}
+                      onChange={e => setSt("testDisplayCount", Math.max(0, Number(e.target.value) || 0))}
+                      className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
+                      style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
                   </div>
                 </div>
-              )}
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.maxScoreLabel")}</label>
-                  <input type="number" min={0} max={1000} value={settings.testMaxScore} disabled={deadlinePassed}
-                    onChange={e => setSt("testMaxScore", Math.max(0, Number(e.target.value) || 0))}
-                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
-                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.durationLabel")}</label>
-                  <input type="number" min={0} max={300} value={settings.testDuration} disabled={deadlinePassed}
-                    onChange={e => setSt("testDuration", Math.max(0, Number(e.target.value) || 0))}
-                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
-                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.attemptsLabel")}</label>
-                  <input type="number" min={0} max={10} value={settings.testAttempts} disabled={deadlinePassed}
-                    onChange={e => setSt("testAttempts", Math.max(0, Number(e.target.value) || 0))}
-                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
-                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium" style={labelStyle}>
-                    {t("fanResurslariOq.test.questionCountLabel", {
-                      extra: test?.questionCount ? t("fanResurslariOq.test.questionCountExtra", { n: test.questionCount }) : "",
-                    })}
-                  </label>
-                  <input type="number" min={0} max={test?.questionCount || 9999} value={settings.testDisplayCount} disabled={deadlinePassed}
-                    onChange={e => setSt("testDisplayCount", Math.max(0, Number(e.target.value) || 0))}
-                    className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
-                    style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-                </div>
-              </div>
-              <p className="text-xs" style={labelStyle}>
-                {t("fanResurslariOq.test.summaryMaxScore", { n: settings.testMaxScore > 0 ? settings.testMaxScore : 100 })} ·{" "}
-                {settings.testDuration > 0 ? t("fanResurslariOq.test.durationMinutes", { n: settings.testDuration }) : t("fanResurslariOq.test.unlimitedTime")} ·{" "}
-                {settings.testAttempts > 0 ? t("fanResurslariOq.test.attemptsTimes", { n: settings.testAttempts }) : t("fanResurslariOq.test.unlimitedAttempts")} ·{" "}
-                {settings.testDisplayCount > 0
-                  ? t("fanResurslariOq.test.questionsShown", { n: settings.testDisplayCount })
-                  : t("fanResurslariOq.test.allQuestions", { n: test?.questionCount ?? 0 })}
-              </p>
-              <div className="flex items-center gap-3 flex-wrap px-4 py-3 rounded-[10px]"
-                style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.12)" }}>
-                <button onClick={saveAllSettings} disabled={savingSettings || deadlinePassed}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  {savingSettings ? t("fanResurslariOq.saveBar.saving") : t("fanResurslariOq.saveBar.save")}
-                </button>
-                {settingsOk && !savingSettings && (
-                  <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                    <CheckCircle2 className="w-4 h-4" /> {t("fanResurslariOq.saveBar.saved")}
+                <p className="text-xs" style={labelStyle}>
+                  {t("fanResurslariOq.test.summaryMaxScore", { n: settings.testMaxScore > 0 ? settings.testMaxScore : 100 })} ·{" "}
+                  {settings.testDuration > 0 ? t("fanResurslariOq.test.durationMinutes", { n: settings.testDuration }) : t("fanResurslariOq.test.unlimitedTime")} ·{" "}
+                  {settings.testAttempts > 0 ? t("fanResurslariOq.test.attemptsTimes", { n: settings.testAttempts }) : t("fanResurslariOq.test.unlimitedAttempts")} ·{" "}
+                  {settings.testDisplayCount > 0
+                    ? t("fanResurslariOq.test.questionsShown", { n: settings.testDisplayCount })
+                    : t("fanResurslariOq.test.allQuestions", { n: test?.questionCount ?? 0 })}
+                </p>
+                <div className="flex items-center gap-3 flex-wrap px-4 py-3 rounded-[10px]"
+                  style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.12)" }}>
+                  <button onClick={saveAllSettings} disabled={savingSettings || deadlinePassed}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold text-white disabled:opacity-60"
+                    style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {savingSettings ? t("fanResurslariOq.saveBar.saving") : t("fanResurslariOq.saveBar.save")}
+                  </button>
+                  {settingsOk && !savingSettings && (
+                    <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                      <CheckCircle2 className="w-4 h-4" /> {t("fanResurslariOq.saveBar.saved")}
+                    </span>
+                  )}
+                  {settingsErr && (
+                    <span className="text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{settingsErr}</span>
+                  )}
+                  <span className="text-xs ml-auto" style={labelStyle}>
+                    {deadlinePassed ? t("fanResurslariOq.test.frozenHint") : t("fanResurslariOq.saveBar.hint")}
                   </span>
+                </div>
+                {showQuestions && (
+                  <QuestionsModal content={test} onClose={() => setShowQuestions(false)} onSaved={onQuestionsSaved} />
                 )}
-                {settingsErr && (
-                  <span className="text-sm" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{settingsErr}</span>
+                {showTestResults && (
+                  <TestResultsModal test={test} onClose={() => setShowTestResults(false)} />
                 )}
-                <span className="text-xs ml-auto" style={labelStyle}>
-                  {deadlinePassed ? t("fanResurslariOq.test.frozenHint") : t("fanResurslariOq.saveBar.hint")}
-                </span>
-              </div>
-              {showQuestions && (
-                <QuestionsModal content={test} onClose={() => setShowQuestions(false)} onSaved={onQuestionsSaved} />
-              )}
-              {showTestResults && (
-                <TestResultsModal test={test} onClose={() => setShowTestResults(false)} />
+                </>
               )}
             </div>
           )

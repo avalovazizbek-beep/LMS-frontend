@@ -11,6 +11,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { tr } from "@/lib/i18n/translations"
+import { parseTestText } from "@/lib/testImport"
 
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -44,58 +45,6 @@ const DIFFICULTY_LABELS: Record<QuestionDifficulty, { labelKey: string; color: s
   oson: { labelKey: "qModal.diff.easy", color: "#22c55e", bg: "#f0fdf4" },
   orta: { labelKey: "qModal.diff.medium", color: "#f59e0b", bg: "#fff8e6" },
   qiyin: { labelKey: "qModal.diff.hard", color: "#ef4444", bg: "#fff0f0" },
-}
-
-/* ── Template parser ────────────────────────────────────────────────── */
-function parseTemplate(text: string): ExamQuestion[] {
-  const questions: ExamQuestion[] = []
-  const blocks = text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean)
-
-  for (const block of blocks) {
-    const lines = block.split("\n")
-      .map(l => l.trim())
-      .filter(l => l && !l.startsWith("//") && !l.startsWith("#"))
-
-    if (!lines.length) continue
-
-    let questionText = ""
-    let imageUrl = ""
-    const optionLines: { text: string; correct: boolean }[] = []
-    let headerDone = false
-
-    for (const line of lines) {
-      if (line.startsWith("+") || line.startsWith("-")) {
-        headerDone = true
-        const correct = line.startsWith("+")
-        const text = line.slice(1).trim()
-        if (text) optionLines.push({ text, correct })
-      } else if (!headerDone && line.startsWith("@")) {
-        imageUrl = line.slice(1).trim()
-      } else if (!headerDone) {
-        const clean = line.replace(/^\d+[\s.\-\)]+/, "").trim()
-        if (clean) questionText += (questionText ? " " : "") + clean
-      }
-    }
-
-    if (!questionText || optionLines.length < 2) continue
-    const correctOnes = optionLines.filter(o => o.correct)
-    if (!correctOnes.length) continue
-
-    const options = optionLines.map(o => o.text)
-    const correctIndexes = optionLines
-      .map((o, i) => (o.correct ? i : -1))
-      .filter(i => i >= 0)
-
-    questions.push({
-      questionText,
-      imageUrl: imageUrl || null,
-      options,
-      correctIndex: correctIndexes[0],
-      correctIndexes,
-      points: 1,
-    })
-  }
-  return questions
 }
 
 /* ── Template generator ─────────────────────────────────────────────── */
@@ -631,7 +580,9 @@ export function QuestionsModal({
       setImportError(t("qModal.tplEmpty"))
       return
     }
-    const parsed = parseTemplate(templateText)
+    // Fan-resurslaridagi fayl importi bilan bir xil tahlilchi; sozlama
+    // qatorlari (ball/vaqt/...) bu yerda e'tiborsiz qoladi
+    const parsed = parseTestText(templateText).questions
     if (!parsed.length) {
       setImportError(t("qModal.tplNoQuestions"))
       return
