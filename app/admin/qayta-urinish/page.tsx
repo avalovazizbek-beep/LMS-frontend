@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import {
   RefreshCw, Search, Clock, CheckCircle2, AlertCircle, Lock,
-  FileText, HelpCircle, ShieldAlert, Users, ChevronDown, ChevronUp,
+  FileText, HelpCircle, ShieldAlert, Users, ChevronDown, ChevronUp, CalendarDays, Save,
 } from "lucide-react"
 import { adminApi, teachingApi, type AdminTeacherStat, type AdminTopicRow } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -21,6 +21,15 @@ function fmtDeadline(iso: string | null) {
   const d = new Date(iso)
   if (isNaN(d.getTime())) return "—"
   return d.toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+}
+
+/* datetime-local qiymati mahalliy vaqtda (ISO'ni .slice qilish 5 soat siljitadi) */
+function toLocalInputValue(iso: string | null): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ""
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 /* Bitta mavzu testining natijalari: kim o'tdi / yiqildi, aynan tanlangan
@@ -61,6 +70,10 @@ export default function AdminQaytaUrinish() {
   const [resultsFor, setResultsFor] = useState<string | null>(null)
   const [toggleErr, setToggleErr] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  // Mavzu muddatini o'zgartirish (uzaytirish / muddatsiz qilish)
+  const [deadlineFor, setDeadlineFor] = useState<string | null>(null)
+  const [deadlineDraft, setDeadlineDraft] = useState("")
+  const [deadlineSaving, setDeadlineSaving] = useState(false)
 
   const { data: teachersRes, loading: lTeachers, error: eTeachers } = useApi(() => adminApi.teacherStats(), [])
   const teachers: AdminTeacherStat[] = teachersRes?.data ?? []
@@ -103,6 +116,26 @@ export default function AdminQaytaUrinish() {
       setToggleErr(e instanceof Error ? e.message : t("common.error"))
     } finally {
       setToggling(null)
+    }
+  }
+
+  function startEditDeadline(topic: AdminTopicRow) {
+    setDeadlineFor(topic.topicKey)
+    setDeadlineDraft(toLocalInputValue(topic.deadline))
+    setToggleErr(null)
+  }
+
+  async function saveDeadline(topic: AdminTopicRow, localValue: string | null) {
+    setDeadlineSaving(true)
+    setToggleErr(null)
+    try {
+      await adminApi.setTopicDeadline(topic.topicKey, localValue ? new Date(localValue).toISOString() : null)
+      setDeadlineFor(null)
+      await refetchTopics()
+    } catch (e) {
+      setToggleErr(e instanceof Error ? e.message : t("common.error"))
+    } finally {
+      setDeadlineSaving(false)
     }
   }
 
@@ -207,6 +240,14 @@ export default function AdminQaytaUrinish() {
                         {fmtDeadline(topic.deadline)}
                         {topic.deadlinePassed && <span style={{ color: "#b91c1c" }}>{t("adminRetry.passed")}</span>}
                       </span>
+                      {deadlineFor !== topic.topicKey && (
+                        <button onClick={() => startEditDeadline(topic)}
+                          className="flex items-center gap-1 font-medium hover:underline"
+                          style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                          <CalendarDays className="w-3.5 h-3.5" />
+                          {t("adminRetry.changeDeadline")}
+                        </button>
+                      )}
                       {topic.hasTest && (
                         <span className="flex items-center gap-1"><HelpCircle className="w-3.5 h-3.5" /> {t("adminRetry.hasTest")}</span>
                       )}
@@ -255,6 +296,33 @@ export default function AdminQaytaUrinish() {
                   )}
                   </div>
                 </div>
+                {deadlineFor === topic.topicKey && (
+                  <div className="flex flex-col gap-2 pt-3" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input type="datetime-local" value={deadlineDraft} onChange={e => setDeadlineDraft(e.target.value)}
+                        className="px-3 py-2 rounded-[6px] text-sm outline-none bg-white"
+                        style={{ border: "1px solid rgba(1,41,112,0.25)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+                      <button onClick={() => saveDeadline(topic, deadlineDraft)} disabled={deadlineSaving || !deadlineDraft}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-[6px] text-sm font-medium text-white disabled:opacity-60"
+                        style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                        {deadlineSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {t("common.save")}
+                      </button>
+                      {topic.deadline && (
+                        <button onClick={() => saveDeadline(topic, null)} disabled={deadlineSaving}
+                          className="px-3 py-2 rounded-[6px] text-sm font-medium bg-white disabled:opacity-60"
+                          style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                          {t("adminRetry.clearDeadline")}
+                        </button>
+                      )}
+                      <button onClick={() => setDeadlineFor(null)} disabled={deadlineSaving}
+                        className="px-3 py-2 rounded-[6px] text-sm" style={L}>
+                        {t("common.cancel")}
+                      </button>
+                    </div>
+                    <p className="text-[11px]" style={L}>{t("adminRetry.deadlineHint")}</p>
+                  </div>
+                )}
                 {showResults && <TopicTestResults topic={topic} />}
                 </div>
               )

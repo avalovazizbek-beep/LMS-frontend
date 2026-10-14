@@ -51,6 +51,22 @@ function formatDeadline(iso: string) {
 
 const isPast = (iso: string | null) => iso !== null && new Date(iso).getTime() < Date.now()
 
+/* Talabaga test/topshiriqning O'Z muddati qo'llanadi (backend'dagi
+   effectiveTopicDeadline bilan bir xil): ular bo'lsa — eng erta muddati, yo'q
+   bo'lsa — mavzuniki. Boshqa guruhdan nusxalangan test manba guruh muddati
+   bilan kelib qolishi mumkin edi — mavzuda "muddatsiz" ko'rinib, test esa
+   yopilib qolardi va o'qituvchi uzaytirishni ko'rmasdi. */
+function effectiveDeadline(markerDeadline: string | null, items: TeacherContent[]): string | null {
+  const graded = items.filter(i => i.type === "exam" || i.type === "assignment")
+  if (!graded.length) return markerDeadline
+  let earliest: string | null = null
+  for (const item of graded) {
+    if (!item.deadline) continue
+    if (earliest === null || new Date(item.deadline).getTime() < new Date(earliest).getTime()) earliest = item.deadline
+  }
+  return earliest
+}
+
 interface Selection {
   groupId: number
   groupName: string
@@ -893,7 +909,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
   const meeting    = items.find(i => i.type === "mavzu" && i.kind === "meeting")
   const meetingLinks = items.filter(i => i.type === "mavzu" && i.kind === "uchrashuv")
   const topicMarker = items.find(i => i.type === "mavzu" && i.kind === "topic")
-  const topicDeadline = topicMarker?.deadline ?? null
+  const topicDeadline = effectiveDeadline(topicMarker?.deadline ?? null, items)
   const deadlinePassed = isPast(topicDeadline)
   const [reopenLoading, setReopenLoading] = useState(false)
   const [reopenErr, setReopenErr] = useState<string | null>(null)
@@ -1782,7 +1798,9 @@ function buildTopicInstances(items: TeacherContent[]): TopicInstance[] {
       if (inst.markerId === null && !inst.trainingType && item.trainingType) inst.trainingType = item.trainingType
     }
   })
-  return Array.from(map.values())
+  const list = Array.from(map.values())
+  for (const inst of list) inst.deadline = effectiveDeadline(inst.deadline, inst.items)
+  return list
 }
 
 function mergeTopics(instances: TopicInstance[], groupOrder: number[]): TopicInfo[] {
