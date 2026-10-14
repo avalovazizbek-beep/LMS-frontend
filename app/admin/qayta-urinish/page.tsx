@@ -74,6 +74,9 @@ export default function AdminQaytaUrinish() {
   const [deadlineFor, setDeadlineFor] = useState<string | null>(null)
   const [deadlineDraft, setDeadlineDraft] = useState("")
   const [deadlineSaving, setDeadlineSaving] = useState(false)
+  // Har guruhda mavzu alohida nusxa — odatda hammasiga bir xil muddat kerak
+  const [deadlineAllGroups, setDeadlineAllGroups] = useState(true)
+  const [deadlineMsg, setDeadlineMsg] = useState<string | null>(null)
 
   const { data: teachersRes, loading: lTeachers, error: eTeachers } = useApi(() => adminApi.teacherStats(), [])
   const teachers: AdminTeacherStat[] = teachersRes?.data ?? []
@@ -122,6 +125,8 @@ export default function AdminQaytaUrinish() {
   function startEditDeadline(topic: AdminTopicRow) {
     setDeadlineFor(topic.topicKey)
     setDeadlineDraft(toLocalInputValue(topic.deadline))
+    setDeadlineAllGroups(true)
+    setDeadlineMsg(null)
     setToggleErr(null)
   }
 
@@ -129,8 +134,9 @@ export default function AdminQaytaUrinish() {
     setDeadlineSaving(true)
     setToggleErr(null)
     try {
-      await adminApi.setTopicDeadline(topic.topicKey, localValue ? new Date(localValue).toISOString() : null)
+      const res = await adminApi.setTopicDeadline(topic.topicKey, localValue ? new Date(localValue).toISOString() : null, deadlineAllGroups)
       setDeadlineFor(null)
+      setDeadlineMsg(res.message ?? null)
       await refetchTopics()
     } catch (e) {
       setToggleErr(e instanceof Error ? e.message : t("common.error"))
@@ -182,6 +188,14 @@ export default function AdminQaytaUrinish() {
           </div>
         </div>
       </div>
+
+      {deadlineMsg && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-[8px] text-sm"
+          style={{ backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.25)", fontFamily: "var(--font-poppins)" }}>
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          {deadlineMsg}
+        </div>
+      )}
 
       {toggleErr && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-[8px] text-sm"
@@ -320,6 +334,11 @@ export default function AdminQaytaUrinish() {
                         {t("common.cancel")}
                       </button>
                     </div>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer w-fit" style={T}>
+                      <input type="checkbox" checked={deadlineAllGroups} onChange={e => setDeadlineAllGroups(e.target.checked)}
+                        className="w-4 h-4 accent-[#0e58a8]" />
+                      {t("adminRetry.deadlineAllGroups")}
+                    </label>
                     <p className="text-[11px]" style={L}>{t("adminRetry.deadlineHint")}</p>
                   </div>
                 )}

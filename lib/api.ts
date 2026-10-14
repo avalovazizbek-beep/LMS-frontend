@@ -2724,8 +2724,8 @@ export const adminApi = {
   reopenTopic: (topicKey: string) => post<MsgRes>(`/api/admin/topics/${encodeURIComponent(topicKey)}/reopen`, {}),
   closeTopic: (topicKey: string) => post<MsgRes>(`/api/admin/topics/${encodeURIComponent(topicKey)}/close`, {}),
   /** Mavzu muddatini o'zgartirish/uzaytirish; null — muddatsiz. Test, topshiriq va boshqa qismlarga birdan qo'llanadi */
-  setTopicDeadline: (topicKey: string, deadline: string | null) =>
-    patch<MsgRes>(`/api/admin/topics/${encodeURIComponent(topicKey)}/deadline`, { deadline }),
+  setTopicDeadline: (topicKey: string, deadline: string | null, allGroups = false) =>
+    patch<MsgRes>(`/api/admin/topics/${encodeURIComponent(topicKey)}/deadline`, { deadline, allGroups }),
 
   platformAttendance: (params: { groupId: number; subject?: string; from?: string; to?: string }) => {
     const q = new URLSearchParams(buildParams(params)).toString()
