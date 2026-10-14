@@ -151,7 +151,7 @@ function GoogleMeetIntegrationCard() {
  *  o'qituvchining hisobi nomidan Zoom meeting ochiladi. */
 function ZoomIntegrationCard() {
   const { t } = useLanguage()
-  const { data, loading, error, refetch } = useApi(() => zoomApi.status(), [])
+  const { data, loading, error, refetch } = useApi(() => zoomApi.liveStatus(), [])
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null)

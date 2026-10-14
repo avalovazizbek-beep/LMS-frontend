@@ -3033,6 +3033,8 @@ export interface ZoomConnectionStatus {
 
 export const zoomApi = {
   status: () => get<ItemRes<ZoomConnectionStatus>>("/api/integrations/zoom/status"),
+  /** Profil sahifasi uchun: ulangan hisob Zoom'dan (GET /users/me) jonli tekshiriladi */
+  liveStatus: () => get<ItemRes<ZoomConnectionStatus>>("/api/integrations/zoom/status?live=1"),
 
   connect: () => get<ItemRes<{ url: string }>>("/api/integrations/zoom/connect?ageConfirmed=1"),
 
