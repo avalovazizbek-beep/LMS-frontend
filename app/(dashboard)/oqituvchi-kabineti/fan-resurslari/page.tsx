@@ -440,20 +440,20 @@ function MeetingSection({
                   </button>
                 )}
                 {meetingInfo.zoom?.status === "created" && meetingInfo.zoom.joinUrl ? (
-                  <>
+                  // Zoom uchun bitta tugma: host havolasi bo'lsa "boshlash", aks holda "kirish"
+                  meetingInfo.zoom.startUrl ? (
+                    <a href={meetingInfo.zoom.startUrl} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold text-white"
+                      style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                      <VideoIcon className="w-3.5 h-3.5" /> {t("fanResurslariOq.meeting.startZoom")}
+                    </a>
+                  ) : (
                     <a href={meetingInfo.zoom.joinUrl} target="_blank" rel="noreferrer"
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold"
                       style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                       <VideoIcon className="w-3.5 h-3.5" /> {t("fanResurslariOq.meeting.joinZoom")}
                     </a>
-                    {meetingInfo.zoom.startUrl && (
-                      <a href={meetingInfo.zoom.startUrl} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold text-white"
-                        style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                        <VideoIcon className="w-3.5 h-3.5" /> {t("fanResurslariOq.meeting.startZoom")}
-                      </a>
-                    )}
-                  </>
+                  )
                 ) : (
                   <button onClick={() => addProvider("zoom")} disabled={providerBusy !== null}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium disabled:opacity-60"

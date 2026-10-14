@@ -619,7 +619,8 @@ function MeetingCard({
                 {retryingGoogle ? t("meetingPage.retrying") : t("meetingPage.retryGoogleMeet")}
               </button>
             )}
-            {meeting.zoom?.status === "created" && meeting.zoom.joinUrl && (
+            {/* Zoom uchun bitta tugma: o'qituvchiga "boshlash" (host), qolganlarga "kirish" */}
+            {meeting.zoom?.status === "created" && meeting.zoom.joinUrl && !(isTeacher && meeting.zoom.startUrl) && (
               <a
                 href={meeting.zoom.joinUrl}
                 target="_blank"
