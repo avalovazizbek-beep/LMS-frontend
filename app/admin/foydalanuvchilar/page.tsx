@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Search, ChevronDown, ChevronLeft, ChevronRight, UserCheck, Shield, ShieldHalf, BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon, CheckCircle2, AlertCircle } from "lucide-react"
 import { adminApi, type AdminUser } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -84,11 +85,14 @@ function RoleDropdown({ current, onSet }: { current: string | null; onSet: (role
 
 export default function AdminFoydalanuvchilar() {
   const { t } = useLanguage()
+  const searchParams = useSearchParams()
+  const qParam = searchParams.get("q")
   const [users, setUsers] = useState<AdminUser[]>([])
   const [total, setTotal] = useState(0)
   const [roleCounts, setRoleCounts] = useState<Record<string, number>>({ admin: 0, dean: 0, teacher: 0, student: 0, blocked: 0, pending: 0 })
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState("")
+  // Admin yuqori panelidagi qidiruvdan kelganda (?q=...) matn shu yerga qo'yiladi
+  const [search, setSearch] = useState(qParam ?? "")
   const [roleFilter, setRoleFilter] = useState("")
   const [faceFilter, setFaceFilter] = useState("")
   const [page, setPage] = useState(0)
@@ -104,6 +108,14 @@ export default function AdminFoydalanuvchilar() {
   }
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Shu sahifada turganda yuqoridan yana qidirilsa — yangi `q` maydonga tushadi
+  // (render paytida solishtiriladi — effekt ichida setState o'rniga)
+  const [prevQParam, setPrevQParam] = useState(qParam)
+  if (qParam !== prevQParam) {
+    setPrevQParam(qParam)
+    if (qParam !== null) setSearch(qParam)
+  }
 
   // Qidiruv matni o'zgarganda serverdan qayta so'raladi (0-sahifadan) —
   // sahifalash kiritilgach, endi faqat ekrandagi 20 tani emas, BARCHA

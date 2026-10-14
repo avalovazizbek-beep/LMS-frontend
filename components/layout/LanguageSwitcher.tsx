@@ -5,7 +5,8 @@ import { Languages, ChevronDown } from "lucide-react"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { LANGUAGES } from "@/lib/i18n/translations"
 
-export function LanguageSwitcher() {
+/** `buttonClassName` berilsa, tugma o'sha klasslar bilan chiziladi (admin panel) */
+export function LanguageSwitcher({ buttonClassName }: { buttonClassName?: string } = {}) {
   const { lang, setLang, t } = useLanguage()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -27,8 +28,8 @@ export function LanguageSwitcher() {
         aria-label={t("langSwitcher.label")}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#f6f9ff]"
-        style={{ color: "var(--lms-primary, #012970)", fontFamily: "var(--font-poppins)", border: "1px solid rgba(1,41,112,0.15)" }}
+        className={buttonClassName ?? "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#f6f9ff]"}
+        style={buttonClassName ? undefined : { color: "var(--lms-primary, #012970)", fontFamily: "var(--font-poppins)", border: "1px solid rgba(1,41,112,0.15)" }}
       >
         <Languages className="w-3.5 h-3.5" />
         {current.short}

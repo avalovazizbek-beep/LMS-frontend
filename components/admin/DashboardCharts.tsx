@@ -1,13 +1,17 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { animate } from "framer-motion"
-import { motion, staggerItem } from "@/components/ui/motion"
+import { motion } from "@/components/ui/motion"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+
+/* Ranglar admin.css'dagi tokenlardan olinadi (--adm-*), shuning uchun
+   grafiklar yorug' va qorong'i rejimda bir xil ishlaydi. */
 
 /* ── Animated number ───────────────────────────────────────────── */
 
 export function CountUp({ value, duration = 0.9 }: { value: number; duration?: number }) {
+  const { locale } = useLanguage()
   const ref = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
@@ -16,10 +20,10 @@ export function CountUp({ value, duration = 0.9 }: { value: number; duration?: n
     const controls = animate(0, value, {
       duration,
       ease: [0.16, 1, 0.3, 1],
-      onUpdate: (v) => { node.textContent = Math.round(v).toLocaleString() },
+      onUpdate: (v) => { node.textContent = Math.round(v).toLocaleString(locale) },
     })
     return () => controls.stop()
-  }, [value, duration])
+  }, [value, duration, locale])
 
   return <span ref={ref}>0</span>
 }
@@ -42,140 +46,283 @@ export function useTimeAgo() {
   }
 }
 
-/* ── Trend area chart (single series) ──────────────────────────── */
+/* ── Yordamchilar ──────────────────────────────────────────────── */
 
 export interface TrendPoint {
   label: string
   value: number
 }
 
-/** Gridlines uchun "chiroyli" yumaloq maksimal qiymat (0, 1, 2, 5, 10, 20, 25, 50, 100...) */
-function niceMax(value: number): number {
-  if (value <= 5) return Math.max(2, value)
-  const magnitude = Math.pow(10, Math.floor(Math.log10(value)))
-  const normalized = value / magnitude
-  const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10
-  return step * magnitude
+/** Elementning haqiqiy kengligi — SVG'ni cho'zmasdan (nuqtalar ellips bo'lib
+ *  qolmasligi uchun) aniq piksel o'lchamida chizish uchun. */
+function useMeasuredWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return [ref, width] as const
 }
+
+/** SVG gradient id — useId() belgilarini url(#...) uchun tozalaydi */
+function useSvgId(prefix: string) {
+  return prefix + useId().replace(/[^a-zA-Z0-9_-]/g, "")
+}
+
+/** Monoton kubik egri chiziq (d3 curveMonotoneX bilan bir xil): nuqtalar
+ *  orasida silliq, lekin hech qachon nuqtalardan yuqori/past "otilib"
+ *  ketmaydi — 0 qiymatli kunlarda chiziq o'qdan pastga tushmaydi. */
+function monotonePath(pts: { x: number; y: number }[]): string {
+  const n = pts.length
+  if (n === 0) return ""
+  if (n === 1) return `M${pts[0].x},${pts[0].y}`
+  if (n === 2) return `M${pts[0].x},${pts[0].y}L${pts[1].x},${pts[1].y}`
+
+  const h: number[] = []
+  const s: number[] = []
+  for (let i = 0; i < n - 1; i++) {
+    h.push(pts[i + 1].x - pts[i].x)
+    s.push(h[i] ? (pts[i + 1].y - pts[i].y) / h[i] : 0)
+  }
+  const tan: number[] = new Array(n).fill(0)
+  for (let i = 1; i < n - 1; i++) {
+    const p = (s[i - 1] * h[i] + s[i] * h[i - 1]) / (h[i - 1] + h[i])
+    tan[i] = (Math.sign(s[i - 1]) + Math.sign(s[i])) * Math.min(Math.abs(s[i - 1]), Math.abs(s[i]), 0.5 * Math.abs(p)) || 0
+  }
+  tan[0] = (3 * s[0] - tan[1]) / 2
+  tan[n - 1] = (3 * s[n - 2] - tan[n - 2]) / 2
+  // Chetki nuqtalarda ham monotonlik buzilmasin
+  if (Math.sign(tan[0]) !== Math.sign(s[0])) tan[0] = 0
+  if (Math.sign(tan[n - 1]) !== Math.sign(s[n - 2])) tan[n - 1] = 0
+
+  let d = `M${pts[0].x},${pts[0].y}`
+  for (let i = 0; i < n - 1; i++) {
+    const dx = h[i] / 3
+    d += `C${pts[i].x + dx},${pts[i].y + tan[i] * dx} ${pts[i + 1].x - dx},${pts[i + 1].y - tan[i + 1] * dx} ${pts[i + 1].x},${pts[i + 1].y}`
+  }
+  return d
+}
+
+/** Y o'qi uchun "chiroyli" qadam va maksimum (0, 50, 100, 150 ...) */
+function niceScale(maxValue: number, intervals = 3) {
+  if (maxValue <= 0) return { max: intervals, step: 1 }
+  const raw = maxValue / intervals
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)))
+  const norm = raw / mag
+  const step = Math.max(1, (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag)
+  return { max: Math.ceil(maxValue / step) * step, step }
+}
+
+const EASE = [0.16, 1, 0.3, 1] as const
+
+/* ── Trend area chart (single series) ──────────────────────────── */
 
 export function TrendAreaChart({
   data,
-  color = "#0e58a8",
+  color = "var(--adm-accent)",
   height = 220,
 }: {
   data: TrendPoint[]
   color?: string
   height?: number
 }) {
+  const { locale } = useLanguage()
+  const [ref, width] = useMeasuredWidth<HTMLDivElement>()
   const [hover, setHover] = useState<number | null>(null)
-  if (data.length === 0) return null
-  const width = 600
-  const padTop = 16
-  const padBottom = 28
-  const padLeft = 28
-  const padRight = 36
+  const gradId = useSvgId("trend")
+
+  const padTop = 12
+  const padBottom = 30
+  const padLeft = 40
+  const padRight = 14
+  const inset = 14
   const plotH = height - padTop - padBottom
-  const max = niceMax(Math.max(1, ...data.map((d) => d.value)))
-  const gridSteps = [0, 0.5, 1]
+  const { max, step } = niceScale(Math.max(0, ...data.map((d) => d.value)))
+  const ticks: number[] = []
+  for (let v = 0; v <= max; v += step) ticks.push(v)
 
-  const xAt = (i: number) => padLeft + (i / Math.max(1, data.length - 1)) * (width - padLeft - padRight)
+  const plotW = Math.max(1, width - padLeft - padRight - inset * 2)
+  const xAt = (i: number) => padLeft + inset + (data.length > 1 ? (i / (data.length - 1)) * plotW : plotW / 2)
   const yAt = (v: number) => padTop + plotH - (v / max) * plotH
-
-  const linePath = data.map((d, i) => `${i === 0 ? "M" : "L"} ${xAt(i).toFixed(2)} ${yAt(d.value).toFixed(2)}`).join(" ")
-  const areaPath = `${linePath} L ${xAt(data.length - 1).toFixed(2)} ${padTop + plotH} L ${xAt(0).toFixed(2)} ${padTop + plotH} Z`
-  const last = data[data.length - 1]
+  const pts = data.map((d, i) => ({ x: xAt(i), y: yAt(d.value) }))
+  const line = monotonePath(pts)
+  const baseY = padTop + plotH
+  const area = pts.length > 1 ? `${line}L${pts[pts.length - 1].x},${baseY}L${pts[0].x},${baseY}Z` : ""
 
   function handleMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (data.length === 0) return
     const rect = e.currentTarget.getBoundingClientRect()
-    const relX = ((e.clientX - rect.left) / rect.width) * width
-    const step = (width - padLeft - padRight) / Math.max(1, data.length - 1)
-    const idx = Math.round((relX - padLeft) / step)
-    setHover(Math.min(data.length - 1, Math.max(0, idx)))
+    const relX = e.clientX - rect.left
+    let best = 0
+    for (let i = 1; i < pts.length; i++) {
+      if (Math.abs(pts[i].x - relX) < Math.abs(pts[best].x - relX)) best = i
+    }
+    setHover(best)
   }
 
   return (
-    <div className="relative w-full">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
-        className="w-full touch-none"
-        style={{ height }}
-        onPointerMove={handleMove}
-        onPointerLeave={() => setHover(null)}
-      >
-        {/* Gridlines + Y-axis qiymat yorliqlari — recessive, hairline */}
-        {gridSteps.map((step) => {
-          const y = padTop + plotH - step * plotH
-          const val = Math.round(max * step)
-          return (
-            <g key={step}>
-              <line x1={padLeft} y1={y} x2={width - padRight} y2={y} stroke="#eef2f8" strokeWidth={1} />
-              <text x={padLeft - 8} y={y + 3} textAnchor="end" fontSize={10} fill="#a9bcd6" fontFamily="var(--font-poppins)">
-                {val}
+    <div ref={ref} className="relative w-full" style={{ height }}>
+      {width > 0 && data.length > 0 && (
+        <svg width={width} height={height} className="block touch-none" onPointerMove={handleMove} onPointerLeave={() => setHover(null)}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" style={{ stopColor: color, stopOpacity: 0.22 }} />
+              <stop offset="100%" style={{ stopColor: color, stopOpacity: 0 }} />
+            </linearGradient>
+          </defs>
+
+          {/* Gridlines + Y-axis yorliqlari — recessive, hairline */}
+          {ticks.map((v) => (
+            <g key={v}>
+              <line x1={padLeft} y1={yAt(v)} x2={width - padRight} y2={yAt(v)} style={{ stroke: "var(--adm-grid)" }} strokeWidth={1} />
+              <text x={padLeft - 10} y={yAt(v) + 4} textAnchor="end" fontSize={11} style={{ fill: "var(--adm-muted)", fontVariantNumeric: "tabular-nums" }}>
+                {v.toLocaleString(locale)}
               </text>
             </g>
-          )
-        })}
+          ))}
 
-        <motion.g initial={{ scaleY: 0, opacity: 0 }} animate={{ scaleY: 1, opacity: 1 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          style={{ transformOrigin: `0px ${padTop + plotH}px` }}>
-          <path d={areaPath} fill={color} opacity={0.1} />
-        </motion.g>
+          <motion.path d={area} fill={`url(#${gradId})`}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.2 }} />
 
-        <motion.path
-          d={linePath}
-          fill="none"
-          stroke={color}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        />
+          <motion.path
+            d={line}
+            fill="none"
+            style={{ stroke: color }}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.8, ease: EASE }}
+          />
 
-        {/* Har bir nuqtada doim ko'rinadigan belgi — grafik hech qachon "bo'sh" ko'rinmasin */}
-        {data.map((d, i) => (
-          <circle key={`dot-${d.label}`} cx={xAt(i)} cy={yAt(d.value)} r={3} fill={color} stroke="#fff" strokeWidth={1.5} />
-        ))}
+          {hover !== null && (
+            <line x1={pts[hover].x} y1={padTop} x2={pts[hover].x} y2={baseY} style={{ stroke: color }} strokeOpacity={0.35} strokeDasharray="4 4" strokeWidth={1} />
+          )}
 
-        {/* Oxirgi qiymat — chiziq oxirida to'g'ridan-to'g'ri yorliq */}
-        <text x={xAt(data.length - 1) + 8} y={yAt(last.value) + 3} fontSize={11} fontWeight={600} fill="#012970" fontFamily="var(--font-poppins)">
-          {last.value}
-        </text>
+          {pts.map((p, i) => (
+            <circle key={data[i].label} cx={p.x} cy={p.y} r={hover === i ? 6 : 4.5}
+              style={{ fill: color, stroke: "var(--adm-card)" }} strokeWidth={2.5} />
+          ))}
 
-        {hover !== null && (
-          <g>
-            <line x1={xAt(hover)} y1={padTop} x2={xAt(hover)} y2={padTop + plotH} stroke={color} strokeOpacity={0.25} strokeWidth={1} />
-            <circle cx={xAt(hover)} cy={yAt(data[hover].value)} r={5} fill={color} stroke="#fff" strokeWidth={2} />
-          </g>
-        )}
+          {data.map((d, i) => (
+            <text key={d.label} x={xAt(i)} y={height - 8} textAnchor="middle" fontSize={11} style={{ fill: "var(--adm-muted)" }}>
+              {d.label}
+            </text>
+          ))}
+        </svg>
+      )}
 
-        {data.map((d, i) => (
-          <text key={d.label} x={xAt(i)} y={height - 6} textAnchor="middle" fontSize={10} fill="#7293b9" fontFamily="var(--font-poppins)">
-            {d.label}
-          </text>
-        ))}
-      </svg>
-
-      {hover !== null && (
+      {hover !== null && width > 0 && (
         <div
-          className="absolute pointer-events-none rounded-[8px] px-2.5 py-1.5 text-xs font-medium shadow-lg"
+          className="pointer-events-none absolute rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-lg"
           style={{
-            left: `${(xAt(hover) / width) * 100}%`,
-            top: 0,
-            transform: `translate(-50%, ${yAt(data[hover].value) > height / 2 ? "-100%" : "0%"})`,
-            backgroundColor: "#012970",
-            color: "#fff",
-            fontFamily: "var(--font-poppins)",
+            left: pts[hover].x,
+            top: pts[hover].y - 12,
+            transform: "translate(-50%, -100%)",
+            backgroundColor: "var(--adm-text)",
+            color: "var(--adm-card)",
             whiteSpace: "nowrap",
           }}
         >
-          <span className="font-bold">{data[hover].value}</span>
+          <span className="font-bold">{data[hover].value.toLocaleString(locale)}</span>
           <span style={{ opacity: 0.7 }}> · {data[hover].label}</span>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ── Sparkline (KPI kartasi pastidagi kichik trend) ───────────── */
+
+export function Sparkline({
+  data,
+  color,
+  height = 38,
+}: {
+  data: TrendPoint[]
+  color: string
+  height?: number
+}) {
+  const { locale } = useLanguage()
+  const [ref, width] = useMeasuredWidth<HTMLDivElement>()
+  const [hover, setHover] = useState<number | null>(null)
+  const gradId = useSvgId("spark")
+
+  const pad = 5
+  const maxV = Math.max(1, ...data.map((d) => d.value))
+  const xAt = (i: number) => pad + (data.length > 1 ? (i / (data.length - 1)) * (width - pad * 2) : (width - pad * 2) / 2)
+  const yAt = (v: number) => pad + (height - pad * 2) * (1 - v / maxV)
+  const pts = data.map((d, i) => ({ x: xAt(i), y: yAt(d.value) }))
+  const line = monotonePath(pts)
+  const area = pts.length > 1 ? `${line}L${pts[pts.length - 1].x},${height}L${pts[0].x},${height}Z` : ""
+
+  function handleMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (pts.length === 0) return
+    const relX = e.clientX - e.currentTarget.getBoundingClientRect().left
+    let best = 0
+    for (let i = 1; i < pts.length; i++) {
+      if (Math.abs(pts[i].x - relX) < Math.abs(pts[best].x - relX)) best = i
+    }
+    setHover(best)
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height }}>
+      {width > 0 && data.length > 0 && (
+        <svg width={width} height={height} className="block touch-none overflow-visible" onPointerMove={handleMove} onPointerLeave={() => setHover(null)}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" style={{ stopColor: color, stopOpacity: 0.2 }} />
+              <stop offset="100%" style={{ stopColor: color, stopOpacity: 0 }} />
+            </linearGradient>
+          </defs>
+          <path d={area} fill={`url(#${gradId})`} />
+          <motion.path d={line} fill="none" style={{ stroke: color }} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+            initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, ease: EASE }} />
+          {pts.map((p, i) => (
+            <circle key={data[i].label} cx={p.x} cy={p.y} r={hover === i || i === pts.length - 1 ? 3.5 : 2.5}
+              style={{ fill: color, stroke: "var(--adm-card)" }} strokeWidth={1.5} />
+          ))}
+        </svg>
+      )}
+      {hover !== null && width > 0 && (
+        <div
+          className="pointer-events-none absolute z-10 rounded-md px-2 py-1 text-[11px] font-medium shadow-lg"
+          style={{
+            left: pts[hover].x,
+            top: pts[hover].y - 8,
+            transform: "translate(-50%, -100%)",
+            backgroundColor: "var(--adm-text)",
+            color: "var(--adm-card)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span className="font-bold">{data[hover].value.toLocaleString(locale)}</span>
+          <span style={{ opacity: 0.7 }}> · {data[hover].label}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Ulush chizig'i (meter) — KPI kartalaridagi foizlar uchun ──── */
+
+export function Meter({ percent, color }: { percent: number; color: string }) {
+  const clamped = Math.max(0, Math.min(100, percent))
+  return (
+    <div className="h-2 w-full overflow-hidden rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)` }}>
+      <motion.div
+        className="h-full rounded-full"
+        style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${color} 70%, #ffffff), ${color})` }}
+        initial={{ width: 0 }}
+        animate={{ width: `${clamped}%` }}
+        transition={{ duration: 0.8, ease: EASE, delay: 0.15 }}
+      />
     </div>
   )
 }
@@ -190,35 +337,42 @@ export interface BreakdownSegment {
 }
 
 export function StackedBreakdownBar({ segments }: { segments: BreakdownSegment[] }) {
+  const { locale } = useLanguage()
   const [hover, setHover] = useState<string | null>(null)
   const total = Math.max(1, segments.reduce((s, seg) => s + seg.value, 0))
   const visible = segments.filter((s) => s.value > 0)
+  const dim = (key: string) => (hover !== null && hover !== key ? 0.4 : 1)
 
   return (
     <div className="w-full">
-      <div className="flex w-full h-4 rounded-full overflow-hidden gap-[2px]" style={{ backgroundColor: "#eef4ff" }}>
+      {/* Segmentlar orasidagi 2px oraliq karta fonini ko'rsatadi; bo'sh holatda — kulrang trek */}
+      <div className="flex h-[18px] w-full gap-[2px] overflow-hidden rounded-full"
+        style={{ backgroundColor: visible.length ? "transparent" : "var(--adm-grid)" }}>
         {visible.map((seg) => (
           <motion.div
             key={seg.key}
             className="h-full cursor-default"
-            style={{ backgroundColor: seg.color, filter: hover === seg.key ? "brightness(1.12)" : "none" }}
+            style={{ backgroundColor: seg.color, opacity: dim(seg.key), transition: "opacity 0.15s" }}
             initial={{ width: "0%" }}
             animate={{ width: `${(seg.value / total) * 100}%` }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.7, ease: EASE }}
             onPointerEnter={() => setHover(seg.key)}
             onPointerLeave={() => setHover(null)}
-            title={`${seg.label}: ${seg.value} (${Math.round((seg.value / total) * 100)}%)`}
+            title={`${seg.label}: ${seg.value.toLocaleString(locale)} (${Math.round((seg.value / total) * 100)}%)`}
           />
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4">
+      <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3.5">
         {segments.map((seg) => (
-          <div key={seg.key} className="flex items-center gap-2 text-xs">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
-            <span className="truncate" style={{ color: "#516a8f", fontFamily: "var(--font-poppins)" }}>{seg.label}</span>
-            <span className="ml-auto font-semibold shrink-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              {seg.value}
+          <div key={seg.key} className="flex items-center gap-2.5 text-[13px] cursor-default"
+            style={{ opacity: dim(seg.key), transition: "opacity 0.15s" }}
+            onPointerEnter={() => setHover(seg.key)}
+            onPointerLeave={() => setHover(null)}>
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
+            <span className="truncate text-[var(--adm-text-2)]">{seg.label}</span>
+            <span className="ml-auto shrink-0 font-semibold text-[var(--adm-text)]">
+              {seg.value.toLocaleString(locale)}
             </span>
           </div>
         ))}
@@ -227,95 +381,43 @@ export function StackedBreakdownBar({ segments }: { segments: BreakdownSegment[]
   )
 }
 
-/* ── Radial stat card (bosh sahifa tepasidagi qisqa xulosa kartasi) ── */
-
-export function RadialStatCard({
-  icon,
-  label,
-  sublabel,
-  percent,
-  color = "#0e58a8",
-}: {
-  icon: React.ReactNode
-  label: string
-  sublabel: string
-  percent: number
-  color?: string
-}) {
-  const clamped = Math.max(0, Math.min(100, percent))
-  const r = 26
-  const circumference = 2 * Math.PI * r
-
-  return (
-    <motion.div
-      variants={staggerItem}
-      whileHover={{ y: -2 }}
-      className="bg-white rounded-[12px] p-4 flex flex-col gap-3"
-      style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0px 0px 6px rgba(1,41,112,0.04)" }}
-    >
-      <div className="flex items-center gap-2">
-        <div className="p-1.5 rounded-[6px]" style={{ backgroundColor: `${color}14` }}>
-          {icon}
-        </div>
-        <span className="text-sm font-semibold truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {label}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <svg width={64} height={64} viewBox="0 0 64 64" className="shrink-0">
-          <circle cx={32} cy={32} r={r} fill="none" stroke="#eef2f8" strokeWidth={6} />
-          <motion.circle
-            cx={32} cy={32} r={r} fill="none" stroke={color} strokeWidth={6} strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: circumference - (clamped / 100) * circumference }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            transform="rotate(-90 32 32)"
-          />
-          <text x={32} y={36} textAnchor="middle" fontSize={15} fontWeight={700} fill="#012970" fontFamily="var(--font-poppins)">
-            {Math.round(clamped)}%
-          </text>
-        </svg>
-        <div className="text-xs leading-5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {sublabel}
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
 /* ── Oddiy ustunli grafik (vaqt bo'yicha, bitta seriya) ──────────── */
 
 export function SimpleBarChart({
   data,
-  color = "#0e58a8",
-  height = 160,
+  color = "var(--adm-accent)",
+  height = 140,
 }: {
   data: TrendPoint[]
   color?: string
   height?: number
 }) {
+  const { locale } = useLanguage()
   if (data.length === 0) return null
   const max = Math.max(1, ...data.map((d) => d.value))
-  const barW = 28
+  const labelSpace = 44
 
   return (
-    <div className="flex items-end justify-between gap-2 w-full" style={{ height }}>
+    <div className="flex w-full items-end justify-between gap-2" style={{ height }}>
       {data.map((d) => {
-        const barH = Math.max(4, (d.value / max) * (height - 28))
+        const barH = d.value > 0 ? Math.max(8, (d.value / max) * (height - labelSpace)) : 4
         return (
-          <div key={d.label} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
-            <span className="text-xs font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              {d.value}
+          <div key={d.label} className="flex min-w-0 flex-1 flex-col items-center gap-1.5" title={`${d.label}: ${d.value.toLocaleString(locale)}`}>
+            <span className="text-xs font-semibold text-[var(--adm-text)]">
+              {d.value.toLocaleString(locale)}
             </span>
             <motion.div
               initial={{ height: 0 }}
               animate={{ height: barH }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              style={{ width: barW, maxWidth: "70%", backgroundColor: color, borderRadius: "4px 4px 0 0" }}
+              transition={{ duration: 0.7, ease: EASE }}
+              style={{
+                width: 30,
+                maxWidth: "70%",
+                background: d.value > 0 ? `linear-gradient(180deg, color-mix(in srgb, ${color} 75%, #ffffff), ${color})` : color,
+                borderRadius: d.value > 0 ? "6px 6px 3px 3px" : 9999,
+              }}
             />
-            <span className="text-xs truncate" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+            <span className="truncate text-xs text-[var(--adm-muted)]">
               {d.label}
             </span>
           </div>

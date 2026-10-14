@@ -1,0 +1,160 @@
+/* ── Admin panel dizayn tokenlari ─────────────────────────────────────
+   Faqat .admin-shell ichida amal qiladi (talaba/o'qituvchi paneliga
+   ta'sir qilmaydi). Ranglar CSS o'zgaruvchilarida — qorong'i rejimda
+   (.dark, next-themes) shu yerning o'zida almashtiriladi. */
+
+.admin-shell {
+  --adm-bg: #f4f7fd;
+  --adm-card: #ffffff;
+  --adm-border: rgba(15, 35, 95, 0.08);
+  --adm-border-strong: rgba(15, 35, 95, 0.14);
+  --adm-text: #0f1f4b;
+  --adm-text-2: #46557a;
+  --adm-muted: #7a88a8;
+  --adm-grid: #edf1f8;
+  --adm-accent: #2563eb;
+  --adm-up: #16a34a;
+  --adm-down: #e11d48;
+  --adm-shadow: 0 1px 2px rgba(15, 35, 95, 0.04), 0 6px 18px -8px rgba(15, 35, 95, 0.1);
+  --adm-shadow-pop: 0 12px 32px -10px rgba(15, 35, 95, 0.28);
+
+  --adm-side-bg: linear-gradient(180deg, #0e1d52 0%, #0a1740 100%);
+  --adm-side-text: rgba(222, 230, 255, 0.72);
+  --adm-side-hover: rgba(255, 255, 255, 0.06);
+  --adm-side-card: rgba(255, 255, 255, 0.06);
+  --adm-side-border: rgba(255, 255, 255, 0.08);
+
+  /* Kategoriya ranglari (kontent turlari) — tekshirilgan tartib, o'zgartirmang */
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --cat-3: #1baf7a;
+  --cat-4: #eda100;
+  --cat-5: #e87ba4;
+  --cat-6: #008300;
+
+  background-color: var(--adm-bg);
+  color: var(--adm-text);
+}
+
+.dark .admin-shell {
+  --adm-bg: #0b1220;
+  --adm-card: #111c2f;
+  --adm-border: rgba(148, 163, 184, 0.14);
+  --adm-border-strong: rgba(148, 163, 184, 0.24);
+  --adm-text: #e6edff;
+  --adm-text-2: #b8c4de;
+  --adm-muted: #8b9bbd;
+  --adm-grid: rgba(148, 163, 184, 0.12);
+  --adm-accent: #3b82f6;
+  --adm-up: #22c55e;
+  --adm-down: #fb7185;
+  --adm-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --adm-shadow-pop: 0 12px 32px -10px rgba(0, 0, 0, 0.6);
+
+  --adm-side-bg: linear-gradient(180deg, #0a1433 0%, #070e26 100%);
+
+  --cat-1: #3987e5;
+  --cat-2: #d95926;
+  --cat-3: #199e70;
+  --cat-4: #c98500;
+  --cat-5: #d55181;
+  --cat-6: #008300;
+}
+
+/* Layer'siz — Tailwind base qatlamidagi `* { border-color }` ustidan yozilishi uchun */
+/* Oddiy oq karta */
+.adm-card {
+  background-color: var(--adm-card);
+  border: 1px solid var(--adm-border);
+  border-radius: 16px;
+  box-shadow: var(--adm-shadow);
+}
+
+/* Rangli (och fonli) karta — rang `--c` orqali beriladi */
+.adm-tint {
+  --c: #2563eb;
+  background-color: color-mix(in srgb, var(--c) 6%, var(--adm-card));
+  border: 1px solid color-mix(in srgb, var(--c) 16%, transparent);
+  border-radius: 16px;
+  box-shadow: var(--adm-shadow);
+}
+
+.adm-icon-grad {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--c) 70%, #ffffff), var(--c));
+  color: #ffffff;
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--c) 75%, transparent);
+}
+
+.adm-icon-soft {
+  background-color: color-mix(in srgb, var(--c) 13%, transparent);
+  color: var(--c);
+}
+
+/* Gradientli katta KPI kartasi — `--g1` → `--g2` */
+.adm-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  color: #ffffff;
+  background: linear-gradient(120deg, var(--g1), var(--g2));
+  box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--g2) 80%, transparent);
+}
+.adm-hero::before,
+.adm-hero::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.09);
+}
+.adm-hero::before { width: 180px; height: 180px; right: -50px; top: -90px; }
+.adm-hero::after { width: 120px; height: 120px; right: 70px; bottom: -80px; }
+
+/* Yon menyu */
+.adm-sidebar {
+  background: var(--adm-side-bg);
+  color: #ffffff;
+}
+.adm-nav-link {
+  color: var(--adm-side-text);
+  transition: background-color 0.15s, color 0.15s;
+}
+.adm-nav-link:hover {
+  background-color: var(--adm-side-hover);
+  color: #ffffff;
+}
+.adm-nav-link[data-active="true"] {
+  background: linear-gradient(90deg, #2f6bf2, #2259e0);
+  color: #ffffff;
+  box-shadow: 0 8px 18px -8px rgba(47, 107, 242, 0.75), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Yuqori paneldagi yumaloq tugmalar */
+.adm-round-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  background-color: var(--adm-card);
+  border: 1px solid var(--adm-border);
+  color: var(--adm-text);
+  box-shadow: var(--adm-shadow);
+  transition: background-color 0.15s;
+}
+.adm-round-btn:hover {
+  background-color: color-mix(in srgb, var(--adm-accent) 6%, var(--adm-card));
+}
+
+.adm-pop {
+  background-color: var(--adm-card);
+  border: 1px solid var(--adm-border);
+  border-radius: 14px;
+  box-shadow: var(--adm-shadow-pop);
+}
+
+.adm-hover-row:hover,
+.adm-hover-row[data-active="true"] {
+  background-color: color-mix(in srgb, var(--adm-accent) 8%, transparent);
+}

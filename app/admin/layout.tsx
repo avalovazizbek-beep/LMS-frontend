@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -12,7 +12,6 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronRight,
   ShieldCheck,
   Settings,
   ClipboardCheck,
@@ -27,12 +26,21 @@ import {
   History,
   MessageSquareText,
   Award,
+  ChevronDown,
+  PanelLeftClose,
+  Sunrise,
+  Sun,
+  Moon,
 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { adminApi } from "@/lib/api"
 import { IdleLogout } from "@/components/layout/IdleLogout"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
 import { NotificationBell } from "@/components/layout/NotificationBell"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { AdminSearch } from "@/components/admin/AdminSearch"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import "./admin.css"
 
 
 const NAV = [
@@ -54,15 +62,34 @@ const NAV = [
   { href: "/admin/sozlamalar", labelKey: "adminNav.settings", icon: Settings },
 ]
 
+/** Kun vaqtiga qarab salomlashish (yon menyu pastidagi karta) */
+function useGreeting() {
+  const [hour, setHour] = useState<number | null>(null)
+  useEffect(() => {
+    const tick = () => setHour(new Date().getHours())
+    tick()
+    const id = window.setInterval(tick, 60_000)
+    return () => window.clearInterval(id)
+  }, [])
+  if (hour === null) return { key: "adminNav.greetDay", icon: Sun }
+  if (hour >= 5 && hour < 12) return { key: "adminNav.greetMorning", icon: Sunrise }
+  if (hour >= 12 && hour < 18) return { key: "adminNav.greetDay", icon: Sun }
+  return { key: "adminNav.greetEvening", icon: Moon }
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const { t } = useLanguage()
+  const greeting = useGreeting()
   const [checked, setChecked] = useState(false)
   const [adminName, setAdminName] = useState("")
+  const [lmsRole, setLmsRole] = useState("")
   const [isAlsoEmployee, setIsAlsoEmployee] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("lms_token")
@@ -72,6 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .then(res => {
         if (!res.isAdmin) { router.replace("/dashboard"); return }
         setAdminName(res.name)
+        setLmsRole(res.lmsRole)
         // Admin huquqi HEMIS rolining ustiga qo'shiladi — shu odam ayni
         // paytda o'qituvchi (employee) ham bo'lishi mumkin. Shunday holatda
         // o'qituvchi paneliga qaytish tugmasi ko'rsatiladi.
@@ -98,14 +126,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (isMobile) setSidebarOpen(false)
+    setUserMenuOpen(false)
   }, [pathname, isMobile])
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false)
+    }
+    document.addEventListener("mousedown", onClick)
+    return () => document.removeEventListener("mousedown", onClick)
+  }, [])
 
   if (!checked) {
     return (
-      <div className="flex h-dvh items-center justify-center" style={{ backgroundColor: "#f0f5ff" }}>
+      <div className="admin-shell flex h-dvh items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <ShieldCheck className="w-10 h-10 animate-pulse" style={{ color: "#0e58a8" }} />
-          <span className="text-sm font-medium" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+          <ShieldCheck className="w-10 h-10 animate-pulse text-[var(--adm-accent)]" />
+          <span className="text-sm font-medium text-[var(--adm-muted)]">
             {t("adminNav.checking")}
           </span>
         </div>
@@ -119,8 +156,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.replace("/login")
   }
 
+  const roleLabel = lmsRole === "super_admin" ? t("header.roleSuperAdmin") : t("header.roleAdmin")
+  const initial = (adminName.trim().charAt(0) || "A").toUpperCase()
+  const shortName = adminName
+    ? adminName.split(" ").filter(Boolean).slice(0, 2).map((w, i) => (i === 0 ? w : w.charAt(0) + ".")).join(" ")
+    : roleLabel
+  const GreetingIcon = greeting.icon
+
   return (
-    <div className="flex h-dvh overflow-hidden" style={{ backgroundColor: "#f0f5ff" }}>
+    <div className="admin-shell flex h-dvh overflow-hidden">
       <IdleLogout />
       {/* Mobilda sidebar ochiq bo'lsa — orqa fon, bosilsa yopiladi */}
       {isMobile && sidebarOpen && (
@@ -129,71 +173,84 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Sidebar — desktopda kontentni suradi, mobilda ustidan qoplaydi (drawer) */}
       {sidebarOpen && (
-        <aside
-          className={`h-dvh w-[240px] shrink-0 flex flex-col ${isMobile ? "fixed inset-y-0 left-0 z-50" : ""}`}
-          style={{ backgroundColor: "#012970" }}
-        >
-          {/* Logo */}
-          <div className="shrink-0 flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="flex items-center gap-2 min-w-0">
-              <Image src="/logo.png" alt="SamISI" width={32} height={32} className="w-8 h-8 object-contain shrink-0" />
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-white truncate" style={{ fontFamily: "var(--font-poppins)" }}>
-                  SamISI Admin
-                </span>
-                <span className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-poppins)" }}>{t("adminNav.brandSubtitle")}</span>
-              </div>
+        <aside className={`adm-sidebar h-dvh w-[252px] shrink-0 flex flex-col ${isMobile ? "fixed inset-y-0 left-0 z-50" : ""}`}>
+          {/* Logo — bg-[#fff]: globals.css'dagi `.dark .bg-white` qoidasi doirani qoraytirmasin */}
+          <div className="shrink-0 flex items-center gap-3 px-5 pt-5 pb-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff] shadow-[0_6px_16px_-6px_rgba(47,107,242,0.8)] ring-2 ring-[#2f6bf2]/40">
+              <Image src="/logo.png" alt="SamISI" width={30} height={30} className="h-[30px] w-[30px] object-contain" />
             </div>
-            <button onClick={() => setSidebarOpen(false)} className="text-white/60 hover:text-white shrink-0">
-              <X className="w-4 h-4" />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-[15px] font-bold leading-tight text-white">SamISI LMS</span>
+              <span className="truncate text-[11px] text-[var(--adm-side-text)]">{t("adminNav.brandSubtitle")}</span>
+            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              aria-label={t("adminNav.collapseMenu")}
+              title={t("adminNav.collapseMenu")}
+              className="shrink-0 rounded-lg p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white">
+              {isMobile ? <X className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </button>
           </div>
 
           {/* Nav — faqat shu qism suriladi; logo va pastki qism (chiqish) doim
               ko'rinadi. h-dvh: iPhone Safari'da pastki panel ostida qolmaydi. */}
-          <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 flex flex-col gap-1">
+          <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 py-2 flex flex-col gap-1 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]">
             {NAV.map(({ href, labelKey, icon: Icon }) => {
               const active = pathname.startsWith(href)
               return (
                 <Link
                   key={href}
                   href={href}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: active ? "rgba(255,255,255,0.12)" : "transparent",
-                    color: active ? "#fff" : "rgba(255,255,255,0.6)",
-                    fontFamily: "var(--font-poppins)",
-                  }}
+                  data-active={active}
+                  aria-current={active ? "page" : undefined}
+                  className="adm-nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium"
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {t(labelKey)}
-                  {active && <ChevronRight className="w-3.5 h-3.5 ml-auto" />}
+                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  <span className="truncate">{t(labelKey)}</span>
                 </Link>
               )
             })}
           </nav>
 
-          {/* User footer */}
-          <div className="shrink-0 px-4 py-4 flex flex-col gap-1" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="text-xs font-medium mb-2 truncate" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-poppins)" }}>
-              {adminName || t("header.roleAdmin")}
+          {/* Salomlashish kartasi — past ekranlarda menyuga joy qoldirish uchun yashiriladi */}
+          <div className="shrink-0 px-3.5 pt-3 [@media(max-height:720px)]:hidden">
+            <div className="flex items-center gap-3 rounded-2xl px-3.5 py-3" style={{ backgroundColor: "var(--adm-side-card)", border: "1px solid var(--adm-side-border)" }}>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2f6bf2] text-white shadow-[0_6px_14px_-6px_rgba(47,107,242,0.9)]">
+                <GreetingIcon className="h-[18px] w-[18px]" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] text-[var(--adm-side-text)]">{t("adminNav.today")}</div>
+                <div className="truncate text-[13px] font-semibold text-white">{t(greeting.key)}</div>
+              </div>
             </div>
+          </div>
+
+          {/* User footer */}
+          <div className="shrink-0 px-3.5 pt-3 pb-4">
             {isAlsoEmployee && (
               <Link
                 href="/dashboard"
-                className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-[6px] w-full hover:bg-white/10 transition-colors"
-                style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-poppins)" }}>
-                <ArrowLeftRight className="w-3.5 h-3.5" />
-                {t("adminNav.toTeacherPanel")}
+                className="adm-nav-link mb-1 flex items-center gap-2.5 rounded-xl px-3.5 py-2 text-xs font-medium">
+                <ArrowLeftRight className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{t("adminNav.toTeacherPanel")}</span>
               </Link>
             )}
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-[6px] w-full hover:bg-white/10 transition-colors"
-              style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-poppins)" }}>
-              <LogOut className="w-3.5 h-3.5" />
-              {t("adminNav.logout")}
-            </button>
+            <div className="flex items-center gap-3 px-2 pt-2" style={{ borderTop: "1px solid var(--adm-side-border)" }}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff] text-[15px] font-bold text-[#0e1d52]">
+                {initial}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-semibold text-white" title={adminName}>{shortName}</div>
+                <div className="truncate text-[11px] text-[var(--adm-side-text)]">{roleLabel}</div>
+              </div>
+              <button
+                onClick={logout}
+                aria-label={t("adminNav.logout")}
+                title={t("adminNav.logout")}
+                className="shrink-0 rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </aside>
       )}
@@ -201,25 +258,68 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main */}
       <div className="flex flex-col flex-1 min-w-0 h-dvh overflow-hidden">
         {/* Topbar */}
-        <header className="shrink-0 flex items-center gap-2 px-3 py-3 bg-white sm:gap-3 sm:px-6"
-          style={{ borderBottom: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 1px 4px rgba(1,41,112,0.06)" }}>
+        <header className="shrink-0 flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-8 sm:py-4">
           {!sidebarOpen && (
-            <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-[6px] hover:bg-[#f0f5ff] transition-colors shrink-0">
-              <Menu className="w-5 h-5" style={{ color: "#7293b9" }} />
+            <button onClick={() => setSidebarOpen(true)} aria-label={t("adminNav.openMenu")} className="adm-round-btn shrink-0">
+              <Menu className="h-5 w-5" />
             </button>
           )}
-          <div className="flex items-center gap-2 text-sm font-semibold min-w-0 flex-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: "#0e58a8" }} />
-            <span className="truncate">{t(NAV.find(n => pathname.startsWith(n.href))?.labelKey ?? "adminNav.adminPanel")}</span>
-          </div>
-          <div className="ml-auto shrink-0">
-            <LanguageSwitcher />
+          <div className="min-w-0 flex-1">
+            <AdminSearch items={NAV} />
           </div>
           <div className="shrink-0">
-            <NotificationBell />
+            <NotificationBell buttonClassName="adm-round-btn" />
           </div>
-          <div className="hidden sm:block shrink-0 max-w-[220px] truncate text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            {adminName}
+          <div className="hidden shrink-0 sm:block">
+            <ThemeToggle className="adm-round-btn" />
+          </div>
+          <div className="shrink-0">
+            <LanguageSwitcher buttonClassName="adm-round-btn !w-auto gap-1.5 px-3.5 text-xs font-semibold" />
+          </div>
+
+          <div className="hidden sm:block h-8 w-px shrink-0 bg-[var(--adm-border-strong)] mx-1" />
+
+          {/* Foydalanuvchi menyusi */}
+          <div ref={userMenuRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen(o => !o)}
+              aria-expanded={userMenuOpen}
+              className="flex items-center gap-2.5 rounded-full p-1 pr-1 transition-opacity hover:opacity-85 sm:pr-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#3b74f0] to-[#1e40af] text-sm font-bold text-white shadow-[0_6px_14px_-6px_rgba(37,99,235,0.8)]">
+                {initial}
+              </span>
+              <span className="hidden max-w-[160px] truncate text-sm font-semibold text-[var(--adm-text)] sm:block">{shortName}</span>
+              <ChevronDown className={`hidden h-4 w-4 text-[var(--adm-muted)] transition-transform sm:block ${userMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            <AnimatePresence>
+              {userMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: -4 }}
+                  transition={{ duration: 0.14 }}
+                  className="adm-pop absolute right-0 top-[calc(100%+8px)] z-50 w-[230px] overflow-hidden">
+                  <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--adm-border)" }}>
+                    <p className="truncate text-sm font-semibold text-[var(--adm-text)]">{adminName || roleLabel}</p>
+                    <p className="mt-0.5 text-xs text-[var(--adm-muted)]">{roleLabel}</p>
+                  </div>
+                  {isAlsoEmployee && (
+                    <Link href="/dashboard"
+                      className="adm-hover-row flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--adm-text)]">
+                      <ArrowLeftRight className="h-4 w-4 text-[var(--adm-muted)]" />
+                      {t("adminNav.toTeacherPanel")}
+                    </Link>
+                  )}
+                  <button onClick={logout}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--adm-down)] transition-colors hover:bg-[color-mix(in_srgb,var(--adm-down)_8%,transparent)]">
+                    <LogOut className="h-4 w-4" />
+                    {t("adminNav.logout")}
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </header>
 

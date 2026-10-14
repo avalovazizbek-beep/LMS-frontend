@@ -2123,6 +2123,21 @@ export const dictionary: Record<string, DictEntry> = {
   "adminDashboard.contentTypePractice":         { uz: "Amaliy",                                        ru: "Практика",                                            en: "Practice",                                            kaa: "Ámeliy" },
   "adminDashboard.quickLinksTitle":             { uz: "Tezkor havolalar",                              ru: "Быстрые ссылки",                                      en: "Quick links",                                         kaa: "Tez siltemeler" },
   "adminDashboard.total":                       { uz: "Jami",                                          ru: "Всего",                                               en: "Total",                                               kaa: "Jámi" },
+  "adminDashboard.vsPrevWeek":                  { uz: "Oldingi 7 kunga nisbatan",                      ru: "По сравнению с предыдущими 7 днями",                  en: "Compared with the previous 7 days",                   kaa: "Aldıńǵı 7 kúnge salıstırǵanda" },
+  // Sana kartasi: "14-oktyabr, 2026" — Intl'da uz locale har doim ham yo'q (Chrome "2026 M10 14" deb chiqaradi)
+  "adminDashboard.dateFormat":                  { uz: "{day}-{month}, {year}",                         ru: "{day} {month} {year}",                                en: "{day} {month} {year}",                                kaa: "{day}-{month}, {year}" },
+  "adminDashboard.monthLong.jan": { uz: "yanvar", uzc: "январь", ru: "января", en: "January", kaa: "yanvar" },
+  "adminDashboard.monthLong.feb": { uz: "fevral", uzc: "февраль", ru: "февраля", en: "February", kaa: "fevral" },
+  "adminDashboard.monthLong.mar": { uz: "mart", uzc: "март", ru: "марта", en: "March", kaa: "mart" },
+  "adminDashboard.monthLong.apr": { uz: "aprel", uzc: "апрель", ru: "апреля", en: "April", kaa: "aprel" },
+  "adminDashboard.monthLong.may": { uz: "may", uzc: "май", ru: "мая", en: "May", kaa: "may" },
+  "adminDashboard.monthLong.jun": { uz: "iyun", uzc: "июнь", ru: "июня", en: "June", kaa: "iyun" },
+  "adminDashboard.monthLong.jul": { uz: "iyul", uzc: "июль", ru: "июля", en: "July", kaa: "iyul" },
+  "adminDashboard.monthLong.aug": { uz: "avgust", uzc: "август", ru: "августа", en: "August", kaa: "avgust" },
+  "adminDashboard.monthLong.sep": { uz: "sentyabr", uzc: "сентябрь", ru: "сентября", en: "September", kaa: "sentyabr" },
+  "adminDashboard.monthLong.oct": { uz: "oktyabr", uzc: "октябрь", ru: "октября", en: "October", kaa: "oktyabr" },
+  "adminDashboard.monthLong.nov": { uz: "noyabr", uzc: "ноябрь", ru: "ноября", en: "November", kaa: "noyabr" },
+  "adminDashboard.monthLong.dec": { uz: "dekabr", uzc: "декабрь", ru: "декабря", en: "December", kaa: "dekabr" },
 
   // ── Admin: Foydalanuvchilar ─────────────────────────────────────────────────
   "adminFoydalanuvchilar.pageTitle":           { uz: "Foydalanuvchilar",                       ru: "Пользователи",                              en: "Users",                                kaa: "Paydalanıwshılar" },
@@ -3149,6 +3164,15 @@ export const dictionary: Record<string, DictEntry> = {
   "adminNav.toTeacherPanel": { uz: "O'qituvchi paneliga o'tish",         ru: "Перейти в панель преподавателя",        en: "Go to teacher panel",                    kaa: "Oqıtıwshı paneline ótiw" },
   "adminNav.logout":         { uz: "Chiqish",                            ru: "Выйти",                                 en: "Log out",                                kaa: "Shıǵıw" },
   "adminNav.adminPanel":     { uz: "Admin panel",                        ru: "Админ-панель",                          en: "Admin panel",                            kaa: "Admin panel" },
+  "adminNav.searchPlaceholder": { uz: "Foydalanuvchi yoki bo'limni qidirish…", ru: "Поиск пользователя или раздела…", en: "Search users or sections…", kaa: "Paydalanıwshı yamasa bólimdi izlew…" },
+  "adminNav.searchSections":  { uz: "Bo'limlar",                          ru: "Разделы",                               en: "Sections",                               kaa: "Bólimler" },
+  "adminNav.searchUsers":     { uz: "Foydalanuvchilardan qidirish: «{q}»", ru: "Искать среди пользователей: «{q}»",   en: "Search users for “{q}”",                 kaa: "Paydalanıwshılardan izlew: «{q}»" },
+  "adminNav.today":           { uz: "Bugun",                              ru: "Сегодня",                               en: "Today",                                  kaa: "Búgin" },
+  "adminNav.greetMorning":    { uz: "Xayrli tong!",                       ru: "Доброе утро!",                          en: "Good morning!",                          kaa: "Qayırlı tań!" },
+  "adminNav.greetDay":        { uz: "Xayrli kun!",                        ru: "Добрый день!",                          en: "Good afternoon!",                        kaa: "Qayırlı kún!" },
+  "adminNav.greetEvening":    { uz: "Xayrli kech!",                       ru: "Добрый вечер!",                         en: "Good evening!",                          kaa: "Qayırlı keş!" },
+  "adminNav.collapseMenu":    { uz: "Menyuni yopish",                     ru: "Скрыть меню",                           en: "Hide menu",                              kaa: "Menyunı jabıw" },
+  "adminNav.openMenu":        { uz: "Menyuni ochish",                     ru: "Открыть меню",                          en: "Open menu",                              kaa: "Menyunı ashıw" },
 
   // ── Admin: talabalar ro'yxati (Face ID holati) ──────────────────────
   "adminStudents.errLoad":        { uz: "Yuklashda xato",                  ru: "Ошибка загрузки",                       en: "Failed to load",                         kaa: "Júklewde qátelik" },

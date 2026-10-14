@@ -14,7 +14,7 @@ const POLL_MS = 30_000
  * bildirishnomalar ro'yxati. Talaba/o'qituvchi (Header) va admin panelda
  * bir xil ishlaydi; har kim faqat o'z bildirishnomalarini ko'radi.
  */
-export function NotificationBell() {
+export function NotificationBell({ buttonClassName }: { buttonClassName?: string } = {}) {
   const router = useRouter()
   const { t, locale } = useLanguage()
   const [items, setItems] = useState<Notif[]>([])
@@ -64,7 +64,7 @@ export function NotificationBell() {
     <div ref={ref} className="relative">
       <button type="button" aria-label={t("header.notifications")} aria-expanded={open}
         onClick={() => { setOpen(o => !o); if (!open) load() }}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--lms-bg)]">
+        className={`relative ${buttonClassName ?? "flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--lms-bg)]"}`}>
         <Bell className="h-[19px] w-[19px] text-[var(--lms-primary)]" />
         {unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
