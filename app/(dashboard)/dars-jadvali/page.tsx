@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { meetingsApi, hemisApi, teachingApi, type HemisSchedule, type Meeting, type TeacherContent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { ZoomJoinCard } from "@/components/meeting/ZoomJoinCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 const DAYS = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
@@ -410,6 +411,9 @@ export default function DarsJadvali() {
                                     {meta}
                                   </div>
                                 )}
+                                {entry.kind === "meeting" && entry.data.status === "upcoming" && entry.data.zoom && (
+                                  <ZoomJoinCard zoom={entry.data.zoom} compact />
+                                )}
                               </div>
                             )
                           })}
@@ -548,6 +552,9 @@ export default function DarsJadvali() {
                           {t("darsJadvali.joinLesson")}
                         </a>
                       )}
+
+                      {/* O'qituvchi meeting bilan birga Zoom ham yaratgan bo'lsa */}
+                      {isUpcoming && m.zoom && <ZoomJoinCard zoom={m.zoom} />}
                     </div>
                   </motion.div>
                 )

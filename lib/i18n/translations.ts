@@ -225,6 +225,11 @@ export const dictionary: Record<string, DictEntry> = {
   "darsJadvali.status.open":     { uz: "Ochiq",                 ru: "Открыт",                           en: "Open",                        kaa: "Ashıq" },
   "darsJadvali.status.locked":   { uz: "Qulflangan",            ru: "Заблокирован",                     en: "Locked",                      kaa: "Qulıplanǵan" },
   "darsJadvali.status.closed":   { uz: "Yakunlangan",           ru: "Завершён",                         en: "Closed",                      kaa: "Juwmaqlanǵan" },
+  "darsJadvali.zoom.title":      { uz: "Zoom uchrashuv",        ru: "Встреча в Zoom",                   en: "Zoom meeting",                kaa: "Zoom ushırasıw" },
+  "darsJadvali.zoom.join":       { uz: "Qo'shilish",            ru: "Присоединиться",                   en: "Join",                        kaa: "Qosılıw" },
+  "darsJadvali.zoom.passcode":   { uz: "Kod",                   ru: "Код",                              en: "Passcode",                    kaa: "Kod" },
+  "darsJadvali.zoom.notOpened":  { uz: "Zoom ilovasi ochilmadimi?", ru: "Приложение Zoom не открылось?", en: "Zoom app didn't open?",       kaa: "Zoom qosımshası ashılmadı ma?" },
+  "darsJadvali.zoom.openInBrowser": { uz: "Brauzer orqali kirish", ru: "Войти через браузер",           en: "Join from browser",           kaa: "Brauzer arqalı kiriw" },
 
   // ── Imtihonlar sahifasi ──────────────────────────────────────────────
   "exams.title":         { uz: "Imtihonlar",                    ru: "Экзамены",                         en: "Exams",                       kaa: "Emtihanlar" },
