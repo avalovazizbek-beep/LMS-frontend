@@ -1,6 +1,8 @@
 "use client"
 
 import {
+  createContext,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -11,6 +13,8 @@ import Link from "next/link"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "framer-motion"
 import { io, type Socket } from "socket.io-client"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
+import type { PhotoKind } from "@/lib/photos"
 import {
   AlertTriangle,
   ArrowLeft,
@@ -399,6 +403,12 @@ function SourceBadge({
 }
 
 
+/* Ishtirokchi avatari uchun HEMIS surati: CallStage ishtirokchilar
+   ro'yxatidan ism → (userId, rol) ni topib beradi; o'zi — "me". Topilmasa
+   (yoki talaba boshqa talabaning suratini ko'ra olmasa) bosh harflar qoladi. */
+type AvatarPhoto = { me: true } | { kind: PhotoKind; id: number }
+const AvatarPhotoContext = createContext<(name: string) => AvatarPhoto | null>(() => null)
+
 function Avatar({
   name,
   accent = "#0e58a8",
@@ -408,6 +418,7 @@ function Avatar({
   accent?: string
   size?: "sm" | "md" | "lg"
 }) {
+  const photo = useContext(AvatarPhotoContext)(name)
   const sizeClass =
     size === "sm"
       ? "h-9 w-9 text-xs"
@@ -415,7 +426,7 @@ function Avatar({
         ? "h-14 w-14 text-base"
         : "h-11 w-11 text-sm"
 
-  return (
+  const initials = (
     <div
       className={cn(
         "grid shrink-0 place-items-center rounded-full font-semibold text-white",
@@ -425,6 +436,15 @@ function Avatar({
     >
       {getInitials(name)}
     </div>
+  )
+  if (!photo) return initials
+  return (
+    <PersonAvatar
+      {...("me" in photo ? { me: true } : { kind: photo.kind, id: photo.id })}
+      className={cn("rounded-full", sizeClass)}
+    >
+      {initials}
+    </PersonAvatar>
   )
 }
 
@@ -2496,6 +2516,20 @@ function CallStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteStreams])
 
+  const youLabel = t("meetingPage.you")
+  const resolveAvatarPhoto = useMemo(() => {
+    const byName = new Map<string, AvatarPhoto>()
+    for (const p of liveParticipants) {
+      if (!p.userId || byName.has(p.name)) continue
+      byName.set(p.name, { kind: p.role === "student" ? "student" : "employee", id: p.userId })
+    }
+    return (name: string): AvatarPhoto | null => {
+      if (!name) return null
+      if (name === localUserName || name === youLabel) return { me: true }
+      return byName.get(name) ?? null
+    }
+  }, [liveParticipants, localUserName, youLabel])
+
   const activeRemote = activeVideoId === "self"
     ? null
     : (remoteStreams.find(r => r.socketId === activeVideoId) ?? null)
@@ -2532,6 +2566,7 @@ function CallStage({
   }
 
   return (
+    <AvatarPhotoContext.Provider value={resolveAvatarPhoto}>
     <motion.div key="call-view" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }} className="h-full overflow-hidden">
       {remoteStreams.map(remote => (
         <RemoteAudioPlayer key={remote.socketId} stream={remote.stream} />
@@ -3016,6 +3051,7 @@ function CallStage({
         </div>
       )}
     </motion.div>
+    </AvatarPhotoContext.Provider>
   )
 }
 

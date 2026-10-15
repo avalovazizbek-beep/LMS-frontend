@@ -3196,6 +3196,9 @@ export const dictionary: Record<string, DictEntry> = {
   "adminStudents.studentCount":   { uz: "Talaba soni",                     ru: "Кол-во студентов",                      en: "Students",                               kaa: "Student sanı" },
   "adminStudents.noGroups":       { uz: "Guruh topilmadi",                 ru: "Группы не найдены",                     en: "No groups found",                        kaa: "Gruppa tabılmadı" },
   "adminStudents.pageRange":      { uz: "{from}–{to} / {total} guruh",     ru: "{from}–{to} из {total} групп",          en: "{from}–{to} of {total} groups",          kaa: "{from}–{to} / {total} gruppa" },
+  "adminStudents.statStudents":   { uz: "Jami talaba",                     ru: "Всего студентов",                       en: "Total students",                  kaa: "Jámi student" },
+  "adminStudents.statGroups":     { uz: "Guruhlar",                        ru: "Группы",                                en: "Groups",                          kaa: "Gruppalar" },
+  "adminStudents.statAvg":        { uz: "O'rtacha guruh hajmi",            ru: "Средний размер группы",                 en: "Average group size",              kaa: "Ortasha gruppa kólemi" },
 
   // ── Admin: qayta topshirishga ruxsat (mavzuni qayta ochish) ─────────
   "adminRetry.noDeadline":   { uz: "Muddat belgilanmagan",               ru: "Срок не задан",                         en: "No deadline set",                        kaa: "Múddet belgilenbegen" },

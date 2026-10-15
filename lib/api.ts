@@ -3061,3 +3061,21 @@ export const googleMeetApi = {
 
   disconnect: () => post<MsgRes>("/api/integrations/google/disconnect", {}),
 }
+
+/* ── HEMIS suratlari — /api/photos (PersonAvatar orqali ishlatiladi) ── */
+export interface PhotoLookupResponse {
+  students?: Record<string, string | null>
+  employees?: Record<string, string | null>
+  logins?: Record<string, string | null>
+}
+
+export const photosApi = {
+  lookup: (ids: { students?: string[]; employees?: string[]; logins?: string[] }) => {
+    const q = new URLSearchParams()
+    if (ids.students?.length) q.set("students", ids.students.join(","))
+    if (ids.employees?.length) q.set("employees", ids.employees.join(","))
+    if (ids.logins?.length) q.set("logins", ids.logins.join(","))
+    return get<PhotoLookupResponse>(`/api/photos?${q.toString()}`)
+  },
+  me: () => get<{ url: string | null }>("/api/photos/me"),
+}

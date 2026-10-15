@@ -40,6 +40,7 @@ import { NotificationBell } from "@/components/layout/NotificationBell"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { AdminSearch } from "@/components/admin/AdminSearch"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import "./admin.css"
 
 
@@ -236,9 +237,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </Link>
             )}
             <div className="flex items-center gap-3 px-2 pt-2" style={{ borderTop: "1px solid var(--adm-side-border)" }}>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff] text-[15px] font-bold text-[#0e1d52]">
-                {initial}
-              </div>
+              <PersonAvatar me className="h-10 w-10 rounded-full" style={{ boxShadow: "0 0 0 2px rgba(255,255,255,0.85)" }}>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff] text-[15px] font-bold text-[#0e1d52]">
+                  {initial}
+                </div>
+              </PersonAvatar>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] font-semibold text-white" title={adminName}>{shortName}</div>
                 <div className="truncate text-[11px] text-[var(--adm-side-text)]">{roleLabel}</div>
@@ -286,9 +289,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               onClick={() => setUserMenuOpen(o => !o)}
               aria-expanded={userMenuOpen}
               className="flex items-center gap-2.5 rounded-full p-1 pr-1 transition-opacity hover:opacity-85 sm:pr-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#3b74f0] to-[#1e40af] text-sm font-bold text-white shadow-[0_6px_14px_-6px_rgba(37,99,235,0.8)]">
-                {initial}
-              </span>
+              <PersonAvatar me className="h-9 w-9 rounded-full shadow-[0_6px_14px_-6px_rgba(37,99,235,0.8)]">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#3b74f0] to-[#1e40af] text-sm font-bold text-white shadow-[0_6px_14px_-6px_rgba(37,99,235,0.8)]">
+                  {initial}
+                </span>
+              </PersonAvatar>
               <span className="hidden max-w-[160px] truncate text-sm font-semibold text-[var(--adm-text)] sm:block">{shortName}</span>
               <ChevronDown className={`hidden h-4 w-4 text-[var(--adm-muted)] transition-transform sm:block ${userMenuOpen ? "rotate-180" : ""}`} />
             </button>

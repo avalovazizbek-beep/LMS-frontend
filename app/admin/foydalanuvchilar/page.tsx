@@ -9,6 +9,7 @@ import {
 import { adminApi, type AdminUser } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { motion, pageVariants } from "@/components/ui/motion"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 
 const PAGE_SIZE = 20
 
@@ -44,27 +45,14 @@ function formatDateTime(s: string) {
 
 /** HEMIS surati; yuklanmasa (yo'q/buzuq havola) — ismning bosh harfi */
 function UserAvatar({ src, name }: { src: string | null; name: string }) {
-  const [failed, setFailed] = useState(false)
-  const initial = name.trim().charAt(0).toUpperCase() || "?"
-  if (src && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt=""
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
-        className="h-9 w-9 shrink-0 rounded-full object-cover"
-        style={{ boxShadow: "0 0 0 2px var(--adm-card), 0 0 0 3px var(--adm-border-strong)", backgroundColor: "var(--adm-grid)" }}
-      />
-    )
-  }
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold text-white"
-      style={{ background: "linear-gradient(135deg, #3b82f6, #1d4ed8)" }}>
-      {initial}
-    </div>
+    <PersonAvatar src={src} className="h-9 w-9 rounded-full"
+      style={{ boxShadow: "0 0 0 2px var(--adm-card), 0 0 0 3px var(--adm-border-strong)", backgroundColor: "var(--adm-grid)" }}>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold text-white"
+        style={{ background: "linear-gradient(135deg, #3b82f6, #1d4ed8)" }}>
+        {name.trim().charAt(0).toUpperCase() || "?"}
+      </div>
+    </PersonAvatar>
   )
 }
 

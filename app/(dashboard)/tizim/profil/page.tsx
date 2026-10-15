@@ -6,6 +6,7 @@ import { hemisApi, zoomApi, googleMeetApi, type HemisEmployee, type HemisStudent
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { tr } from "@/lib/i18n/translations"
 
 type ProfileData = HemisStudent | HemisEmployee | null
@@ -344,10 +345,12 @@ export default function TizimProfil() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="bg-white rounded-[10px] p-6 flex flex-col items-center gap-3"
           style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-          <div className="w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl font-bold"
-            style={{ backgroundColor: "#0e58a8" }}>
-            {profileName(profile).charAt(0).toUpperCase()}
-          </div>
+          <PersonAvatar src={typeof profile?.image === "string" ? profile.image : null} me className="w-24 h-24 rounded-full">
+            <div className="w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl font-bold"
+              style={{ backgroundColor: "#0e58a8" }}>
+              {profileName(profile).charAt(0).toUpperCase()}
+            </div>
+          </PersonAvatar>
           <div className="text-center">
             <p className="font-semibold text-base" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
               {profileName(profile)}

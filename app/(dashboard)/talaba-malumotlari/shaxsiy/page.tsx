@@ -5,6 +5,7 @@ import { hemisApi, HemisStudent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 
 function formatDate(ts?: number): string {
   if (!ts) return "—"
@@ -33,10 +34,12 @@ export default function ShaxsiyMalumotlar() {
       {/* Avatar card */}
       <div className="bg-white rounded-[10px] p-5 flex items-center gap-5"
         style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-        <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-bold shrink-0"
-          style={{ backgroundColor: "#0e58a8" }}>
-          {s?.first_name?.charAt(0)?.toUpperCase() ?? "T"}
-        </div>
+        <PersonAvatar src={s?.image} me className="w-20 h-20 rounded-full">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-bold shrink-0"
+            style={{ backgroundColor: "#0e58a8" }}>
+            {s?.first_name?.charAt(0)?.toUpperCase() ?? "T"}
+          </div>
+        </PersonAvatar>
         <div>
           <h2 className="text-xl font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
             {s?.full_name ?? "—"}

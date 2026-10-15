@@ -6,6 +6,7 @@ import { faceApi, ReRegRequest } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 
 function formatDate(ts?: number): string {
   if (!ts) return "—"
@@ -118,10 +119,12 @@ export default function FaceRequestsPage() {
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: "#f6f9ff" }}>
-                        <User className="w-5 h-5" style={{ color: "#0e58a8" }} />
-                      </div>
+                      <PersonAvatar kind="login" id={req.username} className="w-10 h-10 rounded-[10px]">
+                        <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: "#f6f9ff" }}>
+                          <User className="w-5 h-5" style={{ color: "#0e58a8" }} />
+                        </div>
+                      </PersonAvatar>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                           {req.username}

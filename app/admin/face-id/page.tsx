@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { ShieldAlert, CheckCircle2, XCircle, Clock, RefreshCw, User, Send, ChevronLeft, ChevronRight, UserX } from "lucide-react"
 import { adminApi, type AdminFaceRequest } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 
 const PAGE_SIZE = 20
 
@@ -238,9 +239,11 @@ export default function AdminFaceId() {
               <div key={r.id} className="bg-white rounded-[12px] p-5 flex flex-col gap-4"
                 style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0 0 6px rgba(1,41,112,0.04)" }}>
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0f5ff" }}>
-                    <User className="w-5 h-5" style={{ color: "#0e58a8" }} />
-                  </div>
+                  <PersonAvatar kind="login" id={r.username} className="w-10 h-10 rounded-full">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0f5ff" }}>
+                      <User className="w-5 h-5" style={{ color: "#0e58a8" }} />
+                    </div>
+                  </PersonAvatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>

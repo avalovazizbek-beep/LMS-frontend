@@ -10,6 +10,7 @@ import Link from "next/link"
 import { usersApi, hemisApi, type HemisEmployee } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { TeacherCertificateCard } from "@/components/teaching/TeacherCertificate"
 
 const staggerContainer = { hidden: {}, visible: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } } }
@@ -170,9 +171,11 @@ function StudentDashboard() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.35 }}
           className="bg-white rounded-[10px] p-5 flex flex-col sm:flex-row gap-4"
           style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
-          <div className="w-16 h-16 rounded-full bg-[#0e58a8] flex items-center justify-center text-white text-2xl font-semibold shrink-0">
-            {student.full_name?.charAt(0).toUpperCase() ?? "T"}
-          </div>
+          <PersonAvatar src={student.image} me className="w-16 h-16 rounded-full">
+            <div className="w-16 h-16 rounded-full bg-[#0e58a8] flex items-center justify-center text-white text-2xl font-semibold shrink-0">
+              {student.full_name?.charAt(0).toUpperCase() ?? "T"}
+            </div>
+          </PersonAvatar>
           <div className="flex flex-col gap-1 justify-center">
             <p className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{student.full_name}</p>
             {student.faculty?.name && (
@@ -293,9 +296,11 @@ function TeacherDashboard() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.35 }}
           className="bg-white rounded-[10px] p-5 flex flex-col gap-4 sm:flex-row sm:items-center"
           style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.1)" }}>
-          <div className="w-16 h-16 rounded-full bg-[#0e58a8] flex items-center justify-center text-white text-2xl font-semibold shrink-0">
-            {employee.full_name?.charAt(0).toUpperCase() ?? "O"}
-          </div>
+          <PersonAvatar src={employee.image} me className="w-16 h-16 rounded-full">
+            <div className="w-16 h-16 rounded-full bg-[#0e58a8] flex items-center justify-center text-white text-2xl font-semibold shrink-0">
+              {employee.full_name?.charAt(0).toUpperCase() ?? "O"}
+            </div>
+          </PersonAvatar>
           <div className="min-w-0 flex-1">
             <p className="text-lg font-semibold truncate" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
               {employee.full_name}

@@ -16,6 +16,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { trainingTypeLabelKey } from "@/lib/attendanceTrainingTypes"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
@@ -165,7 +166,9 @@ function StudentAttendanceView({ groupId, subject }: { groupId: number; subject:
                   <td className="py-1.5 text-xs" style={L}>{i + 1}</td>
                   <td className="py-1.5">
                     <div className="flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 shrink-0" style={{ color: "#7293b9" }} />
+                      <PersonAvatar kind="student" id={s.studentId} className="h-6 w-6 rounded-full">
+                        <User className="w-3.5 h-3.5 shrink-0" style={{ color: "#7293b9" }} />
+                      </PersonAvatar>
                       <span style={T}>{s.studentName}</span>
                     </div>
                   </td>
@@ -875,9 +878,11 @@ function EditRequests({ onPendingCount }: { onPendingCount: (n: number) => void 
               <div key={r.id} className="bg-white rounded-[10px] p-5 flex flex-col gap-3"
                 style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
                 <div className="flex items-start gap-3 flex-wrap">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
-                    <User className="w-5 h-5" style={{ color: "#0e58a8" }} />
-                  </div>
+                  <PersonAvatar kind="employee" id={r.teacherUserId} className="w-10 h-10 rounded-full">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
+                      <User className="w-5 h-5" style={{ color: "#0e58a8" }} />
+                    </div>
+                  </PersonAvatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold" style={T}>{r.teacherName}</span>

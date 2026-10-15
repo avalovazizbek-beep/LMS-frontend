@@ -3,24 +3,43 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react"
 import {
   BookOpen, Video, CalendarCheck, CheckCircle2,
-  RefreshCw, TrendingUp, ChevronDown, ChevronUp, User, Clock,
+  RefreshCw, TrendingUp, ChevronDown, ChevronUp, Clock,
   FileText, Search, ChevronLeft, ChevronRight, Music, Layers, Users, Clapperboard, ClipboardList,
-  ExternalLink, FileSpreadsheet, Send, Loader2,
+  ExternalLink, FileSpreadsheet, Send, Loader2, GraduationCap, X,
 } from "lucide-react"
 import { adminApi, type AdminTeacherStat, type AdminTeacherTopic, type AdminTeacherTopicContent, type AdminExamQuestion } from "@/lib/api"
 import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-import { intlLocale } from "@/lib/i18n/translations"
+import { motion, pageVariants } from "@/components/ui/motion"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 
-const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
-const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
+// Admin.css tokenlari — qorong'i rejimda o'zi almashadi
+const T = { color: "var(--adm-text)" } as const
+const L = { color: "var(--adm-muted)" } as const
 const PAGE_SIZE = 10
 
+type CssVars = React.CSSProperties & Record<`--${string}`, string>
+
+// Ko'rsatkich ranglari (admin.css'dagi kategoriya/rol tokenlari)
+const C = {
+  topic: "var(--adm-accent)",
+  video: "var(--cat-2)",
+  audio: "var(--cat-3)",
+  test: "var(--role-admin)",
+  group: "var(--role-dean)",
+  meeting: "var(--cat-1)",
+  students: "var(--adm-up)",
+  qollanma: "#0891b2",
+  assignment: "var(--role-pending)",
+}
+
+/** 2026.10.14 — Intl'siz (brauzerda uz locale ma'lumotlari yo'q, "2026 M10 14" chiqarardi) */
 function fmtDate(s: string) {
   if (!s) return "—"
   const d = new Date(s)
   if (isNaN(d.getTime())) return "—"
-  return d.toLocaleDateString(intlLocale(), { day: "2-digit", month: "short", year: "numeric" })
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
 }
 
 function pageNums(cur: number, total: number): (number | "...")[] {
@@ -41,20 +60,29 @@ interface RowState {
   topicSearch: string
 }
 
+/** Jadvaldagi raqamli ko'rsatkich — nol bo'lsa xira */
+function MetricPill({ icon: Icon, value, color }: { icon: React.ElementType; value: number; color: string }) {
+  return (
+    <span className="adm-pill font-semibold" style={{ "--c": color, opacity: value > 0 ? 1 : 0.5 } as CssVars}>
+      <Icon className="h-3.5 w-3.5" />
+      <span style={{ fontVariantNumeric: "tabular-nums" }}>{value}</span>
+    </span>
+  )
+}
+
+/** Kichikroq yorliq (mavzu ichidagi materiallar, guruh nomlari) */
+const SMALL_PILL: React.CSSProperties = { padding: "1px 7px", fontSize: 11, borderRadius: 6 }
+
 function ContentBadge({ active, icon: Icon, label, color }: {
   active: boolean
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+  icon: React.ElementType
   label: string
   color: string
 }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-      style={{
-        backgroundColor: active ? `${color}1a` : "#f1f5f9",
-        color: active ? color : "#cbd5e1",
-        fontFamily: "var(--font-poppins)",
-      }}>
-      <Icon className="w-2.5 h-2.5" />{label}
+    <span className="adm-pill"
+      style={{ ...SMALL_PILL, borderRadius: 9999, "--c": active ? color : "var(--adm-muted)", opacity: active ? 1 : 0.45 } as CssVars}>
+      <Icon className="h-3 w-3" />{label}
     </span>
   )
 }
@@ -79,20 +107,20 @@ function ExamQuestionsPreview({ contentId }: { contentId: number }) {
     return () => { cancelled = true }
   }, [contentId])
 
-  if (loading) return <div className="flex items-center justify-center py-3"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
-  if (!questions || questions.length === 0) return <p className="text-xs py-2 px-2" style={L}>{t("adminOqituvchilar.noQuestions")}</p>
+  if (loading) return <div className="flex items-center justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-[var(--adm-accent)]" /></div>
+  if (!questions || questions.length === 0) return <p className="px-2 py-2 text-xs" style={L}>{t("adminOqituvchilar.noQuestions")}</p>
 
   return (
-    <div className="flex flex-col gap-2 mt-2 pl-2" style={{ borderLeft: "2px solid rgba(14,88,168,0.15)" }}>
+    <div className="mt-2 flex flex-col gap-2 pl-3" style={{ borderLeft: "2px solid color-mix(in srgb, var(--adm-accent) 25%, transparent)" }}>
       {questions.map((q, qi) => (
         <div key={q.id} className="text-xs">
           <p className="font-medium" style={T}>{qi + 1}. {q.questionText} <span style={L}>{t("adminOqituvchilar.pointsLabel", { points: q.points })}</span></p>
-          <div className="flex flex-col gap-0.5 mt-1 ml-3">
+          <div className="ml-3 mt-1 flex flex-col gap-0.5">
             {q.options.map((opt, oi) => {
               const isCorrect = q.correctIndexes?.includes(oi) ?? oi === q.correctIndex
               return (
-                <span key={oi} className="flex items-center gap-1.5" style={{ color: isCorrect ? "#15803d" : "#7293b9", fontFamily: "var(--font-poppins)", fontWeight: isCorrect ? 600 : 400 }}>
-                  {isCorrect ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <span className="w-3 h-3 shrink-0" />}
+                <span key={oi} className="flex items-center gap-1.5" style={{ color: isCorrect ? "var(--adm-up)" : "var(--adm-muted)", fontWeight: isCorrect ? 600 : 400 }}>
+                  {isCorrect ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <span className="h-3 w-3 shrink-0" />}
                   {opt}
                 </span>
               )
@@ -120,52 +148,49 @@ function TopicContentDetail({ teacherHemisId, topicKey }: { teacherHemisId: stri
     return () => { cancelled = true }
   }, [teacherHemisId, topicKey])
 
-  if (loading) return <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
-  if (!items || items.length === 0) return <p className="text-xs py-3 px-4" style={L}>{t("adminOqituvchilar.noMaterial")}</p>
+  if (loading) return <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-[var(--adm-accent)]" /></div>
+  if (!items || items.length === 0) return <p className="px-5 py-3 text-xs" style={L}>{t("adminOqituvchilar.noMaterial")}</p>
 
   return (
-    <div className="px-4 pb-3 flex flex-col gap-2">
+    <div className="flex flex-col gap-2 px-5 pb-3">
       {items.map(it => {
         const isTest = it.type === "exam"
         const testOpen = expandedTest === it.id
         return (
-          <div key={it.id} className="rounded-[6px] px-3 py-2" style={{ backgroundColor: "#fff" }}>
+          <div key={it.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: "var(--adm-card)", border: "1px solid var(--adm-border)" }}>
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-semibold shrink-0 px-1.5 py-0.5 rounded" style={{ backgroundColor: "#eef4ff", color: "#0e58a8" }}>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="adm-pill shrink-0 font-semibold" style={{ ...SMALL_PILL, "--c": "var(--adm-accent)" } as CssVars}>
                   {isTest ? t("adminOqituvchilar.itemTypeTest") : it.type === "assignment" ? t("adminOqituvchilar.itemTypeAssignment") : (CONTENT_KIND_LABEL_KEY[it.kind ?? ""] ? t(CONTENT_KIND_LABEL_KEY[it.kind ?? ""]) : it.kind)}
                 </span>
-                <span className="text-sm truncate" style={T}>
+                <span className="truncate text-sm" style={T}>
                   {/* Maks. ball berilmagan bo'lsa tizim 100 deb hisoblaydi */}
                   {it.fileName ?? (it.meetingLink ? it.meetingLink : isTest ? t("adminOqituvchilar.maxScoreLabel", { value: it.maxScore ?? 100 }) : it.title)}
                 </span>
                 {isTest && it.questionCount != null && (
-                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded shrink-0"
-                    style={it.questionCount > 0
-                      ? { backgroundColor: "#f0fdf4", color: "#15803d" }
-                      : { backgroundColor: "#fef2f2", color: "#b91c1c" }}>
+                  <span className="adm-pill shrink-0 font-semibold"
+                    style={{ ...SMALL_PILL, "--c": it.questionCount > 0 ? "var(--adm-up)" : "var(--role-admin)" } as CssVars}>
                     {it.questionCount > 0
                       ? t("adminOqituvchilar.questionCount", { n: it.questionCount })
                       : t("adminOqituvchilar.noQuestionsHidden")}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex shrink-0 items-center gap-1">
                 {isTest && (
                   <button onClick={() => setExpandedTest(testOpen ? null : it.id)}
-                    className="text-xs font-medium px-2 py-1 rounded hover:bg-[#f6f9ff] transition-colors"
-                    style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                    className="adm-hover-row rounded-lg px-2 py-1 text-xs font-semibold text-[var(--adm-accent)]">
                     {testOpen ? t("adminOqituvchilar.closeBtn") : t("adminOqituvchilar.viewQuestionsBtn")}
                   </button>
                 )}
                 {it.fileName && (
-                  <a href={adminApi.contentFileUrl(it.id)} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-[#f6f9ff]">
-                    <ExternalLink className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
+                  <a href={adminApi.contentFileUrl(it.id)} target="_blank" rel="noreferrer" className="adm-hover-row rounded-lg p-1.5 text-[var(--adm-accent)]">
+                    <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 )}
                 {it.meetingLink && (
-                  <a href={it.meetingLink} target="_blank" rel="noreferrer" className="p-1.5 rounded hover:bg-[#f6f9ff]">
-                    <ExternalLink className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
+                  <a href={it.meetingLink} target="_blank" rel="noreferrer" className="adm-hover-row rounded-lg p-1.5 text-[var(--adm-accent)]">
+                    <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 )}
               </div>
@@ -238,37 +263,36 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
   )
 
   if (state.loading)
-    return <div className="flex items-center justify-center py-8"><RefreshCw className="w-4 h-4 animate-spin" style={{ color: "#0e58a8" }} /></div>
+    return <div className="flex items-center justify-center py-8"><RefreshCw className="h-4 w-4 animate-spin text-[var(--adm-accent)]" /></div>
 
   if (!topics.length)
     return (
       <div className="py-7 text-center">
-        <BookOpen className="w-6 h-6 mx-auto mb-2" style={{ color: "#d8e6f7" }} />
+        <BookOpen className="mx-auto mb-2 h-6 w-6 opacity-40" style={L} />
         <p className="text-sm" style={L}>{t("adminOqituvchilar.noTopicsForTeacher")}</p>
       </div>
     )
 
   return (
     <div>
-      {/* Topic search bar */}
-      <div className="px-5 py-2.5 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-        <div className="relative max-w-[280px] w-full">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#7293b9" }} />
+      {/* Mavzu qidiruvi */}
+      <div className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid var(--adm-border)" }}>
+        <label className="adm-input flex h-9 w-full max-w-[300px] items-center gap-2 rounded-lg px-2.5">
+          <Search className="h-3.5 w-3.5 shrink-0" style={L} />
           <input value={topicSearch} onChange={e => onChange({ topicSearch: e.target.value })}
-            placeholder={t("adminOqituvchilar.topicSearchPlaceholder")} className="w-full pl-8 pr-3 py-1.5 text-xs rounded-[6px] outline-none"
-            style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#012970", fontFamily: "var(--font-poppins)", backgroundColor: "#fff" }} />
-        </div>
-        <span className="text-xs ml-auto" style={L}>{t("adminOqituvchilar.topicsCountHint", { n: filtered.length })}</span>
+            placeholder={t("adminOqituvchilar.topicSearchPlaceholder")}
+            className="w-full bg-transparent text-xs text-[var(--adm-text)] outline-none placeholder:text-[var(--adm-muted)]" />
+        </label>
+        <span className="ml-auto text-xs" style={L}>{t("adminOqituvchilar.topicsCountHint", { n: filtered.length })}</span>
       </div>
 
-      {/* Topics table */}
+      {/* Mavzular jadvali */}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[800px]">
           <thead>
-            <tr style={{ backgroundColor: "#f0f7ff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+            <tr style={{ borderBottom: "1px solid var(--adm-border)" }}>
               {[t("adminOqituvchilar.colIndex"), t("adminOqituvchilar.colTopic"), t("adminOqituvchilar.colSubject"), t("adminOqituvchilar.colGroup"), t("adminOqituvchilar.colMaterials")].map(h => (
-                <th key={h} className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-left"
-                  style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{h}</th>
+                <th key={h} className="px-5 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider" style={L}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -278,56 +302,54 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
               const typeKey = tp.trainingType ? TRAINING_TYPE_KEYS[tp.trainingType] : undefined
               return (
                 <React.Fragment key={tp.id}>
-                  <tr className="hover:bg-white/70 transition-colors cursor-pointer"
-                    style={{ borderBottom: isOpen ? "none" : "1px solid rgba(1,41,112,0.04)" }}
+                  <tr className="adm-hover-row cursor-pointer" data-active={isOpen}
+                    style={{ borderBottom: isOpen ? "none" : "1px solid var(--adm-border)" }}
                     onClick={() => setExpandedTopic(isOpen ? null : tp.id)}>
-                    <td className="px-4 py-3 text-xs w-10" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
-                    <td className="px-4 py-3">
+                    <td className="w-10 px-5 py-3 text-xs" style={L}>{i + 1}</td>
+                    <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0f5ff" }}>
-                          <BookOpen className="w-3.5 h-3.5" style={{ color: "#0e58a8" }} />
+                        <div className="adm-icon-soft flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ "--c": "var(--adm-accent)" } as CssVars}>
+                          <BookOpen className="h-3.5 w-3.5" />
                         </div>
                         <span className="text-sm font-medium" style={T}>{tp.title}</span>
                         {tp.trainingType && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
-                            style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                          <span className="adm-pill shrink-0 font-semibold" style={{ ...SMALL_PILL, borderRadius: 9999, "--c": "var(--adm-accent)" } as CssVars}>
                             {typeKey ? t(typeKey) : tp.trainingType}
                           </span>
                         )}
-                        {isOpen ? <ChevronUp className="w-3.5 h-3.5 shrink-0" style={L} /> : <ChevronDown className="w-3.5 h-3.5 shrink-0" style={L} />}
+                        {isOpen ? <ChevronUp className="h-3.5 w-3.5 shrink-0" style={L} /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" style={L} />}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm" style={L}>{tp.subjectName ?? "—"}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3 text-sm" style={{ color: "var(--adm-text-2)" }}>{tp.subjectName ?? "—"}</td>
+                    <td className="px-5 py-3">
                       <div className="flex flex-wrap gap-1">
                         {tp.instances.map(inst => (
-                          <span key={inst.topicKey} className="text-[11px] font-medium px-1.5 py-0.5 rounded-[5px]"
-                            style={{ backgroundColor: "#f6f9ff", color: "#445b7a", border: "1px solid rgba(1,41,112,0.1)", fontFamily: "var(--font-poppins)" }}>
+                          <span key={inst.topicKey} className="adm-pill" style={SMALL_PILL}>
                             {inst.groupName ?? (inst.groupId ? `#${inst.groupId}` : "—")}
                           </span>
                         ))}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3">
                       <div className="flex flex-wrap gap-1">
-                        <ContentBadge active={tp.has.video} icon={Video} label={t("adminOqituvchilar.contentKindVideo")} color="#ea580c" />
-                        <ContentBadge active={tp.has.audio} icon={Music} label={t("adminOqituvchilar.contentKindAudio")} color="#15803d" />
-                        <ContentBadge active={tp.has.theory} icon={FileText} label={t("adminOqituvchilar.contentKindTheory")} color="#7c3aed" />
-                        <ContentBadge active={tp.has.qollanma} icon={Layers} label={t("adminOqituvchilar.contentKindQollanma")} color="#0891b2" />
-                        <ContentBadge active={tp.has.youtube} icon={Clapperboard} label={t("adminOqituvchilar.contentKindYoutube")} color="#dc2626" />
-                        <ContentBadge active={tp.has.test} icon={CheckCircle2} label={t("adminOqituvchilar.itemTypeTest")} color="#b91c1c" />
-                        <ContentBadge active={tp.has.assignment} icon={ClipboardList} label={t("adminOqituvchilar.itemTypeAssignment")} color="#d97706" />
+                        <ContentBadge active={tp.has.video} icon={Video} label={t("adminOqituvchilar.contentKindVideo")} color={C.video} />
+                        <ContentBadge active={tp.has.audio} icon={Music} label={t("adminOqituvchilar.contentKindAudio")} color={C.audio} />
+                        <ContentBadge active={tp.has.theory} icon={FileText} label={t("adminOqituvchilar.contentKindTheory")} color={C.group} />
+                        <ContentBadge active={tp.has.qollanma} icon={Layers} label={t("adminOqituvchilar.contentKindQollanma")} color={C.qollanma} />
+                        <ContentBadge active={tp.has.youtube} icon={Clapperboard} label={t("adminOqituvchilar.contentKindYoutube")} color={C.test} />
+                        <ContentBadge active={tp.has.test} icon={CheckCircle2} label={t("adminOqituvchilar.itemTypeTest")} color={C.test} />
+                        <ContentBadge active={tp.has.assignment} icon={ClipboardList} label={t("adminOqituvchilar.itemTypeAssignment")} color={C.assignment} />
                       </div>
                     </td>
                   </tr>
                   {isOpen && (
                     <tr>
-                      <td colSpan={5} style={{ backgroundColor: "#f8fbff" }}>
+                      <td colSpan={5} style={{ backgroundColor: "color-mix(in srgb, var(--adm-accent) 4%, var(--adm-card))", borderBottom: "1px solid var(--adm-border)" }}>
                         {/* Har bir guruhdagi nusxaning materiallari alohida */}
                         {tp.instances.map(inst => (
-                          <div key={inst.topicKey} style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                          <div key={inst.topicKey} className="pt-3" style={{ borderBottom: "1px solid var(--adm-border)" }}>
                             {tp.instances.length > 1 && (
-                              <p className="px-5 pt-3 text-xs font-semibold" style={T}>
+                              <p className="px-5 pb-2 text-xs font-semibold" style={T}>
                                 {inst.groupName ?? (inst.groupId ? `#${inst.groupId}` : "—")}
                               </p>
                             )}
@@ -347,10 +369,36 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
   )
 }
 
+function StatCard({ icon: Icon, color, value, label, loading }: {
+  icon: React.ElementType
+  color: string
+  value: number
+  label: string
+  loading: boolean
+}) {
+  return (
+    <div className="adm-card flex items-center gap-3 p-3.5 sm:gap-3.5 sm:p-5" style={{ "--c": color } as CssVars}>
+      <div className="adm-icon-soft flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12">
+        <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+      </div>
+      <div className="min-w-0">
+        {loading ? (
+          <div className="my-1 h-6 w-14 animate-pulse rounded-md bg-[var(--adm-grid)]" />
+        ) : (
+          <div className="text-2xl font-bold leading-tight text-[var(--adm-text)]" style={{ fontVariantNumeric: "tabular-nums" }}>{value}</div>
+        )}
+        <div className="truncate text-sm text-[var(--adm-text-2)]">{label}</div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminOqituvchilar() {
   const { t } = useLanguage()
   const [stats, setStats] = useState<AdminTeacherStat[]>([])
   const [loading, setLoading] = useState(true)
+  // Birinchi yuklash tugaguncha skelet; keyingi yangilashlarda jadval xira tortadi xolos
+  const [loaded, setLoaded] = useState(false)
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(0)
@@ -358,7 +406,7 @@ export default function AdminOqituvchilar() {
   const load = useCallback(() => {
     setLoading(true)
     adminApi.teacherStats()
-      .then(res => setStats(res.data ?? []))
+      .then(res => { setStats(res.data ?? []); setLoaded(true) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -372,6 +420,16 @@ export default function AdminOqituvchilar() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const curPage = Math.min(page, pageCount - 1)
   const slice = filtered.slice(curPage * PAGE_SIZE, (curPage + 1) * PAGE_SIZE)
+
+  const totals = useMemo(() => stats.reduce(
+    (acc, s) => ({
+      topics: acc.topics + s.mavzular,
+      videos: acc.videos + s.videolar,
+      tests: acc.tests + s.testlar,
+      meetings: acc.meetings + s.meetingCount,
+    }),
+    { topics: 0, videos: 0, tests: 0, meetings: 0 }
+  ), [stats])
 
   function patchRow(hemisId: string, patch: Partial<RowState>) {
     setRows(prev => ({ ...prev, [hemisId]: { ...prev[hemisId], ...patch } }))
@@ -438,263 +496,239 @@ export default function AdminOqituvchilar() {
     }
   }
 
+  const headCls = "px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--adm-muted)] whitespace-nowrap"
+
   return (
-    <div className="flex flex-col gap-5 p-4 sm:p-8">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[28px] font-semibold" style={T}>{t("adminOqituvchilar.exportPdfTitle")}</h1>
-          <p className="text-sm mt-1" style={L}>{t("adminOqituvchilar.pageSubtitle")}</p>
+    <motion.div initial="hidden" animate="visible" variants={pageVariants} className="flex flex-col gap-5 px-4 pb-8 pt-2 sm:px-8">
+      {/* Sarlavha */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="adm-icon-soft flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl" style={{ "--c": "var(--adm-accent)" } as CssVars}>
+            <GraduationCap className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-[26px] font-bold leading-tight text-[var(--adm-text)] sm:text-[30px]">{t("adminOqituvchilar.exportPdfTitle")}</h1>
+            <p className="mt-0.5 text-sm text-[var(--adm-muted)]">{t("adminOqituvchilar.pageSubtitle")}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={doExportExcel} disabled={!filtered.length}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors hover:bg-[#f0fdf4] disabled:opacity-50"
-            style={{ border: "1px solid rgba(21,128,61,0.25)", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-            <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+            className="adm-btn-outline flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold disabled:opacity-50"
+            style={{ color: "var(--adm-up)", boxShadow: "var(--adm-shadow)" }}>
+            <FileSpreadsheet className="h-4 w-4" /> Excel
           </button>
           <button onClick={doExportPdf} disabled={!filtered.length}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors hover:bg-[#fef2f2] disabled:opacity-50"
-            style={{ border: "1px solid rgba(185,28,28,0.25)", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-            <FileText className="w-3.5 h-3.5" /> PDF
+            className="adm-btn-outline flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold disabled:opacity-50"
+            style={{ color: "var(--role-admin)", boxShadow: "var(--adm-shadow)" }}>
+            <FileText className="h-4 w-4" /> PDF
           </button>
           <button onClick={doSendTelegram} disabled={!filtered.length || sendingTelegram}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-[8px] transition-colors hover:bg-[#eff6ff] disabled:opacity-50"
-            style={{ border: "1px solid rgba(14,88,168,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            {sendingTelegram ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Telegram
+            className="adm-btn-outline flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold disabled:opacity-50"
+            style={{ boxShadow: "var(--adm-shadow)" }}>
+            {sendingTelegram ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Telegram
           </button>
           <button onClick={load}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px] hover:bg-blue-100 transition-colors"
-            style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            <RefreshCw className="w-3.5 h-3.5" /> {t("adminOqituvchilar.refreshBtn")}
+            className="adm-btn-outline flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+            style={{ boxShadow: "var(--adm-shadow)" }}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> {t("adminOqituvchilar.refreshBtn")}
           </button>
         </div>
       </div>
 
       {telegramMsg && (
-        <div className="text-xs px-3 py-2 rounded-[6px] w-fit"
-          style={{ backgroundColor: telegramMsg.ok ? "#f0fdf4" : "#fef2f2", color: telegramMsg.ok ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+        <span className="adm-pill w-fit" style={{ "--c": telegramMsg.ok ? "var(--adm-up)" : "var(--role-admin)" } as CssVars}>
           {telegramMsg.text}
-        </div>
+        </span>
       )}
 
-      {/* Search bar */}
-      <div className="bg-white rounded-[10px] px-4 py-3 flex items-center gap-3"
-        style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 1px 4px rgba(1,41,112,0.05)" }}>
-        <Search className="w-4 h-4 shrink-0" style={{ color: "#7293b9" }} />
-        <input value={search} onChange={e => { setSearch(e.target.value); setPage(0) }}
-          placeholder={t("adminOqituvchilar.searchPlaceholder")} className="flex-1 min-w-0 text-sm outline-none bg-transparent"
-          style={{ color: "#012970", fontFamily: "var(--font-poppins)" }} />
-        {search && (
-          <button onClick={() => { setSearch(""); setPage(0) }}
-            className="text-xs px-2 py-0.5 rounded-full hover:bg-slate-200 transition-colors"
-            style={{ backgroundColor: "#f1f5f9", color: "#7293b9" }}>×</button>
-        )}
-        <span className="text-xs shrink-0" style={L}>{t("adminOqituvchilar.teacherCountLabel", { n: filtered.length })}</span>
+      {/* Qisqa xulosa */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+        <StatCard icon={GraduationCap} color="var(--role-teacher)" value={stats.length} label={t("adminOqituvchilar.exportSheetName")} loading={!loaded} />
+        <StatCard icon={BookOpen} color={C.topic} value={totals.topics} label={t("adminOqituvchilar.reportColTopics")} loading={!loaded} />
+        <StatCard icon={Video} color={C.video} value={totals.videos} label={t("adminOqituvchilar.reportColVideos")} loading={!loaded} />
+        <StatCard icon={FileText} color={C.test} value={totals.tests} label={t("adminOqituvchilar.reportColTests")} loading={!loaded} />
+        <StatCard icon={CalendarCheck} color={C.meeting} value={totals.meetings} label={t("adminOqituvchilar.reportColMeetings")} loading={!loaded} />
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <RefreshCw className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-[12px] p-12 text-center" style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
-          <TrendingUp className="w-8 h-8 mx-auto mb-3" style={{ color: "#d8e6f7" }} />
+      {/* Qidiruv */}
+      <div className="adm-card flex flex-wrap items-center gap-3 p-3 sm:p-4">
+        <label className="adm-input flex h-10 w-full items-center gap-2 rounded-xl px-3 sm:w-[360px]">
+          <Search className="h-4 w-4 shrink-0 text-[var(--adm-muted)]" />
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(0) }}
+            placeholder={t("adminOqituvchilar.searchPlaceholder")}
+            className="w-full min-w-0 bg-transparent text-sm text-[var(--adm-text)] outline-none placeholder:text-[var(--adm-muted)]" />
+          {search && (
+            <button onClick={() => { setSearch(""); setPage(0) }} aria-label="×"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--adm-grid)] text-[var(--adm-muted)]">
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </label>
+        <span className="adm-pill ml-auto" style={{ "--c": "var(--adm-accent)" } as CssVars}>
+          {t("adminOqituvchilar.teacherCountLabel", { n: filtered.length })}
+        </span>
+      </div>
+
+      {/* Jadval */}
+      {loaded && filtered.length === 0 ? (
+        <div className="adm-card p-12 text-center">
+          <TrendingUp className="mx-auto mb-3 h-9 w-9 opacity-40" style={L} />
           <p className="text-sm" style={L}>{search ? t("adminOqituvchilar.noSearchResults", { search }) : t("adminOqituvchilar.noTeacherData")}</p>
         </div>
       ) : (
-        <>
-          {/* Teacher table */}
-          <div className="bg-white rounded-[12px] overflow-hidden"
-            style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0 0 8px rgba(1,41,112,0.05)" }}>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px]">
-                <thead>
-                  <tr style={{ backgroundColor: "#f6faff", borderBottom: "2px solid rgba(1,41,112,0.08)" }}>
-                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider w-12" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.colIndex")}</th>
-                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColTeacher")}</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColTopics")}</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColVideos")}</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColAudios")}</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColTests")}</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColGroups")}</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColMeetings")}</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColStudents")}</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>{t("adminOqituvchilar.reportColLastActivity")}</th>
-                    <th className="w-10" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {slice.map((s, i) => {
-                    const rowState = rows[s.hemisId]
-                    const isExpanded = rowState?.expanded ?? false
-                    const globalIdx = curPage * PAGE_SIZE + i + 1
+        <div className="adm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1080px]">
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--adm-border)" }}>
+                  <th className={`${headCls} w-12 text-left`}>{t("adminOqituvchilar.colIndex")}</th>
+                  <th className={`${headCls} text-left`}>{t("adminOqituvchilar.reportColTeacher")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColTopics")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColVideos")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColAudios")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColTests")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColGroups")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColMeetings")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColStudents")}</th>
+                  <th className={`${headCls} text-left`}>{t("adminOqituvchilar.reportColLastActivity")}</th>
+                  <th className="w-10" />
+                </tr>
+              </thead>
+              <tbody className={`transition-opacity ${loading && loaded ? "opacity-50" : ""}`}>
+                {!loaded ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid var(--adm-border)" }}>
+                      <td colSpan={11} className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 animate-pulse rounded-full bg-[var(--adm-grid)]" />
+                          <div className="flex flex-1 flex-col gap-1.5">
+                            <div className="h-3 w-1/4 animate-pulse rounded bg-[var(--adm-grid)]" />
+                            <div className="h-2.5 w-16 animate-pulse rounded bg-[var(--adm-grid)]" />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : slice.map((s, i) => {
+                  const rowState = rows[s.hemisId]
+                  const isExpanded = rowState?.expanded ?? false
+                  const globalIdx = curPage * PAGE_SIZE + i + 1
 
-                    return (
-                      <React.Fragment key={s.hemisId}>
-                        {/* Teacher row */}
-                        <tr className="hover:bg-[#f6f9ff]/80 transition-colors cursor-pointer"
-                          style={{ borderBottom: isExpanded ? "none" : "1px solid rgba(1,41,112,0.05)" }}
-                          onClick={() => toggleExpand(s.hemisId)}>
+                  return (
+                    <React.Fragment key={s.hemisId}>
+                      {/* O'qituvchi qatori */}
+                      <tr className="adm-hover-row cursor-pointer" data-active={isExpanded}
+                        style={{ borderBottom: isExpanded ? "none" : "1px solid var(--adm-border)" }}
+                        onClick={() => toggleExpand(s.hemisId)}>
 
-                          <td className="px-4 py-3.5">
-                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-                              style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                              {globalIdx}
-                            </div>
-                          </td>
+                        <td className="px-4 py-3 text-xs text-[var(--adm-muted)]" style={{ fontVariantNumeric: "tabular-nums" }}>{globalIdx}</td>
 
-                          <td className="px-4 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                                style={{ backgroundColor: "#f0f5ff", border: "1.5px solid rgba(14,88,168,0.15)" }}>
-                                <User className="w-4 h-4" style={{ color: "#0e58a8" }} />
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <PersonAvatar kind="employee" id={s.hemisId} className="h-10 w-10 rounded-full"
+                              style={{ boxShadow: "0 0 0 2px var(--adm-card), 0 0 0 3px var(--adm-border-strong)" }}>
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                                style={{ background: "linear-gradient(135deg, #34d399, #059669)" }}>
+                                {s.fullName.trim().charAt(0).toUpperCase() || "?"}
                               </div>
-                              <div>
-                                <div className="text-sm font-semibold" style={T}>{s.fullName}</div>
-                                <div className="text-[11px] mt-0.5" style={L}>{t("adminOqituvchilar.idLabel", { id: s.hemisId })}</div>
-                              </div>
+                            </PersonAvatar>
+                            <div className="min-w-0">
+                              <div className="max-w-[300px] truncate text-[13px] font-semibold text-[var(--adm-text)]">{s.fullName}</div>
+                              <div className="mt-0.5 text-[11px] text-[var(--adm-muted)]">{t("adminOqituvchilar.idLabel", { id: s.hemisId })}</div>
                             </div>
-                          </td>
+                          </div>
+                        </td>
 
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="inline-flex items-center justify-center min-w-[32px] h-7 px-2.5 rounded-[6px] text-sm font-bold"
-                              style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                              {s.mavzular}
-                            </span>
-                            {/* Mashg'ulot turi bo'yicha bo'linish */}
-                            <div className="mt-1 flex flex-col items-center gap-0.5 text-[10px] leading-tight" style={L}>
-                              {[
-                                { n: s.mavzuMaruza, label: lectureLabel, color: "#0e58a8" },
-                                { n: s.mavzuAmaliyot, label: practiceLabel, color: "#15803d" },
-                                { n: s.mavzuMustaqil, label: independentLabel, color: "#7c3aed" },
-                                { n: s.mavzuTurisiz, label: t("adminOqituvchilar.topicTypeNone"), color: "#b45309" },
-                              ].filter(x => x.n > 0).map(x => (
-                                <span key={x.label} className="whitespace-nowrap">
-                                  <span className="font-semibold" style={{ color: x.color }}>{x.n}</span> {x.label}
-                                </span>
-                              ))}
+                        <td className="px-4 py-3 text-center">
+                          <span className="text-base font-bold text-[var(--adm-text)]" style={{ fontVariantNumeric: "tabular-nums" }}>{s.mavzular}</span>
+                          {/* Mashg'ulot turi bo'yicha bo'linish */}
+                          <div className="mt-0.5 flex flex-col items-center gap-0.5 text-[10px] leading-tight" style={L}>
+                            {[
+                              { n: s.mavzuMaruza, label: lectureLabel, color: "var(--adm-accent)" },
+                              { n: s.mavzuAmaliyot, label: practiceLabel, color: "var(--adm-up)" },
+                              { n: s.mavzuMustaqil, label: independentLabel, color: "var(--role-dean)" },
+                              { n: s.mavzuTurisiz, label: t("adminOqituvchilar.topicTypeNone"), color: "var(--role-pending)" },
+                            ].filter(x => x.n > 0).map(x => (
+                              <span key={x.label} className="whitespace-nowrap">
+                                <span className="font-semibold" style={{ color: x.color }}>{x.n}</span> {x.label}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-3 text-center"><MetricPill icon={Video} value={s.videolar} color={C.video} /></td>
+                        <td className="px-4 py-3 text-center"><MetricPill icon={Music} value={s.audiolar} color={C.audio} /></td>
+                        <td className="px-4 py-3 text-center"><MetricPill icon={FileText} value={s.testlar} color={C.test} /></td>
+                        <td className="px-4 py-3 text-center"><MetricPill icon={Users} value={s.guruhlar} color={C.group} /></td>
+                        <td className="px-4 py-3 text-center"><MetricPill icon={CalendarCheck} value={s.meetingCount} color={C.meeting} /></td>
+                        <td className="px-4 py-3 text-center"><MetricPill icon={CheckCircle2} value={s.studentsCompleted} color={C.students} /></td>
+
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span className="inline-flex items-center gap-1.5 text-[13px] text-[var(--adm-text-2)]" style={{ fontVariantNumeric: "tabular-nums" }}>
+                            <Clock className="h-3.5 w-3.5 text-[var(--adm-muted)]" />{fmtDate(s.lastSeen)}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3 text-center text-[var(--adm-muted)]">
+                          {isExpanded
+                            ? <ChevronUp className="mx-auto h-4 w-4" />
+                            : <ChevronDown className="mx-auto h-4 w-4" />}
+                        </td>
+                      </tr>
+
+                      {/* Ochilgan mavzular ro'yxati */}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={11} className="p-0"
+                            style={{ borderBottom: "1px solid var(--adm-border)", backgroundColor: "color-mix(in srgb, var(--adm-accent) 3%, var(--adm-card))" }}>
+                            <div style={{ borderTop: "1px solid var(--adm-border)" }}>
+                              <TeacherTopicsTable
+                                teacherHemisId={s.hemisId}
+                                state={rowState}
+                                onChange={patch => patchRow(s.hemisId, patch)}
+                              />
                             </div>
-                          </td>
-
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full"
-                              style={{ backgroundColor: "#fff7ed", color: "#ea580c", fontFamily: "var(--font-poppins)" }}>
-                              <Video className="w-3 h-3" />{s.videolar}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full"
-                              style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                              <Music className="w-3 h-3" />{s.audiolar}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full"
-                              style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                              <FileText className="w-3 h-3" />{s.testlar}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full"
-                              style={{ backgroundColor: "#faf5ff", color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
-                              <Users className="w-3 h-3" />{s.guruhlar}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full"
-                              style={{ backgroundColor: "#f5f3ff", color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
-                              <CalendarCheck className="w-3 h-3" />{s.meetingCount}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full"
-                              style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                              <CheckCircle2 className="w-3 h-3" />{s.studentsCompleted}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3.5 text-center">
-                            <span className="inline-flex items-center gap-1 text-xs"
-                              style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                              <Clock className="w-3 h-3" />{fmtDate(s.lastSeen)}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3.5 text-center" style={{ color: "#7293b9" }}>
-                            {isExpanded
-                              ? <ChevronUp className="w-4 h-4 mx-auto" />
-                              : <ChevronDown className="w-4 h-4 mx-auto" />}
                           </td>
                         </tr>
-
-                        {/* Expanded topic list */}
-                        {isExpanded && (
-                          <tr>
-                            <td colSpan={11} className="p-0"
-                              style={{ borderBottom: "1px solid rgba(1,41,112,0.06)", backgroundColor: "#f8fbff" }}>
-                              <div style={{ borderTop: "2px solid rgba(1,41,112,0.07)" }}>
-                                <TeacherTopicsTable
-                                  teacherHemisId={s.hemisId}
-                                  state={rowState}
-                                  onChange={patch => patchRow(s.hemisId, patch)}
-                                />
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
 
-          {/* Pagination */}
-          {pageCount > 1 && (
-            <div className="bg-white rounded-[10px] px-5 py-3 flex items-center justify-between flex-wrap gap-3"
-              style={{ border: "1px solid rgba(1,41,112,0.08)" }}>
+          {/* Sahifalash */}
+          {loaded && pageCount > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3" style={{ borderTop: "1px solid var(--adm-border)" }}>
               <span className="text-xs" style={L}>
                 {t("adminOqituvchilar.paginationRange", { start: curPage * PAGE_SIZE + 1, end: Math.min((curPage + 1) * PAGE_SIZE, filtered.length), total: filtered.length })}
               </span>
-              <div className="flex items-center gap-1.5 overflow-x-auto max-w-full">
+              <div className="flex max-w-full items-center gap-1.5 overflow-x-auto">
                 <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={curPage === 0}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] text-xs font-medium disabled:opacity-30 hover:bg-blue-50 transition-colors"
-                  style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  <ChevronLeft className="w-3.5 h-3.5" /> {t("adminOqituvchilar.prevBtn")}
+                  className="adm-btn-outline flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold disabled:opacity-40">
+                  <ChevronLeft className="h-3.5 w-3.5" /> {t("adminOqituvchilar.prevBtn")}
                 </button>
 
                 {pageNums(curPage, pageCount).map((n, idx) =>
                   n === "..." ? <span key={`e${idx}`} className="px-1 text-xs" style={L}>…</span> : (
                     <button key={n} onClick={() => setPage(n as number)}
-                      className="w-8 h-8 rounded-[6px] text-xs font-medium transition-colors"
-                      style={{
-                        backgroundColor: n === curPage ? "#0e58a8" : "transparent",
-                        color: n === curPage ? "#fff" : "#7293b9",
-                        fontFamily: "var(--font-poppins)",
-                        border: n === curPage ? "none" : "1px solid rgba(1,41,112,0.1)",
-                      }}>
+                      data-active={n === curPage}
+                      className="adm-chip h-8 w-8 rounded-lg text-xs font-semibold">
                       {(n as number) + 1}
                     </button>
                   )
                 )}
 
                 <button onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))} disabled={curPage >= pageCount - 1}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] text-xs font-medium disabled:opacity-30 hover:bg-blue-50 transition-colors"
-                  style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  {t("adminOqituvchilar.nextBtn")} <ChevronRight className="w-3.5 h-3.5" />
+                  className="adm-btn-outline flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold disabled:opacity-40">
+                  {t("adminOqituvchilar.nextBtn")} <ChevronRight className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
-    </div>
+    </motion.div>
   )
 }

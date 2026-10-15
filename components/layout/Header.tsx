@@ -9,6 +9,7 @@ import { useApi } from "@/hooks/useApi"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
 import { NotificationBell } from "@/components/layout/NotificationBell"
+import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
 interface HeaderProps { onMenuClick?: () => void }
@@ -104,9 +105,11 @@ export function Header({ onMenuClick }: HeaderProps) {
         <div ref={ref} className="relative">
           <button type="button" onClick={() => setOpen((o) => !o)}
             className="flex items-center gap-2 transition-opacity hover:opacity-80">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--lms-button)] text-sm font-semibold text-white">
-              {initial}
-            </div>
+            <PersonAvatar me className="h-8 w-8 rounded-full">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--lms-button)] text-sm font-semibold text-white">
+                {initial}
+              </div>
+            </PersonAvatar>
             <span className="text-sm font-normal text-[var(--lms-primary)]" style={{ fontFamily: "var(--font-poppins)" }}>
               {displayName}
             </span>
