@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef, useState, useCallback } from "react"
-import { CheckCircle2, Music, Video, Play, Pause, Maximize } from "lucide-react"
+import { useRef, useState, useCallback, useEffect } from "react"
+import { CheckCircle2, Music, Video, Play, Pause, Maximize, Loader2, RotateCcw, AlertTriangle } from "lucide-react"
 import { teachingApi, type ContentProgress } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
@@ -21,6 +21,21 @@ const SAVE_INTERVAL_MS = 5000
 // bo'lsak ham, dasturiy (masalan konsol orqali currentTime=) yoki klaviatura
 // bilan oldinga siljitishga qarshi ikkinchi qatlam himoya sifatida qoladi.
 const SEEK_TOLERANCE_S = 1.5
+
+/** Qayta urinish uchun: joriy (yangilangan bo'lishi mumkin) token va keshni
+    chetlab o'tuvchi parametr bilan — eskirgan token ham "video ochilmadi"
+    xatosiga olib keladi (server 401 qaytaradi, brauzer uni media deb o'qiy olmaydi). */
+function freshSrc(src: string): string {
+  try {
+    const url = new URL(src, window.location.href)
+    const token = localStorage.getItem("lms_token")
+    if (token) url.searchParams.set("token", token)
+    url.searchParams.set("_r", String(Date.now()))
+    return url.toString()
+  } catch {
+    return src
+  }
+}
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00"
@@ -44,6 +59,40 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
   const [currentTime, setCurrentTime] = useState(0)
   const [maxReached, setMaxReached] = useState(maxReachedRef.current)
   const [duration, setDuration] = useState(durationRef.current ?? 0)
+  // Yuklash holati: xato bo'lsa qora ekran o'rniga xabar va "Qayta urinish"
+  const [mediaSrc, setMediaSrc] = useState(src)
+  const [loadError, setLoadError] = useState(false)
+  const [buffering, setBuffering] = useState(false)
+  const [prevSrc, setPrevSrc] = useState(src)
+  if (src !== prevSrc) {
+    setPrevSrc(src)
+    setMediaSrc(src)
+    setLoadError(false)
+  }
+
+  function handleError() {
+    setLoadError(true)
+    setBuffering(false)
+    setPlaying(false)
+  }
+
+  // Hodisalar React ulanishidan oldin sodir bo'lgan bo'lishi mumkin (sahifa
+  // serverda chizilsa yoki kesh tez javob bersa) — o'tkazib yuborilgan
+  // loadedmetadata/error'ni element holatidan tiklaymiz.
+  useEffect(() => {
+    const el = mediaRef.current
+    if (!el) return
+    if (el.error) handleError()
+    else if (el.readyState >= 1 && !durationRef.current) handleLoadedMetadata()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Qayta yuklangach shu joydan davom etish uchun
+  const resumeRef = useRef<number | null>(null)
+  function retryLoad() {
+    resumeRef.current = currentTime > 0 ? currentTime : null
+    setLoadError(false)
+    setMediaSrc(freshSrc(src))
+  }
 
   function save(immediate: boolean) {
     const now = Date.now()
@@ -58,9 +107,12 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
   function handleLoadedMetadata() {
     const el = mediaRef.current
     if (!el) return
+    setLoadError(false)
+    setBuffering(false)
     durationRef.current = el.duration
     setDuration(el.duration)
-    const resumeAt = initialProgress?.maxPositionSeconds ?? 0
+    const resumeAt = Math.min(resumeRef.current ?? initialProgress?.maxPositionSeconds ?? 0, maxReachedRef.current || Infinity)
+    resumeRef.current = null
     if (resumeAt > 0 && resumeAt < el.duration - 1) {
       el.currentTime = resumeAt
       setCurrentTime(resumeAt)
@@ -104,6 +156,12 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
   function handlePlay() {
     setPlaying(true)
   }
+  function handleWaiting() {
+    setBuffering(true)
+  }
+  function handlePlaying() {
+    setBuffering(false)
+  }
 
   function handleEnded() {
     const el = mediaRef.current
@@ -128,6 +186,7 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
   function togglePlay() {
     const el = mediaRef.current
     if (!el) return
+    if (loadError) { retryLoad(); return }
     if (el.paused) el.play().catch(() => {})
     else el.pause()
   }
@@ -213,18 +272,34 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
             playsInline
             preload="metadata"
             className="aspect-video w-full"
-            src={src}
+            src={mediaSrc}
             onLoadedMetadata={handleLoadedMetadata}
             onTimeUpdate={handleTimeUpdate}
             onPlay={handlePlay}
             onPause={handlePause}
             onEnded={handleEnded}
+            onError={handleError}
+            onWaiting={handleWaiting}
+            onPlaying={handlePlaying}
+            onCanPlay={handlePlaying}
             onKeyDown={handleKeyDown}
             onContextMenu={e => e.preventDefault()}
             controlsList="nodownload noremoteplayback"
             disablePictureInPicture
           />
-          {!playing && (
+          {loadError ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-4 text-center" style={{ backgroundColor: "rgba(1,20,60,0.88)" }}>
+              <AlertTriangle className="w-7 h-7" style={{ color: "#fbbf24" }} />
+              <p className="text-xs sm:text-sm text-white max-w-sm" style={{ fontFamily: "var(--font-poppins)" }}>{t("lockedMedia.loadError")}</p>
+              <span className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                <RotateCcw className="w-3.5 h-3.5" /> {t("lockedMedia.retry")}
+              </span>
+            </div>
+          ) : buffering ? (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <Loader2 className="w-9 h-9 animate-spin text-white/90" />
+            </div>
+          ) : !playing && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(1,41,112,0.55)" }}>
                 <Play className="w-6 h-6 text-white" />
@@ -236,12 +311,16 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
         <audio
           ref={mediaRef as React.RefObject<HTMLAudioElement>}
           preload="metadata"
-          src={src}
+          src={mediaSrc}
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
           onPlay={handlePlay}
           onPause={handlePause}
           onEnded={handleEnded}
+          onError={handleError}
+          onWaiting={handleWaiting}
+          onPlaying={handlePlaying}
+          onCanPlay={handlePlaying}
           onKeyDown={handleKeyDown}
           onContextMenu={e => e.preventDefault()}
           controlsList="nodownload noremoteplayback"
@@ -254,7 +333,9 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
         <button onClick={togglePlay}
           className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:opacity-80"
           style={{ backgroundColor: "#0e58a8" }}>
-          {playing ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white" />}
+          {loadError ? <RotateCcw className="w-4 h-4 text-white" />
+            : buffering && playing ? <Loader2 className="w-4 h-4 text-white animate-spin" />
+            : playing ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white" />}
         </button>
 
         <span className="text-xs shrink-0 tabular-nums" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
@@ -290,6 +371,11 @@ export function LockedMediaPlayer({ contentId, src, kind, title, initialProgress
         )}
       </div>
 
+      {loadError && kind === "audio" && (
+        <p className="text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+          {t("lockedMedia.loadError")}
+        </p>
+      )}
       <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
         {t("lockedMedia.noSkip")}
       </p>
