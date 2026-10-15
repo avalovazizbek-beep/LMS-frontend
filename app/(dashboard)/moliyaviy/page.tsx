@@ -1,11 +1,13 @@
 "use client"
 
-import { Wallet, CreditCard, FileText, TrendingDown, CheckCircle2, ExternalLink } from "lucide-react"
+import Link from "next/link"
+import { Wallet, CreditCard, FileText, TrendingDown, CheckCircle2, ExternalLink, Info, ChevronRight } from "lucide-react"
 import { hemisApi, HemisContractItem } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { intlLocale, tr } from "@/lib/i18n/translations"
+import { sortContractsNewestFirst, fmtHemisStamp } from "@/lib/contracts"
 
 function formatSum(val?: string | number): string {
   if (val == null) return "—"
@@ -17,8 +19,11 @@ function formatSum(val?: string | number): string {
 export default function Moliyaviy() {
   const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => hemisApi.contractList())
-  const contracts: HemisContractItem[] = (data?.data as any)?.items ?? []
-  const contract = contracts[0]?._data
+  // Joriy o'quv yili shartnomasi (HEMIS ro'yxatida eng eskisi birinchi keladi)
+  const contracts: HemisContractItem[] = sortContractsNewestFirst((data?.data as any)?.items ?? [])
+  const current = contracts[0]
+  const contract = current?._data
+  const updatedAt = fmtHemisStamp(current?.updated_at)
 
   const totalAmount = Number(contract?.contractAmount ?? 0)
   const paidAmount  = Number(contract?.paidAmount ?? 0)
@@ -48,6 +53,15 @@ export default function Moliyaviy() {
       <div>
         <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.pageTitle")}</h1>
         <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.pageSubtitle")}</p>
+      </div>
+
+      {/* To'lov HEMIS'ga qanday va qachon tushishi — "to'ladim, ko'rinmayapti" savoliga javob */}
+      <div className="rounded-[10px] p-4 flex items-start gap-3" style={{ backgroundColor: "#f0f7ff", border: "1px solid rgba(14,88,168,0.15)" }}>
+        <Info className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#0e58a8" }} />
+        <div className="text-xs leading-5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+          <p>{t("moliyaviy.syncNote")}</p>
+          {updatedAt && <p className="mt-1 font-semibold">{t("moliyaviy.updatedAt", { date: updatedAt })}</p>}
+        </div>
       </div>
 
       {/* Stats */}
@@ -95,6 +109,7 @@ export default function Moliyaviy() {
             <h2 className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.contractInfo")}</h2>
           </div>
           {[
+            ...(contract.eduYear ? [{ label: t("moliyaviy.eduYear"), value: contract.eduYear }] : []),
             { label: t("moliyaviy.contractNo"),   value: contract.contractNumber },
             { label: t("moliyaviy.status"),       value: contract.status },
             { label: t("moliyaviy.stage"),        value: contract.course },
@@ -102,14 +117,22 @@ export default function Moliyaviy() {
             { label: t("moliyaviy.totalSum"),     value: formatSum(contract.contractAmount) },
             { label: t("moliyaviy.paid"),         value: formatSum(contract.paidAmount) },
             { label: t("moliyaviy.debt"),         value: formatSum(contract.debitAmount) },
-            { label: t("moliyaviy.lastPayment"),  value: contract.lastPaymentDate ?? "—" },
+            { label: t("moliyaviy.lastPayment"),  value: contract.lastPaymentDate || "—" },
           ].map(item => (
             <div key={item.label} className="flex items-center justify-between py-2.5"
               style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
               <span className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{item.label}</span>
-              <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{item.value ?? "—"}</span>
+              <span className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{item.value || "—"}</span>
             </div>
           ))}
+          {contracts.length > 1 && (
+            <Link href="/talaba-malumotlari/shartnomalar"
+              className="flex items-center justify-between gap-2 mt-3 text-xs font-medium hover:underline"
+              style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              {t("moliyaviy.otherContracts", { n: contracts.length - 1 })}
+              <ChevronRight className="w-4 h-4 shrink-0" />
+            </Link>
+          )}
         </div>
 
         {/* Actions */}
@@ -139,7 +162,7 @@ export default function Moliyaviy() {
               {t("moliyaviy.paymentDeadline")}
             </p>
             <p className="text-sm font-semibold" style={{ color: debtAmount > 0 ? "#ef4444" : "#22c55e", fontFamily: "var(--font-poppins)" }}>
-              {contract.lastPaymentDate ?? "—"}
+              {contract.lastPaymentDate || "—"}
             </p>
             <p className="text-xs mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
               {debtAmount > 0 ? t("moliyaviy.remaining", { sum: formatSum(debtAmount) }) : t("moliyaviy.fullyPaid")}

@@ -6,6 +6,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { intlLocale, tr } from "@/lib/i18n/translations"
+import { sortContractsNewestFirst, fmtHemisStamp } from "@/lib/contracts"
 
 function formatSum(val?: string | number): string {
   if (val == null) return "—"
@@ -17,7 +18,8 @@ function formatSum(val?: string | number): string {
 export default function Shartnomalar() {
   const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => hemisApi.contractList())
-  const contracts: HemisContractItem[] = (data?.data as any)?.items ?? []
+  // Eng yangi (joriy) shartnoma tepada — HEMIS eng eskisini birinchi beradi
+  const contracts: HemisContractItem[] = sortContractsNewestFirst((data?.data as any)?.items ?? [])
 
   if (loading) return <Loading />
   if (error)   return <ApiError message={error} onRetry={refetch} />
@@ -35,9 +37,11 @@ export default function Shartnomalar() {
             <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
             <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("shartnomalar.notFound")}</p>
           </div>
-        ) : contracts.map(c => {
+        ) : contracts.map((c, idx) => {
           const d = c._data
           if (!d) return null
+          const isCurrent = idx === 0 && contracts.length > 1
+          const updatedAt = fmtHemisStamp(c.updated_at)
           const totalAmount = Number(d.contractAmount ?? 0)
           const paidAmount  = Number(d.paidAmount ?? 0)
           const debtAmount  = Number(d.debitAmount ?? 0)
@@ -56,14 +60,22 @@ export default function Shartnomalar() {
                       {t("shartnomalar.contractNo", { n: d.contractNumber ?? "—" })}
                     </p>
                     <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      {d.course} · {d.speciality}
+                      {[d.eduYear, d.course, d.speciality].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                 </div>
-                <span className="px-3 py-1 rounded-full text-xs font-semibold shrink-0"
-                  style={{ backgroundColor: "#f0fff4", color: "#22c55e", border: "1px solid #22c55e" }}>
-                  {d.status ?? "—"}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                  {isCurrent && (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold"
+                      style={{ backgroundColor: "#0e58a8", color: "#fff" }}>
+                      {t("shartnomalar.current")}
+                    </span>
+                  )}
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold"
+                    style={{ backgroundColor: "#f0fff4", color: "#22c55e", border: "1px solid #22c55e" }}>
+                    {d.status ?? "—"}
+                  </span>
+                </div>
               </div>
 
               {/* Stats row */}
@@ -90,7 +102,7 @@ export default function Shartnomalar() {
               </div>
               <div className="flex justify-between text-xs mb-4" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                 <span>{t("shartnomalar.paidPercent", { pct })}</span>
-                <span>{t("shartnomalar.deadline", { date: d.lastPaymentDate ?? "—" })}</span>
+                <span>{updatedAt ? t("moliyaviy.updatedAt", { date: updatedAt }) : t("shartnomalar.deadline", { date: d.lastPaymentDate || "—" })}</span>
               </div>
 
               {/* Actions */}
