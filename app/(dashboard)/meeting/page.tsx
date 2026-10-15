@@ -35,6 +35,9 @@ import {
   PictureInPicture2,
   ChevronsRight,
   ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
   MonitorUp,
   MoreHorizontal,
   PhoneOff,
@@ -56,7 +59,7 @@ import {
   type Meeting, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup,
   type AttendanceRosterItem, type AttendanceStatus, type ZoomConnectionStatus, type GoogleMeetConnectionStatus,
 } from "@/lib/api"
-import { MeetingMediaClient, TEACHER_CAMERA_LAYERS, type ProducerSummary } from "@/lib/meetingMediasoup"
+import { MeetingMediaClient, STUDENT_LIVE_LAYERS, TEACHER_CAMERA_LAYERS, type ProducerSummary } from "@/lib/meetingMediasoup"
 import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
 import MeetingFaceAttendanceTracker from "@/components/meeting/MeetingFaceAttendanceTracker"
@@ -128,6 +131,8 @@ type ParticipantSnapshot = {
   image: string
   at: number
 }
+// O'qituvchi bir vaqtda jonli ko'radigan talabalar soni (bitta sahifa)
+const LIVE_PAGE_SIZE = 12
 const SNAPSHOT_INTERVAL_MS = 20_000
 const SNAPSHOT_WIDTH = 192
 
@@ -165,6 +170,7 @@ type ChatMessage = {
 
 type RemotePeer = {
   socketId: string
+  userId?: number | null
   name: string
   role: string
   groupId?: number | null
@@ -2243,9 +2249,11 @@ function CallStage({
   localGroupId,
   groupIdToName,
   snapshots,
+  liveCameraOn,
   isRecording,
   recordingError,
   recordingUploading,
+  onWatchStudents,
   onToggleMic,
   onToggleCamera,
   onToggleScreen,
@@ -2286,6 +2294,8 @@ function CallStage({
   groupIdToName: Map<number, string>
   /** userId → oxirgi surat (faqat o'qituvchi uchun keladi) */
   snapshots: Record<number, ParticipantSnapshot>
+  /** Talaba: o'qituvchi hozir kamerangizni jonli ko'ryapti */
+  liveCameraOn: boolean
   isRecording: boolean
   recordingError: string | null
   recordingUploading: boolean
@@ -2294,6 +2304,8 @@ function CallStage({
   onToggleScreen: () => void
   onToggleRecording: () => void
   onMuteAll: () => void
+  /** O'qituvchi: jonli ko'rmoqchi bo'lgan talabalar (userId) */
+  onWatchStudents: (userIds: number[]) => void
   onSelectVideo: (videoId: ActiveVideoId) => void
   onTogglePanel: (panel: CallPanel) => void
   onChatInputChange: (value: string) => void
@@ -2590,9 +2602,43 @@ function CallStage({
     ? remoteStreams.filter(r => r.socketId !== activeRemote.socketId)
     : remoteStreams
 
+  // O'qituvchi talabalarni jonli ko'rishi: "Kameralar" ochiq bo'lsa — shu
+  // sahifadagi talabalar, yana asosiy ekrandagi talaba. Faqat shular past
+  // sifatli video yuboradi va uni faqat o'qituvchi oladi (server cheklaydi).
+  const [livePage, setLivePage] = useState(0)
+  const liveStudents = useMemo(
+    () => liveParticipants
+      .filter(p => p.role === "student" && p.userId)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [liveParticipants]
+  )
+  const livePageCount = Math.max(1, Math.ceil(liveStudents.length / LIVE_PAGE_SIZE))
+  const safeLivePage = Math.min(livePage, livePageCount - 1)
+  const livePageStudents = liveStudents.slice(safeLivePage * LIVE_PAGE_SIZE, (safeLivePage + 1) * LIVE_PAGE_SIZE)
+  const camerasOpen = isTeacher && mobilePanelOpen && activePanel === "cameras"
+  const stageStudentId = activeRemote?.role === "student" ? (activeRemote.userId ?? null) : null
+  const watchKey = (() => {
+    if (!isTeacher) return ""
+    const ids = new Set<number>()
+    if (camerasOpen) livePageStudents.forEach(p => { if (p.userId) ids.add(p.userId) })
+    if (stageStudentId) ids.add(stageStudentId)
+    return Array.from(ids).sort((a, b) => a - b).join(",")
+  })()
+  useEffect(() => {
+    if (!isTeacher) return
+    onWatchStudents(watchKey ? watchKey.split(",").map(Number) : [])
+    // Faqat ro'yxat o'zgarganda (onWatchStudents har renderda yangi funksiya)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchKey, isTeacher])
+  const remoteByUserId = useMemo(() => {
+    const map = new Map<number, RemoteStream>()
+    for (const remote of remoteStreams) if (remote.userId) map.set(remote.userId, remote)
+    return map
+  }, [remoteStreams])
+
   const participantCount = liveParticipants.length + invitedParticipants.length
   const panelCount = activePanel === "chat" ? chatMessages.length
-    : activePanel === "cameras" ? Object.keys(snapshots).length + remoteStreams.length
+    : activePanel === "cameras" ? liveStudents.length
     : participantCount
 
   const handleChatSubmit = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); onSendChat() }
@@ -2681,6 +2727,12 @@ function CallStage({
                 </div>
 
                 <div className="flex flex-col items-center gap-2">
+                  {liveCameraOn && !isTeacher && cameraEnabled && (
+                    <div className="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white" style={{ fontFamily: "var(--font-poppins)" }}>
+                      <Eye className="h-3.5 w-3.5 text-[#1cc2dc]" />
+                      {t("meetingPage.watchedBadge")}
+                    </div>
+                  )}
                   {(isRecording || recordingUploading) && (
                     <div className="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white" style={{ fontFamily: "var(--font-poppins)" }}>
                       {isRecording && (
@@ -2827,7 +2879,8 @@ function CallStage({
           <aside className={cn(
             "flex-col bg-white p-4",
             mobilePanelOpen
-              ? "fixed inset-0 z-40 flex xl:inset-y-4 xl:right-4 xl:left-auto xl:w-[360px] xl:rounded-[8px] xl:border xl:border-[#d8e6f7] xl:shadow-[0_20px_48px_rgba(1,10,25,0.28)]"
+              ? cn("fixed inset-0 z-40 flex xl:inset-y-4 xl:right-4 xl:left-auto xl:rounded-[8px] xl:border xl:border-[#d8e6f7] xl:shadow-[0_20px_48px_rgba(1,10,25,0.28)]",
+                  camerasOpen ? "xl:w-[640px]" : "xl:w-[360px]")
               : "hidden"
           )}>
             <div className="shrink-0">
@@ -2909,34 +2962,93 @@ function CallStage({
               </div>
             )}
 
-            {/* Cameras (teacher only) */}
+            {/* Cameras (teacher only) — shu sahifadagi talabalar jonli */}
             {activePanel === "cameras" && isTeacher && (
               <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 space-y-3">
-                {/* Talabalar kamerasi serverga video bo'lib kelmaydi — har ~20 s surat */}
                 <p className="text-[11px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-                  {t("meetingPage.snapshotsHint")}
+                  {t("meetingPage.liveViewHint")}
                 </p>
-                {Object.keys(snapshots).length > 0 && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.values(snapshots)
-                      .sort((a, b) => a.fullName.localeCompare(b.fullName))
-                      .map(snap => (
-                        <div key={snap.userId} className="overflow-hidden rounded-[8px] border border-[#d8e6f7] bg-[#10192a]">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={snap.image} alt="" className="aspect-[4/3] w-full object-cover" />
-                          <div className="bg-white px-2 py-1">
-                            <p className="truncate text-[11px] font-medium text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>{snap.fullName}</p>
-                            <p className="text-[10px] text-[#7293b9]">{t("meetingPage.snapshotAgo", { n: Math.max(0, Math.round((Date.now() - snap.at) / 1000)) })}</p>
-                          </div>
-                        </div>
-                      ))}
+                {liveStudents.length > LIVE_PAGE_SIZE && (
+                  <div className="flex items-center justify-between gap-2">
+                    <button type="button" onClick={() => setLivePage(Math.max(0, safeLivePage - 1))} disabled={safeLivePage === 0}
+                      aria-label={t("darsJadvali.prev")}
+                      className="grid h-8 w-8 place-items-center rounded-full border border-[#d8e6f7] text-[#0e58a8] hover:bg-[#f0f5ff] disabled:opacity-40">
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="text-xs font-medium text-[#104475]" style={{ fontFamily: "var(--font-poppins)" }}>
+                      {safeLivePage * LIVE_PAGE_SIZE + 1}–{Math.min(liveStudents.length, (safeLivePage + 1) * LIVE_PAGE_SIZE)} / {liveStudents.length}
+                    </span>
+                    <button type="button" onClick={() => setLivePage(Math.min(livePageCount - 1, safeLivePage + 1))} disabled={safeLivePage >= livePageCount - 1}
+                      aria-label={t("meetingPage.nextPage")}
+                      className="grid h-8 w-8 place-items-center rounded-full border border-[#d8e6f7] text-[#0e58a8] hover:bg-[#f0f5ff] disabled:opacity-40">
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
                   </div>
                 )}
-                {remoteStreams.length === 0 && Object.keys(snapshots).length === 0 ? (
+                {livePageStudents.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {livePageStudents.map(person => {
+                      const remote = person.userId ? remoteByUserId.get(person.userId) : undefined
+                      const roleLine = roleLabel(person.role, person.groupId, groupIdToName.get(person.groupId ?? 0))
+                      const live = Boolean(remote?.stream.getVideoTracks().some(track => track.readyState === "live")) && remote?.cameraEnabled !== false
+                      if (remote && live) {
+                        return (
+                          <ParticipantTile
+                            key={person.userId}
+                            stream={remote.stream}
+                            name={person.name}
+                            roleLine={roleLine}
+                            isActive={activeVideoId === remote.socketId}
+                            micOn={remote.micEnabled}
+                            camOn={remote.cameraEnabled}
+                            onClick={() => onSelectVideo(remote.socketId)}
+                          />
+                        )
+                      }
+                      const snap = person.userId ? snapshots[person.userId] : undefined
+                      const camOff = remote?.cameraEnabled === false
+                      return (
+                        <button
+                          key={person.userId}
+                          type="button"
+                          onClick={() => { if (remote) onSelectVideo(remote.socketId) }}
+                          className={cn(
+                            "relative overflow-hidden rounded-[10px] border-2 border-transparent focus:outline-none",
+                            remote ? "hover:border-[#1cc2dc]/60" : "cursor-default"
+                          )}
+                          style={{ backgroundColor: "#10192a", aspectRatio: "16/9" }}
+                        >
+                          {snap && !camOff ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={snap.image} alt="" className="h-full w-full object-cover opacity-80" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#111827] to-[#1e3a8a]">
+                              <Avatar name={person.name} size="lg" />
+                            </div>
+                          )}
+                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                          {!camOff && (
+                            <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60">
+                              <Loader2 className="h-3 w-3 animate-spin text-white/80" />
+                            </span>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 px-3 py-2">
+                            <p className="truncate text-left text-sm font-semibold text-white drop-shadow" style={{ fontFamily: "var(--font-poppins)" }}>{person.name}</p>
+                            <p className="truncate text-left text-[11px] text-white/70" style={{ fontFamily: "var(--font-poppins)" }}>
+                              {camOff ? t("meetingPage.cameraOffShort") : roleLine}
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
                   <p className="rounded-[8px] border border-dashed border-[#b7cce8] px-3 py-8 text-center text-sm text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
-                    {t("meetingPage.noCamerasYet")}
+                    {t("meetingPage.noStudentsYet")}
                   </p>
-                ) : remoteStreams.map(remote => (
+                )}
+                {/* O'qituvchilar / ekran ulashayotganlar */}
+                {remoteStreams.filter(remote => remote.role !== "student" || remote.screenSharing).map(remote => (
                   <ParticipantTile
                     key={remote.socketId}
                     stream={remote.stream}
@@ -3165,6 +3277,11 @@ export default function MeetingPage() {
   const [socketError, setSocketError] = useState<string | null>(null)
   const [socketParticipants, setSocketParticipants] = useState<Participant[]>([])
   const [snapshots, setSnapshots] = useState<Record<number, ParticipantSnapshot>>({})
+  // Talaba: o'qituvchi kamerani jonli ko'ryaptimi (server "meeting:liveCamera")
+  const liveCameraRef = useRef(false)
+  const [liveCameraOn, setLiveCameraOn] = useState(false)
+  // O'qituvchi: oxirgi ko'rish ro'yxati (qayta ulanganda serverga qayta yuboriladi)
+  const watchIdsRef = useRef<number[]>([])
   const [remoteStreams, setRemoteStreams] = useState<RemoteStream[]>([])
   const [activeVideoId, setActiveVideoId] = useState<ActiveVideoId>("self")
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -3312,6 +3429,20 @@ export default function MeetingPage() {
     refreshRemoteStreams()
   }
 
+  // Bitta producer yopildi (masalan o'qituvchi talabani ko'rishni to'xtatdi) —
+  // faqat o'sha trek olinadi, ovoz va boshqa treklar qoladi
+  const removeRemoteTrack = (socketId: string, track: MediaStreamTrack) => {
+    const existing = remoteStreamsRef.current.get(socketId)
+    if (!existing) return
+    existing.stream.removeTrack(track)
+    if (!existing.stream.getTracks().length) {
+      closePeerConnection(socketId)
+      return
+    }
+    remoteStreamsRef.current.set(socketId, { ...existing })
+    refreshRemoteStreams()
+  }
+
   const closePeerConnections = () => {
     mediaClientRef.current?.closeAll()
     mediaClientRef.current = null
@@ -3331,8 +3462,10 @@ export default function MeetingPage() {
     const isScreen = Boolean(videoTrack && videoTrack === screenStreamRef.current?.getVideoTracks()[0])
     // Ma'ruza rejimi: talaba kamerasi serverga yuborilmaydi (o'z qurilmasida
     // qoladi — Face ID davomati va o'qituvchiga suratlar shu yerdan). Faqat
-    // ruxsat berilgan ekran ulashish yuboriladi. Server ham buni tekshiradi.
-    void mediaClientRef.current?.setCameraTrack(isTeacher || isScreen ? videoTrack : null, isScreen)
+    // ruxsat berilgan ekran ulashish yuboriladi, kamera esa o'qituvchi
+    // ko'rayotgan paytda (past sifatda, faqat o'qituvchiga). Server ham tekshiradi.
+    const studentLive = !isTeacher && !isScreen && liveCameraRef.current && Boolean(videoTrack?.enabled)
+    void mediaClientRef.current?.setCameraTrack(isTeacher || isScreen || studentLive ? videoTrack : null, isScreen)
     void mediaClientRef.current?.setMicTrack(audioTrack)
     feedRecordingMix()
   }
@@ -3462,6 +3595,9 @@ export default function MeetingPage() {
     setScreenMedia(null)
     setSocketParticipants([])
     setSnapshots({})
+    liveCameraRef.current = false
+    setLiveCameraOn(false)
+    watchIdsRef.current = []
     setRemoteStreams([])
     setActiveVideoId("self")
     setChatMessages([])
@@ -3720,7 +3856,7 @@ export default function MeetingPage() {
 
     socketRef.current = socket
 
-    const onRemoteTrack = (peer: { socketId: string; name: string; role: string; groupId: number | null }, track: MediaStreamTrack) => {
+    const onRemoteTrack = (peer: { socketId: string; userId: number; name: string; role: string; groupId: number | null }, track: MediaStreamTrack) => {
       const existing = remoteStreamsRef.current.get(peer.socketId)
       const stream = existing?.stream ?? new MediaStream()
       stream.getTracks().filter((t) => t.kind === track.kind).forEach((t) => stream.removeTrack(t))
@@ -3728,6 +3864,7 @@ export default function MeetingPage() {
       const peerState = remotePeerStatesRef.current.get(peer.socketId) ?? {}
       remoteStreamsRef.current.set(peer.socketId, {
         socketId: peer.socketId,
+        userId: peer.userId || null,
         name: peer.name,
         role: peer.role,
         groupId: peer.groupId,
@@ -3758,11 +3895,12 @@ export default function MeetingPage() {
           mediaClientRef.current = new MeetingMediaClient(
             socket,
             onRemoteTrack,
-            (socketId) => closePeerConnection(socketId),
+            (socketId, track) => removeRemoteTrack(socketId, track),
             socketNumber(recordValue(body.user).id) ?? null,
-            // O'qituvchi kamerasi simulcast bilan (2 qatlam) — talabalar
-            // kamerasi umuman yuborilmaydi
-            TEACHER_CAMERA_LAYERS
+            // O'qituvchi kamerasi simulcast bilan (2 qatlam); talaba kamerasi
+            // faqat o'qituvchi ko'rayotganda, bitta past qatlam
+            isTeacher ? TEACHER_CAMERA_LAYERS : STUDENT_LIVE_LAYERS,
+            isTeacher ? "teacher" : "student"
           )
         }
         mediaClientRef.current
@@ -3775,6 +3913,8 @@ export default function MeetingPage() {
           })
           .catch((issue) => setSocketError(issue instanceof Error ? issue.message : tr("meetingPage.mediaConnectError")))
       }
+      // Qayta ulanishda server ko'rish ro'yxatini unutgan — qayta yuboramiz
+      if (isTeacher && watchIdsRef.current.length) socket.emit("meeting:watch", { userIds: watchIdsRef.current })
     }
 
     socket.on("connect", () => {
@@ -3788,6 +3928,8 @@ export default function MeetingPage() {
       // track out of one a <video> element already has assigned.
       closePeerConnections()
       pendingProducersRef.current = []
+      liveCameraRef.current = false
+      setLiveCameraOn(false)
       socket.emit("meeting:join", {}, (ack: unknown) => {
         const record = recordValue(ack)
         if (record.success === false) {
@@ -3815,6 +3957,12 @@ export default function MeetingPage() {
           : items.filter((item) => item.name !== next.name)
         return [...filtered, next]
       })
+    })
+    socket.on("meeting:liveCamera", (payload: unknown) => {
+      const on = Boolean(recordValue(payload).on)
+      liveCameraRef.current = on
+      setLiveCameraOn(on)
+      syncPeerMediaTracks()
     })
     socket.on("meeting:snapshots", (payload: unknown) => {
       const list = Array.isArray(payload) ? payload.map(normalizeSnapshot).filter((x): x is ParticipantSnapshot => !!x) : []
@@ -4010,6 +4158,7 @@ export default function MeetingPage() {
             localGroupId={localGroupId}
             groupIdToName={groupIdToName}
             snapshots={snapshots}
+            liveCameraOn={liveCameraOn}
             isRecording={isRecording}
             recordingError={recordingError}
             recordingUploading={recordingUploading}
@@ -4018,6 +4167,10 @@ export default function MeetingPage() {
             onToggleScreen={toggleScreenShare}
             onToggleRecording={toggleRecording}
             onMuteAll={() => socketRef.current?.emit("meeting:muteAll")}
+            onWatchStudents={(userIds) => {
+              watchIdsRef.current = userIds
+              socketRef.current?.emit("meeting:watch", { userIds })
+            }}
             onSelectVideo={setActiveVideoId}
             onTogglePanel={setActivePanel}
             onChatInputChange={setChatInput}

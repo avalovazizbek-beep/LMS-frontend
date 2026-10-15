@@ -19,6 +19,7 @@ export interface ProducerSummary {
 export interface VideoEncodingProfile {
   maxBitrate: number
   scaleResolutionDownBy?: number
+  maxFramerate?: number
 }
 
 /* Simulcast: video 2 sifatda yuboriladi, server (mediasoup) har bir
@@ -32,6 +33,12 @@ export const TEACHER_CAMERA_LAYERS: VideoEncodingProfile[] = [
   { maxBitrate: 600_000, scaleResolutionDownBy: 1.5 },
 ]
 
+// Talaba kamerasi — faqat o'qituvchi ko'rayotganda va faqat o'qituvchiga:
+// ~320×180, 15 kadr/s, ~0,2 Mbit/s (mobil internetda ham bemalol)
+export const STUDENT_LIVE_LAYERS: VideoEncodingProfile[] = [
+  { maxBitrate: 200_000, scaleResolutionDownBy: 4, maxFramerate: 15 },
+]
+
 // Ekran ulashish: yarim o'lcham va to'liq o'lcham (slayd matni tiniq).
 // Slayd o'zgarmaganda haqiqiy bitreyt maksimaldan ancha past bo'ladi.
 const SCREEN_LAYERS: VideoEncodingProfile[] = [
@@ -41,6 +48,7 @@ const SCREEN_LAYERS: VideoEncodingProfile[] = [
 
 export interface RemotePeerIdentity {
   socketId: string
+  userId: number
   name: string
   role: string
   groupId: number | null
@@ -69,6 +77,9 @@ export class MeetingMediaClient {
   private consumers = new Map<string, MediasoupClientTypes.Consumer>()
   private consumerIdByProducerId = new Map<string, string>()
   private consumedProducerIds = new Set<string>()
+  // Consume tugamasdan yopilgan producer'lar (o'qituvchi sahifani tez
+  // almashtirsa) — kech kelgan trek "osilib" qolmasin
+  private closedProducerIds = new Set<string>()
   // The server emits "meeting:joined" both as the meeting:join ack AND as a
   // separate event — every join triggers TWO calls to init() with the same
   // data. Without this guard, both calls race past the "transport already
@@ -80,13 +91,15 @@ export class MeetingMediaClient {
   constructor(
     private socket: Socket,
     private onTrack: (peer: RemotePeerIdentity, track: MediaStreamTrack) => void,
-    private onProducerClosed: (socketId: string) => void,
+    private onProducerClosed: (socketId: string, track: MediaStreamTrack) => void,
     /** O'z foydalanuvchi ID'si — boshqa tab/qurilmadagi O'Z ulanishimiz
      *  producer'ini qabul qilmaslik uchun (aks holda odam o'z ovozini
      *  kechikish bilan qayta eshitadi). */
     private selfUserId: number | null = null,
     /** Kamera sifat qatlamlari (simulcast) */
-    private cameraLayers: VideoEncodingProfile[] = TEACHER_CAMERA_LAYERS
+    private cameraLayers: VideoEncodingProfile[] = TEACHER_CAMERA_LAYERS,
+    /** O'z roli — talaba boshqa talabalarning kamerasini olmaydi */
+    private selfRole: string | null = null
   ) {}
 
   // "camera" producer'i kamera va ekran ulashish o'rtasida trek almashtiradi —
@@ -129,7 +142,9 @@ export class MeetingMediaClient {
         source: (appData as { source?: ProducerSource } | undefined)?.source,
       })
         .then(({ id }) => callback({ id }))
-        .catch(errback)
+        // Server rad etdi (masalan o'qituvchi ko'rishni to'xtatgan) — bu
+        // simulcast muammosi emas, bitta qatlam bilan qayta urinilmaydi
+        .catch((issue: Error) => errback(Object.assign(issue, { fromServer: true })))
     })
 
     this.sendTransport = transport
@@ -164,6 +179,7 @@ export class MeetingMediaClient {
       const layer = layers[Math.min(layers.length - 1, idx + offset)]
       encoding.maxBitrate = layer.maxBitrate
       encoding.scaleResolutionDownBy = layer.scaleResolutionDownBy ?? 1
+      if (layer.maxFramerate) encoding.maxFramerate = layer.maxFramerate
     })
     await sender.setParameters(params)
   }
@@ -176,27 +192,47 @@ export class MeetingMediaClient {
      replaceTrack qiladi. */
   private produceChains = new Map<ProducerSource, Promise<void>>()
 
-  private produceTrack(source: ProducerSource, track: MediaStreamTrack | null, layers?: VideoEncodingProfile[]): Promise<void> {
+  /**
+   * opts.tag     Serverga aytiladigan manba turi. Berilsa (talaba), tur
+   *              o'zgarganda producer yopilib yangisi ochiladi, trek
+   *              yo'qolganda esa pauza emas — yopiladi (kamera faqat
+   *              o'qituvchiga, ekran hammaga boradi).
+   * opts.reapply Mavjud producer'ga `layers`ni qayta qo'llash
+   */
+  private produceTrack(
+    source: ProducerSource,
+    track: MediaStreamTrack | null,
+    opts: { layers?: VideoEncodingProfile[]; reapply?: boolean; tag?: ProducerSource } = {}
+  ): Promise<void> {
     const previous = this.produceChains.get(source) ?? Promise.resolve()
-    const next = previous.catch(() => undefined).then(() => this.produceTrackNow(source, track, layers))
+    const next = previous.catch(() => undefined).then(() => this.produceTrackNow(source, track, opts))
     this.produceChains.set(source, next)
     return next
   }
 
-  private async produceTrackNow(source: ProducerSource, track: MediaStreamTrack | null, layers?: VideoEncodingProfile[]): Promise<void> {
+  private async produceTrackNow(
+    source: ProducerSource,
+    track: MediaStreamTrack | null,
+    { layers, reapply = false, tag }: { layers?: VideoEncodingProfile[]; reapply?: boolean; tag?: ProducerSource }
+  ): Promise<void> {
     if (!this.device.loaded) return
-    const existing = this.producers.get(source)
+    let existing = this.producers.get(source)
     if (!track) {
       // Video manbasi yo'q (masalan talaba ekran ulashishni to'xtatdi) — eski
-      // trek "osilib" qolmasin, producer pauza qilinadi
-      if (existing && !existing.paused) this.pauseProducer(source)
+      // trek "osilib" qolmasin, producer pauza qilinadi (talaba — yopiladi)
+      if (existing && tag) this.closeProducer(source)
+      else if (existing && !existing.paused) this.pauseProducer(source)
       return
+    }
+    if (existing && tag && (existing.appData as { source?: ProducerSource }).source !== tag) {
+      this.closeProducer(source)
+      existing = undefined
     }
     try {
       if (existing) {
         await existing.replaceTrack({ track })
         if (existing.paused) this.resumeProducer(source)
-        if (layers) await this.applyLayers(existing, layers).catch(() => undefined)
+        if (layers && reapply) await this.applyLayers(existing, layers).catch(() => undefined)
         return
       }
       const transport = await this.ensureSendTransport()
@@ -208,7 +244,7 @@ export class MeetingMediaClient {
       // with "InvalidStateError: track ended".
       const base = {
         track,
-        appData: { source },
+        appData: { source: tag ?? source },
         stopTracks: false,
         // Nutq uchun: mono, jimlikda paket yubormaslik (DTX — fon shovqini
         // uzatilmaydi), yo'qolgan paketlarni tiklash (FEC).
@@ -223,6 +259,7 @@ export class MeetingMediaClient {
             codecOptions: { videoGoogleStartBitrate: 600 },
           })
         } catch (simulcastIssue) {
+          if ((simulcastIssue as { fromServer?: boolean }).fromServer) throw simulcastIssue
           // Brauzer simulcast'ni qo'llamasa — bitta (yuqori) qatlam bilan
           console.warn("[mediasoup] simulcast ishlamadi, bitta qatlam:", simulcastIssue)
           producer = await transport.produce({
@@ -237,7 +274,9 @@ export class MeetingMediaClient {
       console.log(`[mediasoup] producing ${source} (${producer.kind}), id=${producer.id}, layers=${producer.rtpParameters.encodings?.length ?? 1}`)
       this.producers.set(source, producer)
     } catch (issue) {
-      console.error("[mediasoup] Failed to produce %s:", source, issue)
+      // Server rad etishi kutilgan holat (o'qituvchi shu orada ko'rishni to'xtatdi)
+      if ((issue as { fromServer?: boolean }).fromServer) console.warn("[mediasoup] %s rad etildi:", source, (issue as Error).message)
+      else console.error("[mediasoup] Failed to produce %s:", source, issue)
     }
   }
 
@@ -245,12 +284,25 @@ export class MeetingMediaClient {
     if (track && isScreen) track.contentHint = "detail"   // matn/slayd: o'lcham saqlanadi, kadr soni kamayadi
     const changed = this.cameraProfileIsScreen !== isScreen
     if (track) this.cameraProfileIsScreen = isScreen
-    const exists = this.producers.has("camera")
-    await this.produceTrack("camera", track, !exists || changed ? (isScreen ? SCREEN_LAYERS : this.cameraLayers) : undefined)
+    await this.produceTrack("camera", track, {
+      layers: isScreen ? SCREEN_LAYERS : this.cameraLayers,
+      reapply: changed,
+      // Talaba: kamera (faqat o'qituvchiga) va ekran (hammaga) — alohida producer
+      tag: this.selfRole === "student" ? (isScreen ? "screen" : "camera") : undefined,
+    })
   }
 
   async setMicTrack(track: MediaStreamTrack | null): Promise<void> {
     await this.produceTrack("mic", track)
+  }
+
+  private closeProducer(source: ProducerSource): void {
+    const producer = this.producers.get(source)
+    if (!producer) return
+    this.producers.delete(source)
+    producer.close()
+    void emitAck(this.socket, "mediasoup:closeProducer", { producerId: producer.id })
+      .catch((issue) => console.error("[mediasoup] closeProducer failed:", issue))
   }
 
   pauseProducer(source: ProducerSource): void {
@@ -278,9 +330,12 @@ export class MeetingMediaClient {
   // hear every other participant, not just the teacher.
   private async maybeConsume(producer: ProducerSummary): Promise<void> {
     if (this.selfUserId && producer.userId && producer.userId === this.selfUserId) return
-    if (this.consumedProducerIds.has(producer.producerId)) return
+    // Talabalarning jonli kamerasi faqat o'qituvchi uchun (server ham buni tekshiradi)
+    if (this.selfRole === "student" && producer.role === "student" && producer.kind === "video" && producer.source === "camera") return
+    if (this.consumedProducerIds.has(producer.producerId) || this.closedProducerIds.has(producer.producerId)) return
     this.consumedProducerIds.add(producer.producerId)
 
+    let consumer: MediasoupClientTypes.Consumer | null = null
     try {
       const transport = await this.ensureRecvTransport()
       const data = await emitAck<{ id: string; producerId: string; kind: "audio" | "video"; rtpParameters: MediasoupClientTypes.RtpParameters }>(
@@ -288,7 +343,7 @@ export class MeetingMediaClient {
         "mediasoup:consume",
         { transportId: transport.id, producerId: producer.producerId, rtpCapabilities: this.device.recvRtpCapabilities }
       )
-      const consumer = await transport.consume({
+      consumer = await transport.consume({
         id: data.id,
         producerId: data.producerId,
         kind: data.kind,
@@ -296,28 +351,39 @@ export class MeetingMediaClient {
       })
       this.consumers.set(consumer.id, consumer)
       this.consumerIdByProducerId.set(producer.producerId, consumer.id)
+      if (this.closedProducerIds.has(producer.producerId)) throw new Error("producer allaqachon yopilgan")
       await emitAck(this.socket, "mediasoup:resumeConsumer", { consumerId: consumer.id })
+      // Shu orada producer yopilgan bo'lsa (handleProducerClosed allaqachon tozaladi)
+      if (consumer.closed) return
       console.log(`[mediasoup] consuming ${producer.kind} from ${producer.fullName} (${producer.source}), track.readyState=${consumer.track.readyState}`)
 
       this.onTrack(
-        { socketId: producer.socketId, name: producer.fullName, role: producer.role, groupId: producer.groupId },
+        { socketId: producer.socketId, userId: producer.userId, name: producer.fullName, role: producer.role, groupId: producer.groupId },
         consumer.track
       )
     } catch (issue) {
       console.error("[mediasoup] Failed to consume producer %s (%s/%s):", producer.producerId, producer.kind, producer.source, issue)
       this.consumedProducerIds.delete(producer.producerId)
+      if (consumer && !consumer.closed) {
+        consumer.close()
+        this.consumers.delete(consumer.id)
+        this.consumerIdByProducerId.delete(producer.producerId)
+      }
     }
   }
 
   handleProducerClosed(socketId: string, producerId: string): void {
-    const consumerId = this.consumerIdByProducerId.get(producerId)
-    if (consumerId) {
-      this.consumers.get(consumerId)?.close()
-      this.consumers.delete(consumerId)
-      this.consumerIdByProducerId.delete(producerId)
-    }
+    this.closedProducerIds.add(producerId)
     this.consumedProducerIds.delete(producerId)
-    this.onProducerClosed(socketId)
+    const consumerId = this.consumerIdByProducerId.get(producerId)
+    if (!consumerId) return
+    const consumer = this.consumers.get(consumerId)
+    this.consumers.delete(consumerId)
+    this.consumerIdByProducerId.delete(producerId)
+    if (!consumer) return
+    const track = consumer.track
+    consumer.close()
+    this.onProducerClosed(socketId, track)
   }
 
   closeAll(): void {
@@ -328,6 +394,7 @@ export class MeetingMediaClient {
     this.consumers.clear()
     this.consumerIdByProducerId.clear()
     this.consumedProducerIds.clear()
+    this.closedProducerIds.clear()
     this.cameraProfileIsScreen = null
     this.sendTransport?.close()
     this.recvTransport?.close()
