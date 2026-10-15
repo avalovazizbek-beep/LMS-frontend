@@ -37,6 +37,8 @@ import {
   ChevronsLeft,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Eye,
   MonitorUp,
   MoreHorizontal,
@@ -133,6 +135,9 @@ type ParticipantSnapshot = {
 }
 // O'qituvchi bir vaqtda jonli ko'radigan talabalar soni (bitta sahifa)
 const LIVE_PAGE_SIZE = 12
+// Asosiy ekran tepasidagi talabalar qatori: kartochka eni (px), oraliq
+const STRIP_TILE_WIDTH = 168
+const STRIP_GAP = 8
 const SNAPSHOT_INTERVAL_MS = 20_000
 const SNAPSHOT_WIDTH = 192
 
@@ -918,12 +923,6 @@ function LiveVideoPreview({
         className="h-full min-h-[360px] w-full object-cover"
         style={mirror ? { transform: "scaleX(-1)" } : undefined}
       />
-      <div
-        className="absolute left-5 top-5 rounded-full bg-white/95 px-4 py-2 text-xs font-medium text-[#012970] shadow-[0_6px_18px_rgba(1,41,112,0.16)]"
-        style={{ fontFamily: "var(--font-poppins)" }}
-      >
-        {screenSharing ? t("meetingPage.screenSharing") : t("meetingPage.cameraOn")}
-      </div>
     </div>
   )
 }
@@ -2221,6 +2220,79 @@ function gridCols(count: number): string {
   return "grid-cols-4"
 }
 
+/** Talaba kartochkasi (o'qituvchi uchun): jonli video bo'lsa — video, aks
+ *  holda oxirgi surat yoki avatar. Panel to'ri va ekran tepasidagi qatorda. */
+function StudentLiveTile({
+  name, roleLine, remote, snapshot, active, compact, onSelect,
+}: {
+  name: string
+  roleLine: string
+  remote?: RemoteStream
+  snapshot?: string
+  active: boolean
+  compact?: boolean
+  onSelect?: () => void
+}) {
+  const { t } = useLanguage()
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const camOff = remote?.cameraEnabled === false
+  const live = !camOff && Boolean(remote?.stream.getVideoTracks().some(track => track.readyState === "live"))
+  const stream = remote?.stream ?? null
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.srcObject = live ? stream : null
+    if (live) void video.play().catch(() => undefined)
+    return () => { video.srcObject = null }
+  }, [live, stream])
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "relative block w-full overflow-hidden rounded-[10px] border-2 transition-all focus:outline-none",
+        active ? "border-[#1cc2dc] shadow-[0_0_0_3px_rgba(28,194,220,0.3)]" : "border-transparent",
+        onSelect ? "hover:border-[#1cc2dc]/60" : "cursor-default"
+      )}
+      style={{ backgroundColor: "#10192a", aspectRatio: "16/9" }}
+    >
+      {live ? (
+        <video ref={videoRef} playsInline autoPlay muted className="h-full w-full object-cover" />
+      ) : snapshot && !camOff ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={snapshot} alt="" className="h-full w-full object-cover opacity-80" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#111827] to-[#1e3a8a]">
+          <Avatar name={name} size={compact ? "sm" : "lg"} />
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+      <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+        {remote && !live && !camOff && (
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60">
+            <Loader2 className="h-3 w-3 animate-spin text-white/80" />
+          </span>
+        )}
+        {remote?.micEnabled === false && (
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60">
+            <MicOff className="h-3 w-3 text-red-400" />
+          </span>
+        )}
+      </div>
+      <div className={cn("absolute bottom-0 left-0 right-0", compact ? "px-2 py-1" : "px-3 py-2")}>
+        <p className={cn("truncate text-left font-semibold text-white drop-shadow", compact ? "text-[11px]" : "text-sm")} style={{ fontFamily: "var(--font-poppins)" }}>{name}</p>
+        {!compact && (
+          <p className="truncate text-left text-[11px] text-white/70" style={{ fontFamily: "var(--font-poppins)" }}>
+            {camOff ? t("meetingPage.cameraOffShort") : roleLine}
+          </p>
+        )}
+      </div>
+    </button>
+  )
+}
+
 function CallStage({
   meeting,
   sourceLabel,
@@ -2623,9 +2695,38 @@ function CallStage({
   const livePageStudents = liveStudents.slice(safeLivePage * LIVE_PAGE_SIZE, (safeLivePage + 1) * LIVE_PAGE_SIZE)
   const camerasOpen = isTeacher && mobilePanelOpen && activePanel === "cameras"
   const stageStudentId = activeRemote?.role === "student" ? (activeRemote.userId ?? null) : null
+
+  // Ekran tepasidagi talabalar qatori (o'qituvchi): sig'adigan kartochkalar
+  // soni ekran eniga qarab, ‹ › bilan varaqlanadi, yashirsa — video to'xtaydi
+  const [stripHidden, setStripHidden] = useState(false)
+  const [stripPage, setStripPage] = useState(0)
+  const [stripSize, setStripSize] = useState(6)
+  const stripRef = useRef<HTMLDivElement | null>(null)
+  const stripShown = isTeacher && !stripHidden && liveStudents.length > 0
+  useEffect(() => {
+    const el = stripRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const measure = () => {
+      const width = el.clientWidth - 2 * 40   // ‹ › tugmalari
+      setStripSize(Math.max(1, Math.min(LIVE_PAGE_SIZE, Math.floor((width + STRIP_GAP) / (STRIP_TILE_WIDTH + STRIP_GAP)))))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [stripShown])
+  const stripPageCount = Math.max(1, Math.ceil(liveStudents.length / stripSize))
+  const safeStripPage = Math.min(stripPage, stripPageCount - 1)
+  const stripStudents = stripShown ? liveStudents.slice(safeStripPage * stripSize, (safeStripPage + 1) * stripSize) : []
+  // O'ng chetdagi ustun: qator ko'rinib turganda talabalar unda takrorlanmaydi
+  const railRemoteStreams = stripShown
+    ? visibleRemoteStreams.filter(r => r.role !== "student" || r.screenSharing)
+    : visibleRemoteStreams
+
   const watchKey = (() => {
     if (!isTeacher) return ""
     const ids = new Set<number>()
+    stripStudents.forEach(p => { if (p.userId) ids.add(p.userId) })
     if (camerasOpen) livePageStudents.forEach(p => { if (p.userId) ids.add(p.userId) })
     if (stageStudentId) ids.add(stageStudentId)
     return Array.from(ids).sort((a, b) => a - b).join(",")
@@ -2798,16 +2899,68 @@ function CallStage({
                 </div>
               </div>
 
+              {/* O'qituvchi: talabalar qatori — asosiy ekran tepasida, jonli */}
+              {isTeacher && liveStudents.length > 0 && stripHidden && (
+                <button type="button" onClick={() => setStripHidden(false)}
+                  className="absolute left-1/2 top-14 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white hover:bg-black/70 xl:top-16"
+                  style={{ fontFamily: "var(--font-poppins)" }}>
+                  <Users2 className="h-4 w-4" />{t("meetingPage.studentsStrip")} ({liveStudents.length})<ChevronDown className="h-4 w-4" />
+                </button>
+              )}
+              {stripShown && (
+                <div ref={stripRef} className="absolute inset-x-3 top-14 z-10 flex items-center gap-2 xl:inset-x-4 xl:top-16">
+                  <button type="button" onClick={() => setStripPage(Math.max(0, safeStripPage - 1))} disabled={safeStripPage === 0}
+                    aria-label={t("darsJadvali.prev")}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/55 text-white hover:bg-black/70 disabled:opacity-30">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <div className="flex min-w-0 flex-1 justify-center" style={{ gap: STRIP_GAP }}>
+                    {stripStudents.map(person => {
+                      const remote = person.userId ? remoteByUserId.get(person.userId) : undefined
+                      return (
+                        <div key={person.userId} className="shrink-0" style={{ width: STRIP_TILE_WIDTH }}>
+                          <StudentLiveTile
+                            compact
+                            name={person.name}
+                            roleLine=""
+                            remote={remote}
+                            snapshot={person.userId ? snapshots[person.userId]?.image : undefined}
+                            active={!!remote && activeVideoId === remote.socketId}
+                            onSelect={remote ? () => onSelectVideo(activeVideoId === remote.socketId ? "self" : remote.socketId) : undefined}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-center gap-1">
+                    <button type="button" onClick={() => setStripPage(Math.min(stripPageCount - 1, safeStripPage + 1))} disabled={safeStripPage >= stripPageCount - 1}
+                      aria-label={t("meetingPage.nextPage")}
+                      className="grid h-8 w-8 place-items-center rounded-full bg-black/55 text-white hover:bg-black/70 disabled:opacity-30">
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                    <button type="button" onClick={() => setStripHidden(true)} title={t("meetingPage.participantsHide")}
+                      className="grid h-6 w-8 place-items-center rounded-full bg-black/55 text-white hover:bg-black/70">
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {stripPageCount > 1 && (
+                    <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] text-white tabular-nums" style={{ fontFamily: "var(--font-poppins)" }}>
+                      {safeStripPage * stripSize + 1}–{Math.min(liveStudents.length, (safeStripPage + 1) * stripSize)} / {liveStudents.length}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Thumbnails — vertical strip along the right edge (desktop only; mobile gets a grid below the main video instead) */}
-              {(activeRemote || visibleRemoteStreams.length > 0) && railHidden && (
+              {(activeRemote || railRemoteStreams.length > 0) && railHidden && (
                 <button type="button" onClick={() => setRailHidden(false)} title={t("meetingPage.participantsShow")}
-                  className="absolute right-4 top-16 z-10 hidden items-center gap-1.5 rounded-full bg-black/55 px-3 py-2 text-xs font-medium text-white hover:bg-black/70 xl:flex"
+                  className={cn("absolute right-4 z-10 hidden items-center gap-1.5 rounded-full bg-black/55 px-3 py-2 text-xs font-medium text-white hover:bg-black/70 xl:flex", stripShown ? "top-[11rem]" : "top-16")}
                   style={{ fontFamily: "var(--font-poppins)" }}>
                   <ChevronsLeft className="h-4 w-4" /><Users2 className="h-4 w-4" />{remoteStreams.length + 1}
                 </button>
               )}
-              {(activeRemote || visibleRemoteStreams.length > 0) && !railHidden && (
-                <div className="absolute right-4 top-16 bottom-24 z-10 hidden w-32 flex-col gap-3 overflow-y-auto xl:flex">
+              {(activeRemote || railRemoteStreams.length > 0) && !railHidden && (
+                <div className={cn("absolute right-4 bottom-24 z-10 hidden w-32 flex-col gap-3 overflow-y-auto xl:flex", stripShown ? "top-[11rem]" : "top-16")}>
                   <button type="button" onClick={() => setRailHidden(true)} title={t("meetingPage.participantsHide")}
                     className="flex h-7 shrink-0 items-center justify-center gap-1 rounded-full bg-black/55 text-[11px] font-medium text-white hover:bg-black/70"
                     style={{ fontFamily: "var(--font-poppins)" }}>
@@ -2816,7 +2969,7 @@ function CallStage({
                   {activeRemote && (
                     <LocalVideoTile stream={localPreviewStream} label={t("meetingPage.you")} cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
                   )}
-                  {visibleRemoteStreams.map(remote => (
+                  {railRemoteStreams.map(remote => (
                     <RemoteVideoTile key={remote.socketId} remote={remote} active={activeVideoId === remote.socketId} onSelect={() => onSelectVideo(remote.socketId)} fill />
                   ))}
                 </div>
@@ -2885,12 +3038,12 @@ function CallStage({
             </div>
 
             {/* Mobile participant grid — two per row, below the main video */}
-            {(activeRemote || visibleRemoteStreams.length > 0) && (
+            {(activeRemote || railRemoteStreams.length > 0) && (
               <div className="mt-3 grid grid-cols-2 gap-3 xl:hidden">
                 {activeRemote && (
                   <LocalVideoTile stream={localPreviewStream} label={t("meetingPage.you")} cameraEnabled={cameraEnabled} micEnabled={micEnabled} screenSharing={screenSharing} active={activeVideoId === "self"} onSelect={() => onSelectVideo("self")} fill />
                 )}
-                {visibleRemoteStreams.map(remote => (
+                {railRemoteStreams.map(remote => (
                   <RemoteVideoTile key={remote.socketId} remote={remote} active={activeVideoId === remote.socketId} onSelect={() => onSelectVideo(remote.socketId)} fill />
                 ))}
               </div>
@@ -3014,56 +3167,16 @@ function CallStage({
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {livePageStudents.map(person => {
                       const remote = person.userId ? remoteByUserId.get(person.userId) : undefined
-                      const roleLine = roleLabel(person.role, person.groupId, groupIdToName.get(person.groupId ?? 0))
-                      const live = Boolean(remote?.stream.getVideoTracks().some(track => track.readyState === "live")) && remote?.cameraEnabled !== false
-                      if (remote && live) {
-                        return (
-                          <ParticipantTile
-                            key={person.userId}
-                            stream={remote.stream}
-                            name={person.name}
-                            roleLine={roleLine}
-                            isActive={activeVideoId === remote.socketId}
-                            micOn={remote.micEnabled}
-                            camOn={remote.cameraEnabled}
-                            onClick={() => onSelectVideo(remote.socketId)}
-                          />
-                        )
-                      }
-                      const snap = person.userId ? snapshots[person.userId] : undefined
-                      const camOff = remote?.cameraEnabled === false
                       return (
-                        <button
+                        <StudentLiveTile
                           key={person.userId}
-                          type="button"
-                          onClick={() => { if (remote) onSelectVideo(remote.socketId) }}
-                          className={cn(
-                            "relative overflow-hidden rounded-[10px] border-2 border-transparent focus:outline-none",
-                            remote ? "hover:border-[#1cc2dc]/60" : "cursor-default"
-                          )}
-                          style={{ backgroundColor: "#10192a", aspectRatio: "16/9" }}
-                        >
-                          {snap && !camOff ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={snap.image} alt="" className="h-full w-full object-cover opacity-80" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#111827] to-[#1e3a8a]">
-                              <Avatar name={person.name} size="lg" />
-                            </div>
-                          )}
-                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                          {!camOff && (
-                            <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60">
-                              <Loader2 className="h-3 w-3 animate-spin text-white/80" />
-                            </span>
-                          )}
-                          <div className="absolute bottom-0 left-0 right-0 px-3 py-2">
-                            <p className="truncate text-left text-sm font-semibold text-white drop-shadow" style={{ fontFamily: "var(--font-poppins)" }}>{person.name}</p>
-                            <p className="truncate text-left text-[11px] text-white/70" style={{ fontFamily: "var(--font-poppins)" }}>
-                              {camOff ? t("meetingPage.cameraOffShort") : roleLine}
-                            </p>
-                          </div>
-                        </button>
+                          name={person.name}
+                          roleLine={roleLabel(person.role, person.groupId, groupIdToName.get(person.groupId ?? 0))}
+                          remote={remote}
+                          snapshot={person.userId ? snapshots[person.userId]?.image : undefined}
+                          active={!!remote && activeVideoId === remote.socketId}
+                          onSelect={remote ? () => onSelectVideo(remote.socketId) : undefined}
+                        />
                       )
                     })}
                   </div>
