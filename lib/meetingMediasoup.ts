@@ -21,8 +21,23 @@ export interface VideoEncodingProfile {
   scaleResolutionDownBy?: number
 }
 
-// Ekran ulashish — matn tiniq chiqishi uchun to'liq o'lcham, yuqori bitreyt
-const SCREEN_ENCODING: VideoEncodingProfile = { maxBitrate: 2_500_000, scaleResolutionDownBy: 1 }
+/* Simulcast: video 2 sifatda yuboriladi, server (mediasoup) har bir
+   talabaga uning interneti ko'targanini avtomatik beradi — sust internetli
+   talabada video qotib qolmaydi, pastki qatlamga tushadi. 120 kishilik
+   darsda server chiqish trafigini ham cheklaydi. Tartib: pastdan yuqoriga. */
+
+// O'qituvchi kamerasi: 320×180 va ~854×480
+export const TEACHER_CAMERA_LAYERS: VideoEncodingProfile[] = [
+  { maxBitrate: 150_000, scaleResolutionDownBy: 4 },
+  { maxBitrate: 600_000, scaleResolutionDownBy: 1.5 },
+]
+
+// Ekran ulashish: yarim o'lcham va to'liq o'lcham (slayd matni tiniq).
+// Slayd o'zgarmaganda haqiqiy bitreyt maksimaldan ancha past bo'ladi.
+const SCREEN_LAYERS: VideoEncodingProfile[] = [
+  { maxBitrate: 300_000, scaleResolutionDownBy: 2 },
+  { maxBitrate: 1_200_000, scaleResolutionDownBy: 1 },
+]
 
 export interface RemotePeerIdentity {
   socketId: string
@@ -70,8 +85,8 @@ export class MeetingMediaClient {
      *  producer'ini qabul qilmaslik uchun (aks holda odam o'z ovozini
      *  kechikish bilan qayta eshitadi). */
     private selfUserId: number | null = null,
-    /** Kamera sifati (o'qituvchi — yuqori, talaba — kichik plitkalar uchun past) */
-    private cameraEncoding: VideoEncodingProfile = { maxBitrate: 1_000_000 }
+    /** Kamera sifat qatlamlari (simulcast) */
+    private cameraLayers: VideoEncodingProfile[] = TEACHER_CAMERA_LAYERS
   ) {}
 
   // "camera" producer'i kamera va ekran ulashish o'rtasida trek almashtiradi —
@@ -136,13 +151,52 @@ export class MeetingMediaClient {
     return transport
   }
 
-  private async produceTrack(source: ProducerSource, track: MediaStreamTrack | null, encoding?: VideoEncodingProfile): Promise<void> {
-    if (!track || !this.device.loaded) return
+  /** Mavjud producer qatlamlarini (kamera ↔ ekran) almashtirish. Producer.
+      setRtpEncodingParameters hamma qatlamga BIR XIL qiymat beradi, shu sabab
+      to'g'ridan-to'g'ri RTCRtpSender orqali har qatlam alohida sozlanadi. */
+  private async applyLayers(producer: MediasoupClientTypes.Producer, layers: VideoEncodingProfile[]): Promise<void> {
+    const sender = producer.rtpSender
+    if (!sender) return
+    const params = sender.getParameters()
+    if (!params.encodings?.length) return
+    const offset = Math.max(0, layers.length - params.encodings.length)
+    params.encodings.forEach((encoding, idx) => {
+      const layer = layers[Math.min(layers.length - 1, idx + offset)]
+      encoding.maxBitrate = layer.maxBitrate
+      encoding.scaleResolutionDownBy = layer.scaleResolutionDownBy ?? 1
+    })
+    await sender.setParameters(params)
+  }
+
+  /* Bir manba (mic/camera) bo'yicha amallar navbat bilan bajariladi.
+     Mikrofon yoqilganda syncPeerMediaTracks ketma-ket ikki marta chaqiriladi
+     (yangi trek + yoqish) — birinchi produce() tugamay turib ikkinchisi
+     "producer yo'q" deb YANA birini ochardi: talaba ikki nusxada eshitilardi
+     (aks-sadoga o'xshash). Navbat bilan ikkinchisi mavjud producer'da
+     replaceTrack qiladi. */
+  private produceChains = new Map<ProducerSource, Promise<void>>()
+
+  private produceTrack(source: ProducerSource, track: MediaStreamTrack | null, layers?: VideoEncodingProfile[]): Promise<void> {
+    const previous = this.produceChains.get(source) ?? Promise.resolve()
+    const next = previous.catch(() => undefined).then(() => this.produceTrackNow(source, track, layers))
+    this.produceChains.set(source, next)
+    return next
+  }
+
+  private async produceTrackNow(source: ProducerSource, track: MediaStreamTrack | null, layers?: VideoEncodingProfile[]): Promise<void> {
+    if (!this.device.loaded) return
+    const existing = this.producers.get(source)
+    if (!track) {
+      // Video manbasi yo'q (masalan talaba ekran ulashishni to'xtatdi) — eski
+      // trek "osilib" qolmasin, producer pauza qilinadi
+      if (existing && !existing.paused) this.pauseProducer(source)
+      return
+    }
     try {
-      const existing = this.producers.get(source)
       if (existing) {
         await existing.replaceTrack({ track })
-        if (encoding) await existing.setRtpEncodingParameters({ ...encoding }).catch(() => undefined)
+        if (existing.paused) this.resumeProducer(source)
+        if (layers) await this.applyLayers(existing, layers).catch(() => undefined)
         return
       }
       const transport = await this.ensureSendTransport()
@@ -152,17 +206,35 @@ export class MeetingMediaClient {
       // page (localStreamRef), not by us, so stopping it here permanently
       // kills the local camera/mic and every future produce attempt fails
       // with "InvalidStateError: track ended".
-      const producer = await transport.produce({
+      const base = {
         track,
         appData: { source },
         stopTracks: false,
         // Nutq uchun: mono, jimlikda paket yubormaslik (DTX — fon shovqini
         // uzatilmaydi), yo'qolgan paketlarni tiklash (FEC).
         ...(source === "mic" ? { codecOptions: { opusStereo: false, opusDtx: true, opusFec: true } } : {}),
-        // Video: sifat profili + boshidanoq yaxshi sifat (past bitreytdan sekin ko'tarilmasin)
-        ...(encoding ? { encodings: [{ ...encoding }], codecOptions: { videoGoogleStartBitrate: 1000 } } : {}),
-      })
-      console.log(`[mediasoup] producing ${source} (${producer.kind}), id=${producer.id}`)
+      }
+      let producer: MediasoupClientTypes.Producer
+      if (layers?.length) {
+        try {
+          producer = await transport.produce({
+            ...base,
+            encodings: layers.map((layer) => ({ ...layer })),
+            codecOptions: { videoGoogleStartBitrate: 600 },
+          })
+        } catch (simulcastIssue) {
+          // Brauzer simulcast'ni qo'llamasa — bitta (yuqori) qatlam bilan
+          console.warn("[mediasoup] simulcast ishlamadi, bitta qatlam:", simulcastIssue)
+          producer = await transport.produce({
+            ...base,
+            encodings: [{ ...layers[layers.length - 1] }],
+            codecOptions: { videoGoogleStartBitrate: 600 },
+          })
+        }
+      } else {
+        producer = await transport.produce(base)
+      }
+      console.log(`[mediasoup] producing ${source} (${producer.kind}), id=${producer.id}, layers=${producer.rtpParameters.encodings?.length ?? 1}`)
       this.producers.set(source, producer)
     } catch (issue) {
       console.error("[mediasoup] Failed to produce %s:", source, issue)
@@ -174,7 +246,7 @@ export class MeetingMediaClient {
     const changed = this.cameraProfileIsScreen !== isScreen
     if (track) this.cameraProfileIsScreen = isScreen
     const exists = this.producers.has("camera")
-    await this.produceTrack("camera", track, !exists || changed ? (isScreen ? SCREEN_ENCODING : this.cameraEncoding) : undefined)
+    await this.produceTrack("camera", track, !exists || changed ? (isScreen ? SCREEN_LAYERS : this.cameraLayers) : undefined)
   }
 
   async setMicTrack(track: MediaStreamTrack | null): Promise<void> {
@@ -249,6 +321,7 @@ export class MeetingMediaClient {
   }
 
   closeAll(): void {
+    this.produceChains.clear()
     this.producers.forEach((producer) => producer.close())
     this.producers.clear()
     this.consumers.forEach((consumer) => consumer.close())

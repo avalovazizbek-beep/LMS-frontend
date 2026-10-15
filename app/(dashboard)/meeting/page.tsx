@@ -56,7 +56,7 @@ import {
   type Meeting, type JoinTokenResponse, type CreateMeetingRequest, type TeacherGroup,
   type AttendanceRosterItem, type AttendanceStatus, type ZoomConnectionStatus, type GoogleMeetConnectionStatus,
 } from "@/lib/api"
-import { MeetingMediaClient, type ProducerSummary } from "@/lib/meetingMediasoup"
+import { MeetingMediaClient, TEACHER_CAMERA_LAYERS, type ProducerSummary } from "@/lib/meetingMediasoup"
 import { useApi } from "@/hooks/useApi"
 import { cn } from "@/lib/utils"
 import MeetingFaceAttendanceTracker from "@/components/meeting/MeetingFaceAttendanceTracker"
@@ -117,6 +117,33 @@ function roleLabel(role: string, groupId?: number | null, groupName?: string | n
   if (role === "teacher" || role === "employee") return tr("common.teacher")
   const label = groupName || (groupId ? tr("meetingPage.groupPrefix", { id: groupId }) : null)
   return label ? tr("meetingPage.roleStudentGroup", { group: label }) : tr("common.student")
+}
+
+/* Talaba kamerasidan ~20 soniyada bir keladigan kichik surat (faqat o'qituvchiga) */
+type ParticipantSnapshot = {
+  socketId: string
+  userId: number
+  fullName: string
+  groupId: number | null
+  image: string
+  at: number
+}
+const SNAPSHOT_INTERVAL_MS = 20_000
+const SNAPSHOT_WIDTH = 192
+
+function normalizeSnapshot(value: unknown): ParticipantSnapshot | null {
+  const r = recordValue(value)
+  const image = typeof r.image === "string" ? r.image : ""
+  const userId = socketNumber(r.userId)
+  if (!image.startsWith("data:image/jpeg;base64,") || userId == null) return null
+  return {
+    socketId: socketText(r.socketId) || "",
+    userId,
+    fullName: socketText(r.fullName) || "",
+    groupId: socketNumber(r.groupId) ?? null,
+    image,
+    at: socketNumber(r.at) ?? Date.now(),
+  }
 }
 
 type Participant = {
@@ -2215,6 +2242,7 @@ function CallStage({
   localUserRole,
   localGroupId,
   groupIdToName,
+  snapshots,
   isRecording,
   recordingError,
   recordingUploading,
@@ -2256,6 +2284,8 @@ function CallStage({
   localUserRole: string
   localGroupId: number | null
   groupIdToName: Map<number, string>
+  /** userId → oxirgi surat (faqat o'qituvchi uchun keladi) */
+  snapshots: Record<number, ParticipantSnapshot>
   isRecording: boolean
   recordingError: string | null
   recordingUploading: boolean
@@ -2462,9 +2492,22 @@ function CallStage({
     if (sharerId) onSelectVideo(sharerId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharerId])
+  // Ma'ruza rejimi: talaba asosiy ekranda o'qituvchini ko'radi (o'z kamerasi
+  // emas) — o'qituvchi videosi kelishi bilan unga o'tadi, agar talaba hali
+  // hech kimni o'zi tanlamagan bo'lsa
+  const teacherVideoId = !isTeacher
+    ? remoteStreams.find(r => r.role !== "student" && r.stream.getVideoTracks().length > 0)?.socketId ?? null
+    : null
+  useEffect(() => {
+    if (teacherVideoId && activeVideoIdRef.current === "self") onSelectVideo(teacherVideoId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teacherVideoId])
   useEffect(() => {
     if (remoteStreams.some(r => r.screenSharing)) return // ulashish paytida avtomatik almashtirish yo'q
-    const streamsWithAudio = remoteStreams.filter(r => r.stream.getAudioTracks().length > 0)
+    // Faqat videosi bor gapiruvchiga o'tiladi — ma'ruza rejimida talabalar
+    // videosiz (savol berayotgan talaba avatariga o'tib, o'qituvchi
+    // ko'rinmay qolmasin)
+    const streamsWithAudio = remoteStreams.filter(r => r.stream.getAudioTracks().length > 0 && r.stream.getVideoTracks().length > 0)
     if (streamsWithAudio.length < 2) return // nothing to switch between
     const AudioCtxCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
     if (!AudioCtxCtor) return
@@ -2549,7 +2592,7 @@ function CallStage({
 
   const participantCount = liveParticipants.length + invitedParticipants.length
   const panelCount = activePanel === "chat" ? chatMessages.length
-    : activePanel === "cameras" ? remoteStreams.length
+    : activePanel === "cameras" ? Object.keys(snapshots).length + remoteStreams.length
     : participantCount
 
   const handleChatSubmit = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); onSendChat() }
@@ -2842,7 +2885,12 @@ function CallStage({
                         activeVideoId === person.socketId && "bg-[#e8f0fb] border border-[#0e58a8]/20"
                       )}
                     >
-                      <Avatar name={person.name} accent={person.accent} size="sm" />
+                      {person.userId != null && snapshots[person.userId] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={snapshots[person.userId].image} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <Avatar name={person.name} accent={person.accent} size="sm" />
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>{person.name}</p>
                         <p className="truncate text-xs text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>{roleLabel(person.role, person.groupId, groupIdToName.get(person.groupId ?? 0))}</p>
@@ -2864,7 +2912,27 @@ function CallStage({
             {/* Cameras (teacher only) */}
             {activePanel === "cameras" && isTeacher && (
               <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 space-y-3">
-                {remoteStreams.length === 0 ? (
+                {/* Talabalar kamerasi serverga video bo'lib kelmaydi — har ~20 s surat */}
+                <p className="text-[11px] text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
+                  {t("meetingPage.snapshotsHint")}
+                </p>
+                {Object.keys(snapshots).length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.values(snapshots)
+                      .sort((a, b) => a.fullName.localeCompare(b.fullName))
+                      .map(snap => (
+                        <div key={snap.userId} className="overflow-hidden rounded-[8px] border border-[#d8e6f7] bg-[#10192a]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={snap.image} alt="" className="aspect-[4/3] w-full object-cover" />
+                          <div className="bg-white px-2 py-1">
+                            <p className="truncate text-[11px] font-medium text-[#012970]" style={{ fontFamily: "var(--font-poppins)" }}>{snap.fullName}</p>
+                            <p className="text-[10px] text-[#7293b9]">{t("meetingPage.snapshotAgo", { n: Math.max(0, Math.round((Date.now() - snap.at) / 1000)) })}</p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+                {remoteStreams.length === 0 && Object.keys(snapshots).length === 0 ? (
                   <p className="rounded-[8px] border border-dashed border-[#b7cce8] px-3 py-8 text-center text-sm text-[#7293b9]" style={{ fontFamily: "var(--font-poppins)" }}>
                     {t("meetingPage.noCamerasYet")}
                   </p>
@@ -3096,6 +3164,7 @@ export default function MeetingPage() {
   const [socketStatus, setSocketStatus] = useState("meetingPage.rt.ready")
   const [socketError, setSocketError] = useState<string | null>(null)
   const [socketParticipants, setSocketParticipants] = useState<Participant[]>([])
+  const [snapshots, setSnapshots] = useState<Record<number, ParticipantSnapshot>>({})
   const [remoteStreams, setRemoteStreams] = useState<RemoteStream[]>([])
   const [activeVideoId, setActiveVideoId] = useState<ActiveVideoId>("self")
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -3260,7 +3329,10 @@ export default function MeetingPage() {
     const videoTrack = currentOutboundVideoTrack()
     const audioTrack = localStreamRef.current?.getAudioTracks()[0] ?? null
     const isScreen = Boolean(videoTrack && videoTrack === screenStreamRef.current?.getVideoTracks()[0])
-    void mediaClientRef.current?.setCameraTrack(videoTrack, isScreen)
+    // Ma'ruza rejimi: talaba kamerasi serverga yuborilmaydi (o'z qurilmasida
+    // qoladi — Face ID davomati va o'qituvchiga suratlar shu yerdan). Faqat
+    // ruxsat berilgan ekran ulashish yuboriladi. Server ham buni tekshiradi.
+    void mediaClientRef.current?.setCameraTrack(isTeacher || isScreen ? videoTrack : null, isScreen)
     void mediaClientRef.current?.setMicTrack(audioTrack)
     feedRecordingMix()
   }
@@ -3389,6 +3461,7 @@ export default function MeetingPage() {
     setLocalMedia(null)
     setScreenMedia(null)
     setSocketParticipants([])
+    setSnapshots({})
     setRemoteStreams([])
     setActiveVideoId("self")
     setChatMessages([])
@@ -3602,6 +3675,38 @@ export default function MeetingPage() {
     return () => window.clearInterval(timer)
   }, [viewState])
 
+  // Talaba: kamera yoqiq bo'lsa har ~20 soniyada kichik surat o'qituvchiga
+  // (video oqimi o'rniga — server va talaba interneti uchun deyarli bepul)
+  useEffect(() => {
+    if (viewState.stage !== "call" || isTeacher || !cameraEnabled) return
+    const track = localStream?.getVideoTracks()[0]
+    if (!track) return
+    const video = document.createElement("video")
+    video.muted = true
+    video.playsInline = true
+    video.srcObject = new MediaStream([track])
+    void video.play().catch(() => undefined)
+    const canvas = document.createElement("canvas")
+    const send = () => {
+      const socket = socketRef.current
+      if (!socket?.connected || track.readyState !== "live" || !track.enabled || !video.videoWidth) return
+      canvas.width = SNAPSHOT_WIDTH
+      canvas.height = Math.round((SNAPSHOT_WIDTH * video.videoHeight) / video.videoWidth) || 144
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      socket.emit("participant:snapshot", { image: canvas.toDataURL("image/jpeg", 0.6) })
+    }
+    const first = window.setTimeout(send, 4000)
+    const timer = window.setInterval(send, SNAPSHOT_INTERVAL_MS)
+    return () => {
+      window.clearTimeout(first)
+      window.clearInterval(timer)
+      video.pause()
+      video.srcObject = null
+    }
+  }, [viewState.stage, isTeacher, cameraEnabled, localStream])
+
   useEffect(() => {
     if (viewState.stage !== "call" || !joinToken?.token) return
 
@@ -3655,9 +3760,9 @@ export default function MeetingPage() {
             onRemoteTrack,
             (socketId) => closePeerConnection(socketId),
             socketNumber(recordValue(body.user).id) ?? null,
-            // O'qituvchi — to'liq HD; talaba — asosan kichik plitkada ko'rinadi,
-            // 640×360 yetarli (30 kishilik darsda hammaning interneti ko'tarsin)
-            isTeacher ? { maxBitrate: 1_500_000 } : { maxBitrate: 600_000, scaleResolutionDownBy: 2 }
+            // O'qituvchi kamerasi simulcast bilan (2 qatlam) — talabalar
+            // kamerasi umuman yuborilmaydi
+            TEACHER_CAMERA_LAYERS
           )
         }
         mediaClientRef.current
@@ -3711,10 +3816,27 @@ export default function MeetingPage() {
         return [...filtered, next]
       })
     })
+    socket.on("meeting:snapshots", (payload: unknown) => {
+      const list = Array.isArray(payload) ? payload.map(normalizeSnapshot).filter((x): x is ParticipantSnapshot => !!x) : []
+      setSnapshots(Object.fromEntries(list.map((snap) => [snap.userId, snap])))
+    })
+    socket.on("participant:snapshot", (payload: unknown) => {
+      const snap = normalizeSnapshot(payload)
+      if (snap) setSnapshots((items) => ({ ...items, [snap.userId]: snap }))
+    })
     socket.on("participant:left", (payload: unknown) => {
       const record = recordValue(payload)
       const socketId = socketText(record.socketId, record.sid)
       const name = socketText(record.fullName, record.name)
+      const leftUserId = socketNumber(record.userId)
+      if (leftUserId != null) {
+        setSnapshots((items) => {
+          if (!(leftUserId in items)) return items
+          const next = { ...items }
+          delete next[leftUserId]
+          return next
+        })
+      }
       if (socketId) closePeerConnection(socketId)
       setSocketParticipants((items) =>
         socketId
@@ -3887,6 +4009,7 @@ export default function MeetingPage() {
             localUserRole={role}
             localGroupId={localGroupId}
             groupIdToName={groupIdToName}
+            snapshots={snapshots}
             isRecording={isRecording}
             recordingError={recordingError}
             recordingUploading={recordingUploading}
