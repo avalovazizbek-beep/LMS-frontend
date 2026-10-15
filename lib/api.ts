@@ -2484,6 +2484,9 @@ export interface AdminAttendanceRow {
   groupId: number
   groupName: string
   subjectName: string
+  /** Davomatni belgilagan o'qituvchi (marked_by_user_id) */
+  teacherId?: number | null
+  teacherName?: string | null
   lessonDate: string
   trainingType?: string | null
   total: number
@@ -2492,6 +2495,18 @@ export interface AdminAttendanceRow {
   excused: number
   late: number
   presentPct: number
+}
+
+/** Guruh+fan bo'yicha "talaba × varaq" jadvali. Varaq kaliti: "YYYY-MM-DD|tur" */
+export interface AdminAttendanceMatrix {
+  sheets: { key: string; lessonDate: string; trainingType: string | null }[]
+  students: {
+    studentId: number
+    studentName: string
+    studentIdNumber: string | null
+    marks: Record<string, string>
+    comments: Record<string, string>
+  }[]
 }
 
 export interface AdminAttendanceDetailRow {
@@ -2696,6 +2711,11 @@ export const adminApi = {
   attendanceDetail: (params: { groupId: number; subject: string; date: string; trainingType?: string | null }) => {
     const q = new URLSearchParams(buildParams(params)).toString()
     return get<{ data: AdminAttendanceDetailRow[] }>(`/api/admin/attendance/detail?${q}`)
+  },
+
+  attendanceMatrix: (params: { groupId: number; subject: string }) => {
+    const q = new URLSearchParams(buildParams(params)).toString()
+    return get<{ data: AdminAttendanceMatrix }>(`/api/admin/attendance/matrix?${q}`)
   },
 
   attendanceStudents: (params: { groupId: number; subject: string }) => {

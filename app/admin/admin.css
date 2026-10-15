@@ -53,6 +53,9 @@
 
   --adm-side-bg: linear-gradient(180deg, #0a1433 0%, #070e26 100%);
 
+  /* Brauzerning o'z elementlari (select ro'yxati, sana tanlagich) ham qorong'i */
+  color-scheme: dark;
+
   --cat-1: #3987e5;
   --cat-2: #d95926;
   --cat-3: #199e70;
@@ -232,4 +235,15 @@
 .adm-btn-outline[data-active="true"] {
   border-color: color-mix(in srgb, var(--adm-accent) 45%, transparent);
   background-color: color-mix(in srgb, var(--adm-accent) 6%, var(--adm-card));
+}
+
+/* Asosiy amal tugmasi (masalan "Ko'rish") */
+.adm-btn-primary {
+  color: #ffffff;
+  background: linear-gradient(90deg, #2f6bf2, #2259e0);
+  box-shadow: 0 8px 18px -8px rgba(47, 107, 242, 0.75);
+  transition: filter 0.15s, opacity 0.15s;
+}
+.adm-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
 }
