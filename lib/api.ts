@@ -2390,6 +2390,8 @@ export interface AdminUser {
   isAutoAdmin: boolean
   roleIsDefault: boolean
   groupName: string | null
+  /** HEMIS surati (hemis.sies.uz/static/crop/...) — topilmasa null */
+  photoUrl: string | null
   faceRegistered: boolean
   grantedBy: string | null
   grantedAt: string | null

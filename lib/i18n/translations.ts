@@ -2168,6 +2168,7 @@ export const dictionary: Record<string, DictEntry> = {
   "adminFoydalanuvchilar.colAction":           { uz: "Amal",                                   ru: "Действие",                                  en: "Action",                               kaa: "Ámel" },
   "adminFoydalanuvchilar.noUsersFound":        { uz: "Foydalanuvchilar topilmadi",             ru: "Пользователи не найдены",                   en: "No users found",                       kaa: "Paydalanıwshılar tabılmadı" },
   "adminFoydalanuvchilar.autoAdminLabel":      { uz: "Avtomatik admin",                        ru: "Автоматический администратор",              en: "Automatic admin",                      kaa: "Avtomatik administrator" },
+  "adminFoydalanuvchilar.filters":             { uz: "Filtrlar",                               ru: "Фильтры",                                   en: "Filters",                              kaa: "Filtrler" },
 
   // ── Admin: Face ID ───────────────────────────────────────────────────────────
   "adminFaceId.pageTitle":            { uz: "Face ID So'rovlari",                                ru: "Запросы Face ID",                             en: "Face ID Requests",                     kaa: "Face ID sorawları" },
