@@ -18,8 +18,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { motion, pageVariants } from "@/components/ui/motion"
 import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { trainingTypeLabelKey } from "@/lib/attendanceTrainingTypes"
-
-type CssVars = React.CSSProperties & Record<`--${string}`, string>
+import { Field, FieldSelect, TintStat as StatCard, EmptyCard, type CssVars } from "@/components/admin/AdminUi"
 
 const T = { color: "var(--adm-text)" } as const
 const L = { color: "var(--adm-muted)" } as const
@@ -146,50 +145,7 @@ function Legend() {
   )
 }
 
-/** Filtr maydoni — ikonka, kichik sarlavha va ichida select/input */
-function Field({ icon: Icon, label, children, className = "" }: { icon: React.ElementType; label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`adm-input flex min-h-[56px] items-center gap-3 rounded-xl px-3 py-1.5 ${className}`}>
-      <span className="adm-icon-soft flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ "--c": "var(--adm-accent)" } as CssVars}>
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-medium leading-4 text-[var(--adm-muted)]">{label}</div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function FieldSelect({ value, onChange, children, disabled }: { value: string; onChange: (v: string) => void; children: React.ReactNode; disabled?: boolean }) {
-  return (
-    <div className="relative">
-      <select value={value} onChange={e => onChange(e.target.value)} disabled={disabled}
-        className="w-full cursor-pointer appearance-none truncate bg-transparent pr-6 text-sm font-semibold text-[var(--adm-text)] outline-none disabled:cursor-default disabled:opacity-60">
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--adm-muted)]" />
-    </div>
-  )
-}
-
 const DATE_INPUT = "w-full min-w-0 bg-transparent text-sm font-semibold text-[var(--adm-text)] outline-none"
-
-/** Rangli statistika kartasi (namunadagidek och fonli) */
-function StatCard({ icon: Icon, color, label, value, sub }: { icon: React.ElementType; color: string; label: string; value: React.ReactNode; sub?: string }) {
-  return (
-    <div className="adm-tint flex items-center gap-3.5 p-4" style={{ "--c": color } as CssVars}>
-      <div className="adm-icon-grad flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
-        <Icon className="h-5 w-5" strokeWidth={2.5} />
-      </div>
-      <div className="min-w-0">
-        <div className="truncate text-xs font-semibold" style={{ color }}>{label}</div>
-        <div className="text-2xl font-bold leading-tight text-[var(--adm-text)]" style={NUM}>{value}</div>
-        {sub && <div className="truncate text-[11px] text-[var(--adm-muted)]" style={NUM}>{sub}</div>}
-      </div>
-    </div>
-  )
-}
 
 /** Pastki sahifalash qatori */
 function Pager({ total, page, pageSize, onPage, sizes, onPageSize }: {
@@ -231,16 +187,6 @@ function Pager({ total, page, pageSize, onPage, sizes, onPageSize }: {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function EmptyCard({ icon: Icon, text, hint }: { icon: React.ElementType; text: string; hint?: string }) {
-  return (
-    <div className="adm-card p-12 text-center">
-      <Icon className="mx-auto mb-3 h-9 w-9 opacity-40" style={L} />
-      <p className="text-sm" style={L}>{text}</p>
-      {hint && <p className="mt-1 text-xs" style={L}>{hint}</p>}
     </div>
   )
 }

@@ -2588,6 +2588,9 @@ export interface AuditLogRow {
   createdAt: string
 }
 
+/** Yakunlangan (qulflangan) amaliy topshiriq — guruh va o'qituvchi nomi bilan */
+export type AdminLockedAssignment = TeacherContent & { groupName?: string | null; teacherName?: string | null }
+
 export interface AdminTopicRow {
   topicKey: string
   title: string
@@ -2755,7 +2758,7 @@ export const adminApi = {
   },
 
   lockedAssignments: () =>
-    get<ListRes<TeacherContent>>("/api/admin/locked-assignments"),
+    get<ListRes<AdminLockedAssignment>>("/api/admin/locked-assignments"),
 
   unlockContent: (id: number | string) =>
     patch<ItemRes<TeacherContent>>(`/api/admin/content/${id}/toggle`, {}),

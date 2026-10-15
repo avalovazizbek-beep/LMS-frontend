@@ -7,16 +7,21 @@ const ORDER = [
   "tab_blur", "fullscreen_exit", "screenshot_attempt",
 ] as const
 
-/** Yuz bilan bog'liq (Face ID) — qizil; xulq-atvor (oyna, ekran) — sariq; yakunlanish — to'q qizil */
+/** Yuz bilan bog'liq (Face ID) — qizil; xulq-atvor (oyna, ekran) — sariq; yakunlanish — to'q qizil.
+    Ranglar admin tokenlaridan (qorong'i rejimda ham o'qiladi), boshqa panellarda — qavs ichidagilar. */
+const RED = "var(--role-admin, #b91c1c)"
+const ORANGE = "var(--cat-2, #c2410c)"
+const AMBER = "var(--role-pending, #92400e)"
+const tint = (color: string) => ({ bg: `color-mix(in srgb, ${color} 12%, transparent)`, color })
 const STYLE: Record<string, { bg: string; color: string }> = {
-  proctor_terminated: { bg: "#b91c1c", color: "#fff" },
-  face_mismatch:      { bg: "#fef2f2", color: "#b91c1c" },
-  multi_face:         { bg: "#fef2f2", color: "#b91c1c" },
-  liveness:           { bg: "#fef2f2", color: "#b91c1c" },
-  no_face:            { bg: "#fff7ed", color: "#c2410c" },
-  tab_blur:           { bg: "#fffbeb", color: "#92400e" },
-  fullscreen_exit:    { bg: "#fffbeb", color: "#92400e" },
-  screenshot_attempt: { bg: "#fffbeb", color: "#92400e" },
+  proctor_terminated: { bg: RED, color: "#fff" },
+  face_mismatch:      tint(RED),
+  multi_face:         tint(RED),
+  liveness:           tint(RED),
+  no_face:            tint(ORANGE),
+  tab_blur:           tint(AMBER),
+  fullscreen_exit:    tint(AMBER),
+  screenshot_attempt: tint(AMBER),
 }
 
 /**
@@ -28,7 +33,7 @@ export function ViolationChips({ counts, compact = false }: { counts: Record<str
   const { t } = useLanguage()
   const keys = Object.keys(counts ?? {}).filter((k) => (counts?.[k] ?? 0) > 0)
   if (!counts || keys.length === 0) {
-    return <span className="text-xs" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>—</span>
+    return <span className="text-xs" style={{ color: "var(--adm-up, #22c55e)", fontFamily: "var(--font-poppins)" }}>—</span>
   }
   keys.sort((a, b) => {
     const ia = ORDER.indexOf(a as (typeof ORDER)[number])
@@ -38,7 +43,7 @@ export function ViolationChips({ counts, compact = false }: { counts: Record<str
   return (
     <span className={`inline-flex flex-wrap gap-1 ${compact ? "" : "max-w-[260px]"}`}>
       {keys.map((k) => {
-        const st = STYLE[k] ?? { bg: "#f1f5f9", color: "#475569" }
+        const st = STYLE[k] ?? tint("var(--adm-muted, #475569)")
         const label = STYLE[k] ? t(`viol.${k}`) : k
         const n = counts[k]
         return (
