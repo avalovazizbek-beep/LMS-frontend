@@ -2250,6 +2250,8 @@ function CallStage({
   groupIdToName,
   snapshots,
   liveCameraOn,
+  attendanceEndsAt,
+  attendanceOffNotice,
   isRecording,
   recordingError,
   recordingUploading,
@@ -2296,6 +2298,10 @@ function CallStage({
   snapshots: Record<number, ParticipantSnapshot>
   /** Talaba: o'qituvchi hozir kamerangizni jonli ko'ryapti */
   liveCameraOn: boolean
+  /** Talaba ("Avtomatik" davomat): davomat vaqti tugaydigan payt (ms) */
+  attendanceEndsAt: number | null
+  /** Talaba: davomatdan keyin kamera/mikrofon o'chirildi — xabar */
+  attendanceOffNotice: boolean
   isRecording: boolean
   recordingError: string | null
   recordingUploading: boolean
@@ -2727,6 +2733,25 @@ function CallStage({
                 </div>
 
                 <div className="flex flex-col items-center gap-2">
+                  {attendanceEndsAt && !isTeacher && (() => {
+                    const left = Math.max(0, Math.ceil((attendanceEndsAt - Date.now()) / 1000))
+                    const clock = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`
+                    return (
+                      <div className={cn(
+                        "flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-white",
+                        cameraEnabled ? "bg-black/60" : "bg-red-600/90"
+                      )} style={{ fontFamily: "var(--font-poppins)" }}>
+                        <ClipboardCheck className="h-3.5 w-3.5 text-[#1cc2dc]" />
+                        {cameraEnabled ? t("meetingPage.attendanceTaking") : t("meetingPage.attendanceNeedCamera")}
+                        <span className="tabular-nums text-white/80">{clock}</span>
+                      </div>
+                    )
+                  })()}
+                  {attendanceOffNotice && !isTeacher && (
+                    <div className="max-w-[min(92vw,520px)] rounded-[8px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs text-emerald-800" style={{ fontFamily: "var(--font-poppins)" }}>
+                      {t("meetingPage.attendanceOffNotice")}
+                    </div>
+                  )}
                   {liveCameraOn && !isTeacher && cameraEnabled && (
                     <div className="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white" style={{ fontFamily: "var(--font-poppins)" }}>
                       <Eye className="h-3.5 w-3.5 text-[#1cc2dc]" />
@@ -3282,6 +3307,13 @@ export default function MeetingPage() {
   const [liveCameraOn, setLiveCameraOn] = useState(false)
   // O'qituvchi: oxirgi ko'rish ro'yxati (qayta ulanganda serverga qayta yuboriladi)
   const watchIdsRef = useRef<number[]>([])
+  // Talaba ("Avtomatik" davomat): davomat vaqti tugagach kamera va mikrofon
+  // bir marta o'chiriladi — keyin talaba savol berilsa o'zi yoqadi (qayta
+  // ulanishda yana o'chirilmaydi)
+  const attendanceTimerRef = useRef<number | null>(null)
+  const attendanceAutoOffDoneRef = useRef(false)
+  const [attendanceEndsAt, setAttendanceEndsAt] = useState<number | null>(null)
+  const [attendanceOffNotice, setAttendanceOffNotice] = useState(false)
   const [remoteStreams, setRemoteStreams] = useState<RemoteStream[]>([])
   const [activeVideoId, setActiveVideoId] = useState<ActiveVideoId>("self")
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -3427,6 +3459,29 @@ export default function MeetingPage() {
     remoteStreamsRef.current.delete(socketId)
     remotePeerStatesRef.current.delete(socketId)
     refreshRemoteStreams()
+  }
+
+  const turnOffAfterAttendance = () => {
+    attendanceTimerRef.current = null
+    if (attendanceAutoOffDoneRef.current) return
+    attendanceAutoOffDoneRef.current = true
+    setAttendanceEndsAt(null)
+    const stream = localStreamRef.current
+    const wasOn = Boolean(stream?.getTracks().some((track) => track.enabled))
+    stream?.getTracks().forEach((track) => { track.enabled = false })
+    setCameraEnabled(false)
+    setMicEnabled(false)
+    syncPeerMediaTracks()
+    socketRef.current?.emit("media:state", { cameraEnabled: false, micEnabled: false, screenSharing: Boolean(screenStreamRef.current) })
+    if (wasOn) {
+      setAttendanceOffNotice(true)
+      window.setTimeout(() => setAttendanceOffNotice(false), 12_000)
+    }
+  }
+
+  const clearAttendanceTimer = () => {
+    if (attendanceTimerRef.current) window.clearTimeout(attendanceTimerRef.current)
+    attendanceTimerRef.current = null
   }
 
   // Bitta producer yopildi (masalan o'qituvchi talabani ko'rishni to'xtatdi) —
@@ -3598,6 +3653,10 @@ export default function MeetingPage() {
     liveCameraRef.current = false
     setLiveCameraOn(false)
     watchIdsRef.current = []
+    clearAttendanceTimer()
+    attendanceAutoOffDoneRef.current = false
+    setAttendanceEndsAt(null)
+    setAttendanceOffNotice(false)
     setRemoteStreams([])
     setActiveVideoId("self")
     setChatMessages([])
@@ -3774,6 +3833,7 @@ export default function MeetingPage() {
 
   useEffect(() => {
     return () => {
+      if (attendanceTimerRef.current) window.clearTimeout(attendanceTimerRef.current)
       socketRef.current?.emit("meeting:leave")
       socketRef.current?.disconnect()
       socketRef.current = null
@@ -3915,6 +3975,14 @@ export default function MeetingPage() {
       }
       // Qayta ulanishda server ko'rish ro'yxatini unutgan — qayta yuboramiz
       if (isTeacher && watchIdsRef.current.length) socket.emit("meeting:watch", { userIds: watchIdsRef.current })
+
+      // "Avtomatik" davomat: vaqt tugagach kamera/mikrofon o'chiriladi
+      const remaining = socketNumber(recordValue(body.attendanceWindow).remainingSeconds)
+      if (!isTeacher && remaining != null && !attendanceAutoOffDoneRef.current) {
+        clearAttendanceTimer()
+        setAttendanceEndsAt(Date.now() + remaining * 1000)
+        attendanceTimerRef.current = window.setTimeout(turnOffAfterAttendance, remaining * 1000)
+      }
     }
 
     socket.on("connect", () => {
@@ -4159,6 +4227,8 @@ export default function MeetingPage() {
             groupIdToName={groupIdToName}
             snapshots={snapshots}
             liveCameraOn={liveCameraOn}
+            attendanceEndsAt={attendanceEndsAt}
+            attendanceOffNotice={attendanceOffNotice}
             isRecording={isRecording}
             recordingError={recordingError}
             recordingUploading={recordingUploading}

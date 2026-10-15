@@ -73,7 +73,7 @@ export default function AdminSozlamalar() {
 
   const [faceThreshold, setFaceThreshold] = useState("3")
   const [testAttempts, setTestAttempts] = useState("1")
-  const [meetingMinutes, setMeetingMinutes] = useState("70")
+  const [meetingMinutes, setMeetingMinutes] = useState("2")
   const [attendanceMode, setAttendanceMode] = useState<"auto" | "manual">("auto")
   const [platformMinutes, setPlatformMinutes] = useState("40")
   const [platformMeetingPct, setPlatformMeetingPct] = useState("100")
@@ -94,7 +94,7 @@ export default function AdminSozlamalar() {
         setSettings(d)
         setFaceThreshold(d.face_block_threshold ?? "3")
         setTestAttempts(d.test_max_attempts ?? "1")
-        setMeetingMinutes(d.meeting_attendance_minutes ?? "70")
+        setMeetingMinutes(d.meeting_attendance_minutes ?? "2")
         setAttendanceMode(d.attendance_mode === "manual" ? "manual" : "auto")
         setPlatformMinutes(d.platform_attendance_minutes ?? "40")
         setPlatformMeetingPct(d.platform_meeting_percent ?? "100")
@@ -205,9 +205,9 @@ export default function AdminSozlamalar() {
 
             <SettingCard icon={<Video className="w-5 h-5" style={{ color: "#0e58a8" }} />} iconBg="#eef4ff"
               title={t("adminSozlamalar.meetingAttendanceTitle")}
-              desc={<>{t("adminSozlamalar.meetingAttendanceDesc")}{current("meeting_attendance_minutes", "70")}</>}>
+              desc={<>{t("adminSozlamalar.meetingAttendanceDesc")}{current("meeting_attendance_minutes", "2")}</>}>
               <NumberField label={t("adminSozlamalar.minutesLabel")} value={meetingMinutes} onChange={setMeetingMinutes}
-                min={5} max={180} hint={t("adminSozlamalar.rangeHint5to180")} />
+                min={1} max={180} hint={t("adminSozlamalar.rangeHint1to180")} />
             </SettingCard>
 
             <SettingCard icon={<ClipboardCheck className="w-5 h-5" style={{ color: "#15803d" }} />} iconBg="#f0fdf4"
