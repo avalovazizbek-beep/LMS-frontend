@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import Link from "next/link"
 import {
   Lock, CheckCircle2, Clock, Download, Paperclip, X, Loader2, Send, AlertCircle,
-  Video, Link as LinkIcon, FileText,
+  Video, Link as LinkIcon, FileText, Camera,
 } from "lucide-react"
 import { teachingApi, type TeacherContent, type TeachingSubmission, type ContentStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -16,6 +16,21 @@ const STATUS_CONFIG: Record<ContentStatus, { labelKey: string; color: string; bg
   open:   { labelKey: "scc.status.open",   color: "#15803d", bg: "#f0fdf4", Icon: CheckCircle2 },
   closed: { labelKey: "scc.status.closed", color: "#92400e", bg: "#fffbeb", Icon: Clock },
 }
+
+// Kengaytma + MIME birga: iOS kengaytmani, Android fayl menejeri MIME'ni tushunadi
+const DOCUMENT_ACCEPT = [
+  ".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt", ".rtf", ".zip", ".rar", ".7z",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain", "application/rtf",
+  "application/zip", "application/x-zip-compressed",
+  "application/vnd.rar", "application/x-rar-compressed", "application/x-7z-compressed",
+].join(",")
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return "—"
@@ -59,6 +74,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
   const [formOpen, setFormOpen] = useState(false)
   const [sub, setSub] = useState<SubmitState>(defaultSubmit())
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const mediaInputRef = useRef<HTMLInputElement | null>(null)
 
   // Mavzu qayta ochilgan bo'lsa (admin/o'qituvchi) — muddat o'tgan bo'lsa ham topshirsa bo'ladi
   const reopened = item.isReopened === true
@@ -354,7 +370,11 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                   <p className="text-xs font-medium mb-1.5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                     {t("scc.fileOptional")}
                   </p>
-                  <input ref={fileInputRef} type="file" className="hidden"
+                  {/* accept'siz input telefonda faqat kamera/galereyani ochadi — hujjat
+                      turlari berilsa fayl menejeri (PDF, Word...) ochiladi */}
+                  <input ref={fileInputRef} type="file" className="hidden" accept={DOCUMENT_ACCEPT}
+                    onChange={e => setSub(prev => ({ ...prev, file: e.target.files?.[0] ?? null, error: null }))} />
+                  <input ref={mediaInputRef} type="file" className="hidden" accept="image/*,video/*"
                     onChange={e => setSub(prev => ({ ...prev, file: e.target.files?.[0] ?? null, error: null }))} />
                   {sub.file ? (
                     <div className="flex items-center gap-2 px-3 py-2 rounded-[8px]" style={{ backgroundColor: "#fff", border: "1px solid rgba(1,41,112,0.15)" }}>
@@ -368,12 +388,23 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                       </button>
                     </div>
                   ) : (
-                    <button onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-2 w-full px-3 py-2.5 rounded-[8px] text-sm transition-colors hover:opacity-80"
-                      style={{ backgroundColor: "#fff", border: "1.5px dashed rgba(14,88,168,0.35)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                      <Paperclip className="w-4 h-4" />
-                      {t("scc.chooseFile")}
-                    </button>
+                    <>
+                      <button onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-2 w-full px-3 py-2.5 rounded-[8px] text-sm transition-colors hover:opacity-80"
+                        style={{ backgroundColor: "#fff", border: "1.5px dashed rgba(14,88,168,0.35)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                        <Paperclip className="w-4 h-4" />
+                        {t("scc.chooseFile")}
+                      </button>
+                      <p className="text-[11px] mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                        PDF, Word, Excel, PowerPoint, TXT, ZIP/RAR
+                      </p>
+                      <button onClick={() => mediaInputRef.current?.click()}
+                        className="flex items-center gap-2 mt-2 text-xs font-medium transition-colors hover:opacity-80"
+                        style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                        <Camera className="w-4 h-4" />
+                        {t("scc.orPhotoVideo")}
+                      </button>
+                    </>
                   )}
                 </div>
 

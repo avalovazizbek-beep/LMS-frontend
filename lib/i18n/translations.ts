@@ -3015,6 +3015,7 @@ export const dictionary: Record<string, DictEntry> = {
   "scc.sentSuccess":         { uz: "Muvaffaqiyatli yuborildi!",            ru: "Успешно отправлено!",                   en: "Sent successfully!",                     kaa: "Tabıslı jiberildi!" },
   "scc.fileOptional":        { uz: "Fayl (ixtiyoriy)",                     ru: "Файл (необязательно)",                  en: "File (optional)",                        kaa: "Fayl (ıqtıyarlı)" },
   "scc.chooseFile":          { uz: "Fayl tanlash...",                      ru: "Выбрать файл...",                       en: "Choose file...",                         kaa: "Fayl tańlaw..." },
+  "scc.orPhotoVideo":        { uz: "Yoki rasm / video yuborish (kamera, galereya)", ru: "Или отправить фото / видео (камера, галерея)", en: "Or send a photo / video (camera, gallery)", kaa: "Yamasa súwret / video jiberiw (kamera, galereya)" },
   "scc.commentOptional":     { uz: "Izoh (ixtiyoriy)",                     ru: "Комментарий (необязательно)",           en: "Comment (optional)",                     kaa: "Pikir (ıqtıyarlı)" },
   "scc.commentPh":           { uz: "Izoh qoldiring...",                    ru: "Оставьте комментарий...",               en: "Leave a comment...",                     kaa: "Pikir qaldırıń..." },
   "scc.sending":             { uz: "Yuborilmoqda...",                      ru: "Отправка...",                           en: "Sending...",                             kaa: "Jiberilmekte..." },
