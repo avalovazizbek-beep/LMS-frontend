@@ -7,6 +7,7 @@ import {
   type JournalTopic,
   type JournalStudent,
   type JournalScale,
+  type PeriodSource,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -53,14 +54,17 @@ function TopicCell({ score, max }: { score: number | null; max: number }) {
 
 /* ─── Tahrirlash mumkin bo'lgan katak (ON1/ON2/YN) ──────────────────── */
 function EditCell({
-  value, onSave, maxVal = 100,
+  value, onSave, maxVal = 100, source = null,
 }: {
   value: number | null
   onSave: (v: number | null) => Promise<void>
   maxVal?: number
+  /** Qiymat qayerdan: test / qo'lda / topshirmagan (0) — kichik belgi va izoh */
+  source?: PeriodSource | null
 }) {
   const { t } = useLanguage()
-  const editHintCell = t("natijalarOq.editHintCell")
+  const editHintCell = source ? `${t(`natijalarOq.source.${source}`)} — ${t("natijalarOq.editHintCell")}` : t("natijalarOq.editHintCell")
+  const mark = source === "manual" ? "#7c3aed" : source === "absent" ? "#b91c1c" : null
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState("")
   const [saving, setSaving] = useState(false)
@@ -99,11 +103,12 @@ function EditCell({
           className="w-12 text-center text-xs rounded-[4px] border border-[#0e58a8] outline-none px-1 py-0.5"
           style={{ fontFamily: "var(--font-poppins)", color: "#012970" }} />
       ) : (
-        <span className="inline-block min-w-[32px] rounded-[4px] text-xs font-semibold px-1 py-0.5 cursor-pointer hover:ring-1 hover:ring-[#0e58a8] transition-all"
+        <span className="relative inline-block min-w-[32px] rounded-[4px] text-xs font-semibold px-1 py-0.5 cursor-pointer hover:ring-1 hover:ring-[#0e58a8] transition-all"
           style={{ color: value !== null ? c : "#94a3b8", backgroundColor: value !== null ? bg : "transparent", fontFamily: "var(--font-poppins)" }}
           onClick={startEdit}
           title={editHintCell}>
           {value !== null ? value : "—"}
+          {mark && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: mark }} />}
         </span>
       )}
     </td>
@@ -261,6 +266,11 @@ function GradeJournal({
     const k = `${userId}:${field}`
     return k in overrides ? overrides[k] : s[field]
   }
+  function getSource(userId: number, field: "on1" | "on2" | "yn", s: JournalStudent): PeriodSource | null {
+    const k = `${userId}:${field}`
+    if (k in overrides) return overrides[k] === null ? null : "manual"
+    return s.periodSource?.[field] ?? null
+  }
 
   // Umumiy = JN + ON1 + ON2 (yakuniyga qadar), Ball = Umumiy + YN
   function totals(s: JournalStudent) {
@@ -275,14 +285,26 @@ function GradeJournal({
 
   // Katakka ball (masalan 0-17) kiritiladi, bazada esa foiz saqlanadi —
   // imtihondan avtomatik kelgan ON/YN bilan bir xil ko'rinishda.
+  // Qo'lda yozilgan baho test natijasidan ustun turadi (testdan keyin yozilgan
+  // bo'lsa). Bo'shatilsa — test natijasi qaytadi, shuning uchun jurnal yangilanadi.
   const save = useCallback(async (
     userId: number, gradeType: "ON1" | "ON2" | "YN", val: number | null
   ) => {
-    setOverrides(prev => ({ ...prev, [`${userId}:${gradeType.toLowerCase()}`]: val }))
+    const key = `${userId}:${gradeType.toLowerCase()}`
+    setOverrides(prev => ({ ...prev, [key]: val }))
     const max = gradeType === "ON1" ? scale.on1 : gradeType === "ON2" ? scale.on2 : scale.yn
     const pct = val === null ? null : Math.round((val / max) * 1000) / 10
-    await teachingApi.savePeriodGrade({ groupId, subjectName, studentUserId: userId, gradeType, grade: pct })
-  }, [groupId, subjectName, scale])
+    try {
+      await teachingApi.savePeriodGrade({ groupId, subjectName, studentUserId: userId, gradeType, grade: pct })
+      if (val === null) {
+        setOverrides(prev => { const next = { ...prev }; delete next[key]; return next })
+        onRefresh()
+      }
+    } catch (err) {
+      setOverrides(prev => { const next = { ...prev }; delete next[key]; return next })
+      alert(err instanceof Error ? err.message : t("natijalarOq.saveError"))
+    }
+  }, [groupId, subjectName, scale, onRefresh, t])
 
   const passed = students.filter(s => (totals(s).ball ?? 0) >= PASS_BALL).length
 
@@ -461,14 +483,14 @@ function GradeJournal({
                   <BallCell value={s.jn} max={scale.jn} />
 
                   {/* ON1, ON2 */}
-                  <EditCell value={r.on1} maxVal={scale.on1} onSave={v => save(s.userId, "ON1", v)} />
-                  <EditCell value={r.on2} maxVal={scale.on2} onSave={v => save(s.userId, "ON2", v)} />
+                  <EditCell value={r.on1} maxVal={scale.on1} source={getSource(s.userId, "on1", s)} onSave={v => save(s.userId, "ON1", v)} />
+                  <EditCell value={r.on2} maxVal={scale.on2} source={getSource(s.userId, "on2", s)} onSave={v => save(s.userId, "ON2", v)} />
 
                   {/* Umumiy = JN + ON1 + ON2 */}
                   <BallCell value={r.total} max={totalMax} />
 
                   {/* YN */}
-                  <EditCell value={r.yn} maxVal={scale.yn} onSave={v => save(s.userId, "YN", v)} />
+                  <EditCell value={r.yn} maxVal={scale.yn} source={getSource(s.userId, "yn", s)} onSave={v => save(s.userId, "YN", v)} />
 
                   {/* Ball = Umumiy + YN */}
                   <BallCell value={r.ball} max={ballMax} />
@@ -496,6 +518,11 @@ function GradeJournal({
           style={{ borderTop: "1px solid rgba(1,41,112,0.08)", ...L }}>
           <span>{t("natijalarOq.totalCount", { n: students.length })}</span>
           <span style={{ color: "#0e58a8" }}>{t("natijalarOq.editHint")}</span>
+        </div>
+        <div className="px-4 pb-2.5 flex items-center gap-4 flex-wrap text-[11px]" style={L}>
+          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#7c3aed" }} />{t("natijalarOq.source.manual")}</span>
+          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#b91c1c" }} />{t("natijalarOq.source.absent")}</span>
+          <span>{t("natijalarOq.source.legend")}</span>
         </div>
       </div>
 

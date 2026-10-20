@@ -6,7 +6,7 @@ import { useParams } from "next/navigation"
 import {
   Plus, X, Trash2, Pencil, FileText, Lock, CheckCircle2, Clock, Users, Loader2, Download,
   Video, Link as LinkIcon, File as FileIcon, HelpCircle, Power, CalendarCheck, BarChart2, ArrowLeft,
-  RefreshCw, ShieldAlert, ExternalLink,
+  RefreshCw, ShieldAlert, ExternalLink, Copy,
 } from "lucide-react"
 import {
   teachingApi,
@@ -1025,6 +1025,10 @@ interface FormState {
   docFile: File | null
   videoFile: File | null
   meetingLink: string
+  /** Oraliq nazorat: jurnaldagi o'rni (ON1 / ON2) */
+  slot: string
+  /** Oraliq/yakuniy nazorat: urinishlar soni (kamida 1) */
+  attemptsCount: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -1047,6 +1051,8 @@ const EMPTY_FORM: FormState = {
   docFile: null,
   videoFile: null,
   meetingLink: "",
+  slot: "",
+  attemptsCount: "1",
 }
 
 export default function TeacherContentTypePage() {
@@ -1082,6 +1088,7 @@ export default function TeacherContentTypePage() {
 
   const [gradingFor, setGradingFor] = useState<TeacherContent | null>(null)
   const [questionsFor, setQuestionsFor] = useState<TeacherContent | null>(null)
+  const [copyFor, setCopyFor] = useState<TeacherContent | null>(null)
 
   if (!config) {
     return (
@@ -1196,6 +1203,8 @@ export default function TeacherContentTypePage() {
       docFile: null,
       videoFile: null,
       meetingLink: item.meetingLink ?? "",
+      slot: item.kind === "ON1" || item.kind === "ON2" ? item.kind : "",
+      attemptsCount: item.attemptsCount != null ? String(item.attemptsCount) : "1",
     })
     setFormError(null)
     setShowForm(true)
@@ -1219,6 +1228,12 @@ export default function TeacherContentTypePage() {
     if (!form.title.trim()) { setFormError(t("typeContentOq.err.enterTitle")); return }
     const requiresDate = config!.type === "lesson" || config!.gradable
     if (!editingId && requiresDate && !availableFrom) { setFormError(t("typeContentOq.err.enterAvailableFrom")); return }
+    // Oraliq/yakuniy nazorat: tugash vaqti majburiy, oraliqda ON1/ON2 tanlanadi
+    const isControl = config!.filterControlType === "oraliq" || config!.filterControlType === "yakuniy"
+    const isOraliq = config!.filterControlType === "oraliq"
+    if (isControl && !deadline) { setFormError(t("typeContentOq.err.enterDeadline")); return }
+    if (isOraliq && !form.slot) { setFormError(t("typeContentOq.err.selectSlot")); return }
+    const attempts = Math.max(1, Math.round(Number(form.attemptsCount) || 1))
 
     setSaving(true)
     try {
@@ -1237,6 +1252,8 @@ export default function TeacherContentTypePage() {
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
           meetingLink: form.meetingLink.trim() || null,
+          ...(isControl ? { attemptsCount: attempts } : {}),
+          ...(isOraliq ? { kind: form.slot } : {}),
         })
       } else {
         const created = await teachingApi.createContent({
@@ -1245,11 +1262,12 @@ export default function TeacherContentTypePage() {
           subjectName: form.subjectName.trim(),
           title: form.title.trim(),
           description: form.description.trim() || undefined,
-          kind: config!.type === "lesson" ? form.kind : undefined,
+          kind: config!.type === "lesson" ? form.kind : isOraliq ? form.slot : undefined,
           controlType: config!.filterControlType ?? undefined,
           availableFrom: availableFrom ?? new Date().toISOString(),
           deadline: deadline,
           maxScore: form.maxScore ? Number(form.maxScore) : null,
+          attemptsCount: isControl ? attempts : undefined,
           durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
           questionDisplayCount: form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
           isAdaptive: config!.type === "exam" ? form.isAdaptive : undefined,
@@ -1343,8 +1361,14 @@ export default function TeacherContentTypePage() {
                       <FileText className="w-5 h-5" style={{ color: "#0e58a8" }} />
                     </div>
                     <div>
-                      <div className="text-base font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                      <div className="text-base font-semibold flex items-center gap-2 flex-wrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                         {item.title}
+                        {config.filterControlType === "oraliq" && (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                            style={{ color: item.kind === "ON1" || item.kind === "ON2" ? "#7c3aed" : "#b91c1c", backgroundColor: item.kind === "ON1" || item.kind === "ON2" ? "#f5f3ff" : "#fef2f2" }}>
+                            {item.kind === "ON1" || item.kind === "ON2" ? item.kind : t("typeContentOq.slot.missing")}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                         {item.subjectName} • <Users className="w-3 h-3 inline -mt-0.5" /> {groupName}
@@ -1400,6 +1424,7 @@ export default function TeacherContentTypePage() {
                   {item.maxScore != null && <span>{t("typeContentOq.maxScore")} <strong style={{ color: "#012970" }}>{item.maxScore}</strong></span>}
                   {item.durationMinutes != null && <span>{t("typeContentOq.duration")} <strong style={{ color: "#012970" }}>{t("typeContentOq.minutesUnit", { n: item.durationMinutes })}</strong></span>}
                   {item.trainingLoad != null && <span>{t("typeContentOq.load")} <strong style={{ color: "#012970" }}>{t("typeContentOq.hoursUnit", { n: item.trainingLoad })}</strong></span>}
+                  {item.controlType && item.attemptsCount != null && <span>{t("typeContentOq.attempts")} <strong style={{ color: "#012970" }}>{item.attemptsCount}</strong></span>}
                 </div>
 
                 {item.docFile && (
@@ -1455,6 +1480,16 @@ export default function TeacherContentTypePage() {
                       {t("typeContentOq.viewGrade")}
                     </button>
                   )}
+                  {!config.readOnly && config.type === "exam" && item.controlType && (
+                    <button
+                      onClick={() => setCopyFor(item)}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors"
+                      style={{ color: "#0891b2", border: "1px solid #a5f3fc", fontFamily: "var(--font-poppins)" }}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      {t("typeContentOq.copy.button")}
+                    </button>
+                  )}
                   {!config.readOnly && (
                     <>
                       <button
@@ -1508,6 +1543,139 @@ export default function TeacherContentTypePage() {
           onSaved={refetch}
         />
       )}
+
+      {copyFor && (
+        <CopyToGroupsModal
+          content={copyFor}
+          groups={groups}
+          scheduleItems={scheduleItems}
+          onClose={() => setCopyFor(null)}
+          onDone={refetch}
+        />
+      )}
+    </div>
+  )
+}
+
+/* Oraliq/yakuniy nazoratni (savollari bilan) boshqa guruhlarga tarqatish:
+   bir guruhda yaratib, savollarini kiritgach qolgan guruhlarga bir bosishda. */
+function CopyToGroupsModal({
+  content, groups, scheduleItems, onClose, onDone,
+}: {
+  content: TeacherContent
+  groups: TeacherGroup[]
+  scheduleItems: TeacherScheduleItem[]
+  onClose: () => void
+  onDone: () => void
+}) {
+  const { t } = useLanguage()
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{ message: string; skipped: { groupId: number; reason: string }[] } | null>(null)
+
+  // Jadvalda shu fan o'tiladigan guruhlar; jadvalda ma'lumot bo'lmasa — barchasi
+  const options = useMemo(() => {
+    const subj = content.subjectName.trim().toLowerCase()
+    const withSubject = new Set(scheduleItems.filter(s => s.subjectName.trim().toLowerCase() === subj).map(s => Number(s.groupId)))
+    const others = groups.filter(g => g.id !== content.groupId)
+    return withSubject.size ? others.filter(g => withSubject.has(g.id)) : others
+  }, [groups, scheduleItems, content])
+  const groupName = (id: number) => groups.find(g => g.id === id)?.name ?? t("typeContentOq.groupFallback", { id })
+
+  function toggle(id: number) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function submit() {
+    if (!selected.size) return
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await teachingApi.copyToGroups(content.id, [...selected])
+      setResult({ message: res.message, skipped: res.data.skipped })
+      setSelected(new Set())
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("typeContentOq.err.saveError"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.35)" }}>
+      <div className="bg-white rounded-[14px] w-full max-w-md max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              {t("typeContentOq.copy.title")}
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {content.title}{content.kind === "ON1" || content.kind === "ON2" ? ` · ${content.kind}` : ""} · {content.subjectName} · {groupName(content.groupId)}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">
+            <X className="w-5 h-5" style={{ color: "#7293b9" }} />
+          </button>
+        </div>
+
+        <p className="text-xs" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
+          {t("typeContentOq.copy.hint", { n: content.questionCount })}
+        </p>
+
+        {error && (
+          <div className="text-sm px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+            {error}
+          </div>
+        )}
+        {result && (
+          <div className="text-sm px-3 py-2 rounded-[6px] flex flex-col gap-1" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+            <span>{result.message}</span>
+            {result.skipped.map(s => (
+              <span key={s.groupId} className="text-xs" style={{ color: "#92400e" }}>{groupName(s.groupId)}: {s.reason}</span>
+            ))}
+          </div>
+        )}
+
+        {options.length === 0 ? (
+          <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.copy.noGroups")}</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <button type="button"
+              onClick={() => setSelected(selected.size === options.length ? new Set() : new Set(options.map(g => g.id)))}
+              className="text-xs font-medium w-fit" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              {selected.size === options.length ? t("typeContentOq.copy.clear") : t("typeContentOq.copy.all", { n: options.length })}
+            </button>
+            {options.map(g => (
+              <label key={g.id} className="flex items-center gap-2 px-3 py-2 rounded-[8px] cursor-pointer text-sm"
+                style={{ border: `1px solid ${selected.has(g.id) ? "#0e58a8" : "#d8e6f7"}`, color: "#012970", fontFamily: "var(--font-poppins)" }}>
+                <input type="checkbox" checked={selected.has(g.id)} onChange={() => toggle(g.id)} />
+                {g.name}
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose}
+            className="px-4 py-2.5 rounded-[8px] text-sm font-medium"
+            style={{ color: "#445b7a", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
+            {t("typeContentOq.copy.close")}
+          </button>
+          <button onClick={submit} disabled={saving || selected.size === 0}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium disabled:opacity-60"
+            style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+            {t("typeContentOq.copy.submit", { n: selected.size })}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1542,6 +1710,8 @@ function ContentFormModal({
   const isKalendar = config.type === "kalendar"
   const isMalumot = config.type === "malumot"
   const isMavzu   = config.type === "mavzu"
+  const isOraliq  = config.filterControlType === "oraliq"
+  const isControl = isOraliq || config.filterControlType === "yakuniy"
 
   const availFromLabel = isKalendar ? t("typeContentOq.form.availFromKalendar") : isMavzu ? t("typeContentOq.form.availFromMavzu") : t("typeContentOq.form.availFromDefault")
   const deadlineLabel  = isKalendar ? t("typeContentOq.form.deadlineKalendar") : config.gradable ? t("typeContentOq.form.deadlineGradable") : t("typeContentOq.form.deadlineDefault")
@@ -1676,6 +1846,29 @@ function ContentFormModal({
             </div>
           )}
 
+          {/* Oraliq: jurnaldagi o'rni — ON1 (17 ball) yoki ON2 (18 ball) */}
+          {isOraliq && (
+            <div className="col-span-2 sm:col-span-1">
+              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.slot")}</label>
+              <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
+                value={form.slot} onChange={e => update("slot", e.target.value)}>
+                <option value="">{t("typeContentOq.form.selectPlaceholder")}</option>
+                <option value="ON1">{t("typeContentOq.form.slotOn1")}</option>
+                <option value="ON2">{t("typeContentOq.form.slotOn2")}</option>
+              </select>
+            </div>
+          )}
+
+          {/* Oraliq/yakuniy: urinishlar soni — cheksiz bo'lmaydi */}
+          {isControl && (
+            <div className="col-span-2 sm:col-span-1">
+              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.attempts")}</label>
+              <input type="number" min={1} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
+                value={form.attemptsCount} onChange={e => update("attemptsCount", e.target.value)} placeholder="1" />
+              <p className="mt-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.attemptsHint")}</p>
+            </div>
+          )}
+
           {/* Moslashuvchan test — savol qiyinligi talaba javobiga qarab moslashadi */}
           {config.hasDuration && (
             <div className="col-span-2">
@@ -1745,6 +1938,12 @@ function ContentFormModal({
                   value={form.deadlineTime} onChange={e => update("deadlineTime", e.target.value)} />
               </div>
             </div>
+          )}
+
+          {isControl && !editing && (
+            <p className="col-span-2 text-xs px-3 py-2 rounded-[8px]" style={{ color: "#0e58a8", backgroundColor: "#f0f5ff", fontFamily: "var(--font-poppins)" }}>
+              {t(isOraliq ? "typeContentOq.form.oraliqHint" : "typeContentOq.form.controlHint")}
+            </p>
           )}
 
           {/* Materiallar bo'limi — yaratishda */}

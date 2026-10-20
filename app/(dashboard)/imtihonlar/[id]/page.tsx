@@ -28,7 +28,8 @@ export default function ImtihonTopshirish() {
 
   // Muddat o'tgan bo'lsa ham shu talaba uchun ochiq: mavzu qayta ochilgan
   // yoki admin/o'qituvchi aynan unga qo'shimcha urinish bergan (retake grant)
-  const retakeGranted = mySubmission?.retakeGranted === true
+  // (oraliqqa kelmagan, umuman topshirmagan talabaga ham — content.retakeGranted)
+  const retakeGranted = mySubmission?.retakeGranted === true || content?.retakeGranted === true
   const topicReopened = content?.isReopened === true
   const openForMe = content?.status === "open" ||
     (content?.status === "closed" && (topicReopened || retakeGranted))

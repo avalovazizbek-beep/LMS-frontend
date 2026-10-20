@@ -1314,6 +1314,8 @@ export interface TeacherContent {
   questionCount: number
   createdAt: string
   updatedAt: string
+  /** Faqat talabaga: admin shu imtihonga unga qayta urinish bergan (topshirmagan bo'lsa ham) */
+  retakeGranted?: boolean
 }
 
 export interface PendingGradingItem {
@@ -1360,10 +1362,50 @@ export interface AdminExamListItem {
   groupName: string
   controlType: string | null
   teacherName: string
+  /** Oraliqning jurnaldagi o'rni */
+  slot: "ON1" | "ON2" | null
   maxScore: number | null
   availableFrom: string
   deadline: string | null
   submissionCount: number
+  /** Faol qayta urinish ruxsatlari soni */
+  grantCount: number
+}
+
+export type PeriodSource = "exam" | "manual" | "absent"
+
+export interface AdminOraliqStudent {
+  userId: number
+  fullName: string
+  grade: number | null
+  attemptsUsed: number
+  submittedAt: string | null
+  passed: boolean
+  retakeGranted: boolean
+  /** Jurnaldagi qiymat (0-100 foiz) va manbasi */
+  journalPct: number | null
+  journalSource: PeriodSource | null
+  violations: Record<string, number> | null
+}
+
+export interface AdminOraliqDetail {
+  exam: {
+    id: number
+    title: string
+    subjectName: string
+    groupId: number
+    groupName: string
+    controlType: string | null
+    slot: "ON1" | "ON2" | "YN" | null
+    maxScore: number | null
+    attemptsCount: number | null
+    availableFrom: string
+    deadline: string | null
+    status: ContentStatus
+    questionCount: number
+    isActive: boolean
+  }
+  students: AdminOraliqStudent[]
 }
 
 export interface ExamResultsTopic {
@@ -1406,6 +1448,8 @@ export interface JournalStudent {
   on1: number | null
   on2: number | null
   yn: number | null
+  /** ON1/ON2/YN qayerdan: test / qo'lda / topshirmagan (0) */
+  periodSource?: { on1: PeriodSource | null; on2: PeriodSource | null; yn: PeriodSource | null }
   attendancePct: number | null
 }
 
@@ -1754,6 +1798,12 @@ export const teachingApi = {
 
   revokeRetake: (contentId: number | string, studentUserId: number | string) =>
     del<MsgRes>(`/api/teaching/content/${contentId}/retake-grants/${studentUserId}`),
+
+  /** O'qituvchi: oraliq/yakuniy nazoratni savollari bilan boshqa guruhlariga tarqatish */
+  copyToGroups: (contentId: number | string, groupIds: number[]) =>
+    post<{ success: boolean; message: string; data: { created: number; updated: number; skipped: { groupId: number; reason: string }[] } }>(
+      `/api/teaching/content/${contentId}/copy-to-groups`, { groupIds }
+    ),
 
   grade: (submissionId: number | string, body: { grade: number; feedback?: string }) =>
     put<ItemRes<TeachingSubmission>>(`/api/teaching/submissions/${submissionId}/grade`, body),
@@ -2770,6 +2820,10 @@ export const adminApi = {
 
   contentSubmissions: (contentId: number | string) =>
     get<ListRes<TeachingSubmission & { passed: boolean }>>(`/api/admin/content/${contentId}/submissions`),
+
+  /** Oraliq/yakuniy nazorat bo'yicha guruhning to'liq ro'yxati (topshirmaganlar ham) */
+  oraliqStudents: (contentId: number | string) =>
+    get<{ success: boolean; data: AdminOraliqDetail }>(`/api/admin/oraliq/${contentId}/students`),
 
   grantRetake: (contentId: number | string, studentUserIds: number[], reason?: string) =>
     post<MsgRes>(`/api/admin/content/${contentId}/retake-grants`, { studentUserIds, reason }),

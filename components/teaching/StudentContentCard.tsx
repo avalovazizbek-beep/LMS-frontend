@@ -210,7 +210,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
               const alreadyPassed = mySubmission.grade !== null && mySubmission.grade !== undefined && mySubmission.grade >= passThreshold
               // Admin/o'qituvchi shu talabaga qo'shimcha urinish bergan bo'lsa (retake grant)
               // yoki mavzu qayta ochilgan bo'lsa — muddat/urinishlar tugagan bo'lsa ham ochiq
-              const retakeGranted = mySubmission.retakeGranted === true
+              const retakeGranted = mySubmission.retakeGranted === true || item.retakeGranted === true
               const openNow = item.status === "open" || (item.status === "closed" && (reopened || retakeGranted))
               const hasRegularAttempt = maxAttempts === null || used < maxAttempts
               const canRetry = !alreadyPassed && openNow && (hasRegularAttempt || reopened || retakeGranted)
@@ -261,7 +261,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                   )}
                 </div>
               )
-            })() : item.status === "open" ? (
+            })() : item.status === "open" || (item.status === "closed" && item.retakeGranted) ? (
               <Link href={`/imtihonlar/${item.id}`}
                 className="flex items-center gap-2 w-fit px-4 py-2 rounded-[8px] text-sm font-medium"
                 style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>
