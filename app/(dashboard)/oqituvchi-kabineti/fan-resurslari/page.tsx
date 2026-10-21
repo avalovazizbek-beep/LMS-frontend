@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
@@ -1907,7 +1907,7 @@ const GROUP_STATE_STYLE: Record<GroupState, { bg: string; color: string; border:
   missing: { bg: "white",   color: "#b91c1c", border: "1px dashed rgba(185,28,28,0.45)", titleKey: "fanResurslariOq.grid.missingInGroup" },
 }
 
-function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, groups, onSync, syncing, ownerName, duplicateGroups, onMergeDuplicates, merging }: {
+function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, groups, onSync, syncing, ownerName, duplicateGroups, onMergeDuplicates, merging, large, meta }: {
   index: number
   topic: TopicInfo
   /** Mavzuning resurslari (marker qatorisiz) */
@@ -1926,6 +1926,10 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, grou
   duplicateGroups?: string[]
   onMergeDuplicates?: () => void
   merging?: boolean
+  /** Barcha mavzular ro'yxatida tanlangan mavzu — kattaroq katak, guruhlari doim ko'rinadi */
+  large?: boolean
+  /** Sarlavha ostidagi qo'shimcha belgilar (fan, mashg'ulot turi) */
+  meta?: React.ReactNode
 }) {
   const { t } = useLanguage()
   const count = items.length
@@ -1939,10 +1943,14 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, grou
   return (
     <div role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0} onClick={onOpen}
       onKeyDown={e => { if (onOpen && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen() } }}
-      className={`group flex flex-col gap-3 p-4 rounded-[12px] bg-white text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#0e58a8] ${readOnly ? "" : "cursor-pointer hover:-translate-y-0.5 hover:shadow-md"}`}
-      style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)", minHeight: CARD_MIN_HEIGHT, opacity: readOnly ? 0.9 : 1 }}>
+      className={`group flex flex-col rounded-[12px] bg-white text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#0e58a8] ${large ? "gap-4 p-6" : "gap-3 p-4"} ${readOnly ? "" : large ? "cursor-pointer hover:shadow-md" : "cursor-pointer hover:-translate-y-0.5 hover:shadow-md"}`}
+      style={{
+        border: large ? "1px solid rgba(14,88,168,0.35)" : "1px solid rgba(1,41,112,0.12)",
+        boxShadow: large ? "0 6px 20px rgba(1,41,112,0.10)" : "0 1px 4px rgba(1,41,112,0.06)",
+        minHeight: large ? 280 : CARD_MIN_HEIGHT, opacity: readOnly ? 0.9 : 1,
+      }}>
       <div className="flex items-start justify-between gap-2">
-        <span className="w-9 h-9 rounded-[10px] flex items-center justify-center text-sm font-bold shrink-0"
+        <span className={`${large ? "w-11 h-11 text-base" : "w-9 h-9 text-sm"} rounded-[10px] flex items-center justify-center font-bold shrink-0`}
           style={{
             backgroundColor: count > 0 ? "rgba(34,197,94,0.12)" : "#eef4ff",
             color: count > 0 ? "#15803d" : "#0e58a8",
@@ -1969,9 +1977,10 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, grou
       </div>
 
       <div className="flex-1 flex flex-col gap-1">
-        <p className="text-sm font-semibold leading-snug line-clamp-3 break-words" style={titleStyle} title={topic.title}>
+        <p className={`font-semibold leading-snug break-words ${large ? "text-lg" : "text-sm line-clamp-3"}`} style={titleStyle} title={topic.title}>
           {topic.title}
         </p>
+        {meta}
         {ownerName && (
           <p className="text-[11px] flex items-center gap-1" style={labelStyle}>
             <Users className="w-3 h-3 shrink-0" /> {ownerName}
@@ -1979,7 +1988,7 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, grou
         )}
       </div>
 
-      {groups && groups.length > 1 && (
+      {groups && (groups.length > 1 || (large && groups.length > 0)) && (
         <div className="flex flex-wrap gap-1">
           {groups.map(g => {
             const st = GROUP_STATE_STYLE[g.state]
@@ -2054,11 +2063,112 @@ function TopicCard({ index, topic, items, onOpen, onEdit, onDelete, footer, grou
   )
 }
 
+/* ── Barcha mavzular ro'yxati (filtrlar to'liq tanlanmaganda) ────────── */
+/* O'qituvchining hamma guruh va fanlardagi o'z mavzulari. Bir mavzu nechta
+   guruhda bo'lsa ham bir marta chiqadi (fan + tur + nom bo'yicha birlashadi). */
+interface OverviewTopic {
+  id: string
+  subjectName: string
+  topic: TopicInfo
+  /** Fan + mashg'ulot turi ichidagi tartib raqami — mavzular gridi bilan bir xil */
+  index: number
+}
+
+const TYPE_ORDER: string[] = TRAINING_TYPE_OPTIONS.map(o => o.value)
+
+function buildOverviewTopics(items: TeacherContent[], groupOrder: number[]): OverviewTopic[] {
+  const bySubject = new Map<string, TeacherContent[]>()
+  for (const item of items) {
+    if (!bySubject.has(item.subjectName)) bySubject.set(item.subjectName, [])
+    bySubject.get(item.subjectName)!.push(item)
+  }
+  const out: OverviewTopic[] = []
+  for (const [subjectName, list] of bySubject) {
+    const counters = new Map<string, number>()
+    for (const topic of mergeTopics(buildTopicInstances(list), groupOrder)) {
+      const n = (counters.get(topic.trainingType ?? "") ?? 0) + 1
+      counters.set(topic.trainingType ?? "", n)
+      out.push({ id: `${subjectName}|${topic.id}`, subjectName, topic, index: n })
+    }
+  }
+  return out
+}
+
+/* Bo'limlar: avval Ma'ruza, keyin Amaliyot, Mustaqil ish; boshqa turlar va
+   turi belgilanmaganlar oxirida. Bo'lim ichida — fan, so'ng mavzu tartibi. */
+function groupOverviewByType(list: OverviewTopic[]): { type: string | null; topics: OverviewTopic[] }[] {
+  const typeOf = (o: OverviewTopic) => o.topic.trainingType || null
+  const rank = (type: string | null) =>
+    type === null ? TYPE_ORDER.length + 1 : TYPE_ORDER.includes(type) ? TYPE_ORDER.indexOf(type) : TYPE_ORDER.length
+  const types = [...new Set(list.map(typeOf))].sort((a, b) => rank(a) - rank(b) || (a ?? "").localeCompare(b ?? ""))
+  return types.map(type => ({
+    type,
+    topics: list
+      .filter(o => typeOf(o) === type)
+      .sort((a, b) => a.subjectName.localeCompare(b.subjectName) || a.index - b.index),
+  }))
+}
+
+function useIsWide() {
+  const [wide, setWide] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    const update = () => setWide(mq.matches)
+    update()
+    mq.addEventListener("change", update)
+    return () => mq.removeEventListener("change", update)
+  }, [])
+  return wide
+}
+
+function OverviewRow({ item, selected, groupsLabel, onSelect }: {
+  item: OverviewTopic
+  selected: boolean
+  groupsLabel: string
+  onSelect: () => void
+}) {
+  const { t } = useLanguage()
+  const items = item.topic.base.items
+  const count = items.length
+  const icons = MATERIAL_ICONS.filter(m => items.some(m.match))
+  const emptyTest = items.some(i => i.type === "exam" && i.questionCount === 0)
+  return (
+    <button type="button" onClick={onSelect} aria-pressed={selected}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#0e58a8] ${selected ? "" : "bg-white hover:bg-[#f6f9ff]"}`}
+      style={{
+        border: selected ? "1px solid #0e58a8" : "1px solid rgba(1,41,112,0.1)",
+        ...(selected ? { backgroundColor: "#eef4ff" } : {}),
+      }}>
+      <span className="w-8 h-8 rounded-[8px] flex items-center justify-center text-xs font-bold shrink-0"
+        style={{
+          backgroundColor: count > 0 ? "rgba(34,197,94,0.12)" : "#eef4ff",
+          color: count > 0 ? "#15803d" : "#0e58a8",
+          fontFamily: "var(--font-poppins)",
+        }}>
+        {item.index}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold truncate" style={titleStyle} title={item.topic.title}>{item.topic.title}</p>
+        <p className="text-[11px] truncate" style={labelStyle} title={`${item.subjectName} · ${groupsLabel}`}>
+          {item.subjectName} · {groupsLabel}
+        </p>
+      </div>
+      {emptyTest && (
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: "#dc2626" }} title={t("fanResurslariOq.grid.emptyTest")} />
+      )}
+      <div className="hidden sm:flex items-center gap-1 shrink-0">
+        {icons.map(({ icon: Icon }, i) => <Icon key={i} className="w-3.5 h-3.5" style={{ color: selected ? "#0e58a8" : "#94a3b8" }} />)}
+      </div>
+    </button>
+  )
+}
+
 /* ── Bosh sahifa ─────────────────────────────────────────────────────── */
+const PAGE_TOP_ID = "fan-resurslari-top"
+
 export default function FanResurslariPage() {
   const { t } = useLanguage()
   const { data: groupsRes, loading: lGroups, error: eGroups } = useApi(() => teachingApi.groups(), [])
-  const topRef = useRef<HTMLDivElement>(null)
 
   const groups = groupsRes?.data ?? []
 
@@ -2118,7 +2228,11 @@ export default function FanResurslariPage() {
   )
   const allItems = useMemo(() => contentRes?.data ?? [], [contentRes])
   const owners = contentRes?.owners ?? {}
-  const me = contentRes?.me ?? 0
+  // O'qituvchining o'z kontenti (hamma guruh va fanlar) — barcha mavzular ro'yxati uchun
+  const { data: mineRes, loading: lMine, error: eMine, refetch: refetchMine } = useApi(() => teachingApi.content(), [])
+  // Filtrlar tanlanmaganda group-content so'ralmaydi (me = 0) — shunda o'z ID'si
+  // o'z kontentidan olinadi, aks holda ro'yxatdagi mavzular "boshqa o'qituvchiniki" bo'lib qolardi.
+  const me = contentRes?.me || mineRes?.data?.[0]?.teacherUserId || 0
 
   const topicInstances = useMemo(() => buildTopicInstances(allItems), [allItems])
   // O'qituvchining o'z mavzulari — guruhlar bo'yicha birlashtirilgan (nomi + turi)
@@ -2142,6 +2256,33 @@ export default function FanResurslariPage() {
   )
 
   const groupNameOf = (id: number) => displayGroups.find(g => g.id === id)?.name ?? String(id)
+
+  // Filtrlar to'liq tanlanmaganda — o'qituvchining barcha mavzulari ro'yxati.
+  // Tanlangan filtrlar (yil, guruh, fan) ro'yxatni toraytiradi.
+  const groupOrder = useMemo(
+    () => [...groups].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(g => g.id),
+    [groups]
+  )
+  const overviewTopics = useMemo(() => buildOverviewTopics(mineRes?.data ?? [], groupOrder), [mineRes, groupOrder])
+  const filteredOverview = useMemo(() => {
+    const yearGroupIds = new Set(displayGroups.map(g => g.id))
+    return overviewTopics.filter(o => {
+      const gids = o.topic.instances.map(i => i.groupId)
+      if (academicYear && !gids.some(g => yearGroupIds.has(g))) return false
+      if (groupIds.length && !gids.some(g => groupIds.includes(g))) return false
+      if (subjectName && o.subjectName !== subjectName) return false
+      return true
+    })
+  }, [overviewTopics, academicYear, displayGroups, groupIds, subjectName])
+  const overviewSections = useMemo(() => groupOverviewByType(filteredOverview), [filteredOverview])
+  const [overviewSel, setOverviewSel] = useState<string | null>(null)
+  // Mavzu ro'yxatdan ochilgan bo'lsa, "orqaga" filtrsiz ro'yxatga qaytaradi
+  const [fromOverview, setFromOverview] = useState(false)
+  const isWide = useIsWide()
+
+  async function refetchAll() {
+    await Promise.all([refetchTopics(), refetchMine()])
+  }
 
   const [addingTopic, setAddingTopic] = useState(false)
   const [newTopicTitle, setNewTopicTitle] = useState("")
@@ -2169,13 +2310,42 @@ export default function FanResurslariPage() {
   }
 
   function scrollToTop() {
-    topRef.current?.scrollIntoView({ block: "start" })
+    // ref emas, id orqali — render paytida chaqiriladigan katak funksiyalari ref'ga tegmasin
+    document.getElementById(PAGE_TOP_ID)?.scrollIntoView({ block: "start" })
   }
 
   function openTopic(key: string) {
     setEditTopicKey(null)
     setDeleteTopicKey(null)
     setTopicKey(key)
+    scrollToTop()
+  }
+
+  // Ro'yxatdan ochilganda filtrlar shu mavzuga moslab qo'yiladi (u bor hamma
+  // guruhlar, fani, turi) — resurslar paneli odatdagidek ishlaydi. Turi
+  // belgilanmagan eski mavzu Ma'ruza filtrida ochiladi (u yerda turga o'tkaziladi).
+  function openFromOverview(o: OverviewTopic) {
+    const ids = [...new Set([o.topic.base.groupId, ...o.topic.instances.map(i => i.groupId)])]
+    setAddingTopic(false)
+    setEditTopicKey(null)
+    setDeleteTopicKey(null)
+    setTopicOpError(null)
+    setTopicOpInfo(null)
+    setGroupIds(ids)
+    setSubjectName(o.subjectName)
+    setTrainingType(o.topic.trainingType || TRAINING_TYPE_OPTIONS[0].value)
+    setTopicKey(o.topic.base.key)
+    setFromOverview(true)
+    scrollToTop()
+  }
+
+  // Filtrlarni tozalab barcha mavzular ro'yxatiga qaytish (tanlangan mavzu saqlanadi)
+  function backToOverview() {
+    setGroupIds([])
+    setSubjectName("")
+    setTrainingType("")
+    resetTopicUi()
+    setFromOverview(false)
     scrollToTop()
   }
 
@@ -2197,7 +2367,7 @@ export default function FanResurslariPage() {
         await ensureTopicKeyForGroup(gid, subjectName, newTopicTitle.trim(), deadlineIso, trainingType)
       }
       cancelAddTopic()
-      await refetchTopics()
+      await refetchAll()
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.addError"))
     } finally {
@@ -2226,7 +2396,7 @@ export default function FanResurslariPage() {
       }
       for (const inst of tp.instances) await teachingApi.updateTopic(inst.key, body)
       setEditTopicKey(null)
-      await refetchTopics()
+      await refetchAll()
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.editError"))
     } finally {
@@ -2252,7 +2422,7 @@ export default function FanResurslariPage() {
       }
       setDeleteTopicKey(null)
       if (tp.instances.some(i => i.key === topicKey)) setTopicKey("")
-      await refetchTopics()
+      await refetchAll()
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.deleteError"))
     } finally {
@@ -2266,7 +2436,7 @@ export default function FanResurslariPage() {
     setTopicOpError(null)
     try {
       for (const inst of tp.instances) await teachingApi.updateTopic(inst.key, { trainingType })
-      await refetchTopics()
+      await refetchAll()
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("mavzularOq.editError"))
     } finally {
@@ -2283,7 +2453,7 @@ export default function FanResurslariPage() {
     try {
       const res = await teachingApi.mergeDuplicateTopics(tp.key)
       setTopicOpInfo(t("fanResurslariOq.dup.result", { topics: res.data.removedTopics, moved: res.data.movedItems }))
-      await refetchTopics()
+      await refetchAll()
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("fanResurslariOq.errors.saveError"))
     } finally {
@@ -2294,7 +2464,7 @@ export default function FanResurslariPage() {
   // Yetishmayotgan guruhlarga mavzu va resurslarni (fayllari, test savollari
   // bilan) serverda nusxalaydi. Eng to'liq nusxadan boshlab har bir nusxa
   // qolganlarga moslanadi — qaysi guruhda nima bo'lsa, hammasiga tarqaladi.
-  async function syncTopicToGroups(tp: TopicInfo) {
+  async function syncTopicToGroups(tp: TopicInfo, scope: number[] = groupIds) {
     setSyncingKey(tp.key)
     setTopicOpError(null)
     setTopicOpInfo(null)
@@ -2303,12 +2473,12 @@ export default function FanResurslariPage() {
       let itemsCopied = 0
       const sources = [...tp.instances].sort((a, b) => b.items.length - a.items.length)
       for (const source of sources) {
-        const res = await teachingApi.syncTopic(source.key, groupIds.filter(g => g !== source.groupId))
+        const res = await teachingApi.syncTopic(source.key, scope.filter(g => g !== source.groupId))
         topicsCreated += res.data.topicsCreated
         itemsCopied += res.data.itemsCopied
       }
       setTopicOpInfo(t("fanResurslariOq.grid.syncResult", { topics: topicsCreated, items: itemsCopied }))
-      await refetchTopics()
+      await refetchAll()
     } catch (err) {
       setTopicOpError(err instanceof Error ? err.message : t("fanResurslariOq.errors.saveError"))
     } finally {
@@ -2327,6 +2497,7 @@ export default function FanResurslariPage() {
     setSubjectName("")
     setTrainingType("")
     resetTopicUi()
+    setFromOverview(false)
   }
 
   // Faqat "asosiy" guruh (birinchisi) o'zgarganda fan/mavzu/turni tozalaymiz
@@ -2340,17 +2511,20 @@ export default function FanResurslariPage() {
       resetTopicUi()
     }
     setGroupIds(ids)
+    setFromOverview(false)
   }
 
   function handleSubjectChange(val: string) {
     setSubjectName(val)
     setTrainingType("")
     resetTopicUi()
+    setFromOverview(false)
   }
 
   function handleTrainingTypeChange(val: string) {
     setTrainingType(val)
     resetTopicUi()
+    setFromOverview(false)
   }
 
   if (lGroups) return <Loading />
@@ -2363,7 +2537,11 @@ export default function FanResurslariPage() {
     : null
   const panelExtraGroupIds = selection ? groupIds.filter(g => g !== selection.groupId) : []
 
-  function renderTopicCell(tp: TopicInfo, index: number, footer?: React.ReactNode) {
+  // opts — barcha mavzular ro'yxatidagi katta katak uchun: guruhlar doirasi
+  // (filtrdagi emas, mavzu bor guruhlar), ochish amali va qo'shimcha belgilar.
+  function renderTopicCell(tp: TopicInfo, index: number, footer?: React.ReactNode,
+    opts?: { scope?: number[]; large?: boolean; onOpen?: () => void; meta?: React.ReactNode }) {
+    const scope = opts?.scope ?? groupIds
     if (editTopicKey === tp.key) {
       return (
         <CardShell key={tp.key}>
@@ -2413,7 +2591,7 @@ export default function FanResurslariPage() {
         </CardShell>
       )
     }
-    const groups = topicGroupStates(tp, groupIds).map(g => ({ name: groupNameOf(g.groupId), state: g.state }))
+    const groups = topicGroupStates(tp, scope).map(g => ({ name: groupNameOf(g.groupId), state: g.state }))
     const onDelete = () => { setEditTopicKey(null); setDeleteTopicKey(tp.key); setTopicOpError(null) }
     // Boshqa o'qituvchining mavzusi — ochish/tahrirlash/moslash yo'q, faqat o'chirish
     if (tp.ownerId !== me) {
@@ -2422,19 +2600,20 @@ export default function FanResurslariPage() {
           ownerName={owners[tp.ownerId] ?? t("fanResurslariOq.others.unknown")} onDelete={onDelete} />
       )
     }
-    const duplicateGroups = groupIds
+    const duplicateGroups = scope
       .filter(gid => tp.instances.filter(i => i.groupId === gid).length > 1)
       .map(groupNameOf)
     return (
       <TopicCard key={tp.key} index={index} topic={tp} items={tp.base.items}
-        onOpen={() => openTopic(tp.key)}
+        onOpen={opts?.onOpen ?? (() => openTopic(tp.key))}
         onEdit={() => startEditTopic(tp)}
         onDelete={onDelete}
         groups={groups}
         duplicateGroups={duplicateGroups}
         onMergeDuplicates={() => mergeDuplicates(tp)} merging={mergingKey === tp.key}
         // Takror bo'lsa avval birlashtirish kerak — keyin moslash
-        onSync={duplicateGroups.length ? undefined : () => syncTopicToGroups(tp)} syncing={syncingKey === tp.key}
+        onSync={duplicateGroups.length ? undefined : () => syncTopicToGroups(tp, scope)} syncing={syncingKey === tp.key}
+        large={opts?.large} meta={opts?.meta}
         footer={footer} />
     )
   }
@@ -2462,8 +2641,58 @@ export default function FanResurslariPage() {
   const gridStyle = { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } as const
   const chipStyle = { backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" } as const
 
+  const typeLabelOf = (type: string | null) => {
+    const option = TRAINING_TYPE_OPTIONS.find(o => o.value === type)
+    return option ? t(option.labelKey) : type || t("fanResurslariOq.legacy.title")
+  }
+
+  function groupsLabelOf(o: OverviewTopic) {
+    const names = [...new Set(o.topic.instances.map(i => i.groupId))].map(groupNameOf)
+    return names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`
+  }
+
+  // Ro'yxatda tanlangan mavzu — kattaroq katak: tahrirlash, o'chirish, guruhlarga
+  // moslash shu yerda; bosilsa resurslari ochiladi.
+  function renderOverviewCard(o: OverviewTopic) {
+    const scope = [...new Set(o.topic.instances.map(i => i.groupId))]
+    return renderTopicCell(o.topic, o.index, (
+      <button onClick={e => { e.stopPropagation(); openFromOverview(o) }}
+        className="flex items-center justify-center gap-1.5 w-full px-3 py-2.5 rounded-[8px] text-sm font-semibold text-white transition-opacity hover:opacity-90"
+        style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+        <FolderOpen className="w-4 h-4" /> {t("fanResurslariOq.overview.open")}
+      </button>
+    ), {
+      scope,
+      large: true,
+      onOpen: () => openFromOverview(o),
+      meta: (
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={chipStyle}>{o.subjectName}</span>
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={chipStyle}>{typeLabelOf(o.topic.trainingType)}</span>
+        </div>
+      ),
+    })
+  }
+
+  const selectedOverview = filteredOverview.find(o => o.id === overviewSel) ?? null
+
+  const opBanners = (
+    <>
+      {topicOpError && (
+        <div className="px-4 py-2.5 rounded-[8px] text-sm" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+          {topicOpError}
+        </div>
+      )}
+      {topicOpInfo && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+          <CheckCircle2 className="w-4 h-4 shrink-0" /> {topicOpInfo}
+        </div>
+      )}
+    </>
+  )
+
   return (
-    <div ref={topRef} className="flex flex-col" style={{ minHeight: "100vh", backgroundColor: "#f0f4fa" }}>
+    <div id={PAGE_TOP_ID} className="flex flex-col" style={{ minHeight: "100vh", backgroundColor: "#f0f4fa" }}>
 
       {/* ── Top header bar ── */}
       <div className="px-4 sm:px-8 py-5 bg-white shrink-0"
@@ -2518,26 +2747,92 @@ export default function FanResurslariPage() {
       </div>
 
       {!activeGroupId || !subjectName || !trainingType ? (
-        /* ── Filtrlar to'liq tanlanmagan ── */
-        <div className="flex flex-col items-center justify-center flex-1 gap-4 py-24">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: "#eef4ff" }}>
-            <BookOpen className="w-8 h-8" style={{ color: "#0e58a8" }} />
-          </div>
-          <div className="text-center">
-            <p className="text-base font-semibold" style={titleStyle}>
-              {!activeGroupId ? t("fanResurslariOq.selectGroupPrompt")
-                : !subjectName ? t("fanResurslariOq.selectSubjectPrompt")
-                : t("fanResurslariOq.selectTrainingTypePrompt")}
-            </p>
-            <p className="text-sm mt-1" style={labelStyle}>{t("fanResurslariOq.selectFromFiltersAbove")}</p>
+        /* ── Filtrlar to'liq tanlanmagan — barcha mavzular ro'yxati ── */
+        <div className="flex-1 px-4 sm:px-8 py-5 sm:py-6">
+          <div className="max-w-[1200px] mx-auto flex flex-col gap-5">
+            <TeacherCertificateCard refreshKey={mineRes} />
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold" style={titleStyle}>{t("fanResurslariOq.overview.title")}</h2>
+                {mineRes && (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={chipStyle}>
+                    {t("fanResurslariOq.grid.count", { n: filteredOverview.length })}
+                  </span>
+                )}
+                {lMine && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#7293b9" }} />}
+              </div>
+              <p className="text-xs mt-1" style={labelStyle}>
+                {t("fanResurslariOq.overview.hint")} {t("fanResurslariOq.overview.createHint")}.
+              </p>
+            </div>
+
+            {opBanners}
+
+            {eMine ? (
+              <ApiError message={eMine} onRetry={refetchMine} />
+            ) : !mineRes ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#7293b9" }} />
+              </div>
+            ) : filteredOverview.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-20">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: "#eef4ff" }}>
+                  <BookOpen className="w-8 h-8" style={{ color: "#0e58a8" }} />
+                </div>
+                <div className="text-center">
+                  <p className="text-base font-semibold" style={titleStyle}>
+                    {overviewTopics.length ? t("fanResurslariOq.overview.emptyFiltered") : t("fanResurslariOq.overview.empty")}
+                  </p>
+                  <p className="text-sm mt-1" style={labelStyle}>{t("fanResurslariOq.overview.createHint")}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-5 items-start lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
+                <div className="flex flex-col gap-5 min-w-0">
+                  {overviewSections.map(section => (
+                    <section key={section.type ?? "__none"} className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold" style={titleStyle}>{typeLabelOf(section.type)}</h3>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={chipStyle}>{section.topics.length}</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {section.topics.map(o => (
+                          <Fragment key={o.id}>
+                            <OverviewRow item={o} selected={o.id === overviewSel} groupsLabel={groupsLabelOf(o)}
+                              onSelect={() => setOverviewSel(cur => cur === o.id ? null : o.id)} />
+                            {/* Telefonda katak bosilgan qatorning o'zi ostida ochiladi */}
+                            {!isWide && o.id === overviewSel && <div className="py-1">{renderOverviewCard(o)}</div>}
+                          </Fragment>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+
+                {isWide && (
+                  <div className="sticky top-4 min-w-0">
+                    {selectedOverview ? renderOverviewCard(selectedOverview) : (
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-[12px] px-6 py-20 text-center"
+                        style={{ border: "2px dashed rgba(14,88,168,0.25)", backgroundColor: "rgba(255,255,255,0.55)" }}>
+                        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "#eef4ff" }}>
+                          <BookOpen className="w-7 h-7" style={{ color: "#0e58a8" }} />
+                        </div>
+                        <p className="text-base font-semibold" style={titleStyle}>{t("fanResurslariOq.overview.pick")}</p>
+                        <p className="text-sm" style={labelStyle}>{t("fanResurslariOq.overview.pickHint")}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : selection && selectedTopic && selectedInstance ? (
         /* ── Tanlangan mavzu resurslari ── */
         <div className="flex-1 px-4 sm:px-8 py-5 sm:py-6">
           <div className="max-w-[1100px] mx-auto flex flex-col gap-4">
-            <button onClick={() => { setTopicKey(""); scrollToTop() }}
+            <button onClick={() => { if (fromOverview) backToOverview(); else { setTopicKey(""); scrollToTop() } }}
               className="flex items-center gap-1.5 text-sm font-medium w-fit px-3 py-2 rounded-[8px] bg-white transition-colors hover:bg-[#f6f9ff]"
               style={{ border: "1px solid rgba(1,41,112,0.12)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
               <ChevronLeft className="w-4 h-4" /> {t("fanResurslariOq.grid.back")}
@@ -2576,7 +2871,7 @@ export default function FanResurslariPage() {
             </div>
 
             <ResourcesPanel key={selection.topicKey} sel={selection} extraGroupIds={panelExtraGroupIds}
-              trainingType={selectedTopic.trainingType ?? ""} onChanged={refetchTopics} />
+              trainingType={selectedTopic.trainingType ?? ""} onChanged={refetchAll} />
           </div>
         </div>
       ) : (
@@ -2597,6 +2892,11 @@ export default function FanResurslariPage() {
                   {lTopics && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#7293b9" }} />}
                 </div>
               </div>
+              <button onClick={backToOverview}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-[8px] bg-white transition-colors hover:bg-[#f6f9ff]"
+                style={{ border: "1px solid rgba(1,41,112,0.12)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                <ChevronLeft className="w-3.5 h-3.5" /> {t("fanResurslariOq.overview.showAll")}
+              </button>
             </div>
 
             {topicOpError && (
