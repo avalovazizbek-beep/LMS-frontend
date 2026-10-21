@@ -5,10 +5,10 @@ import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
   BookMarked, CalendarDays, VideoIcon, Save, BarChart3,
-  Check, X, Users, ChevronLeft, ChevronDown, Pencil, Plus, Clock, Link2, FolderOpen, ArrowRightLeft,
+  Check, X, Users, ChevronLeft, ChevronDown, ChevronRight, ChevronUp, CirclePlus, Pencil, Plus, Clock, Link2, FolderOpen, ArrowRightLeft,
 } from "lucide-react"
 import {
-  teachingApi, meetingsApi, zoomApi, googleMeetApi,
+  teachingApi, meetingsApi, zoomApi, googleMeetApi, authApi,
   type TeacherContent, type CreateMeetingRequest, type SubjectRecording,
   type TeachingSubmission, type ExamQuestion, type TeacherGroup,
   type ZoomConnectionStatus, type GoogleMeetConnectionStatus,
@@ -1820,6 +1820,8 @@ interface TopicInstance {
   /** Mavzuning resurslari (marker qatorisiz) */
   items: TeacherContent[]
   firstId: number
+  /** Mavzu (marker yoki birinchi qismi) yaratilgan vaqt */
+  createdAt: string
 }
 
 /* Grid katagi — tanlangan guruhlardagi bir xil nom + turdagi mavzular birlashmasi.
@@ -1853,10 +1855,12 @@ function buildTopicInstances(items: TeacherContent[]): TopicInstance[] {
       inst = {
         groupId: item.groupId, key: item.topicKey, title: item.title, markerId: null, deadline: item.deadline,
         isReopened: false, trainingType: item.trainingType ?? null, ownerId: item.teacherUserId, items: [], firstId: item.id,
+        createdAt: item.createdAt,
       }
       map.set(item.topicKey, inst)
     }
     inst.firstId = Math.min(inst.firstId, item.id)
+    if (Date.parse(item.createdAt) < Date.parse(inst.createdAt)) inst.createdAt = item.createdAt
     if (isMarker) {
       // Mavzu turi/nomi/muddati marker'dan (backend'dagi topicTrainingType bilan bir xil)
       Object.assign(inst, { markerId: item.id, title: item.title, deadline: item.deadline, isReopened: item.isReopened, trainingType: item.trainingType ?? null })
@@ -2161,72 +2165,164 @@ function buildOverviewTopics(items: TeacherContent[], groupOrder: number[]): Ove
   return out
 }
 
-/* Bo'limlar: avval Ma'ruza, keyin Amaliyot, Mustaqil ish; boshqa turlar va
-   turi belgilanmaganlar oxirida. Bo'lim ichida — fan, so'ng mavzu tartibi. */
-function groupOverviewByType(list: OverviewTopic[]): { type: string | null; topics: OverviewTopic[] }[] {
-  const typeOf = (o: OverviewTopic) => o.topic.trainingType || null
+type OverviewSort = "type" | "createdDesc" | "createdAsc"
+
+function topicCreatedAt(o: OverviewTopic): number {
+  const times = o.topic.instances.map(i => Date.parse(i.createdAt)).filter(n => !Number.isNaN(n))
+  return times.length ? Math.min(...times) : 0
+}
+
+/* Standart tartib: avval Ma'ruza, keyin Amaliyot, Mustaqil ish; boshqa turlar
+   va turi belgilanmaganlar oxirida, tur ichida — fan, so'ng mavzu tartibi.
+   "Yaratilgan" ustuni bosilsa — yaratilgan vaqti bo'yicha. */
+function sortOverview(list: OverviewTopic[], mode: OverviewSort): OverviewTopic[] {
+  if (mode !== "type") {
+    const dir = mode === "createdDesc" ? -1 : 1
+    return [...list].sort((a, b) => dir * (topicCreatedAt(a) - topicCreatedAt(b)))
+  }
   const rank = (type: string | null) =>
     type === null ? TYPE_ORDER.length + 1 : TYPE_ORDER.includes(type) ? TYPE_ORDER.indexOf(type) : TYPE_ORDER.length
-  const types = [...new Set(list.map(typeOf))].sort((a, b) => rank(a) - rank(b) || (a ?? "").localeCompare(b ?? ""))
-  return types.map(type => ({
-    type,
-    topics: list
-      .filter(o => typeOf(o) === type)
-      .sort((a, b) => a.subjectName.localeCompare(b.subjectName) || a.index - b.index),
-  }))
+  return [...list].sort((a, b) => {
+    const ta = a.topic.trainingType || null
+    const tb = b.topic.trainingType || null
+    return rank(ta) - rank(tb) || (ta ?? "").localeCompare(tb ?? "")
+      || a.subjectName.localeCompare(b.subjectName) || a.index - b.index
+  })
 }
 
-function useIsWide() {
-  const [wide, setWide] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)")
-    const update = () => setWide(mq.matches)
-    update()
-    mq.addEventListener("change", update)
-    return () => mq.removeEventListener("change", update)
-  }, [])
-  return wide
+/* "18.10.2026 17:53:01" — mahalliy vaqt bilan (Intl'da uz-Latn yo'q) */
+function formatDateTime(ms: number) {
+  if (!ms) return "—"
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-function OverviewRow({ item, selected, groupsLabel, onSelect }: {
-  item: OverviewTopic
-  selected: boolean
-  groupsLabel: string
-  onSelect: () => void
+/* "Yaratish" — yangi mavzu tanlangan guruh(lar)da, fan va mashg'ulot turi bilan.
+   Filtrlardagi "Mavzu qo'shish" bilan bir xil: shu nom + turdagi mavzu guruhda
+   allaqachon bo'lsa, qayta yaratilmaydi. */
+function CreateTopicDialog({ groups, hemisSubjectsOf, onClose, onCreated }: {
+  groups: TeacherGroup[]
+  /** O'quv yili tanlangan bo'lsa — HEMIS'dagi shu guruh fanlari */
+  hemisSubjectsOf: (groupId: number) => string[]
+  onClose: () => void
+  onCreated: (topic: { subjectName: string; trainingType: string; title: string }) => void | Promise<void>
 }) {
   const { t } = useLanguage()
-  const items = item.topic.base.items
-  const count = items.length
-  const icons = MATERIAL_ICONS.filter(m => items.some(m.match))
-  const emptyTest = items.some(i => i.type === "exam" && i.questionCount === 0)
+  const [groupIds, setGroupIds] = useState<number[]>([])
+  const [subjectName, setSubjectName] = useState("")
+  const [trainingType, setTrainingType] = useState("")
+  const [title, setTitle] = useState("")
+  const [deadline, setDeadline] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const primary = groupIds[0] ?? null
+  const { data: subjectsRes } = useApi(
+    () => primary ? teachingApi.mySubjects(primary) : Promise.resolve(null),
+    [primary]
+  )
+  const subjects = [...new Set([
+    ...(subjectsRes?.data?.map(s => s.subjectName) ?? []),
+    ...(primary ? hemisSubjectsOf(primary) : []),
+  ])].sort()
+
+  function changeGroups(ids: number[]) {
+    if ((ids[0] ?? null) !== primary) setSubjectName("")
+    setGroupIds(ids)
+  }
+
+  async function submit() {
+    if (!groupIds.length || !subjectName || !trainingType || !title.trim()) {
+      setErr(t("fanResurslariOq.create.fillAll"))
+      return
+    }
+    setSaving(true)
+    setErr(null)
+    try {
+      const deadlineIso = deadline ? new Date(deadline).toISOString() : null
+      for (const gid of groupIds) {
+        await ensureTopicKeyForGroup(gid, subjectName, title.trim(), deadlineIso, trainingType)
+      }
+      await onCreated({ subjectName, trainingType, title: title.trim() })
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t("mavzularOq.addError"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const fieldClass = "w-full px-3 py-2 rounded-[6px] text-sm outline-none disabled:opacity-50"
+  const selectStyle = { ...inputStyle, backgroundColor: "white" }
+
   return (
-    <button type="button" onClick={onSelect} aria-pressed={selected}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#0e58a8] ${selected ? "" : "bg-white hover:bg-[#f6f9ff]"}`}
-      style={{
-        border: selected ? "1px solid #0e58a8" : "1px solid rgba(1,41,112,0.1)",
-        ...(selected ? { backgroundColor: "#eef4ff" } : {}),
-      }}>
-      <span className="w-8 h-8 rounded-[8px] flex items-center justify-center text-xs font-bold shrink-0"
-        style={{
-          backgroundColor: count > 0 ? "rgba(34,197,94,0.12)" : "#eef4ff",
-          color: count > 0 ? "#15803d" : "#0e58a8",
-          fontFamily: "var(--font-poppins)",
-        }}>
-        {item.index}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold truncate" style={titleStyle} title={item.topic.title}>{item.topic.title}</p>
-        <p className="text-[11px] truncate" style={labelStyle} title={`${item.subjectName} · ${groupsLabel}`}>
-          {item.subjectName} · {groupsLabel}
-        </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(1,41,112,0.35)" }} onClick={onClose}>
+      <div role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}
+        className="w-full max-w-[520px] rounded-[12px] bg-white p-5 sm:p-6 flex flex-col gap-4"
+        style={{ boxShadow: "0 12px 40px rgba(1,41,112,0.2)" }}>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold" style={titleStyle}>{t("fanResurslariOq.create.title")}</h3>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-[6px] transition-colors hover:bg-[#f0f5ff]">
+            <X className="w-4 h-4" style={{ color: "#7293b9" }} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.group")}</label>
+          <GroupMultiSelect groups={groups} selectedIds={groupIds} onChange={changeGroups}
+            placeholder={t("fanResurslariOq.selectPlaceholder")} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.subjectName")}</label>
+            <select value={subjectName} onChange={e => setSubjectName(e.target.value)} disabled={!primary || !subjects.length}
+              className={fieldClass} style={selectStyle}>
+              <option value="">{t("fanResurslariOq.selectPlaceholder")}</option>
+              {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.trainingTypeLabel")}</label>
+            <select value={trainingType} onChange={e => setTrainingType(e.target.value)} className={fieldClass} style={selectStyle}>
+              <option value="">{t("fanResurslariOq.form.trainingTypeUnset")}</option>
+              {TRAINING_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium" style={labelStyle}>{t("mavzularOq.topicName")}</label>
+          <input value={title} onChange={e => setTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") submit() }}
+            className={fieldClass} style={inputStyle} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.deadline.label")}</label>
+          <input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)}
+            className={fieldClass} style={inputStyle} />
+        </div>
+
+        {err && (
+          <p className="text-xs px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+            {err}
+          </p>
+        )}
+
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={onClose} disabled={saving}
+            className="px-3.5 py-2 rounded-[6px] text-sm font-medium"
+            style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+            {t("mavzularOq.cancel")}
+          </button>
+          <button onClick={submit} disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-[6px] text-sm font-semibold text-white disabled:opacity-60"
+            style={{ backgroundColor: "#16a34a", fontFamily: "var(--font-poppins)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CirclePlus className="w-4 h-4" />}
+            {t("fanResurslariOq.table.create")}
+          </button>
+        </div>
       </div>
-      {emptyTest && (
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: "#dc2626" }} title={t("fanResurslariOq.grid.emptyTest")} />
-      )}
-      <div className="hidden sm:flex items-center gap-1 shrink-0">
-        {icons.map(({ icon: Icon }, i) => <Icon key={i} className="w-3.5 h-3.5" style={{ color: selected ? "#0e58a8" : "#94a3b8" }} />)}
-      </div>
-    </button>
+    </div>
   )
 }
 
@@ -2341,14 +2437,25 @@ export default function FanResurslariPage() {
       return true
     })
   }, [overviewTopics, academicYear, displayGroups, groupIds, subjectName])
-  const overviewSections = useMemo(() => groupOverviewByType(filteredOverview), [filteredOverview])
+  const [overviewSort, setOverviewSort] = useState<OverviewSort>("type")
+  const sortedOverview = useMemo(() => sortOverview(filteredOverview, overviewSort), [filteredOverview, overviewSort])
   const [overviewSel, setOverviewSel] = useState<string | null>(null)
   // Mavzu ro'yxatdan ochilgan bo'lsa, "orqaga" filtrsiz ro'yxatga qaytaradi
   const [fromOverview, setFromOverview] = useState(false)
-  const isWide = useIsWide()
+  const [createOpen, setCreateOpen] = useState(false)
+  // Jadvaldagi "Fan" ustuni uchun o'qituvchining ismi (o'z mavzulari)
+  const { data: meUserRes } = useApi(() => authApi.me(), [])
+  const myName = meUserRes?.user?.fullName ?? ""
 
   async function refetchAll() {
     await Promise.all([refetchTopics(), refetchMine()])
+  }
+
+  // "Yaratish" oynasidan yangi mavzu — jadvalda shu qator ochilib turadi
+  async function handleTopicCreated(tp: { subjectName: string; trainingType: string; title: string }) {
+    setCreateOpen(false)
+    await refetchAll()
+    if (me) setOverviewSel(`${tp.subjectName}|${me}|${tp.trainingType}|${tp.title.toLowerCase()}`)
   }
 
   const [addingTopic, setAddingTopic] = useState(false)
@@ -2741,8 +2848,6 @@ export default function FanResurslariPage() {
     })
   }
 
-  const selectedOverview = filteredOverview.find(o => o.id === overviewSel) ?? null
-
   const opBanners = (
     <>
       {topicOpError && (
@@ -2814,86 +2919,145 @@ export default function FanResurslariPage() {
       </div>
 
       {!activeGroupId || !subjectName || !trainingType ? (
-        /* ── Filtrlar to'liq tanlanmagan — barcha mavzular ro'yxati ── */
+        /* ── Filtrlar to'liq tanlanmagan — barcha mavzular jadvali (HEMIS
+           "Resurslar" sahifasi ko'rinishida). Qator bosilsa — shu mavzu katagi
+           ostida ochiladi, undan resurslarga o'tiladi. ── */
         <div className="flex-1 px-4 sm:px-8 py-5 sm:py-6">
-          <div className="max-w-[1200px] mx-auto flex flex-col gap-5">
+          <div className="w-full flex flex-col gap-5">
             <TeacherCertificateCard refreshKey={mineRes} />
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold" style={titleStyle}>{t("fanResurslariOq.overview.title")}</h2>
-                {mineRes && (
-                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={chipStyle}>
-                    {t("fanResurslariOq.grid.count", { n: filteredOverview.length })}
-                  </span>
-                )}
-                {lMine && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#7293b9" }} />}
-              </div>
-              <p className="text-xs mt-1" style={labelStyle}>
-                {t("fanResurslariOq.overview.hint")} {t("fanResurslariOq.overview.createHint")}.
-              </p>
-            </div>
 
             {opBanners}
 
-            {eMine ? (
-              <ApiError message={eMine} onRetry={refetchMine} />
-            ) : !mineRes ? (
-              <div className="flex justify-center py-16">
-                <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#7293b9" }} />
+            <div className="rounded-[12px] bg-white overflow-hidden"
+              style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
+              <div className="flex items-center gap-2 px-4 sm:px-5 py-4 flex-wrap">
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-sm"
+                  style={{ border: "1px solid rgba(1,41,112,0.15)", backgroundColor: "#f8fafc", color: "#334e68", fontFamily: "var(--font-poppins)" }}>
+                  <ClipboardList className="w-4 h-4" style={{ color: "#64748b" }} />
+                  {t("fanResurslariOq.table.catalog")}
+                  <ChevronRight className="w-4 h-4" />
+                </span>
+                <button onClick={() => setCreateOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[6px] text-sm font-semibold text-white transition-colors hover:bg-[#15803d]"
+                  style={{ backgroundColor: "#16a34a", fontFamily: "var(--font-poppins)" }}>
+                  <CirclePlus className="w-4 h-4" /> {t("fanResurslariOq.table.create")}
+                </button>
+                <span className="ml-auto flex items-center gap-2 text-xs" style={labelStyle}>
+                  {lMine && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {mineRes && t("fanResurslariOq.grid.count", { n: filteredOverview.length })}
+                </span>
               </div>
-            ) : filteredOverview.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-4 py-20">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: "#eef4ff" }}>
-                  <BookOpen className="w-8 h-8" style={{ color: "#0e58a8" }} />
+
+              {eMine ? (
+                <div className="px-5 pb-5"><ApiError message={eMine} onRetry={refetchMine} /></div>
+              ) : !mineRes ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#7293b9" }} />
                 </div>
-                <div className="text-center">
+              ) : filteredOverview.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-16 px-4 text-center">
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "#eef4ff" }}>
+                    <BookOpen className="w-7 h-7" style={{ color: "#0e58a8" }} />
+                  </div>
                   <p className="text-base font-semibold" style={titleStyle}>
                     {overviewTopics.length ? t("fanResurslariOq.overview.emptyFiltered") : t("fanResurslariOq.overview.empty")}
                   </p>
-                  <p className="text-sm mt-1" style={labelStyle}>{t("fanResurslariOq.overview.createHint")}</p>
                 </div>
-              </div>
-            ) : (
-              <div className="grid gap-5 items-start lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
-                <div className="flex flex-col gap-5 min-w-0">
-                  {overviewSections.map(section => (
-                    <section key={section.type ?? "__none"} className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold" style={titleStyle}>{typeLabelOf(section.type)}</h3>
-                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={chipStyle}>{section.topics.length}</span>
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        {section.topics.map(o => (
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse" style={{ fontFamily: "var(--font-poppins)" }}>
+                    <thead>
+                      <tr className="text-left" style={{ color: "#1e293b", borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
+                        <th className="font-semibold px-4 py-2.5 w-12">#</th>
+                        <th className="font-semibold px-4 py-2.5">{t("fanResurslariOq.table.title")}</th>
+                        <th className="font-semibold px-4 py-2.5 hidden md:table-cell">{t("fanResurslariOq.table.subject")}</th>
+                        <th className="font-semibold px-4 py-2.5 text-center w-24">{t("fanResurslariOq.table.resources")}</th>
+                        <th className="font-semibold px-4 py-2.5 hidden md:table-cell whitespace-nowrap">
+                          <button onClick={() => setOverviewSort(cur => cur === "type" ? "createdDesc" : cur === "createdDesc" ? "createdAsc" : "type")}
+                            className="inline-flex items-center gap-1 font-semibold" title={t("fanResurslariOq.table.sortHint")}>
+                            {t("fanResurslariOq.table.created")}
+                            {overviewSort === "createdAsc"
+                              ? <ChevronUp className="w-3.5 h-3.5" />
+                              : <ChevronDown className="w-3.5 h-3.5" style={{ opacity: overviewSort === "createdDesc" ? 1 : 0.35 }} />}
+                          </button>
+                        </th>
+                        <th className="font-semibold px-4 py-2.5 hidden lg:table-cell">{t("fanResurslariOq.table.deadline")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedOverview.map((o, i) => {
+                        const open = o.id === overviewSel
+                        const items = o.topic.base.items
+                        const emptyTest = items.some(it => it.type === "exam" && it.questionCount === 0)
+                        const passed = isPast(o.topic.deadline)
+                        return (
                           <Fragment key={o.id}>
-                            <OverviewRow item={o} selected={o.id === overviewSel} groupsLabel={groupsLabelOf(o)}
-                              onSelect={() => setOverviewSel(cur => cur === o.id ? null : o.id)} />
-                            {/* Telefonda katak bosilgan qatorning o'zi ostida ochiladi */}
-                            {!isWide && o.id === overviewSel && <div className="py-1">{renderOverviewCard(o)}</div>}
+                            <tr onClick={() => setOverviewSel(cur => cur === o.id ? null : o.id)}
+                              className="cursor-pointer transition-colors hover:bg-[#eef4ff]"
+                              style={{
+                                backgroundColor: open ? "#eef4ff" : i % 2 === 0 ? "#f8fafc" : undefined,
+                                borderBottom: "1px solid rgba(1,41,112,0.06)",
+                              }}>
+                              <td className="px-4 py-2 align-top" style={{ color: "#334e68" }}>{i + 1}</td>
+                              <td className="px-4 py-2 align-top">
+                                <button className="text-left font-medium leading-snug hover:underline" style={{ color: "#1d6fd8" }}
+                                  aria-expanded={open}>
+                                  {o.topic.title}
+                                </button>
+                                <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>
+                                  <span className="md:hidden">{o.subjectName} · </span>{groupsLabelOf(o)}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2 align-top hidden md:table-cell">
+                                <div style={{ color: "#334e68" }}>{o.subjectName}</div>
+                                <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>
+                                  {typeLabelOf(o.topic.trainingType)}{myName ? ` / ${myName}` : ""}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2 align-top text-center">
+                                <span className="inline-flex items-center justify-center min-w-[26px] px-2 py-0.5 rounded-full text-xs font-semibold text-white"
+                                  style={{ backgroundColor: items.length ? "#64748b" : "#cbd5e1" }}>
+                                  {items.length}
+                                </span>
+                                {emptyTest && (
+                                  <span className="inline-block w-2 h-2 rounded-full ml-1.5 align-middle" style={{ backgroundColor: "#dc2626" }}
+                                    title={t("fanResurslariOq.grid.emptyTest")} />
+                                )}
+                              </td>
+                              <td className="px-4 py-2 align-top hidden md:table-cell whitespace-nowrap" style={{ color: "#334e68" }}>
+                                {formatDateTime(topicCreatedAt(o))}
+                              </td>
+                              <td className="px-4 py-2 align-top hidden lg:table-cell text-xs whitespace-nowrap"
+                                style={{ color: o.topic.isReopened ? "#15803d" : passed ? "#c2410c" : "#64748b" }}>
+                                {!o.topic.deadline
+                                  ? t("fanResurslariOq.deadline.none")
+                                  : passed
+                                    ? `${t("fanResurslariOq.deadline.passed")} · ${formatDeadline(o.topic.deadline)}`
+                                    : t("fanResurslariOq.deadline.until", { date: formatDeadline(o.topic.deadline) })}
+                              </td>
+                            </tr>
+                            {open && (
+                              <tr>
+                                <td colSpan={6} className="px-3 sm:px-4 pt-2 pb-4" style={{ backgroundColor: "#eef4ff" }}>
+                                  <div className="max-w-[640px]">{renderOverviewCard(o)}</div>
+                                </td>
+                              </tr>
+                            )}
                           </Fragment>
-                        ))}
-                      </div>
-                    </section>
-                  ))}
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-
-                {isWide && (
-                  <div className="sticky top-4 min-w-0">
-                    {selectedOverview ? renderOverviewCard(selectedOverview) : (
-                      <div className="flex flex-col items-center justify-center gap-3 rounded-[12px] px-6 py-20 text-center"
-                        style={{ border: "2px dashed rgba(14,88,168,0.25)", backgroundColor: "rgba(255,255,255,0.55)" }}>
-                        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "#eef4ff" }}>
-                          <BookOpen className="w-7 h-7" style={{ color: "#0e58a8" }} />
-                        </div>
-                        <p className="text-base font-semibold" style={titleStyle}>{t("fanResurslariOq.overview.pick")}</p>
-                        <p className="text-sm" style={labelStyle}>{t("fanResurslariOq.overview.pickHint")}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
+
+          {createOpen && (
+            <CreateTopicDialog groups={displayGroups}
+              hemisSubjectsOf={gid => academicYear ? (yearGroups.find(g => g.id === gid)?.subjects ?? []) : []}
+              onClose={() => setCreateOpen(false)} onCreated={handleTopicCreated} />
+          )}
         </div>
       ) : selection && selectedTopic && selectedInstance ? (
         /* ── Tanlangan mavzu resurslari ── */
