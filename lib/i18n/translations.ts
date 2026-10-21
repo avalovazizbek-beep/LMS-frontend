@@ -1693,7 +1693,6 @@ export const dictionary: Record<string, DictEntry> = {
 
   "fanResurslariOq.grid.count":             { uz: "{n} ta mavzu",                       ru: "Тем: {n}",                                   en: "{n} topics",                               kaa: "{n} tema" },
   "fanResurslariOq.grid.back":              { uz: "Barcha mavzular",                    ru: "Все темы",                                   en: "All topics",                               kaa: "Barlıq temalar" },
-  "fanResurslariOq.table.catalog":          { uz: "Resurslar katalogi",                 ru: "Каталог ресурсов",                           en: "Resource catalog",                         kaa: "Resurslar katalogı" },
   "fanResurslariOq.table.create":           { uz: "Yaratish",                           ru: "Создать",                                    en: "Create",                                   kaa: "Jaratıw" },
   "fanResurslariOq.table.title":            { uz: "Sarlavha",                           ru: "Название",                                   en: "Title",                                    kaa: "Ataması" },
   "fanResurslariOq.table.subject":          { uz: "Fan",                                ru: "Предмет",                                    en: "Subject",                                  kaa: "Pán" },

@@ -5,7 +5,7 @@ import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
   BookMarked, CalendarDays, VideoIcon, Save, BarChart3,
-  Check, X, Users, ChevronLeft, ChevronDown, ChevronRight, ChevronUp, CirclePlus, Pencil, Plus, Clock, Link2, FolderOpen, ArrowRightLeft,
+  Check, X, Users, ChevronLeft, ChevronDown, ChevronUp, CirclePlus, Pencil, Plus, Clock, Link2, FolderOpen, ArrowRightLeft,
 } from "lucide-react"
 import {
   teachingApi, meetingsApi, zoomApi, googleMeetApi, authApi,
@@ -2439,7 +2439,18 @@ export default function FanResurslariPage() {
   }, [overviewTopics, academicYear, displayGroups, groupIds, subjectName])
   const [overviewSort, setOverviewSort] = useState<OverviewSort>("type")
   const sortedOverview = useMemo(() => sortOverview(filteredOverview, overviewSort), [filteredOverview, overviewSort])
+  // Jadvalda bosilgan mavzu — katagi alohida oynada ochiladi
   const [overviewSel, setOverviewSel] = useState<string | null>(null)
+  const selectedOverview = filteredOverview.find(o => o.id === overviewSel) ?? null
+  useEffect(() => {
+    if (!overviewSel) return
+    // Esc — oynani yopadi (mavzu nomini tahrirlash maydonidagi Esc faqat tahrirni bekor qiladi)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) setOverviewSel(null)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [overviewSel])
   // Mavzu ro'yxatdan ochilgan bo'lsa, "orqaga" filtrsiz ro'yxatga qaytaradi
   const [fromOverview, setFromOverview] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
@@ -2510,6 +2521,7 @@ export default function FanResurslariPage() {
     setTrainingType(o.topic.trainingType || TRAINING_TYPE_OPTIONS[0].value)
     setTopicKey(o.topic.base.key)
     setFromOverview(true)
+    setOverviewSel(null)
     scrollToTop()
   }
 
@@ -2931,12 +2943,6 @@ export default function FanResurslariPage() {
             <div className="rounded-[12px] bg-white overflow-hidden"
               style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
               <div className="flex items-center gap-2 px-4 sm:px-5 py-4 flex-wrap">
-                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-sm"
-                  style={{ border: "1px solid rgba(1,41,112,0.15)", backgroundColor: "#f8fafc", color: "#334e68", fontFamily: "var(--font-poppins)" }}>
-                  <ClipboardList className="w-4 h-4" style={{ color: "#64748b" }} />
-                  {t("fanResurslariOq.table.catalog")}
-                  <ChevronRight className="w-4 h-4" />
-                </span>
                 <button onClick={() => setCreateOpen(true)}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[6px] text-sm font-semibold text-white transition-colors hover:bg-[#15803d]"
                   style={{ backgroundColor: "#16a34a", fontFamily: "var(--font-poppins)" }}>
@@ -2992,7 +2998,7 @@ export default function FanResurslariPage() {
                         const passed = isPast(o.topic.deadline)
                         return (
                           <Fragment key={o.id}>
-                            <tr onClick={() => setOverviewSel(cur => cur === o.id ? null : o.id)}
+                            <tr onClick={() => setOverviewSel(o.id)}
                               className="cursor-pointer transition-colors hover:bg-[#eef4ff]"
                               style={{
                                 backgroundColor: open ? "#eef4ff" : i % 2 === 0 ? "#f8fafc" : undefined,
@@ -3001,7 +3007,7 @@ export default function FanResurslariPage() {
                               <td className="px-4 py-2 align-top" style={{ color: "#334e68" }}>{i + 1}</td>
                               <td className="px-4 py-2 align-top">
                                 <button className="text-left font-medium leading-snug hover:underline" style={{ color: "#1d6fd8" }}
-                                  aria-expanded={open}>
+                                  aria-haspopup="dialog">
                                   {o.topic.title}
                                 </button>
                                 <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>
@@ -3036,13 +3042,6 @@ export default function FanResurslariPage() {
                                     : t("fanResurslariOq.deadline.until", { date: formatDeadline(o.topic.deadline) })}
                               </td>
                             </tr>
-                            {open && (
-                              <tr>
-                                <td colSpan={6} className="px-3 sm:px-4 pt-2 pb-4" style={{ backgroundColor: "#eef4ff" }}>
-                                  <div className="max-w-[640px]">{renderOverviewCard(o)}</div>
-                                </td>
-                              </tr>
-                            )}
                           </Fragment>
                         )
                       })}
@@ -3052,6 +3051,24 @@ export default function FanResurslariPage() {
               )}
             </div>
           </div>
+
+          {/* Bosilgan mavzu katagi — jadvaldan alohida oynada */}
+          {selectedOverview && (
+            <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto p-3 sm:p-6"
+              style={{ backgroundColor: "rgba(1,41,112,0.35)" }} onClick={() => setOverviewSel(null)}>
+              <div role="dialog" aria-modal="true" className="w-full max-w-[560px] my-auto flex flex-col gap-2"
+                onClick={e => e.stopPropagation()}>
+                <div className="flex justify-end">
+                  <button onClick={() => setOverviewSel(null)} aria-label={t("mavzularOq.cancel")}
+                    className="w-9 h-9 rounded-full bg-white flex items-center justify-center transition-colors hover:bg-[#f0f5ff]"
+                    style={{ boxShadow: "0 2px 8px rgba(1,41,112,0.15)" }}>
+                    <X className="w-4 h-4" style={{ color: "#445b7a" }} />
+                  </button>
+                </div>
+                {renderOverviewCard(selectedOverview)}
+              </div>
+            </div>
+          )}
 
           {createOpen && (
             <CreateTopicDialog groups={displayGroups}
