@@ -387,7 +387,8 @@ function normalizeMeeting(value: unknown, index = 0): Meeting {
     time: formatTimeValue(raw.time, raw.startTime, startsAt),
     duration: normalizedDuration,
     participants: participantCount,
-    link: textValue(raw.link, raw.url, raw.joinUrl, raw.meetingUrl) || "#",
+    // externalUrl — mavzudagi "Havola qo'shish" bilan sana belgilab qo'shilgan Zoom/Meet havolasi
+    link: textValue(raw.link, raw.url, raw.joinUrl, raw.meetingUrl, raw.externalUrl) || "#",
     status: doneStatuses.has(rawStatus) ? "done" : "upcoming",
     description: textValue(raw.description),
     startTime: textValue(raw.startTime, startsAt),
@@ -398,6 +399,7 @@ function normalizeMeeting(value: unknown, index = 0): Meeting {
     permissions,
     canJoinNow: Boolean(raw.canJoinNow),
     rawStatus,
+    contentId: numberValue(raw.contentId) ?? null,
     zoom: raw.zoom && typeof raw.zoom === "object" ? (() => {
       const z = asRecord(raw.zoom)
       return {
@@ -798,6 +800,8 @@ export interface Meeting {
   rawStatus?: string
   zoom?: ZoomMeetingInfo | null
   googleMeet?: GoogleMeetInfo | null
+  /** Mavzudagi havola qatori (sana bilan qo'shilgan Zoom/Meet havolasi) */
+  contentId?: number | null
 }
 export interface MeetingSettings {
   allowCamera?: boolean
@@ -816,6 +820,10 @@ export interface CreateMeetingRequest {
   settings?: MeetingSettings
   createZoomMeeting?: boolean
   createGoogleMeetMeeting?: boolean
+  /** Dars tashqi havola orqali o'tadi (Zoom/Meet) — talabalar shu havoladan kiradi */
+  externalUrl?: string
+  /** Havolani yaratgan mavzu qatori — havola o'chirilsa dars ham o'chadi */
+  contentId?: number
   [key: string]: unknown
 }
 export interface MeetingRecording {

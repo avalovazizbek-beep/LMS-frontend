@@ -1578,6 +1578,16 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
    "Meeting (Online dars)" tabidan farqli — u LMS'ning o'z ichki meeting
    tizimini boshqaradi, bu esa shunchaki tashqi ilova havolalarini
    (bitta yoki bir nechtasini) saqlab, talabalarga ko'rsatadi. ── */
+/* "21.10.2026, 18:00–19:30" — mahalliy vaqt bilan (Intl'da uz-Latn yo'q) */
+function formatLessonRange(startIso: string, endIso?: string) {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const s = new Date(startIso)
+  if (Number.isNaN(s.getTime())) return ""
+  const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const e = endIso ? new Date(endIso) : null
+  return `${pad(s.getDate())}.${pad(s.getMonth() + 1)}.${s.getFullYear()}, ${hm(s)}${e && !Number.isNaN(e.getTime()) ? `–${hm(e)}` : ""}`
+}
+
 function MeetingLinksSection({
   items, groupId, subjectName, topicKey, topicTitle, trainingType, topicDeadline, parallelGroupIds, onRefetch,
 }: {
@@ -1595,33 +1605,66 @@ function MeetingLinksSection({
   const { t } = useLanguage()
   const [label, setLabel] = useState("")
   const [url, setUrl] = useState("")
+  // Dars vaqti — havola talabaning Meeting bo'limi va dars jadvalida shu vaqtga chiqadi
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [startTime, setStartTime] = useState("09:00")
+  const [endTime, setEndTime] = useState("10:30")
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // Har bir havolaning dars vaqti — unga bog'langan LMS meeting'dan (contentId;
+  // parallel guruh nusxasida — bir xil havola va nom bo'yicha)
+  const { data: meetingsRes, refetch: refetchMeetings } = useApi(() => meetingsApi.getAll(), [])
+  const meetingOf = (item: TeacherContent) => {
+    const list = [...(meetingsRes?.data.upcoming ?? []), ...(meetingsRes?.data.past ?? [])]
+    return list.find(m => m.contentId === item.id)
+      ?? list.find(m => m.link === item.meetingLink && m.title === item.title)
+  }
 
   async function addLink() {
     if (!url.trim()) return
+    // Brauzer vaqtidan ISO (UTC) — MeetingSection'dagi kabi
+    const start = new Date(`${date}T${startTime}:00`)
+    const end = new Date(`${date}T${endTime}:00`)
+    if (!date || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      setErr(t("fanResurslariOq.meetingLinks.timeError"))
+      return
+    }
+    const link = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`
     setSaving(true)
     setErr(null)
     try {
+      const title = label.trim() || `${topicTitle} — ${t("fanResurslariOq.meetingLinks.defaultTitle", { n: items.length + 1 })}`
       const input = {
         type: "mavzu" as const,
         subjectName,
-        title: label.trim() || `${topicTitle} — ${t("fanResurslariOq.meetingLinks.defaultTitle", { n: items.length + 1 })}`,
+        title,
         kind: "uchrashuv",
         trainingType: trainingType || undefined,
         availableFrom: new Date().toISOString(),
         deadline: topicDeadline,
         docFile: null,
-        meetingLink: url.trim(),
+        meetingLink: link,
       }
-      await teachingApi.createContent({ ...input, groupId, topicKey })
+      const created = await teachingApi.createContent({ ...input, groupId, topicKey })
       for (const gid of parallelGroupIds) {
         const key = await ensureTopicKeyForGroup(gid, subjectName, topicTitle, topicDeadline, trainingType)
         await teachingApi.createContent({ ...input, groupId: gid, topicKey: key })
       }
+      // Sanali dars — talabalarning Meeting bo'limi va dars jadvalida havola bilan
+      // chiqadi; mavzudagi havola o'chirilsa backend uni ham o'chiradi (contentId).
+      try {
+        await meetingsApi.create({
+          title, subjectName,
+          startTime: start.toISOString(), endTime: end.toISOString(),
+          groupIds: [groupId, ...parallelGroupIds],
+          externalUrl: link, contentId: created.data.id,
+        })
+      } catch (e) {
+        setErr(t("fanResurslariOq.meetingLinks.scheduleError", { error: e instanceof Error ? e.message : "" }))
+      }
       setLabel("")
       setUrl("")
-      await onRefetch()
+      await Promise.all([onRefetch(), refetchMeetings()])
     } catch (e) {
       setErr(e instanceof Error ? e.message : t("fanResurslariOq.errors.uploadError"))
     } finally {
@@ -1639,7 +1682,7 @@ function MeetingLinksSection({
     } catch (e) {
       setErr(e instanceof Error ? e.message : t("fanResurslariOq.errors.deleteError"))
     }
-    await onRefetch()
+    await Promise.all([onRefetch(), refetchMeetings()])
   }
 
   return (
@@ -1648,13 +1691,21 @@ function MeetingLinksSection({
         <p className="text-xs" style={labelStyle}>{t("fanResurslariOq.meetingLinks.empty")}</p>
       ) : (
         <div className="flex flex-col gap-2">
-          {items.map((item) => (
+          {items.map((item) => {
+            const meeting = meetingOf(item)
+            return (
             <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 rounded-[8px]"
               style={{ backgroundColor: "#f8fbff", border: "1px solid rgba(1,41,112,0.07)" }}>
               <Link2 className="w-4 h-4 shrink-0" style={{ color: "#0e58a8" }} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate" style={titleStyle}>{item.title}</div>
                 {item.meetingLink && <div className="text-xs truncate" style={labelStyle}>{item.meetingLink}</div>}
+                {meeting?.startTime && (
+                  <div className="flex items-center gap-1 text-xs mt-0.5" style={labelStyle}>
+                    <CalendarDays className="w-3 h-3 shrink-0" />
+                    {formatLessonRange(meeting.startTime, meeting.endTime)}
+                  </div>
+                )}
               </div>
               {item.meetingLink && (
                 <a href={item.meetingLink} target="_blank" rel="noreferrer"
@@ -1668,7 +1719,8 @@ function MeetingLinksSection({
                 {t("fanResurslariOq.meetingLinks.remove")}
               </button>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -1681,6 +1733,21 @@ function MeetingLinksSection({
           placeholder="https://zoom.us/... yoki https://meet.google.com/..."
           className="px-3 py-2 rounded-[8px] text-sm outline-none"
           style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {([
+            { key: "date", type: "date", value: date, set: setDate, labelKey: "fanResurslariOq.meetingLinks.date" },
+            { key: "start", type: "time", value: startTime, set: setStartTime, labelKey: "fanResurslariOq.meetingLinks.start" },
+            { key: "end", type: "time", value: endTime, set: setEndTime, labelKey: "fanResurslariOq.meetingLinks.end" },
+          ] as const).map(f => (
+            <label key={f.key} className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium" style={labelStyle}>{t(f.labelKey)}</span>
+              <input type={f.type} value={f.value} onChange={(e) => f.set(e.target.value)}
+                className="px-3 py-2 rounded-[8px] text-sm outline-none"
+                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
+            </label>
+          ))}
+        </div>
+        <p className="text-[11px]" style={labelStyle}>{t("fanResurslariOq.meetingLinks.scheduleHint")}</p>
         <button onClick={addLink} disabled={saving || !url.trim()}
           className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium w-fit disabled:opacity-60"
           style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}>

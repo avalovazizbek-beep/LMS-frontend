@@ -543,6 +543,17 @@ function InfoPill({
   )
 }
 
+/* Dars kunining ertasi tugagach (mahalliy vaqt bilan yarim tunda) meeting
+   ro'yxatdan yashiriladi: masalan seshanba kungi dars chorshanba kechgacha
+   ko'rinadi. Boshlanmagan/yakunlanmagan ("scheduled") eski darslar ham. */
+function isStaleMeeting(meeting: Meeting, now = Date.now()) {
+  const ref = meeting.endTime || meeting.startTime
+  if (!ref) return false
+  const d = new Date(ref)
+  if (Number.isNaN(d.getTime())) return false
+  return now >= new Date(d.getFullYear(), d.getMonth(), d.getDate() + 2).getTime()
+}
+
 function PrimaryButton({
   children,
   onClick,
@@ -588,6 +599,7 @@ function MeetingCard({
   const { t, lang } = useLanguage()
   const [retrying, setRetrying] = useState(false)
   const [retryingGoogle, setRetryingGoogle] = useState(false)
+  const externalLink = meeting.link && meeting.link !== "#" ? meeting.link : null
 
   async function handleRetryZoom() {
     setRetrying(true)
@@ -712,18 +724,6 @@ function MeetingCard({
                 {retrying ? t("meetingPage.retrying") : t("meetingPage.retryZoom")}
               </button>
             )}
-            {meeting.link !== "#" && (
-              <a
-                href={meeting.link}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-xs font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"
-                style={{ fontFamily: "var(--font-poppins)" }}
-              >
-                {t("meetingPage.link")}
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </a>
-            )}
             {isTeacher && meeting.subjectName && meeting.groupIds && meeting.groupIds.length > 0 && (
               <Link
                 href={`/oqituvchi-kabineti/davomat-jurnali?group=${meeting.groupIds[0]}&subject=${encodeURIComponent(meeting.subjectName)}${meeting.startTime ? `&date=${meeting.startTime.slice(0, 10)}` : ""}`}
@@ -745,10 +745,24 @@ function MeetingCard({
                 {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               </button>
             )}
-            <PrimaryButton onClick={() => onJoin(meeting.id)} loading={joining}>
-              {!joining ? <Play className="h-4 w-4 fill-current" /> : null}
-              {t("meetingPage.join")}
-            </PrimaryButton>
+            {/* Dars tashqi havola (Zoom/Meet) orqali — LMS xonasiga emas, shu havolaga kiriladi */}
+            {externalLink ? (
+              <a
+                href={externalLink}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-[5px] bg-[#0e58a8] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#104475]"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                <ArrowUpRight className="h-4 w-4" />
+                {t("meetingPage.joinByLink")}
+              </a>
+            ) : (
+              <PrimaryButton onClick={() => onJoin(meeting.id)} loading={joining}>
+                {!joining ? <Play className="h-4 w-4 fill-current" /> : null}
+                {t("meetingPage.join")}
+              </PrimaryButton>
+            )}
           </div>
           {isTeacher && meeting.googleMeet?.status === "failed" && meeting.googleMeet.errorMessage && (
             <div className="flex max-w-[360px] flex-col gap-1 rounded-[6px] border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800"
@@ -1764,15 +1778,28 @@ function LobbyStage({
                       <InfoPill icon={Users2} label={participantText(nextMeeting.participants, lang)} />
                     </div>
                   </div>
-                  <PrimaryButton
-                    onClick={() => onJoin(nextMeeting.id)}
-                    loading={joiningId === nextMeeting.id}
-                  >
-                    {joiningId !== nextMeeting.id ? (
-                      <Play className="h-4 w-4 fill-current" />
-                    ) : null}
-                    {t("meetingPage.join")}
-                  </PrimaryButton>
+                  {nextMeeting.link && nextMeeting.link !== "#" ? (
+                    <a
+                      href={nextMeeting.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-[5px] bg-[#0e58a8] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#104475]"
+                      style={{ fontFamily: "var(--font-poppins)" }}
+                    >
+                      <ArrowUpRight className="h-4 w-4" />
+                      {t("meetingPage.joinByLink")}
+                    </a>
+                  ) : (
+                    <PrimaryButton
+                      onClick={() => onJoin(nextMeeting.id)}
+                      loading={joiningId === nextMeeting.id}
+                    >
+                      {joiningId !== nextMeeting.id ? (
+                        <Play className="h-4 w-4 fill-current" />
+                      ) : null}
+                      {t("meetingPage.join")}
+                    </PrimaryButton>
+                  )}
                 </div>
               </div>
             )}
@@ -3461,8 +3488,9 @@ export default function MeetingPage() {
   // is lost forever and that one track never gets consumed.
   const pendingProducersRef = useRef<ProducerSummary[]>([])
 
-  const upcoming = data?.data.upcoming ?? []
-  const past     = data?.data.past     ?? []
+  // O'tgan darslar ertasi kun tugagach Meeting bo'limidan yo'qoladi (dars jadvalida qoladi)
+  const upcoming = useMemo(() => (data?.data.upcoming ?? []).filter(m => !isStaleMeeting(m)), [data])
+  const past     = useMemo(() => (data?.data.past ?? []).filter(m => !isStaleMeeting(m)), [data])
 
   const prejoinMeeting =
     viewState.stage === "prejoin"
