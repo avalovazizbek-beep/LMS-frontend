@@ -2635,19 +2635,6 @@ export interface ModulePermission {
   canDelete: boolean
 }
 
-export interface AuditLogRow {
-  id: number
-  actorHemisId: string
-  actorName: string | null
-  actorRole: string | null
-  action: string
-  module: string | null
-  target: string | null
-  detail: unknown
-  ipAddress: string | null
-  userAgent: string | null
-  createdAt: string
-}
 
 /** Yakunlangan (qulflangan) amaliy topshiriq — guruh va o'qituvchi nomi bilan */
 export type AdminLockedAssignment = TeacherContent & { groupName?: string | null; teacherName?: string | null }
@@ -2879,10 +2866,6 @@ export const adminApi = {
     put<MsgRes>("/api/admin/permissions", { role, module, ...perm }),
 
   /** Audit log: kim (IP bilan) qaysi amalni bajargani */
-  auditLog: (params?: { limit?: number; actorHemisId?: string; module?: string }) => {
-    const q = new URLSearchParams(buildParams(params ?? {})).toString()
-    return get<{ data: AuditLogRow[] }>(`/api/admin/audit-log${q ? `?${q}` : ""}`)
-  },
 }
 
 /* ── E'lonlar (foydalanuvchi tomonidan ko'riladigan) ───────────────────── */

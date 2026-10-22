@@ -24,7 +24,6 @@ import {
   UsersRound,
   Repeat,
   ShieldHalf,
-  History,
   MessageSquareText,
   Award,
   ChevronDown,
@@ -60,7 +59,6 @@ const NAV = [
   { href: "/admin/elonlar", labelKey: "adminNav.announcements", icon: Megaphone },
   { href: "/admin/murojaatlar", labelKey: "adminNav.support", icon: MessageSquareText },
   { href: "/admin/ruxsatlar", labelKey: "adminNav.permissions", icon: ShieldHalf },
-  { href: "/admin/audit-log", labelKey: "adminNav.auditLog", icon: History },
   { href: "/admin/tashakkurnomalar", labelKey: "adminNav.certificates", icon: Award },
   { href: "/admin/sozlamalar", labelKey: "adminNav.settings", icon: Settings },
 ]
