@@ -1044,7 +1044,7 @@ export const hemisApi = {
   },
 
   oauthCallback: (role: "student" | "employee" | "tutor" | "auto", code: string, redirectUri: string, state: string) =>
-    hemisPost<{ success: boolean; token: string; role: "student" | "employee" }>("/api/hemis/oauth/callback", {
+    hemisPost<{ success: boolean; token: string; role: "student" | "employee"; appRedirect?: string }>("/api/hemis/oauth/callback", {
       role,
       code,
       redirectUri,

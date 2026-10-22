@@ -645,6 +645,12 @@ function OAuthCallbackContent() {
         const res = await hemisApi.oauthCallback(role, code, redirectUri, state)
         if (cancelled) return
 
+        // Kirishni mobil ilova boshlagan — ilovaga qaytaramiz (token unda almashtiriladi)
+        if (res.appRedirect) {
+          window.location.href = res.appRedirect
+          return
+        }
+
         localStorage.setItem("lms_token", res.token)
         localStorage.setItem("lms_role", res.role || role)
         sessionStorage.removeItem("hemis_oauth_state")
