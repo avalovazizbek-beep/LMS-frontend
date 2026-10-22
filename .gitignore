@@ -34,6 +34,19 @@ pnpm-debug.log*
 # env files
 .env
 .env*.local
+# .env va .env.production allaqachon kuzatiladi (ichida maxfiy qiymat yo'q:
+# lokal sqlite yo'li va NEXT_PUBLIC_* manzillar). Boshqa nusxalar va backup'lar
+# Git'ga tushmasin.
+.env.*
+!.env.production
+!.env.example
+*.bak
+*.bak-*
+*.bak.*
+*.backup
+*.key
+*.sql
+*.dump
 
 # typescript
 *.tsbuildinfo
