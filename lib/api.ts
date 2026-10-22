@@ -525,6 +525,9 @@ export const authApi = {
       password,
     }),
   me: () => get<{ success: boolean; user: User }>("/api/auth/me"),
+  /** Joriy foydalanuvchining so'nggi 50 ta kirishi ("Kirish tarixi") */
+  loginHistory: () =>
+    get<{ success: boolean; data: { loginAt: string; ip: string | null; userAgent: string | null }[] }>("/api/auth/login-history"),
 }
 
 /* ── Users ──────────────────────────────────────────────────────── */

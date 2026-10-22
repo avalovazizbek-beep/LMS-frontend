@@ -755,7 +755,11 @@ export const dictionary: Record<string, DictEntry> = {
   "kirishTarixi.title":     { uz: "Kirish tarixi",              ru: "История входов",                     en: "Login History",                    kaa: "Kiriw tariyxı" },
   "kirishTarixi.subtitle":  { uz: "Hisobga kirish loglari",     ru: "Логи входа в аккаунт",                en: "Account login logs",              kaa: "Esapqa kiriw jazbaları" },
   "kirishTarixi.notFound":  { uz: "Kirish tarixi mavjud emas",  ru: "История входов недоступна",          en: "No login history available",     kaa: "Kiriw tariyxı joq" },
-  "kirishTarixi.comingSoon": { uz: "Bu funksiya keyingi versiyada qo'shiladi", ru: "Эта функция будет добавлена в следующей версии", en: "This feature will be added in a future version", kaa: "Bul funksiya keyingi versiyada qosıladı" },
+  "kirishTarixi.time":          { uz: "Kirish vaqti",               ru: "Время входа",                        en: "Login time",                       kaa: "Kiriw waqtı" },
+  "kirishTarixi.device":        { uz: "Qurilma",                    ru: "Устройство",                         en: "Device",                           kaa: "Qurılma" },
+  "kirishTarixi.ip":            { uz: "IP manzil",                  ru: "IP-адрес",                           en: "IP address",                       kaa: "IP mánzil" },
+  "kirishTarixi.unknownDevice": { uz: "Noma'lum qurilma",           ru: "Неизвестное устройство",             en: "Unknown device",                   kaa: "Belgisiz qurılma" },
+  "kirishTarixi.lastN":         { uz: "So'nggi {n} ta kirish ko'rsatilgan", ru: "Показаны последние входы: {n}", en: "Showing the last {n} logins",   kaa: "Sońǵı {n} kiriw kórsetilgen" },
 
   // ── Global so'rovnoma sahifasi ────────────────────────────────────────
   "globalSorovnoma.title":     { uz: "Global so'rovnoma",       ru: "Глобальный опрос",                    en: "Global Survey",                    kaa: "Global sorawnama" },

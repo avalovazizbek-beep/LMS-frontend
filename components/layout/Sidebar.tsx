@@ -56,13 +56,8 @@ const studentSections: Section[] = [
     icon: User,
     items: [
       { label: "Rezyume",                   href: "/talaba-malumotlari",                     tKey: "sidebar.item.resume" },
-      { label: "Buyruqlar",                 href: "/talaba-malumotlari/buyruqlar",           tKey: "sidebar.item.orders" },
       { label: "Shartnomalar",              href: "/talaba-malumotlari/shartnomalar",        tKey: "sidebar.item.contracts" },
-      { label: "Ma'lumotnomalar",           href: "/talaba-malumotlari/malumotnomalar",      tKey: "sidebar.item.references" },
-      { label: "Talaba hujjati",            href: "/talaba-malumotlari/hujjat",              tKey: "sidebar.item.studentDocument" },
-      { label: "Bitiruv varaqa",            href: "/talaba-malumotlari/bitiruv-varaqa",      tKey: "sidebar.item.graduationSheet" },
       { label: "Talaba GPA bali",           href: "/talaba-malumotlari/gpa",                 tKey: "sidebar.item.gpa" },
-      { label: "Fan sertifikatlari",        href: "/talaba-malumotlari/sertifikatlar",       tKey: "sidebar.item.subjectCertificates" },
       { label: "Plagiat ma'lumotlari",      href: "/talaba-malumotlari/plagiat",             tKey: "sidebar.item.plagiarism" },
       { label: "Shaxsiy ma'lumotlar",       href: "/talaba-malumotlari/shaxsiy",             tKey: "sidebar.item.personalInfo" },
       { label: "Bitiruv ishi",              href: "/talaba-malumotlari/bitiruv-ishi",        tKey: "sidebar.item.thesis" },
@@ -76,7 +71,6 @@ const studentSections: Section[] = [
     icon: Wallet,
     items: [
       { label: "Kontraktlar ro'yxati", href: "/moliyaviy",             tKey: "sidebar.item.contractsList" },
-      { label: "Stipendiya hisobi",    href: "/moliyaviy/stipendiya",  tKey: "sidebar.item.scholarship" },
     ],
   },
   {
