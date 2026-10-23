@@ -6,7 +6,7 @@ import { useParams } from "next/navigation"
 import {
   Plus, X, Trash2, Pencil, FileText, Lock, CheckCircle2, Clock, Users, Loader2, Download,
   Video, Link as LinkIcon, File as FileIcon, HelpCircle, Power, CalendarCheck, BarChart2, ArrowLeft,
-  RefreshCw, ShieldAlert, ExternalLink, Copy,
+  RefreshCw, ShieldAlert, ExternalLink, Copy, Search,
 } from "lucide-react"
 import {
   teachingApi,
@@ -1085,6 +1085,9 @@ export default function TeacherContentTypePage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  // Oraliq: «Yangi qo'shish» avval HEMIS'dagi nazoratlar ro'yxatini ochadi
+  const [showHemisPicker, setShowHemisPicker] = useState(false)
+  const [formNote, setFormNote] = useState<string | null>(null)
 
   const [gradingFor, setGradingFor] = useState<TeacherContent | null>(null)
   const [questionsFor, setQuestionsFor] = useState<TeacherContent | null>(null)
@@ -1172,10 +1175,12 @@ export default function TeacherContentTypePage() {
     )
   }
 
-  function openCreateForm() {
+  function openCreateForm(prefill?: Partial<FormState>, note?: string) {
     setEditingId(null)
-    setForm(EMPTY_FORM)
+    setForm({ ...EMPTY_FORM, ...prefill })
     setFormError(null)
+    setFormNote(note ?? null)
+    setShowHemisPicker(false)
     setShowForm(true)
   }
 
@@ -1215,6 +1220,7 @@ export default function TeacherContentTypePage() {
     setEditingId(null)
     setForm(EMPTY_FORM)
     setFormError(null)
+    setFormNote(null)
   }
 
   async function handleSubmitForm() {
@@ -1331,7 +1337,7 @@ export default function TeacherContentTypePage() {
           </Link>
         ) : (
           <button
-            onClick={openCreateForm}
+            onClick={() => config.filterControlType === "oraliq" ? setShowHemisPicker(true) : openCreateForm()}
             className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium"
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}
           >
@@ -1527,8 +1533,19 @@ export default function TeacherContentTypePage() {
           editing={editingId !== null}
           saving={saving}
           error={formError}
+          note={formNote}
           onClose={closeForm}
           onSubmit={handleSubmitForm}
+        />
+      )}
+
+      {showHemisPicker && (
+        <HemisControlPickerModal
+          groups={groups}
+          existing={items}
+          onPick={openCreateForm}
+          onManual={() => openCreateForm()}
+          onClose={() => setShowHemisPicker(false)}
         />
       )}
 
@@ -1680,8 +1697,195 @@ function CopyToGroupsModal({
   )
 }
 
+/* HEMIS'da o'quv bo'limi qo'ygan nazoratlar (subject-exam-list): «Oraliq nazorat»
+   va «Boshqa nazoratlar»dagi turlar (masalan «1-on», «2-on»). O'qituvchi bittasini
+   tanlaydi — guruh, fan, sana/vaqt va ON1/ON2 forma ichiga o'zi tushadi.
+   Yakuniy va joriy nazoratlar bu ro'yxatga kirmaydi. */
+interface HemisControlRow {
+  key: string
+  groupId: number | null
+  groupName: string
+  subjectName: string
+  typeName: string
+  slot: "ON1" | "ON2" | ""
+  date: string
+  startTime: string
+  endTime: string
+  pairName: string
+  ts: number
+}
+
+// «1-on», «ON-2», «2-oraliq» → ON1/ON2; aniqlanmasa o'qituvchi o'zi tanlaydi
+function guessOraliqSlot(name: string): HemisControlRow["slot"] {
+  const m = name.match(/(?<!\d)([12])\s*[-–.]?\s*(?:on|oraliq|он|оралиқ)(?!\p{L})/iu)
+    ?? name.match(/(?<!\p{L})(?:on|oraliq|он|оралиқ)\s*[-–.]?\s*([12])(?!\d)/iu)
+  return m ? (m[1] === "1" ? "ON1" : "ON2") : ""
+}
+
+function toHemisControlRow(item: unknown): HemisControlRow | null {
+  const record = asRecord(item)
+  const typeName = recordLabel(record.examType)
+  const lowered = typeName.toLowerCase()
+  if (lowered.includes("yakuniy") || lowered.includes("final") || lowered.includes("joriy")) return null
+  const groupName = recordLabel(record.group)
+  // LMS faqat masofaviy guruhlar uchun (IK-M-124, MI(M)-125)
+  if (!/-M-|\(M\)/i.test(groupName)) return null
+  const ts = Number(record.examDate) || 0
+  const pair = asRecord(record.lessonPair)
+  const groupId = Number(recordId(record.group))
+  return {
+    key: recordId(record) || `${groupId}-${recordId(record.subject)}-${ts}`,
+    groupId: Number.isFinite(groupId) && groupId > 0 ? groupId : null,
+    groupName,
+    subjectName: recordLabel(record.subject),
+    typeName,
+    slot: guessOraliqSlot(typeName),
+    date: ts ? toLocalParts(new Date(ts * 1000).toISOString()).date : "",
+    startTime: textValue(pair.start_time) ?? "",
+    endTime: textValue(pair.end_time) ?? "",
+    pairName: textValue(pair.name) ?? "",
+    ts,
+  }
+}
+
+function HemisControlPickerModal({
+  groups, existing, onPick, onManual, onClose,
+}: {
+  groups: TeacherGroup[]
+  existing: TeacherContent[]
+  onPick: (prefill: Partial<FormState>, note: string) => void
+  onManual: () => void
+  onClose: () => void
+}) {
+  const { t } = useLanguage()
+  const [search, setSearch] = useState("")
+  const { data, loading, error, refetch } = useApi(
+    () => hemisApi.employeeData("controls", { _education_year: String(academicYearStart()) }),
+    []
+  )
+
+  const rows = useMemo(() => {
+    const list = normalizeHemisItems(data?.data)
+      .map(toHemisControlRow)
+      .filter((row): row is HemisControlRow => row !== null)
+    list.sort((a, b) => a.ts - b.ts || a.subjectName.localeCompare(b.subjectName) || a.groupName.localeCompare(b.groupName))
+    const query = search.trim().toLowerCase()
+    if (!query) return list
+    return list.filter(row => `${row.subjectName} ${row.groupName} ${row.typeName}`.toLowerCase().includes(query))
+  }, [data, search])
+
+  const ownGroupIds = useMemo(() => new Set(groups.map(g => g.id)), [groups])
+
+  // Shu guruh+fan+ON uchun faol oraliq allaqachon yaratilgan bo'lsa — qayta yaratib bo'lmaydi
+  function alreadyCreated(row: HemisControlRow) {
+    if (!row.slot || row.groupId === null) return false
+    const subject = row.subjectName.trim().toLowerCase()
+    return existing.some(c => c.isActive && c.groupId === row.groupId && c.kind === row.slot
+      && c.subjectName.trim().toLowerCase() === subject)
+  }
+
+  function dateLabel(row: HemisControlRow) {
+    const parts = [
+      row.date ? row.date.split("-").reverse().join(".") : "",
+      row.pairName ? t("typeContentOq.hemisPick.pair", { n: row.pairName }) : "",
+      row.startTime && row.endTime ? `${row.startTime}–${row.endTime}` : "",
+    ]
+    return parts.filter(Boolean).join(" · ")
+  }
+
+  function pick(row: HemisControlRow) {
+    const hasPair = Boolean(row.startTime && row.endTime)
+    onPick({
+      groupId: row.groupId !== null ? String(row.groupId) : "",
+      subjectName: row.subjectName,
+      title: row.slot ? t("typeContentOq.hemisPick.slotTitle", { n: row.slot === "ON1" ? 1 : 2 }) : row.typeName,
+      slot: row.slot,
+      availableFromDate: row.date,
+      availableFromTime: row.date ? (hasPair ? row.startTime : "00:00") : "",
+      deadlineDate: row.date,
+      deadlineTime: row.date ? (hasPair ? row.endTime : "23:59") : "",
+    }, t("typeContentOq.hemisPick.fromHemis", { info: [row.typeName, row.groupName, dateLabel(row)].filter(Boolean).join(" · ") }))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.35)" }}>
+      <div className="bg-white rounded-[14px] w-full max-w-2xl max-h-[90vh] p-6 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
+              {t("typeContentOq.hemisPick.title")}
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {t("typeContentOq.hemisPick.subtitle")}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">
+            <X className="w-5 h-5" style={{ color: "#7293b9" }} />
+          </button>
+        </div>
+
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#7293b9" }} />
+          <input className={`${inputCls} pl-9`} style={{ fontFamily: "var(--font-poppins)" }}
+            value={search} onChange={e => setSearch(e.target.value)} placeholder={t("typeContentOq.hemisPick.search")} />
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
+          {loading ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : rows.length === 0 ? (
+            <p className="text-sm text-center py-6" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {t("typeContentOq.hemisPick.empty")}
+            </p>
+          ) : rows.map(row => {
+            const created = alreadyCreated(row)
+            const notOwn = row.groupId === null || !ownGroupIds.has(row.groupId)
+            const disabled = created || notOwn
+            return (
+              <button key={row.key} type="button" disabled={disabled} onClick={() => pick(row)}
+                className="text-left px-4 py-3 rounded-[10px] flex items-start justify-between gap-3 transition-colors enabled:hover:bg-[#f6f9ff] disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium" style={{ color: "#012970" }}>{row.subjectName}</div>
+                  <div className="text-xs mt-0.5" style={{ color: "#445b7a" }}>
+                    {row.groupName}{dateLabel(row) ? ` · ${dateLabel(row)}` : ""}
+                  </div>
+                  {(created || notOwn) && (
+                    <div className="text-xs mt-1" style={{ color: created ? "#15803d" : "#92400e" }}>
+                      {created ? t("typeContentOq.hemisPick.exists") : t("typeContentOq.hemisPick.notYourGroup")}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {row.slot && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8" }}>
+                      {row.slot}
+                    </span>
+                  )}
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f6f9ff", color: "#445b7a", border: "1px solid #d8e6f7" }}>
+                    {row.typeName}
+                  </span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <button onClick={onManual} className="text-sm font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            {t("typeContentOq.hemisPick.manual")}
+          </button>
+          <button onClick={onClose}
+            className="px-4 py-2.5 rounded-[8px] text-sm font-medium"
+            style={{ color: "#445b7a", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
+            {t("typeContentOq.copy.close")}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ContentFormModal({
-  config, groups, scheduleItems, form, setForm, editing, saving, error, onClose, onSubmit,
+  config, groups, scheduleItems, form, setForm, editing, saving, error, note, onClose, onSubmit,
 }: {
   config: TypeConfig
   groups: TeacherGroup[]
@@ -1691,6 +1895,8 @@ function ContentFormModal({
   editing: boolean
   saving: boolean
   error: string | null
+  /** Forma qayerdan to'ldirilgani (masalan HEMIS nazoratidan) */
+  note?: string | null
   onClose: () => void
   onSubmit: () => void
 }) {
@@ -1703,8 +1909,12 @@ function ContentFormModal({
     const pool = form.groupId
       ? scheduleItems.filter(s => String(s.groupId) === String(form.groupId))
       : scheduleItems
-    return [...new Set(pool.map(s => s.subjectName).filter(Boolean))].sort()
-  }, [scheduleItems, form.groupId])
+    const names = new Set(pool.map(s => s.subjectName).filter(Boolean))
+    // HEMIS nazoratidan kelgan fan nomi jadvalda bo'lmasa ham tanlangan holda ko'rinsin
+    // (ro'yxat bo'sh bo'lsa — qo'lda yoziladigan maydon qoladi)
+    if (names.size && form.subjectName) names.add(form.subjectName)
+    return [...names].sort()
+  }, [scheduleItems, form.groupId, form.subjectName])
 
   const isLesson  = config.type === "lesson"
   const isKalendar = config.type === "kalendar"
@@ -1758,6 +1968,12 @@ function ContentFormModal({
             <X className="w-5 h-5" style={{ color: "#7293b9" }} />
           </button>
         </div>
+
+        {note && (
+          <div className="text-xs px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+            {note}
+          </div>
+        )}
 
         {error && (
           <div className="text-sm px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
