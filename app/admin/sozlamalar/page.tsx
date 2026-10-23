@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import {
   RefreshCw, Save, ShieldAlert, FileText, CheckCircle2, Video, ClipboardCheck, Award, Upload, RotateCcw, ArrowRight, Loader2,
-  MonitorCheck,
+  MonitorCheck, Send,
 } from "lucide-react"
 import { adminApi, type CertificateTopicPart } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -86,6 +86,12 @@ export default function AdminSozlamalar() {
   const [templateError, setTemplateError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Telegram: token hech qachon to'liq qaytmaydi — maydon faqat yangi token uchun
+  const [tgToken, setTgToken] = useState("")
+  const [tgChat, setTgChat] = useState("")
+  const [tgTesting, setTgTesting] = useState(false)
+  const [tgResult, setTgResult] = useState<{ ok: boolean; text: string } | null>(null)
+
   function load() {
     setLoading(true)
     adminApi.getSettings()
@@ -101,6 +107,8 @@ export default function AdminSozlamalar() {
         setCertAuto(d.certificate_auto !== "0")
         setCertGoal(d.certificate_topic_goal ?? "15")
         setCertParts(parseParts(d.certificate_parts))
+        setTgToken("")
+        setTgChat(d.telegram_chat_id ?? "")
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -127,7 +135,11 @@ export default function AdminSozlamalar() {
         certificate_auto: certAuto ? "1" : "0",
         certificate_topic_goal: certGoal,
         certificate_parts: certParts.join(","),
+        telegram_chat_id: tgChat.trim(),
+        ...(tgToken.trim() ? { telegram_bot_token: tgToken.trim() } : {}),
       })
+      setTgToken("")
+      adminApi.getSettings().then(res => setSettings(res.data ?? {})).catch(() => {})
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
@@ -150,6 +162,19 @@ export default function AdminSozlamalar() {
     } finally {
       setTemplateBusy(false)
       if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  async function testTelegram() {
+    setTgTesting(true)
+    setTgResult(null)
+    try {
+      const res = await adminApi.testTelegram({ botToken: tgToken.trim() || undefined, chatId: tgChat.trim() || undefined })
+      setTgResult({ ok: true, text: res.message })
+    } catch (err) {
+      setTgResult({ ok: false, text: err instanceof Error ? err.message : "" })
+    } finally {
+      setTgTesting(false)
     }
   }
 
@@ -323,6 +348,44 @@ export default function AdminSozlamalar() {
                 {templateError && <span className="text-xs" style={{ color: "#b91c1c", ...font }}>{templateError}</span>}
                 <p className="text-xs leading-5" style={{ color: "#7293b9", ...font }}>{t("adminSozlamalar.cert.templateHint")}</p>
               </div>
+            </div>
+          </SettingCard>
+
+          {/* Telegram bot: hisobot va talaba xabarlari shu chatga boradi */}
+          <SettingCard icon={<Send className="w-5 h-5" style={{ color: "#0284c7" }} />} iconBg="#e0f2fe"
+            title={t("adminSozlamalar.tg.title")} desc={t("adminSozlamalar.tg.desc")}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium" style={{ color: "#012970", ...font }}>{t("adminSozlamalar.tg.token")}</label>
+                <input type="password" autoComplete="off" value={tgToken} onChange={e => setTgToken(e.target.value)}
+                  placeholder={t("adminSozlamalar.tg.tokenPh")}
+                  className="w-full px-3 py-2 text-sm rounded-[8px] outline-none" style={inputStyle} />
+                <span className="text-xs leading-5" style={{ color: settings.telegram_bot_token_source === "none" ? "#b91c1c" : "#7293b9", ...font }}>
+                  {settings.telegram_bot_token_source === "settings"
+                    ? t("adminSozlamalar.tg.tokenSaved", { hint: settings.telegram_bot_token_hint ?? "" })
+                    : settings.telegram_bot_token_source === "env"
+                      ? t("adminSozlamalar.tg.tokenEnv", { hint: settings.telegram_bot_token_hint ?? "" })
+                      : t("adminSozlamalar.tg.tokenNone")}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium" style={{ color: "#012970", ...font }}>{t("adminSozlamalar.tg.chat")}</label>
+                <input value={tgChat} onChange={e => setTgChat(e.target.value)} placeholder="-1001234567890"
+                  className="w-full px-3 py-2 text-sm rounded-[8px] outline-none" style={inputStyle} />
+                <span className="text-xs leading-5" style={{ color: "#7293b9", ...font }}>
+                  {settings.telegram_chat_source === "env" ? `${t("adminSozlamalar.tg.chatEnv")}. ` : ""}{t("adminSozlamalar.tg.chatHint")}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button type="button" onClick={testTelegram} disabled={tgTesting} className={smallBtn}
+                style={{ ...font, color: "#0284c7", border: "1px solid rgba(2,132,199,0.4)" }}>
+                {tgTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {t("adminSozlamalar.tg.test")}
+              </button>
+              {tgResult
+                ? <span className="text-xs" style={{ color: tgResult.ok ? "#15803d" : "#b91c1c", ...font }}>{tgResult.text}</span>
+                : <span className="text-xs" style={{ color: "#7293b9", ...font }}>{t("adminSozlamalar.tg.testHint")}</span>}
             </div>
           </SettingCard>
 
