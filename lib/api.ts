@@ -2686,6 +2686,8 @@ export const adminApi = {
   getSettings: () => get<{ data: Record<string, string> }>("/api/admin/settings"),
   saveSettings: (settings: Record<string, unknown>) => put<MsgRes>("/api/admin/settings", settings),
   testTelegram: (body: { botToken?: string; chatId?: string }) => post<MsgRes>("/api/admin/settings/telegram-test", body),
+  findTelegramChats: (body: { botToken?: string }) =>
+    post<{ success: boolean; data: { botUsername: string | null; chats: { id: string; title: string; type: string }[] } }>("/api/admin/settings/telegram-chats", body),
 
   faceRequests: (status?: string) => {
     const q = status ? `?status=${encodeURIComponent(status)}` : ""

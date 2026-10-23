@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import {
   RefreshCw, Save, ShieldAlert, FileText, CheckCircle2, Video, ClipboardCheck, Award, Upload, RotateCcw, ArrowRight, Loader2,
-  MonitorCheck, Send,
+  MonitorCheck, Send, Search,
 } from "lucide-react"
 import { adminApi, type CertificateTopicPart } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -91,6 +91,8 @@ export default function AdminSozlamalar() {
   const [tgChat, setTgChat] = useState("")
   const [tgTesting, setTgTesting] = useState(false)
   const [tgResult, setTgResult] = useState<{ ok: boolean; text: string } | null>(null)
+  const [tgFinding, setTgFinding] = useState(false)
+  const [tgFound, setTgFound] = useState<{ botUsername: string | null; chats: { id: string; title: string; type: string }[] } | null>(null)
 
   function load() {
     setLoading(true)
@@ -177,6 +179,25 @@ export default function AdminSozlamalar() {
       setTgTesting(false)
     }
   }
+
+  // Bot qo'shilgan guruhlarni Telegram'dan olib, Chat ID'ni tanlatish
+  async function findTelegramChats() {
+    setTgFinding(true)
+    setTgResult(null)
+    setTgFound(null)
+    try {
+      const res = await adminApi.findTelegramChats({ botToken: tgToken.trim() || undefined })
+      setTgFound(res.data)
+    } catch (err) {
+      setTgResult({ ok: false, text: err instanceof Error ? err.message : "" })
+    } finally {
+      setTgFinding(false)
+    }
+  }
+
+  const tgTypeLabel = (type: string) => type === "private"
+    ? t("adminSozlamalar.tg.typePrivate")
+    : type === "channel" ? t("adminSozlamalar.tg.typeChannel") : t("adminSozlamalar.tg.typeGroup")
 
   function togglePart(part: CertificateTopicPart) {
     setCertParts(prev => prev.includes(part) ? prev.filter(p => p !== part) : CERT_PARTS.filter(p => p === part || prev.includes(p)))
@@ -372,12 +393,45 @@ export default function AdminSozlamalar() {
                 <label className="text-sm font-medium" style={{ color: "#012970", ...font }}>{t("adminSozlamalar.tg.chat")}</label>
                 <input value={tgChat} onChange={e => setTgChat(e.target.value)} placeholder="-1001234567890"
                   className="w-full px-3 py-2 text-sm rounded-[8px] outline-none" style={inputStyle} />
-                <span className="text-xs leading-5" style={{ color: "#7293b9", ...font }}>
-                  {settings.telegram_chat_source === "env" ? `${t("adminSozlamalar.tg.chatEnv")}. ` : ""}{t("adminSozlamalar.tg.chatHint")}
-                </span>
+                {/^\d+$/.test(tgChat.trim()) ? (
+                  <span className="text-xs leading-5" style={{ color: "#b45309", ...font }}>{t("adminSozlamalar.tg.privateWarn")}</span>
+                ) : (
+                  <span className="text-xs leading-5" style={{ color: "#7293b9", ...font }}>
+                    {settings.telegram_chat_source === "env" ? `${t("adminSozlamalar.tg.chatEnv")}. ` : ""}{t("adminSozlamalar.tg.chatHint")}
+                  </span>
+                )}
               </div>
             </div>
+            {tgFound && (
+              <div className="flex flex-col gap-2 rounded-[10px] p-3" style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
+                {tgFound.chats.some(c => c.type !== "private") ? (
+                  <>
+                    <span className="text-xs font-medium" style={{ color: "#012970", ...font }}>{t("adminSozlamalar.tg.findPick")}</span>
+                    {tgFound.chats.map(c => {
+                      const on = tgChat.trim() === c.id
+                      return (
+                        <button key={c.id} type="button" onClick={() => { setTgChat(c.id); setTgResult(null) }}
+                          className="flex items-center justify-between gap-3 text-left px-3 py-2 rounded-[8px] bg-white text-sm"
+                          style={{ ...font, color: "#012970", border: on ? "1px solid #0e58a8" : "1px solid rgba(1,41,112,0.15)" }}>
+                          <span className="min-w-0 truncate">{c.title}</span>
+                          <span className="text-xs shrink-0" style={{ color: "#7293b9" }}>{tgTypeLabel(c.type)} · {c.id}</span>
+                        </button>
+                      )
+                    })}
+                  </>
+                ) : (
+                  <span className="text-xs leading-5" style={{ color: "#b45309", ...font }}>
+                    {t("adminSozlamalar.tg.findEmpty", { cmd: tgFound.botUsername ? `/start@${tgFound.botUsername}` : "/start" })}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-3 flex-wrap">
+              <button type="button" onClick={findTelegramChats} disabled={tgFinding} className={`${smallBtn} text-white`}
+                style={{ ...font, backgroundColor: "#0284c7" }}>
+                {tgFinding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                {t("adminSozlamalar.tg.find")}
+              </button>
               <button type="button" onClick={testTelegram} disabled={tgTesting} className={smallBtn}
                 style={{ ...font, color: "#0284c7", border: "1px solid rgba(2,132,199,0.4)" }}>
                 {tgTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
