@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight, UserRound, UsersRound, Shield, GraduationCap,
-  BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon, CircleCheck, CircleAlert, Filter, Check,
+  BookOpen, Ban, Clock, RefreshCw, Users as UsersIcon, CircleCheck, CircleAlert, Filter, Check, X,
 } from "lucide-react"
 import { adminApi, type AdminUser } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -53,6 +53,87 @@ function UserAvatar({ src, name }: { src: string | null; name: string }) {
         {name.trim().charAt(0).toUpperCase() || "?"}
       </div>
     </PersonAvatar>
+  )
+}
+
+/** Surat bosilganda — shu sahifaning o'zida katta surat va asosiy ma'lumotlar kartasi */
+function UserCard({ user, onClose }: { user: AdminUser; onClose: () => void }) {
+  const { t } = useLanguage()
+  const name = user.fullName || user.username || "—"
+  const roleColor = (user.lmsRole && ROLE_CONFIG[user.lmsRole]?.color) || "var(--adm-accent)"
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  const rows: { label: string; value: React.ReactNode }[] = [
+    {
+      label: t("adminFoydalanuvchilar.colHemisRole"),
+      value: <span className="adm-pill">{HEMIS_ROLE_LABEL_KEY[user.hemisRole] ? t(HEMIS_ROLE_LABEL_KEY[user.hemisRole]) : user.hemisRole}</span>,
+    },
+    { label: t("adminFoydalanuvchilar.colLmsRole"), value: <RoleBadge role={user.lmsRole} auto={user.isAutoAdmin || user.roleIsDefault} /> },
+    { label: t("adminFoydalanuvchilar.colGroup"), value: user.groupName ?? "—" },
+    ...(user.hemisRole === "student" ? [{
+      label: t("adminFoydalanuvchilar.colFaceId"),
+      value: user.faceRegistered ? (
+        <span className="adm-pill" style={{ "--c": "var(--adm-up)" } as CssVars}>
+          <CircleCheck className="h-3.5 w-3.5" /> {t("adminUsers.faceRegistered")}
+        </span>
+      ) : (
+        <span className="adm-pill" style={{ "--c": "var(--role-pending)" } as CssVars}>
+          <CircleAlert className="h-3.5 w-3.5" /> {t("adminUsers.faceNotRegistered")}
+        </span>
+      ),
+    }] : []),
+    { label: t("adminFoydalanuvchilar.colLastSeen"), value: <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatDateTime(user.lastSeen)}</span> },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(8,15,40,0.55)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, y: 12, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.2 }}
+        onClick={e => e.stopPropagation()}
+        className="adm-card relative w-full max-w-sm overflow-hidden"
+        style={{ boxShadow: "var(--adm-shadow-pop)", "--c": roleColor } as CssVars}>
+        <div className="h-24" style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--c) 35%, transparent), color-mix(in srgb, var(--c) 8%, transparent))" }} />
+        <button onClick={onClose} aria-label={t("common.close")}
+          className="adm-btn-outline absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full">
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="-mt-16 flex justify-center">
+          <PersonAvatar key={user.photoUrl ?? "none"} src={user.photoUrl} className="h-[232px] w-[176px] rounded-2xl"
+            style={{ boxShadow: "0 0 0 4px var(--adm-card), 0 10px 30px -12px rgba(8,15,40,0.45)", backgroundColor: "var(--adm-grid)" }}>
+            <div className="flex h-[232px] w-[176px] shrink-0 items-center justify-center rounded-2xl text-6xl font-semibold text-white"
+              style={{ background: "linear-gradient(135deg, #3b82f6, #1d4ed8)", boxShadow: "0 0 0 4px var(--adm-card)" }}>
+              {name.trim().charAt(0).toUpperCase() || "?"}
+            </div>
+          </PersonAvatar>
+        </div>
+
+        <div className="px-5 pb-2 pt-4 text-center">
+          <div className="text-[16px] font-bold leading-snug text-[var(--adm-text)]">{name}</div>
+          {user.username && user.fullName && (
+            <div className="mt-0.5 text-xs text-[var(--adm-muted)]">{user.username}</div>
+          )}
+        </div>
+
+        <div className="flex flex-col px-5 pb-4">
+          {rows.map(r => (
+            <div key={r.label} className="flex items-center justify-between gap-3 py-2.5 text-[13px]" style={{ borderTop: "1px solid var(--adm-border)" }}>
+              <span className="text-[var(--adm-muted)]">{r.label}</span>
+              <span className="text-right font-medium text-[var(--adm-text-2)]">{r.value}</span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </div>
   )
 }
 
@@ -153,6 +234,8 @@ export default function AdminFoydalanuvchilar() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [page, setPage] = useState(0)
   const [saving, setSaving] = useState<string | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  const previewUser = previewId ? users.find(u => u.hemisId === previewId) : undefined
 
   const load = (q?: string, role?: string, pageArg?: number, face?: string) => {
     setLoading(true)
@@ -401,7 +484,10 @@ export default function AdminFoydalanuvchilar() {
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-3">
-                        <UserAvatar key={u.photoUrl ?? "none"} src={u.photoUrl} name={displayName} />
+                        <button type="button" onClick={() => setPreviewId(u.hemisId)} aria-label={displayName}
+                          className="flex shrink-0 cursor-zoom-in rounded-full transition-transform hover:scale-110">
+                          <UserAvatar key={u.photoUrl ?? "none"} src={u.photoUrl} name={displayName} />
+                        </button>
                         <div className="min-w-0">
                           <div className="max-w-[300px] truncate text-[13px] font-semibold text-[var(--adm-text)]">
                             {displayName}
@@ -488,6 +574,8 @@ export default function AdminFoydalanuvchilar() {
           </div>
         )}
       </div>
+
+      {previewUser && <UserCard user={previewUser} onClose={() => setPreviewId(null)} />}
     </motion.div>
   )
 }
