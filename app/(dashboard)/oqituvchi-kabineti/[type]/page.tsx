@@ -1302,8 +1302,9 @@ export default function TeacherContentTypePage() {
           controlType: config!.filterControlType ?? undefined,
           availableFrom: availableFrom ?? new Date().toISOString(),
           deadline: deadline,
-          // Oraliq: natija shu ball ichida (test natijasi / topshiriq bahosi 0..ball)
-          maxScore: isOraliq ? points : form.maxScore ? Number(form.maxScore) : null,
+          // Oraliq topshirig'i 0..ball oralig'ida baholanadi; test 100 ballikda
+          // yechiladi, jurnalda foizi shu ballga aylanadi (10 ballikda 80% → 8)
+          maxScore: isTask ? points : isOraliq ? null : form.maxScore ? Number(form.maxScore) : null,
           gradePoints: isOraliq ? points : undefined,
           attemptsCount: isControl && !isTask ? attempts : undefined,
           durationMinutes: !isTask && form.durationMinutes ? Number(form.durationMinutes) : null,
@@ -2134,7 +2135,9 @@ function ContentFormModal({
           {isOraliq && (
             <>
               <div className="col-span-2 sm:col-span-1">
-                <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.gradePoints")}</label>
+                <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
+                  {form.slot ? t("typeContentOq.form.gradePointsSlot", { n: form.slot === "ON1" ? 1 : 2, total: PART_TOTAL }) : t("typeContentOq.form.gradePoints")}
+                </label>
                 <input type="number" min={1} max={PART_TOTAL} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                   value={form.gradePoints} onChange={e => update("gradePoints", e.target.value)} placeholder="10" />
               </div>
@@ -2795,13 +2798,18 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
         {!readOnly && (
           <div className="flex flex-col gap-2 pt-2" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
             <h3 className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.submission.grading")}</h3>
+            {content.maxScore != null && (
+              <p className="text-xs" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
+                {t("typeContentOq.submission.gradeOutOf", { n: content.maxScore })}
+              </p>
+            )}
             {gradeError && (
               <div className="text-xs px-3 py-1.5 rounded-[6px]" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                 {gradeError}
               </div>
             )}
             <div className="flex gap-2">
-              <input type="number" min={0} placeholder={t("typeContentOq.submission.gradePlaceholder")} value={grade} onChange={e => setGrade(e.target.value)}
+              <input type="number" min={0} max={content.maxScore ?? undefined} placeholder={t("typeContentOq.submission.gradePlaceholder")} value={grade} onChange={e => setGrade(e.target.value)}
                 className={inputCls} style={{ fontFamily: "var(--font-poppins)", maxWidth: 120 }} />
               <input placeholder={t("typeContentOq.submission.commentPlaceholder")} value={feedback} onChange={e => setFeedback(e.target.value)}
                 className={inputCls} style={{ fontFamily: "var(--font-poppins)" }} />

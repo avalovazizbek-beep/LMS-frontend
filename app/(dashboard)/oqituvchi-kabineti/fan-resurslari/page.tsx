@@ -1383,7 +1383,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.mi.points")}</label>
+              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.mi.points", { total: PART_TOTAL })}</label>
               <input type="number" min={1} max={PART_TOTAL} value={miPoints} placeholder="5"
                 onChange={e => { setMiPoints(e.target.value); setMiMsg(null) }}
                 className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none bg-white"

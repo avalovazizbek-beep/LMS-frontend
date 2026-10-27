@@ -10,6 +10,7 @@ import { teachingApi, type TeacherContent, type TeachingFile, type TeachingSubmi
 import { useApi } from "@/hooks/useApi"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { ViolationChips } from "./ViolationChips"
+import { oraliqPoints } from "./GradeBudgetLine"
 
 const STATUS_CONFIG: Record<ContentStatus, { labelKey: string; color: string; bg: string; Icon: typeof Lock }> = {
   locked: { labelKey: "scc.status.locked", color: "#b91c1c", bg: "#fef2f2", Icon: Lock },
@@ -89,6 +90,12 @@ export function StudentContentCard({ item, submittable = false }: Props) {
   // muddat o'tgan bo'lsa ham yuklay oladi.
   const isScored = item.controlType === "oraliq" || (item.gradePoints != null && item.gradePoints > 0)
   const scoredGraded = isAssignment && isScored && mySubmission?.grade != null && item.retakeGranted !== true
+  // Ball qo'yilgan test 100 ballikda yechiladi — jurnalga foizi shu ballga
+  // aylanib tushadi (10 ballik testda 80% → 8)
+  const journalMax = item.controlType === "oraliq" ? oraliqPoints(item) : item.gradePoints
+  const journalBall = !isAssignment && journalMax != null && mySubmission?.grade != null
+    ? Math.round(Math.min(100, (mySubmission.grade / (item.maxScore && item.maxScore > 0 ? item.maxScore : 100)) * 100) * journalMax / 100)
+    : null
   const canSubmit = submittable && !(isScored ? scoredGraded : assignmentPassed) &&
     (item.status === "open" || (item.status === "closed" && (reopened || item.retakeGranted === true)))
 
@@ -239,6 +246,12 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                       style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
                       {t("scc.result", { score: `${mySubmission.grade}${item.maxScore ? ` / ${item.maxScore}` : ""}` })}
                     </span>
+                    {journalBall != null && (
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                        style={{ backgroundColor: "#f5f3ff", color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
+                        {t("scc.toJournal", { n: journalBall, max: journalMax! })}
+                      </span>
+                    )}
                     {maxAttempts !== null && (
                       <span className="text-xs px-2 py-0.5 rounded-full"
                         style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>

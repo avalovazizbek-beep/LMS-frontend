@@ -1605,6 +1605,7 @@ export const dictionary: Record<string, DictEntry> = {
   "typeContentOq.submission.studentAnswer": { uz: "← talabaning javobi", ru: "← ответ студента",       en: "← student's answer",       kaa: "← studenttiń juwabı" },
   "typeContentOq.submission.grading":     { uz: "Baholash",            ru: "Оценивание",                en: "Grading",                   kaa: "Baha beriw" },
   "typeContentOq.submission.gradePlaceholder": { uz: "Baho",           ru: "Оценка",                    en: "Grade",                     kaa: "Baha" },
+  "typeContentOq.submission.gradeOutOf": { uz: "{n} balldan siz qo'yadigan ball", ru: "Ваша оценка из {n} баллов", en: "Your grade out of {n} points", kaa: "{n} balldan siz qoyatuǵın ball" },
   "typeContentOq.submission.commentPlaceholder": { uz: "Izoh (ixtiyoriy)", ru: "Комментарий (необязательно)", en: "Comment (optional)", kaa: "Pikir (miynetsiz)" },
 
   // ── Oqituvchi kabineti: Fan resurslari (mavzu materiallari boshqaruvi) ──
@@ -3621,6 +3622,7 @@ export const dictionary: Record<string, DictEntry> = {
   "typeContentOq.form.formatTest":       { uz: "Test", ru: "Тест", en: "Test", kaa: "Test" },
   "typeContentOq.form.formatAssignment": { uz: "Topshiriq", ru: "Задание", en: "Assignment", kaa: "Tapsırma" },
   "typeContentOq.form.gradePoints":      { uz: "Ball (ma'ruzaning 35 balidan)", ru: "Баллы (из 35 баллов лекций)", en: "Points (out of the 35 lecture points)", kaa: "Ball (lekciyanıń 35 balınan)" },
+  "typeContentOq.form.gradePointsSlot":  { uz: "{n}-oraliq uchun ajratgan balingiz ({total} balldan)", ru: "Баллы на {n}-й контроль (из {total})", en: "Points you give assessment {n} (out of {total})", kaa: "{n}-aralıq ushın ajıratqan balıńız ({total} balldan)" },
   "typeContentOq.form.docTask":          { uz: "Topshiriq fayli (shartlar, savollar)", ru: "Файл задания (условия, вопросы)", en: "Assignment file (instructions, questions)", kaa: "Tapsırma faylı (shártler, sorawlar)" },
   "typeContentOq.form.oraliqTaskHint":   { uz: "Talabalar javob faylini yuklaydi, siz «Ko'rish / baholash» orqali 0 dan shu ballgacha baho qo'yasiz. Baho jurnaldagi ON1/ON2 ustuniga tushadi; muddat tugaguncha yuklamagan talabaga 0 qo'yiladi.", ru: "Студенты загружают файл с ответом, вы ставите оценку от 0 до этих баллов через «Просмотр / оценка». Оценка попадает в столбец ON1/ON2 журнала; не загрузившему до срока ставится 0.", en: "Students upload an answer file; you grade it from 0 up to these points via “View / grade”. The grade goes to the ON1/ON2 column; a student who has not uploaded by the deadline gets 0.", kaa: "Studentler juwap faylın júkleydi, siz «Kóriw / bahalaw» arqalı 0 den usı ballǵa shekem baha qoyasız. Baha jurnaldaǵı ON1/ON2 baǵanasına túsedi; múddet tawsılǵanǵa shekem júklemegen studentke 0 qoyıladı." },
   "typeContentOq.err.enterPoints":       { uz: "Ballni kiriting (1 dan {max} gacha butun son)", ru: "Введите баллы (целое число от 1 до {max})", en: "Enter the points (a whole number from 1 to {max})", kaa: "Ballıń kiritiń (1 den {max} ge shekem pútin san)" },
@@ -3630,7 +3632,7 @@ export const dictionary: Record<string, DictEntry> = {
   "fanResurslariOq.mi.title":        { uz: "Mustaqil ish bahosi", ru: "Оценка самостоятельной работы", en: "Independent work grading", kaa: "Ózbetinshe jumıs bahası" },
   "fanResurslariOq.mi.hint":         { uz: "Mustaqil ishda faqat test yoki topshiriq bo'ladi. Ball ma'ruza yoki amaliyotning 35 balidan ajratiladi va jurnaldagi MI ustuniga tushadi. Talabalar uni «Imtihonlar» va «Nazorat jadvali»da ham ko'radi.", ru: "В самостоятельной работе — только тест или задание. Баллы выделяются из 35 баллов лекций или практики и попадают в столбец MI журнала. Студенты видят её также в «Экзаменах» и «Графике контроля».", en: "Independent work is a test or an assignment only. Its points come out of the 35 lecture or practice points and go to the MI column of the journal. Students also see it under “Exams” and “Control schedule”.", kaa: "Ózbetinshe jumısta tek test yamasa tapsırma boladı. Ball lekciya yamasa ámeliyattıń 35 balınan ajıratıladı hám jurnaldaǵı MI baǵanasına túsedi. Studentler onı «Emtihanlar» hám «Baqlaw kestesi»nde de kóredi." },
   "fanResurslariOq.mi.part":         { uz: "Qaysi qism hisobidan", ru: "За счёт какой части", en: "Counts towards", kaa: "Qaysı bólim esabınan" },
-  "fanResurslariOq.mi.points":       { uz: "Ball", ru: "Баллы", en: "Points", kaa: "Ball" },
+  "fanResurslariOq.mi.points":       { uz: "Mustaqil ish uchun ajratgan balingiz ({total} balldan)", ru: "Баллы на эту самостоятельную работу (из {total})", en: "Points you give this independent work (out of {total})", kaa: "Ózbetinshe jumıs ushın ajıratqan balıńız ({total} balldan)" },
   "fanResurslariOq.mi.needSettings": { uz: "Avval qismni (ma'ruza / amaliyot) tanlang va bo'sh balldan oshmaydigan ball kiriting", ru: "Сначала выберите часть (лекция / практика) и введите баллы, не превышающие свободные", en: "First choose the part (lecture / practice) and enter points within the free points", kaa: "Aldın bólimdi (lekciya / ámeliyat) tańlań hám bos balldan aspaytuǵın ball kiritiń" },
   "fanResurslariOq.mi.saved":        { uz: "Saqlandi", ru: "Сохранено", en: "Saved", kaa: "Saqlandı" },
   "nazoratJadvali.formatTest":       { uz: "Test", ru: "Тест", en: "Test", kaa: "Test" },
@@ -3639,6 +3641,7 @@ export const dictionary: Record<string, DictEntry> = {
   "nazoratJadvali.deadline":         { uz: "Tugash vaqti:", ru: "Срок:", en: "Deadline:", kaa: "Tawsılıw waqtı:" },
   "nazoratJadvali.independentWork":  { uz: "Mustaqil ish", ru: "Самостоятельная работа", en: "Independent work", kaa: "Ózbetinshe jumıs" },
   "scc.scoredGraded":                { uz: "Baho qo'yilgan — qayta yuklab bo'lmaydi", ru: "Оценка выставлена — повторная загрузка недоступна", en: "Graded — it can't be uploaded again", kaa: "Baha qoyılǵan — qayta júklewge bolmaydı" },
+  "scc.toJournal":                   { uz: "Jurnalga: {n} / {max} ball", ru: "В журнал: {n} / {max}", en: "To the journal: {n} / {max}", kaa: "Jurnalǵa: {n} / {max} ball" },
   "natijalarOq.colMi":               { uz: "MUSTAQIL (MI)", ru: "САМОСТ. (MI)", en: "INDEPENDENT (MI)", kaa: "ÓZBETINSHE (MI)" },
   "ozlashtirish.independentWork":    { uz: "Mustaqil ish", ru: "Самостоятельная работа", en: "Independent work", kaa: "Ózbetinshe jumıs" },
   "adminOraliq.pointsShort":         { uz: "ball", ru: "балл.", en: "pts", kaa: "ball" },
