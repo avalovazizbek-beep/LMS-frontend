@@ -25,6 +25,10 @@ const ABSENT_LIMIT        = 15000  // shuncha vaqt yuz ko'rinmasa "no_face" qayd
 // Xira/qorong'i telefon kamerasida aniqlagich ba'zi kadrlarda yuzni "yo'qotadi" —
 // bir lahzalik yo'qolishda savollar yopilib-ochilib (tugma bosilmay) qolmasligi uchun
 const ABSENT_GRACE        = 1500
+// Telefonda savolni o'qish/aylantirish uchun qurilma egilganda yuz bir-ikki
+// soniyaga kadrdan chiqib ketadi — savollar aylantirish o'rtasida qulflanib
+// qolardi. Sensorli ekranda faqat 5 s dan uzoq yo'qolsa yopiladi.
+const ABSENT_GRACE_TOUCH  = 5000
 const DEFAULT_MAX_VIOLATIONS = 5   // admin "Face ID bloklash chegarasi" sozlamasi orqali o'zgartirilishi mumkin
 const LIVENESS_INTERVAL   = 400
 // Ko'z qisish shu talabaning o'z "ochiq ko'z" darajasiga nisbatan aniqlanadi.
@@ -118,7 +122,11 @@ export default function FaceProctor({
   const multiPersonRef         = useRef(false)                  // ko'p yuz blok holati
   const multiPersonTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const statusRef              = useRef<ProcStatus>("loading")  // RAF da fresh qiymat
+  const absentGraceRef         = useRef(ABSENT_GRACE)
   useEffect(() => { onFirstVerifiedRef.current = onFirstVerified }, [onFirstVerified])
+  useEffect(() => {
+    absentGraceRef.current = window.matchMedia("(pointer: coarse)").matches ? ABSENT_GRACE_TOUCH : ABSENT_GRACE
+  }, [])
 
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
@@ -411,7 +419,7 @@ export default function FaceProctor({
         // Yuz ko'rinmasligi — ko'pincha kamera sifati/yorug'lik muammosi, ko'chirish
         // emas: savollar yuz qaytguncha yopiq turadi va o'qituvchi uchun qayd
         // etiladi, lekin xatoliklar hisobiga qo'shilmaydi (testni tugatmaydi).
-        if (absentMs >= ABSENT_GRACE) {
+        if (absentMs >= absentGraceRef.current) {
           if (!faceMissingRef.current) { faceMissingRef.current = true; setFaceMissing(true) }
           if (statusRef.current !== "warning" && statusRef.current !== "violation") {
             setStatusSynced("warning")
