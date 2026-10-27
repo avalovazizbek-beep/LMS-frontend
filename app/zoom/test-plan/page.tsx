@@ -68,7 +68,8 @@ function English() {
         <ul className="list-disc pl-5 space-y-1">
           <li>
             <b>LMS test account</b> — username and password are in the app submission (&quot;Test account&quot; field /
-            review notes). Sign in at <Link href="/zoom/review-login" style={link}>https://lms.sies.uz/zoom/review-login</Link>.
+            review notes). Sign in at <Link href="/zoom/review-login" style={link}>https://lms.sies.uz/zoom/review-login</Link>,
+            or on <Link href="/login" style={link}>https://lms.sies.uz/login</Link> click &quot;Demo sign-in&quot; under the HEMIS buttons.
             Real users sign in through HEMIS, the national university system, which outside reviewers cannot access; this
             separate test teacher account exists only for the review.
           </li>
@@ -135,7 +136,7 @@ function English() {
         <div className="space-y-4">
           <TestCase id="TC-1" title="Landing page and sign-in">
             <Step n={1}>Open <Link href="/zoom" style={link}>https://lms.sies.uz/zoom</Link> (the &quot;Visit Site to Add&quot; landing page). It explains who can add the app (teachers and staff, 18+), how to add it and links to the Privacy Policy, Terms and Support.</Step>
-            <Step n={2}>Click the &quot;test account sign-in&quot; link under the button, or open <Link href="/zoom/review-login" style={link}>/zoom/review-login</Link> directly.</Step>
+            <Step n={2}>Click the &quot;test account sign-in&quot; link under the button, or open <Link href="/zoom/review-login" style={link}>/zoom/review-login</Link> directly. (Alternatively: on <Link href="/login" style={link}>/login</Link> click &quot;Demo sign-in&quot; at the bottom of the card.)</Step>
             <Step n={3}>Enter the test username and password and click &quot;Sign in&quot;.</Step>
             <Expect>You land on the Profile page. The header shows &quot;Zoom Reviewer (test teacher)&quot;; the menu shows only Profile and Meeting.</Expect>
           </TestCase>

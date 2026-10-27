@@ -1,14 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { GraduationCap, KeyRound } from "lucide-react"
-import { hemisApi } from "@/lib/api"
+import { hemisApi, zoomApi } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { ZOOM_REVIEW_HOME } from "@/lib/zoomReview"
+import { AFTER_LOGIN_KEY } from "@/components/public/ZoomAddButton"
 
 export default function LoginPage() {
-  const { t } = useLanguage()
+  const router = useRouter()
+  const { t, setLang } = useLanguage()
   const [oauthLoading, setOauthLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // 30 daqiqa harakatsizlikdan keyin chiqarilgan bo'lsa (IdleLogout)
@@ -16,6 +20,34 @@ export default function LoginPage() {
   useEffect(() => {
     setIdleNotice(new URLSearchParams(window.location.search).get("reason") === "idle")
   }, [])
+
+  // "Demo sign-in" — Zoom Marketplace tekshiruvchilari uchun test hisobi
+  // (backend: services/zoomReview.ts). Matn ataylab inglizcha: uni Zoom
+  // reviewerlari ishlatadi. Boshqa login-parol bu yerda qabul qilinmaydi.
+  const [showDemoForm, setShowDemoForm] = useState(false)
+  const [demoLogin, setDemoLogin] = useState("")
+  const [demoPassword, setDemoPassword] = useState("")
+  const [demoLoading, setDemoLoading] = useState(false)
+
+  const handleDemoLogin = async () => {
+    setDemoLoading(true)
+    setError(null)
+    try {
+      localStorage.removeItem("lms_token")
+      localStorage.removeItem("lms_role")
+      const res = await zoomApi.reviewLogin(demoLogin.trim(), demoPassword)
+      localStorage.setItem("lms_token", res.token)
+      localStorage.setItem("lms_role", res.role)
+      try { sessionStorage.removeItem(AFTER_LOGIN_KEY) } catch { /* storage yopiq */ }
+      setLang("en")
+      router.push(ZOOM_REVIEW_HOME)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Sign-in failed")
+      setDemoLoading(false)
+    }
+  }
+
+  const inputStyle = { border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-cell)", color: "var(--lms-primary)", fontFamily: "var(--font-poppins)" }
 
   // HEMIS talaba (student.sies.uz) va xodim (hemis.sies.uz) uchun
   // ALOHIDA-ALOHIDA tizimlar — bitta OAuth so'rovi ikkalasini ham
@@ -94,6 +126,29 @@ export default function LoginPage() {
               {t("login.asEmployee")}
             </button>
 
+            {!showDemoForm ? (
+              <button type="button" onClick={() => setShowDemoForm(true)}
+                className="text-center text-xs underline decoration-dotted"
+                style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
+                Demo sign-in
+              </button>
+            ) : (
+              <form
+                onSubmit={(e) => { e.preventDefault(); if (demoLogin && demoPassword && !demoLoading) handleDemoLogin() }}
+                className="flex flex-col gap-2.5 border-t pt-4" style={{ borderColor: "var(--lms-border)" }}>
+                <input type="text" value={demoLogin} onChange={(e) => setDemoLogin(e.target.value)}
+                  placeholder="Username" autoComplete="username"
+                  className="rounded-[5px] px-3 py-2.5 text-sm outline-none" style={inputStyle} />
+                <input type="password" value={demoPassword} onChange={(e) => setDemoPassword(e.target.value)}
+                  placeholder="Password" autoComplete="current-password"
+                  className="rounded-[5px] px-3 py-2.5 text-sm outline-none" style={inputStyle} />
+                <button type="submit" disabled={demoLoading || !demoLogin || !demoPassword}
+                  className="rounded-[5px] py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  style={{ backgroundColor: "var(--lms-button)", fontFamily: "var(--font-poppins)" }}>
+                  {demoLoading ? "Signing in..." : "Sign in"}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </div>
