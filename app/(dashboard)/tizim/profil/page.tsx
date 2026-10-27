@@ -169,9 +169,12 @@ function ZoomIntegrationCard() {
       setBanner({ type: "success", text: tr("profileInt.zoomConnected") })
       refetch()
     } else if (zoom === "error") {
-      setBanner({ type: "error", text: params.get("message") || tr("profileInt.zoomFailed") })
+      const reasonKey: Record<string, string> = { denied: "profileInt.zoomDenied", expired: "profileInt.zoomExpired", failed: "profileInt.zoomFailedRetry" }
+      const key = reasonKey[params.get("reason") ?? ""]
+      setBanner({ type: "error", text: key ? tr(key) : params.get("message") || tr("profileInt.zoomFailed") })
     }
     params.delete("zoom")
+    params.delete("reason")
     params.delete("message")
     const qs = params.toString()
     window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""))

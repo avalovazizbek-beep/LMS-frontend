@@ -11,6 +11,7 @@ import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
 import { NotificationBell } from "@/components/layout/NotificationBell"
 import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { isZoomReviewSession, ZOOM_REVIEW_LOGIN_PATH } from "@/lib/zoomReview"
 
 interface HeaderProps { onMenuClick?: () => void }
 
@@ -71,6 +72,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   }, [])
 
   const logout = () => {
+    const target = isZoomReviewSession() ? ZOOM_REVIEW_LOGIN_PATH : "/login"
     localStorage.removeItem("lms_token")
     localStorage.removeItem("lms_role")
     sessionStorage.removeItem("lms_token")
@@ -80,7 +82,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     sessionStorage.removeItem("hemis_oauth_state")
     sessionStorage.removeItem("hemis_oauth_role")
     sessionStorage.removeItem("hemis_oauth_redirect_uri")
-    router.push("/login")
+    router.push(target)
   }
 
   return (

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Clock } from "lucide-react"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { isZoomReviewSession, ZOOM_REVIEW_LOGIN_PATH } from "@/lib/zoomReview"
 
 /* HEMIS'dagi kabi: 30 daqiqa harakatsiz qolinsa tizimdan chiqariladi va
    qayta kirish talab qilinadi. Chiqishdan 1 daqiqa oldin ogohlantiriladi.
@@ -65,8 +66,9 @@ export function IdleLogout({ paused = false }: {
     function logout() {
       if (loggedOut.current) return
       loggedOut.current = true
+      const target = isZoomReviewSession() ? ZOOM_REVIEW_LOGIN_PATH : "/login?reason=idle"
       clearSession()
-      window.location.href = "/login?reason=idle"
+      window.location.href = target
     }
 
     // Sahifa ochilganda: oxirgi faollik 30 daqiqadan eski bo'lsa (masalan tab

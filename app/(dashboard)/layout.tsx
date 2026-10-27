@@ -11,6 +11,7 @@ import { FaceReregisterModal } from "@/components/layout/FaceReregisterModal"
 import { MeetingCallProvider, useMeetingCall } from "@/components/layout/MeetingCallContext"
 import { IdleLogout } from "@/components/layout/IdleLogout"
 import { CertificateAutoOpen } from "@/components/teaching/TeacherCertificate"
+import { isZoomReviewPage, isZoomReviewSession, ZOOM_REVIEW_HOME } from "@/lib/zoomReview"
 
 export default function DashboardLayout({
   children,
@@ -50,6 +51,11 @@ function DashboardLayoutInner({
     const id = window.setTimeout(() => setCheckedAuth(true), 0)
     return () => window.clearTimeout(id)
   }, [router])
+
+  // Zoom test hisobi faqat Profil va Meeting sahifalarini ochadi
+  useEffect(() => {
+    if (isZoomReviewSession() && !isZoomReviewPage(pathname)) router.replace(ZOOM_REVIEW_HOME)
+  }, [pathname, router])
 
   useEffect(() => {
     const mql = window.matchMedia("(max-width: 767px)")

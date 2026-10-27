@@ -6,7 +6,8 @@ import { useState, type ReactNode } from "react"
  * Ommaviy sahifalar (/privacy, /terms, /docs, /support) uchun ikki tilli
  * qobiq. Standart til — inglizcha: bu sahifalar Zoom Marketplace
  * ro'yxatida ko'rsatiladi va ularni Zoom tekshiruvchilari o'qiydi.
- * O'zbekcha versiya tugma bilan ochiladi.
+ * O'zbekcha versiya tugma bilan ochiladi; `uz` berilmasa (faqat Zoom
+ * tekshiruvchilari uchun sahifalar) til tugmasi ko'rsatilmaydi.
  */
 export function PublicDoc({
   en,
@@ -17,14 +18,14 @@ export function PublicDoc({
   subtitleUz,
 }: {
   en: ReactNode
-  uz: ReactNode
+  uz?: ReactNode
   titleEn: string
-  titleUz: string
+  titleUz?: string
   subtitleEn: string
-  subtitleUz: string
+  subtitleUz?: string
 }) {
   const [lang, setLang] = useState<"en" | "uz">("en")
-  const isEn = lang === "en"
+  const isEn = lang === "en" || !uz
 
   return (
     <main className="min-h-screen" style={{ backgroundColor: "#f6f9ff" }} lang={isEn ? "en" : "uz"}>
@@ -33,7 +34,7 @@ export function PublicDoc({
           <p className="text-xs uppercase tracking-wide" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
             {isEn ? "SamISI (SIES) Distance Learning System" : "SamISI (SIES) Masofaviy Ta'lim Tizimi"}
           </p>
-          <div className="flex shrink-0 rounded-[8px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
+          {uz && <div className="flex shrink-0 rounded-[8px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
             {(["en", "uz"] as const).map(code => (
               <button
                 key={code}
@@ -50,7 +51,7 @@ export function PublicDoc({
                 {code === "en" ? "English" : "O'zbekcha"}
               </button>
             ))}
-          </div>
+          </div>}
         </div>
         <h1 className="text-3xl font-bold mb-1" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
           {isEn ? titleEn : titleUz}

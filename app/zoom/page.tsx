@@ -40,6 +40,10 @@ function English() {
         <div className="pt-4">
           <ZoomAddButton label="Sign in to add Zoom" />
         </div>
+        <p className="pt-3 text-xs">
+          Zoom Marketplace reviewer? Use the <Link href="/zoom/review-login" style={link}>test account sign-in</Link> and
+          follow the <Link href="/zoom/test-plan" style={link}>test plan</Link>.
+        </p>
       </Section>
 
       <Section title="What the app does">

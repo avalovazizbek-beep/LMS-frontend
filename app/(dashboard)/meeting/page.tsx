@@ -72,6 +72,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { ATTENDANCE_TRAINING_TYPES } from "@/lib/attendanceTrainingTypes"
 import type { Lang } from "@/lib/i18n/translations"
 import { translate, tr } from "@/lib/i18n/translations"
+import { isZoomReviewSession } from "@/lib/zoomReview"
 
 /* ── JWT payload decode (faqat o'qish uchun, imzo tekshirilmaydi) ── */
 function readJwtPayload(): Record<string, unknown> {
@@ -598,6 +599,9 @@ function MeetingCard({
 }) {
   const { t, lang } = useLanguage()
   const [retrying, setRetrying] = useState(false)
+  // Zoom test hisobida davomat jurnali yo'q (sandbox guruhda talaba yo'q)
+  const [zoomReview, setZoomReview] = useState(false)
+  useEffect(() => { setZoomReview(isZoomReviewSession()) }, [])
   const [retryingGoogle, setRetryingGoogle] = useState(false)
   const externalLink = meeting.link && meeting.link !== "#" ? meeting.link : null
 
@@ -724,7 +728,7 @@ function MeetingCard({
                 {retrying ? t("meetingPage.retrying") : t("meetingPage.retryZoom")}
               </button>
             )}
-            {isTeacher && meeting.subjectName && meeting.groupIds && meeting.groupIds.length > 0 && (
+            {isTeacher && !zoomReview && meeting.subjectName && meeting.groupIds && meeting.groupIds.length > 0 && (
               <Link
                 href={`/oqituvchi-kabineti/davomat-jurnali?group=${meeting.groupIds[0]}&subject=${encodeURIComponent(meeting.subjectName)}${meeting.startTime ? `&date=${meeting.startTime.slice(0, 10)}` : ""}`}
                 className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-[#d8e6f7] bg-white px-3 py-2 text-xs font-medium text-[#104475] transition-colors hover:bg-[#f6f9ff]"

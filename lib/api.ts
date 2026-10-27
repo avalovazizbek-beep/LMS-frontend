@@ -3118,6 +3118,10 @@ export const zoomApi = {
   connect: () => get<ItemRes<{ url: string }>>("/api/integrations/zoom/connect?ageConfirmed=1"),
 
   disconnect: () => post<MsgRes>("/api/integrations/zoom/disconnect", {}),
+
+  /** Zoom Marketplace tekshiruvchilari uchun test hisobi (/zoom/review-login) */
+  reviewLogin: (login: string, password: string) =>
+    post<{ success: boolean; token: string; role: "employee" }>("/api/integrations/zoom/review-login", { login, password }),
 }
 
 /* ── Google Meet integratsiyasi (har bir o'qituvchi o'z hisobini ulaydi) ── */

@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { adminApi } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { isZoomReviewSession } from "@/lib/zoomReview"
 
 
 type NavItem = { label: string; href: string; tKey?: string }
@@ -161,7 +162,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { t } = useLanguage()
   const [role, setRole] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
-  const sections = role === "employee" ? employeeSections : studentSections
+  // Zoom test hisobi: faqat Profil (Tizim bo'limi) va Meeting
+  const [zoomReview, setZoomReview] = useState(false)
+  const sections = zoomReview
+    ? employeeSections.filter(s => s.tKey === "sidebar.section.system")
+    : role === "employee" ? employeeSections : studentSections
   const murojaatlarHref = role === "employee" ? "/oqituvchi-kabineti/murojaatlar" : "/murojaatlar"
 
   const [openSection, setOpenSection] = useState<string | null>(() => {
@@ -171,7 +176,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   })
 
   useEffect(() => {
-    const id = window.setTimeout(() => setRole(localStorage.getItem("lms_role")), 0)
+    const id = window.setTimeout(() => {
+      setRole(localStorage.getItem("lms_role"))
+      setZoomReview(isZoomReviewSession())
+    }, 0)
     return () => window.clearTimeout(id)
   }, [])
 
@@ -255,7 +263,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
         <nav className="flex flex-col gap-0.5">
 
           {/* Dashboard */}
-          <Link
+          {!zoomReview && <Link
             href="/dashboard"
             onClick={onNavigate}
             className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors group"
@@ -274,7 +282,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             >
               {t("sidebar.dashboard")}
             </span>
-          </Link>
+          </Link>}
 
           {/* Admin Panel link */}
           {isAdmin && (
@@ -389,7 +397,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
           })}
 
           {/* Murojaatlar — standalone */}
-          <Link
+          {!zoomReview && <Link
             href={murojaatlarHref}
             onClick={onNavigate}
             className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors mt-1 group"
@@ -408,7 +416,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             >
               {t("sidebar.murojaatlar")}
             </span>
-          </Link>
+          </Link>}
 
           {/* Meeting — standalone */}
           <Link
@@ -433,7 +441,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
           </Link>
 
           {/* Yo'riqnoma — standalone, eng pastda */}
-          <Link
+          {!zoomReview && <Link
             href="/yoriqnoma"
             onClick={onNavigate}
             className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors mt-1 group"
@@ -452,7 +460,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             >
               {t("sidebar.yoriqnoma")}
             </span>
-          </Link>
+          </Link>}
         </nav>
       </div>
     </aside>
