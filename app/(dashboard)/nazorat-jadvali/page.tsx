@@ -6,6 +6,8 @@ import { teachingApi, type TeacherContent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { isControlWork, isMustaqilWork } from "@/lib/controlWork"
+import { oraliqPoints } from "@/components/teaching/GradeBudgetLine"
 
 const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"]
 const UZ_DAYS = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"]
@@ -29,9 +31,14 @@ export default function NazoratJadvali() {
   }
   const [search, setSearch] = useState("")
 
-  const { data: lmsData, loading, error, refetch } = useApi(() => teachingApi.content({ type: "exam" }), [])
+  // Oraliq (test yoki topshiriq), yakuniy va mustaqil ishlar
+  const { data: lmsData, loading, error, refetch } = useApi(
+    () => Promise.all([teachingApi.content({ type: "exam" }), teachingApi.content({ type: "assignment" })])
+      .then(([a, b]) => ({ ...a, data: [...(a.data ?? []), ...(b.data ?? [])] })),
+    []
+  )
   const lmsExams: TeacherContent[] = (lmsData?.data ?? []).filter(e =>
-    !e.topicKey && (e.controlType === "oraliq" || e.controlType === "yakuniy")
+    (e.type === "exam" && !e.topicKey && (e.controlType === "oraliq" || e.controlType === "yakuniy")) || isControlWork(e)
   )
 
   const filtered = useMemo<Array<{ data: TeacherContent; ts: number }>>(() => {
@@ -108,6 +115,8 @@ export default function NazoratJadvali() {
                   const st = STATUS_COLORS[lms.status] ?? STATUS_COLORS.locked
                   const d = new Date(item.ts * 1000)
                   const timeStr = d.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })
+                  const isMi = isMustaqilWork(lms)
+                  const points = isMi ? lms.gradePoints : lms.controlType === "oraliq" ? oraliqPoints(lms) : null
                   return (
                     <div key={`lms-${lms.id}`} className="bg-white rounded-[10px] p-4 flex flex-col gap-2"
                       style={{ border: "1px solid rgba(14,88,168,0.15)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
@@ -129,8 +138,12 @@ export default function NazoratJadvali() {
                       </div>
                       <div className="flex flex-col gap-1 text-sm" style={{ fontFamily: "var(--font-poppins)" }}>
                         <span><span style={{ color: "#7293b9" }}>{t("nazoratJadvali.subject")}</span> <span style={{ color: "#012970", fontWeight: 500 }}>{lms.subjectName}</span></span>
-                        {lms.controlType && (
-                          <span><span style={{ color: "#7293b9" }}>{t("nazoratJadvali.type")}</span> <span style={{ color: "#012970", fontWeight: 500 }}>{lms.controlType}</span></span>
+                        <span><span style={{ color: "#7293b9" }}>{t("nazoratJadvali.type")}</span> <span style={{ color: "#012970", fontWeight: 500 }}>{t(lms.type === "assignment" ? "nazoratJadvali.formatAssignment" : "nazoratJadvali.formatTest")}</span></span>
+                        {points != null && (
+                          <span><span style={{ color: "#7293b9" }}>{t("nazoratJadvali.points")}</span> <span style={{ color: "#7c3aed", fontWeight: 600 }}>{points}</span></span>
+                        )}
+                        {lms.deadline && (
+                          <span><span style={{ color: "#7293b9" }}>{t("nazoratJadvali.deadline")}</span> <span style={{ color: "#012970", fontWeight: 500 }}>{new Date(lms.deadline).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span></span>
                         )}
                         {lms.maxScore != null && (
                           <span><span style={{ color: "#7293b9" }}>{t("nazoratJadvali.maxScore")}</span> <span style={{ color: "#012970", fontWeight: 500 }}>{lms.maxScore}</span></span>
@@ -139,13 +152,13 @@ export default function NazoratJadvali() {
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="text-xs px-2 py-0.5 rounded-full"
                           style={{
-                            backgroundColor: lms.controlType === "yakuniy" ? "#fef2f2" : "#eef4ff",
-                            color: lms.controlType === "yakuniy" ? "#b91c1c" : "#0e58a8",
+                            backgroundColor: isMi ? "#f5f3ff" : lms.controlType === "yakuniy" ? "#fef2f2" : "#eef4ff",
+                            color: isMi ? "#7c3aed" : lms.controlType === "yakuniy" ? "#b91c1c" : "#0e58a8",
                             fontFamily: "var(--font-poppins)",
                           }}>
-                          {lms.controlType === "yakuniy" ? t("darsJadvali.finalExam") : t("darsJadvali.midtermControl")}
+                          {isMi ? t("nazoratJadvali.independentWork") : lms.controlType === "yakuniy" ? t("darsJadvali.finalExam") : t("darsJadvali.midtermControl")}
                         </span>
-                        {lms.attemptsCount != null && (
+                        {lms.type === "exam" && lms.attemptsCount != null && (
                           <span className="text-xs px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: "#f5f3ff", color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
                             {t("nazoratJadvali.attemptsCount", { n: lms.attemptsCount })}

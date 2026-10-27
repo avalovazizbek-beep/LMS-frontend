@@ -1313,6 +1313,8 @@ export interface TeacherContent {
   language: string | null
   isAdaptive: boolean               // Moslashuvchan test — qiyinlik javobga qarab moslashadi
   completionPoints: number | null  // Resurs uchun ball (ketma-ket qulflash uchun)
+  gradePoints: number | null       // Oraliq / mustaqil ish: jurnaldagi ball (ma'ruza yoki amaliyot 35 balidan)
+  gradePart: string | null         // Mustaqil ish qaysi qismdan: "Ma'ruza" / "Amaliyot"
   durationMinutes: number | null
   trainingLoad: number | null      // Yuklama (soat)
   lessonDate: string | null        // Dars sanasi (kalendar reja)
@@ -1367,6 +1369,8 @@ export interface TeachingSubmission {
 
 export interface AdminExamListItem {
   id: number
+  /** Oraliq test (exam) yoki topshiriq (assignment) bo'ladi */
+  type?: TeachingContentType
   title: string
   subjectName: string
   groupId: number
@@ -1376,6 +1380,8 @@ export interface AdminExamListItem {
   /** Oraliqning jurnaldagi o'rni */
   slot: "ON1" | "ON2" | null
   maxScore: number | null
+  /** Jurnaldagi ball (ma'ruza 35 balidan); eski oraliqlarda null — 17 / 18 */
+  gradePoints?: number | null
   availableFrom: string
   deadline: string | null
   submissionCount: number
@@ -1406,9 +1412,11 @@ export interface AdminOraliqDetail {
     subjectName: string
     groupId: number
     groupName: string
+    type?: TeachingContentType
     controlType: string | null
     slot: "ON1" | "ON2" | "YN" | null
     maxScore: number | null
+    gradePoints?: number | null
     attemptsCount: number | null
     availableFrom: string
     deadline: string | null
@@ -1458,13 +1466,20 @@ export interface JournalStudent {
   jn: number | null
   on1: number | null
   on2: number | null
+  /** Mustaqil ishlardan to'plangan ball */
+  mi?: number | null
   yn: number | null
   /** ON1/ON2/YN qayerdan: test / qo'lda / topshirmagan (0) */
   periodSource?: { on1: PeriodSource | null; on2: PeriodSource | null; yn: PeriodSource | null }
   attendancePct: number | null
 }
 
-export interface JournalScale { jn: number; on1: number; on2: number; yn: number }
+export interface JournalScale { jn: number; on1: number; on2: number; mi?: number; yn: number }
+
+/* ── Ball taqsimoti: ma'ruza 35 (ON1 + ON2 + ma'ruza MI), amaliyot 35 (JN + amaliyot MI) ── */
+export interface GradeBudgetItem { id: number; label: string; title: string; type: TeachingContentType; points: number }
+export interface GradeBudgetPart { total: number; used: number; items: GradeBudgetItem[] }
+export interface GradeBudget { lecture: GradeBudgetPart; practice: GradeBudgetPart }
 
 export interface JournalData {
   /** Faqat amaliyot mavzulari (test/topshirig'i borlari) */
@@ -1681,6 +1696,8 @@ export const teachingApi = {
     language?: string
     isAdaptive?: boolean
     completionPoints?: number | null
+    gradePoints?: number | null
+    gradePart?: string | null
     durationMinutes?: number | null
     trainingLoad?: number | null
     lessonDate?: string | null
@@ -1712,6 +1729,8 @@ export const teachingApi = {
       language: input.language,
       isAdaptive: input.isAdaptive === undefined ? undefined : String(input.isAdaptive),
       completionPoints: input.completionPoints,
+      gradePoints: input.gradePoints,
+      gradePart: input.gradePart,
       durationMinutes: input.durationMinutes,
       trainingLoad: input.trainingLoad,
       lessonDate: input.lessonDate,
@@ -1766,6 +1785,8 @@ export const teachingApi = {
       language: string | null
       isAdaptive: boolean
       completionPoints: number | null
+      gradePoints: number | null
+      gradePart: string | null
       durationMinutes: number | null
       trainingLoad: number | null
       lessonDate: string | null
@@ -1829,6 +1850,12 @@ export const teachingApi = {
     return get<{ success: boolean; data: { groupId: number; subjectName: string }[] }>(`/api/teaching/my-subjects${q}`)
   },
 
+  /** Guruh+fanda ma'ruza / amaliyot 35 balining taqsimoti (oraliqlar, mustaqil ishlar) */
+  gradeBudget: (groupId: number | string, subject: string) => {
+    const q = new URLSearchParams({ groupId: String(groupId), subject }).toString()
+    return get<{ success: boolean; data: GradeBudget }>(`/api/teaching/grade-budget?${q}`)
+  },
+
   gradeJournal: (groupId: number | string, subject: string) => {
     const q = new URLSearchParams({ groupId: String(groupId), subject }).toString()
     return get<{ success: boolean; data: JournalData }>(`/api/teaching/grade-journal?${q}`)
@@ -1836,7 +1863,7 @@ export const teachingApi = {
 
   myTopicScores: (subject: string) => {
     const q = new URLSearchParams({ subject }).toString()
-    return get<{ success: boolean; data: { topics: Array<{ key: string; idx: number; title: string; maxScore: number; score: number | null }>; on1: number | null; on2: number | null; yn: number | null } }>(`/api/teaching/my-topic-scores?${q}`)
+    return get<{ success: boolean; data: { topics: Array<{ key: string; idx: number; title: string; maxScore: number; score: number | null }>; on1: number | null; on2: number | null; yn: number | null; mi?: number | null; scale?: JournalScale } }>(`/api/teaching/my-topic-scores?${q}`)
   },
 
   savePeriodGrade: (body: {
@@ -1958,8 +1985,11 @@ export const teachingApi = {
       topics?: string
       on1?: number | null
       on2?: number | null
+      mi?: number | null
       yn?: number | null
       attendance?: number | null
+      /** Jurnal maksimallari (guruh+fanga qarab o'zgaradi) */
+      scale?: JournalScale
     }
   }) => post<{ success: boolean; message: string }>("/api/teaching/notify-student", body),
 }

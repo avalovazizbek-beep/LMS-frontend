@@ -27,6 +27,7 @@ import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
 import { ViolationChips } from "@/components/teaching/ViolationChips"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { GradeBudgetLine, useGradeBudget, oraliqPoints, LECTURE_PART, PART_TOTAL } from "@/components/teaching/GradeBudgetLine"
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
 
@@ -1029,6 +1030,10 @@ interface FormState {
   slot: string
   /** Oraliq/yakuniy nazorat: urinishlar soni (kamida 1) */
   attemptsCount: string
+  /** Oraliq shakli: test yoki topshiriq (talaba fayl yuklaydi, o'qituvchi baholaydi) */
+  format: "test" | "assignment"
+  /** Oraliq balli — ma'ruzaning 35 balidan ulush */
+  gradePoints: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -1053,6 +1058,8 @@ const EMPTY_FORM: FormState = {
   meetingLink: "",
   slot: "",
   attemptsCount: "1",
+  format: "test",
+  gradePoints: "",
 }
 
 export default function TeacherContentTypePage() {
@@ -1067,9 +1074,18 @@ export default function TeacherContentTypePage() {
   const { data: scheduleRes } = useApi(() => teachingApi.schedule(), [])
   const scheduleItems = scheduleRes?.data ?? []
 
+  // Oraliq test yoki topshiriq ko'rinishida bo'ladi — ikkala tur birga olinadi
+  const isOraliqPage = config?.filterControlType === "oraliq"
   const { data: contentRes, loading, error, refetch } = useApi(
-    () => teachingApi.content(config ? { type: config.type } : undefined),
-    [config?.type]
+    () => isOraliqPage
+      ? Promise.all([teachingApi.content({ type: "exam" }), teachingApi.content({ type: "assignment" })])
+          .then(([exams, tasks]) => ({
+            ...exams,
+            data: [...(exams.data ?? []), ...(tasks.data ?? [])]
+              .sort((a, b) => new Date(b.availableFrom).getTime() - new Date(a.availableFrom).getTime()),
+          }))
+      : teachingApi.content(config ? { type: config.type } : undefined),
+    [config?.type, isOraliqPage]
   )
   const items: TeacherContent[] = useMemo(() => {
     const all: TeacherContent[] = contentRes?.data ?? []
@@ -1210,6 +1226,8 @@ export default function TeacherContentTypePage() {
       meetingLink: item.meetingLink ?? "",
       slot: item.kind === "ON1" || item.kind === "ON2" ? item.kind : "",
       attemptsCount: item.attemptsCount != null ? String(item.attemptsCount) : "1",
+      format: item.type === "assignment" ? "assignment" : "test",
+      gradePoints: oraliqPoints(item) != null ? String(oraliqPoints(item)) : "",
     })
     setFormError(null)
     setShowForm(true)
@@ -1240,6 +1258,15 @@ export default function TeacherContentTypePage() {
     if (isControl && !deadline) { setFormError(t("typeContentOq.err.enterDeadline")); return }
     if (isOraliq && !form.slot) { setFormError(t("typeContentOq.err.selectSlot")); return }
     const attempts = Math.max(1, Math.round(Number(form.attemptsCount) || 1))
+    // Oraliq: ball (ma'ruzaning 35 balidan) majburiy; topshiriq shaklida — fayl yoki tavsif
+    const points = Number(form.gradePoints)
+    if (isOraliq && !(Number.isInteger(points) && points >= 1 && points <= PART_TOTAL)) {
+      setFormError(t("typeContentOq.err.enterPoints", { max: PART_TOTAL })); return
+    }
+    const isTask = isOraliq && form.format === "assignment"
+    if (isTask && !editingId && !form.docFile && !form.description.trim()) {
+      setFormError(t("typeContentOq.err.assignmentFile")); return
+    }
 
     setSaving(true)
     try {
@@ -1250,20 +1277,23 @@ export default function TeacherContentTypePage() {
           subjectName: form.subjectName.trim(),
           availableFrom: availableFrom ?? undefined,
           deadline: deadline,
-          maxScore: form.maxScore ? Number(form.maxScore) : null,
-          durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
-          questionDisplayCount: form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
-          isAdaptive: config!.type === "exam" ? form.isAdaptive : undefined,
+          // Oraliqning maksimal bali backendda ball bilan moslanadi (hali topshirilmagan bo'lsa)
+          ...(isOraliq ? { gradePoints: points } : { maxScore: form.maxScore ? Number(form.maxScore) : null }),
+          ...(isTask ? {} : {
+            durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
+            questionDisplayCount: form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
+            isAdaptive: config!.type === "exam" ? form.isAdaptive : undefined,
+          }),
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
           meetingLink: form.meetingLink.trim() || null,
-          ...(isControl ? { attemptsCount: attempts } : {}),
+          ...(isControl && !isTask ? { attemptsCount: attempts } : {}),
           ...(isOraliq ? { kind: form.slot } : {}),
         })
       } else {
         const created = await teachingApi.createContent({
-          type: config!.type,
+          type: isTask ? "assignment" : config!.type,
           groupId: form.groupId,
           subjectName: form.subjectName.trim(),
           title: form.title.trim(),
@@ -1272,11 +1302,13 @@ export default function TeacherContentTypePage() {
           controlType: config!.filterControlType ?? undefined,
           availableFrom: availableFrom ?? new Date().toISOString(),
           deadline: deadline,
-          maxScore: form.maxScore ? Number(form.maxScore) : null,
-          attemptsCount: isControl ? attempts : undefined,
-          durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
-          questionDisplayCount: form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
-          isAdaptive: config!.type === "exam" ? form.isAdaptive : undefined,
+          // Oraliq: natija shu ball ichida (test natijasi / topshiriq bahosi 0..ball)
+          maxScore: isOraliq ? points : form.maxScore ? Number(form.maxScore) : null,
+          gradePoints: isOraliq ? points : undefined,
+          attemptsCount: isControl && !isTask ? attempts : undefined,
+          durationMinutes: !isTask && form.durationMinutes ? Number(form.durationMinutes) : null,
+          questionDisplayCount: !isTask && form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
+          isAdaptive: config!.type === "exam" && !isTask ? form.isAdaptive : undefined,
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
@@ -1375,6 +1407,14 @@ export default function TeacherContentTypePage() {
                             {item.kind === "ON1" || item.kind === "ON2" ? item.kind : t("typeContentOq.slot.missing")}
                           </span>
                         )}
+                        {config.filterControlType === "oraliq" && (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                            style={item.type === "assignment"
+                              ? { color: "#c2410c", backgroundColor: "#fff7ed" }
+                              : { color: "#0e58a8", backgroundColor: "#eef4ff" }}>
+                            {t(item.type === "assignment" ? "typeContentOq.form.formatAssignment" : "typeContentOq.form.formatTest")}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                         {item.subjectName} • <Users className="w-3 h-3 inline -mt-0.5" /> {groupName}
@@ -1427,12 +1467,28 @@ export default function TeacherContentTypePage() {
                       <span>{t("typeContentOq.deadline")} <strong style={{ color: "#012970" }}>{formatDateTime(item.deadline)}</strong></span>
                     </>
                   )}
+                  {config.filterControlType === "oraliq" && oraliqPoints(item) != null && (
+                    <span>{t("typeContentOq.points")} <strong style={{ color: "#7c3aed" }}>{oraliqPoints(item)}</strong></span>
+                  )}
                   {item.maxScore != null && <span>{t("typeContentOq.maxScore")} <strong style={{ color: "#012970" }}>{item.maxScore}</strong></span>}
                   {item.durationMinutes != null && <span>{t("typeContentOq.duration")} <strong style={{ color: "#012970" }}>{t("typeContentOq.minutesUnit", { n: item.durationMinutes })}</strong></span>}
                   {item.trainingLoad != null && <span>{t("typeContentOq.load")} <strong style={{ color: "#012970" }}>{t("typeContentOq.hoursUnit", { n: item.trainingLoad })}</strong></span>}
                   {item.controlType && item.attemptsCount != null && <span>{t("typeContentOq.attempts")} <strong style={{ color: "#012970" }}>{item.attemptsCount}</strong></span>}
                 </div>
 
+                {/* Oraliq topshirig'i fayli — API uni `file` sifatida beradi */}
+                {!item.docFile && item.file && item.type === "assignment" && (
+                  <a
+                    href={teachingApi.fileUrl(item.file.url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-xs font-medium w-fit px-3 py-1.5 rounded-[6px]"
+                    style={{ color: "#0e58a8", backgroundColor: "#f0f5ff", fontFamily: "var(--font-poppins)" }}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {item.file.originalName}
+                  </a>
+                )}
                 {item.docFile && (
                   <a
                     href={teachingApi.fileUrl(item.docFile.url)}
@@ -1466,7 +1522,7 @@ export default function TeacherContentTypePage() {
                 )}
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {config.type === "exam" && (
+                  {config.type === "exam" && item.type === "exam" && (
                     <button
                       onClick={() => setQuestionsFor(item)}
                       className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors"
@@ -1486,7 +1542,7 @@ export default function TeacherContentTypePage() {
                       {t("typeContentOq.viewGrade")}
                     </button>
                   )}
-                  {!config.readOnly && config.type === "exam" && item.controlType && (
+                  {!config.readOnly && config.type === "exam" && !!item.controlType && (
                     <button
                       onClick={() => setCopyFor(item)}
                       className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors"
@@ -1531,6 +1587,7 @@ export default function TeacherContentTypePage() {
           form={form}
           setForm={setForm}
           editing={editingId !== null}
+          editingId={editingId}
           saving={saving}
           error={formError}
           note={formNote}
@@ -1643,7 +1700,7 @@ function CopyToGroupsModal({
         </div>
 
         <p className="text-xs" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
-          {t("typeContentOq.copy.hint", { n: content.questionCount })}
+          {t(content.type === "assignment" ? "typeContentOq.copy.hintTask" : "typeContentOq.copy.hint", { n: content.questionCount })}
         </p>
 
         {error && (
@@ -1885,7 +1942,7 @@ function HemisControlPickerModal({
 }
 
 function ContentFormModal({
-  config, groups, scheduleItems, form, setForm, editing, saving, error, note, onClose, onSubmit,
+  config, groups, scheduleItems, form, setForm, editing, editingId = null, saving, error, note, onClose, onSubmit,
 }: {
   config: TypeConfig
   groups: TeacherGroup[]
@@ -1893,6 +1950,8 @@ function ContentFormModal({
   form: FormState
   setForm: React.Dispatch<React.SetStateAction<FormState>>
   editing: boolean
+  /** Tahrirlanayotgan yozuv — ball taqsimotida o'zining eski balli hisobga olinmaydi */
+  editingId?: number | null
   saving: boolean
   error: string | null
   /** Forma qayerdan to'ldirilgani (masalan HEMIS nazoratidan) */
@@ -1922,15 +1981,19 @@ function ContentFormModal({
   const isMavzu   = config.type === "mavzu"
   const isOraliq  = config.filterControlType === "oraliq"
   const isControl = isOraliq || config.filterControlType === "yakuniy"
+  // Oraliq topshiriq shaklida: test sozlamalari o'rniga fayl; ball ma'ruzaning 35 balidan
+  const isTask    = isOraliq && form.format === "assignment"
+  const { budget } = useGradeBudget(isOraliq ? form.groupId : null, isOraliq ? form.subjectName : null)
+  const pointsValue = form.gradePoints.trim() ? Number(form.gradePoints) : null
 
   const availFromLabel = isKalendar ? t("typeContentOq.form.availFromKalendar") : isMavzu ? t("typeContentOq.form.availFromMavzu") : t("typeContentOq.form.availFromDefault")
   const deadlineLabel  = isKalendar ? t("typeContentOq.form.deadlineKalendar") : config.gradable ? t("typeContentOq.form.deadlineGradable") : t("typeContentOq.form.deadlineDefault")
 
   const showAvailableFrom = !isMalumot
   const showDeadline      = config.gradable || isKalendar || isLesson
-  const showMaxScore      = config.gradable
+  const showMaxScore      = config.gradable && !isOraliq
   const showKind          = isLesson && !editing
-  const showDocFile       = !editing && config.hasFile
+  const showDocFile       = !editing && (config.hasFile || isTask)
   const showVideoFile     = isLesson && !editing
   const showMeetingLink   = isLesson
 
@@ -1982,6 +2045,30 @@ function ContentFormModal({
         )}
 
         <div className="grid grid-cols-2 gap-4">
+
+          {/* Oraliq shakli: test yoki topshiriq — yaratilgandan keyin o'zgarmaydi */}
+          {isOraliq && (
+            <div className="col-span-2">
+              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.format")}</label>
+              <div className="flex gap-2">
+                {(["test", "assignment"] as const).map(f => {
+                  const active = form.format === f
+                  return (
+                    <button key={f} type="button" disabled={editing} onClick={() => update("format", f)}
+                      className="flex-1 px-3 py-2 rounded-[8px] text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                      style={{
+                        border: `1px solid ${active ? "#0e58a8" : "rgba(1,41,112,0.2)"}`,
+                        backgroundColor: active ? "#eef4ff" : "transparent",
+                        color: active ? "#0e58a8" : editing ? "#b6c4d8" : "#445b7a",
+                        fontFamily: "var(--font-poppins)",
+                      }}>
+                      {t(f === "test" ? "typeContentOq.form.formatTest" : "typeContentOq.form.formatAssignment")}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Guruh */}
           <div className="col-span-2 sm:col-span-1">
@@ -2043,8 +2130,24 @@ function ContentFormModal({
             </div>
           )}
 
+          {/* Oraliq balli — ma'ruzaning 35 balidan; qancha band / qolgani ko'rinib turadi */}
+          {isOraliq && (
+            <>
+              <div className="col-span-2 sm:col-span-1">
+                <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.gradePoints")}</label>
+                <input type="number" min={1} max={PART_TOTAL} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
+                  value={form.gradePoints} onChange={e => update("gradePoints", e.target.value)} placeholder="10" />
+              </div>
+              {form.groupId && form.subjectName && (
+                <div className="col-span-2">
+                  <GradeBudgetLine budget={budget} part={LECTURE_PART} excludeId={editingId} points={pointsValue} />
+                </div>
+              )}
+            </>
+          )}
+
           {/* Davomiyligi — faqat imtihon */}
-          {config.hasDuration && (
+          {config.hasDuration && !isTask && (
             <div className="col-span-2 sm:col-span-1">
               <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.duration")}</label>
               <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
@@ -2053,7 +2156,7 @@ function ContentFormModal({
           )}
 
           {/* Talabaga ko'rsatiladigan savollar soni — savol bazasidan tasodifiy tanlanadi */}
-          {config.hasDuration && (
+          {config.hasDuration && !isTask && (
             <div className="col-span-2 sm:col-span-1">
               <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.questionDisplayCount")}</label>
               <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
@@ -2076,7 +2179,7 @@ function ContentFormModal({
           )}
 
           {/* Oraliq/yakuniy: urinishlar soni — cheksiz bo'lmaydi */}
-          {isControl && (
+          {isControl && !isTask && (
             <div className="col-span-2 sm:col-span-1">
               <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.attempts")}</label>
               <input type="number" min={1} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
@@ -2086,7 +2189,7 @@ function ContentFormModal({
           )}
 
           {/* Moslashuvchan test — savol qiyinligi talaba javobiga qarab moslashadi */}
-          {config.hasDuration && (
+          {config.hasDuration && !isTask && (
             <div className="col-span-2">
               <button type="button" onClick={() => update("isAdaptive", !form.isAdaptive)}
                 className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm font-medium transition-colors"
@@ -2158,7 +2261,7 @@ function ContentFormModal({
 
           {isControl && !editing && (
             <p className="col-span-2 text-xs px-3 py-2 rounded-[8px]" style={{ color: "#0e58a8", backgroundColor: "#f0f5ff", fontFamily: "var(--font-poppins)" }}>
-              {t(isOraliq ? "typeContentOq.form.oraliqHint" : "typeContentOq.form.controlHint")}
+              {t(isTask ? "typeContentOq.form.oraliqTaskHint" : isOraliq ? "typeContentOq.form.oraliqHint" : "typeContentOq.form.controlHint")}
             </p>
           )}
 
@@ -2175,6 +2278,7 @@ function ContentFormModal({
                     <FileIcon className="w-4 h-4" style={{ color: "#0e58a8" }} />
                     <span className="text-xs font-medium" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                       {isLesson ? t("typeContentOq.form.docLesson") :
+                       isTask ? t("typeContentOq.form.docTask") :
                        isKalendar ? t("typeContentOq.form.docKalendar") :
                        isMalumot  ? t("typeContentOq.form.docMalumot") :
                        t("typeContentOq.form.docDefault")}

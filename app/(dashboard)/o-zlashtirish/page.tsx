@@ -118,6 +118,9 @@ function TopicResultsPanel({ subjectName }: { subjectName: string }) {
   const on1 = data?.data?.on1 ?? null
   const on2 = data?.data?.on2 ?? null
   const yn  = data?.data?.yn  ?? null
+  // Mustaqil ishlar balli — fanda ball qo'yilgan mustaqil ish bo'lsagina
+  const mi    = data?.data?.mi ?? null
+  const miMax = data?.data?.scale?.mi ?? 0
 
   if (loading) return (
     <div className="flex items-center justify-center py-10 gap-2" style={L}>
@@ -150,11 +153,12 @@ function TopicResultsPanel({ subjectName }: { subjectName: string }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className={`grid grid-cols-2 ${miMax > 0 ? "sm:grid-cols-5" : "sm:grid-cols-4"} gap-3`}>
         {[
           { label: t("ozlashtirish.topicsCount"), val: topics.length, color: "#0e58a8", bg: "#eef4ff" },
           { label: t("ozlashtirish.jnIndicator"), val: jnPct !== null ? `${jnPct}%` : "—", color: jnPct !== null ? pctColor(jnPct) : "#94a3b8", bg: jnPct !== null ? pctBg(jnPct) : "transparent" },
           { label: t("ozlashtirish.onAverage"), val: on1 !== null || on2 !== null ? `${(((on1 ?? 0) + (on2 ?? 0)) / 2).toFixed(1)}` : "—", color: "#d97706", bg: "#fffbeb" },
+          ...(miMax > 0 ? [{ label: t("ozlashtirish.independentWork"), val: mi !== null ? `${mi}/${miMax}` : "—", color: "#9333ea", bg: "#faf5ff" }] : []),
           { label: t("ozlashtirish.finalYn"), val: yn !== null ? String(yn) : "—", color: "#7c3aed", bg: "#f5f3ff" },
         ].map(c => (
           <div key={c.label} className="rounded-[10px] bg-white p-4"

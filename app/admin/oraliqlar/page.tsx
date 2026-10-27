@@ -16,7 +16,7 @@ import { TintStat, EmptyCard, PageHeader, Notice, type CssVars } from "@/compone
 
 const NUM = { fontVariantNumeric: "tabular-nums" } as const
 const pad = (n: number) => String(n).padStart(2, "0")
-// Jurnaldagi maksimal ball (backend GRADE_SCALE bilan bir xil)
+// Jurnaldagi maksimal ball: oraliqda o'qituvchi qo'ygan ball (eski oraliqlar — 17 / 18)
 const SLOT_MAX: Record<string, number> = { ON1: 17, ON2: 18, YN: 30 }
 
 /** Intl'siz (brauzerda uz locale ma'lumotlari yo'q): 15.10.2026 23:50 */
@@ -62,7 +62,7 @@ function OraliqStudents({ exam, onChanged }: { exam: AdminExamListItem; onChange
   const selectable = students.filter(s => !s.passed && !s.retakeGranted)
   const absent = selectable.filter(s => s.submittedAt === null)
   const slot = detail?.exam.slot ?? null
-  const slotMax = slot ? SLOT_MAX[slot] : null
+  const slotMax = slot ? (slot !== "YN" ? detail?.exam.gradePoints ?? null : null) ?? SLOT_MAX[slot] : null
 
   function toggle(id: number) {
     setSelected(prev => {
@@ -349,7 +349,8 @@ export default function AdminOraliqlar() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[var(--adm-text)]">
                         {exam.title}
-                        {exam.slot && <span className="adm-pill" style={{ "--c": "var(--role-dean)" } as CssVars}>{exam.slot}</span>}
+                        {exam.slot && <span className="adm-pill" style={{ "--c": "var(--role-dean)" } as CssVars}>{exam.slot}{exam.controlType === "oraliq" ? ` · ${exam.gradePoints ?? SLOT_MAX[exam.slot]} ${t("adminOraliq.pointsShort")}` : ""}</span>}
+                        {exam.type === "assignment" && <span className="adm-pill" style={{ "--c": "var(--role-pending)" } as CssVars}>{t("adminOraliq.formatAssignment")}</span>}
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <span className="adm-pill" style={{ "--c": "var(--adm-accent)" } as CssVars}><UsersRound className="h-3 w-3" /> {exam.groupName}</span>

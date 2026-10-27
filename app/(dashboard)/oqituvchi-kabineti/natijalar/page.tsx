@@ -157,7 +157,7 @@ function AttCell({ pct }: { pct: number | null }) {
 function NotifyModal({
   student, subjectName, scale, onClose,
 }: {
-  student: { userId: number; fullName: string; jn: number | null; on1: number | null; on2: number | null; yn: number | null; attendancePct: number | null }
+  student: { userId: number; fullName: string; jn: number | null; on1: number | null; on2: number | null; mi?: number | null; yn: number | null; attendancePct: number | null }
   subjectName: string
   scale: JournalScale
   onClose: () => void
@@ -181,8 +181,10 @@ function NotifyModal({
           jn: student.jn,
           on1: student.on1,
           on2: student.on2,
+          mi: student.mi ?? null,
           yn: student.yn,
           attendance: student.attendancePct,
+          scale,
         },
       })
       setResult({ ok: true, text: res.message || t("natijalarOq.sentDefault") })
@@ -213,6 +215,7 @@ function NotifyModal({
             {student.jn != null && <span style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>JN: {student.jn}/{scale.jn}</span>}
             {student.on1 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON1: {student.on1}/{scale.on1}</span>}
             {student.on2 != null && <span style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>ON2: {student.on2}/{scale.on2}</span>}
+            {student.mi != null && !!scale.mi && <span style={{ color: "#9333ea", fontFamily: "var(--font-poppins)" }}>MI: {student.mi}/{scale.mi}</span>}
             {student.yn  != null && <span style={{ color: "#0891b2", fontFamily: "var(--font-poppins)" }}>YN: {student.yn}/{scale.yn}</span>}
             {student.attendancePct != null && <span style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{t("natijalarOq.attendanceLabel")}: {student.attendancePct}%</span>}
           </div>
@@ -259,7 +262,10 @@ function GradeJournal({
   const [overrides, setOverrides] = useState<Record<string, number | null>>({})
   const [notifyStudent, setNotifyStudent] = useState<JournalStudent | null>(null)
 
-  const totalMax = scale.jn + scale.on1 + scale.on2
+  // Mustaqil ish ustuni faqat ball qo'yilgan mustaqil ish bo'lsa chiqadi
+  const miMax = scale.mi ?? 0
+  const showMi = miMax > 0
+  const totalMax = scale.jn + scale.on1 + scale.on2 + miMax
   const ballMax = totalMax + scale.yn
 
   function getVal(userId: number, field: "on1" | "on2" | "yn", s: JournalStudent): number | null {
@@ -272,12 +278,12 @@ function GradeJournal({
     return s.periodSource?.[field] ?? null
   }
 
-  // Umumiy = JN + ON1 + ON2 (yakuniyga qadar), Ball = Umumiy + YN
+  // Umumiy = JN + ON1 + ON2 + MI (yakuniyga qadar), Ball = Umumiy + YN
   function totals(s: JournalStudent) {
     const on1 = getVal(s.userId, "on1", s)
     const on2 = getVal(s.userId, "on2", s)
     const yn = getVal(s.userId, "yn", s)
-    const parts = [s.jn, on1, on2]
+    const parts = [s.jn, on1, on2, s.mi ?? null]
     const total = parts.every(v => v === null) ? null : parts.reduce<number>((a, v) => a + (v ?? 0), 0)
     const ball = total === null && yn === null ? null : (total ?? 0) + (yn ?? 0)
     return { on1, on2, yn, total, ball }
@@ -318,6 +324,7 @@ function GradeJournal({
       "#", t("natijalarOq.csvStudent"),
       ...topics.map(tp => t("natijalarOq.csvTopicCol", { n: tp.idx })),
       `JN (/${scale.jn})`, `ON1 (/${scale.on1})`, `ON2 (/${scale.on2})`,
+      ...(showMi ? [`MI (/${miMax})`] : []),
       `${t("natijalarOq.colTotal")} (/${totalMax})`, `YN (/${scale.yn})`, `${t("natijalarOq.colBall")} (/${ballMax})`,
       t("natijalarOq.csvAttendancePct"),
     ]
@@ -327,7 +334,7 @@ function GradeJournal({
         i + 1,
         s.fullName,
         ...topics.map(tp => s.topicScores[tp.key] ?? ""),
-        s.jn ?? "", r.on1 ?? "", r.on2 ?? "", r.total ?? "", r.yn ?? "", r.ball ?? "",
+        s.jn ?? "", r.on1 ?? "", r.on2 ?? "", ...(showMi ? [s.mi ?? ""] : []), r.total ?? "", r.yn ?? "", r.ball ?? "",
         s.attendancePct !== null ? `${s.attendancePct}%` : "",
       ]
     })
@@ -409,6 +416,7 @@ function GradeJournal({
                 {[
                   { label: t("natijalarOq.colJn"),    span: 1, bg: "#dcfce7" },
                   { label: t("natijalarOq.colOn"),    span: 2, bg: "#fef9c3" },
+                  ...(showMi ? [{ label: t("natijalarOq.colMi"), span: 1, bg: "#f3e8ff" }] : []),
                   { label: t("natijalarOq.colTotal"), span: 1, bg: "#e0e7ff" },
                   { label: t("natijalarOq.colYn"),    span: 1, bg: "#fce7f3" },
                   { label: t("natijalarOq.colBall"),  span: 1, bg: "#ede9fe" },
@@ -437,6 +445,7 @@ function GradeJournal({
                   { key: "jn",    label: `/${scale.jn}`,        bg: "#f0fdf4", br: "rgba(1,41,112,0.12)" },
                   { key: "on1",   label: `ON1 /${scale.on1}`,   bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
                   { key: "on2",   label: `ON2 /${scale.on2}`,   bg: "#fefce8", br: "rgba(1,41,112,0.12)" },
+                  ...(showMi ? [{ key: "mi", label: `MI /${miMax}`, bg: "#faf5ff", br: "rgba(1,41,112,0.12)" }] : []),
                   { key: "total", label: `/${totalMax}`,        bg: "#eef2ff", br: "rgba(1,41,112,0.12)" },
                   { key: "yn",    label: `/${scale.yn}`,        bg: "#fdf2f8", br: "rgba(1,41,112,0.12)" },
                   { key: "ball",  label: `/${ballMax}`,         bg: "#f5f3ff", br: "rgba(1,41,112,0.12)" },
@@ -453,7 +462,7 @@ function GradeJournal({
 
             <tbody>
               {students.length === 0 ? (
-                <tr><td colSpan={topics.length + 9} className="px-4 py-14 text-center text-sm" style={L}>
+                <tr><td colSpan={topics.length + 9 + (showMi ? 1 : 0)} className="px-4 py-14 text-center text-sm" style={L}>
                   {t("natijalarOq.noResults")}
                 </td></tr>
               ) : students.map((s, idx) => {
@@ -486,7 +495,10 @@ function GradeJournal({
                   <EditCell value={r.on1} maxVal={scale.on1} source={getSource(s.userId, "on1", s)} onSave={v => save(s.userId, "ON1", v)} />
                   <EditCell value={r.on2} maxVal={scale.on2} source={getSource(s.userId, "on2", s)} onSave={v => save(s.userId, "ON2", v)} />
 
-                  {/* Umumiy = JN + ON1 + ON2 */}
+                  {/* Mustaqil ishlar — har biri o'z balli bilan */}
+                  {showMi && <BallCell value={s.mi ?? null} max={miMax} />}
+
+                  {/* Umumiy = JN + ON1 + ON2 + MI */}
                   <BallCell value={r.total} max={totalMax} />
 
                   {/* YN */}

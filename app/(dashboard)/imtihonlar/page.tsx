@@ -8,6 +8,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { StudentContentCard } from "@/components/teaching/StudentContentCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { isControlWork } from "@/lib/controlWork"
 
 export default function Imtihonlar() {
   const { t } = useLanguage()
@@ -16,8 +17,13 @@ export default function Imtihonlar() {
     { key: "locked", label: t("exams.section.locked"), emptyText: t("exams.sectionEmpty.locked") },
     { key: "closed", label: t("exams.section.closed"), emptyText: t("exams.sectionEmpty.closed") },
   ]
-  const { data, loading, error, refetch } = useApi(() => teachingApi.content({ type: "exam" }), [])
-  const exams: TeacherContent[] = (data?.data ?? []).filter(e => !e.topicKey)
+  // Mavzusiz imtihonlar + topshiriq shaklidagi oraliqlar + mustaqil ishlar (test/topshiriq)
+  const { data, loading, error, refetch } = useApi(
+    () => Promise.all([teachingApi.content({ type: "exam" }), teachingApi.content({ type: "assignment" })])
+      .then(([a, b]) => ({ ...a, data: [...(a.data ?? []), ...(b.data ?? [])] })),
+    []
+  )
+  const exams: TeacherContent[] = (data?.data ?? []).filter(e => (e.type === "exam" && !e.topicKey) || isControlWork(e))
 
   const grouped = useMemo(() => {
     const map: Record<ContentStatus, TeacherContent[]> = { locked: [], open: [], closed: [] }

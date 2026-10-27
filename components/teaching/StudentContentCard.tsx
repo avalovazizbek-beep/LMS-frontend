@@ -84,7 +84,13 @@ export function StudentContentCard({ item, submittable = false }: Props) {
   const isAssignment = item.type === "assignment"
   const assignmentThreshold = (item.maxScore && item.maxScore > 0) ? item.maxScore * 0.6 : 60
   const assignmentPassed = isAssignment && mySubmission?.grade != null && mySubmission.grade >= assignmentThreshold
-  const canSubmit = submittable && !assignmentPassed && (item.status === "open" || (item.status === "closed" && reopened))
+  // Oraliq / mustaqil ish topshirig'i ballga baholanadi: 60% qoidasi yo'q,
+  // baho qo'yilgach qayta yuklanmaydi. Admin qayta ochgan (kelmagan) talaba
+  // muddat o'tgan bo'lsa ham yuklay oladi.
+  const isScored = item.controlType === "oraliq" || (item.gradePoints != null && item.gradePoints > 0)
+  const scoredGraded = isAssignment && isScored && mySubmission?.grade != null && item.retakeGranted !== true
+  const canSubmit = submittable && !(isScored ? scoredGraded : assignmentPassed) &&
+    (item.status === "open" || (item.status === "closed" && (reopened || item.retakeGranted === true)))
 
   // Backend faylni `file` (asosiy) va `files` (qo'shimcha) sifatida yuboradi —
   // docFile/videoFile API'da to'ldirilmaydi, ularga qarab o'qituvchi
@@ -296,7 +302,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                   </span>
                   {mySubmission.grade != null && (
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                      style={isAssignment && !assignmentPassed
+                      style={isAssignment && !isScored && !assignmentPassed
                         ? { backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }
                         : { backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
                       {t("scc.grade", { score: `${mySubmission.grade}${item.maxScore ? ` / ${item.maxScore}` : ""}` })}
@@ -308,14 +314,19 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                     {t("scc.assignmentPending")}
                   </p>
                 )}
-                {isAssignment && mySubmission.grade != null && !assignmentPassed && (
+                {isAssignment && !isScored && mySubmission.grade != null && !assignmentPassed && (
                   <p className="text-xs font-medium" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                     {t(canSubmit ? "scc.assignmentFailed" : "scc.assignmentFailedClosed", { min: Math.ceil(assignmentThreshold) })}
                   </p>
                 )}
-                {assignmentPassed && (
+                {assignmentPassed && !isScored && (
                   <p className="text-xs font-medium" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
                     {t("scc.assignmentPassed")}
+                  </p>
+                )}
+                {scoredGraded && (
+                  <p className="text-xs" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
+                    {t("scc.scoredGraded")}
                   </p>
                 )}
                 {mySubmission.comment && (
