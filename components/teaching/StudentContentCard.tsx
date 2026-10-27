@@ -6,7 +6,7 @@ import {
   Lock, CheckCircle2, Clock, Download, Paperclip, X, Loader2, Send, AlertCircle,
   Video, Link as LinkIcon, FileText, Camera,
 } from "lucide-react"
-import { teachingApi, type TeacherContent, type TeachingSubmission, type ContentStatus } from "@/lib/api"
+import { teachingApi, type TeacherContent, type TeachingFile, type TeachingSubmission, type ContentStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { ViolationChips } from "./ViolationChips"
@@ -86,6 +86,14 @@ export function StudentContentCard({ item, submittable = false }: Props) {
   const assignmentPassed = isAssignment && mySubmission?.grade != null && mySubmission.grade >= assignmentThreshold
   const canSubmit = submittable && !assignmentPassed && (item.status === "open" || (item.status === "closed" && reopened))
 
+  // Backend faylni `file` (asosiy) va `files` (qo'shimcha) sifatida yuboradi —
+  // docFile/videoFile API'da to'ldirilmaydi, ularga qarab o'qituvchi
+  // biriktirgan topshiriq fayli talabaga umuman chiqmasdi
+  const attachments = [item.file, ...(item.files ?? [])]
+    .filter((f, i, all): f is TeachingFile => !!f && all.findIndex(o => o?.url === f.url) === i)
+  const videos = attachments.filter(f => isVideoFile(f.mimeType, f.originalName))
+  const docs = attachments.filter(f => !isVideoFile(f.mimeType, f.originalName))
+
   async function handleSubmit() {
     if (!sub.file && !sub.comment.trim()) {
       setSub(prev => ({ ...prev, error: t("scc.errFileOrComment") }))
@@ -119,7 +127,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                 {item.title}
               </h3>
               {!locked && item.description && (
-                <p className="text-xs mt-1 line-clamp-2" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                <p className={`text-xs mt-1 ${isAssignment ? "whitespace-pre-line" : "line-clamp-2"}`} style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                   {item.description}
                 </p>
               )}
@@ -161,29 +169,29 @@ export function StudentContentCard({ item, submittable = false }: Props) {
           </div>
         )}
 
-        {!locked && (item.docFile || item.videoFile || item.meetingLink) && (
+        {!locked && (attachments.length > 0 || item.meetingLink) && (
           <div className="flex flex-col gap-2">
-            {/* Hujjat fayli */}
-            {item.docFile && (
-              <a href={teachingApi.fileUrl(item.docFile.url)} target="_blank" rel="noreferrer" download
-                className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-xs font-medium"
+            {/* Hujjat fayllari */}
+            {docs.map(f => (
+              <a key={f.url} href={teachingApi.fileUrl(f.url)} target="_blank" rel="noreferrer" download
+                className="flex items-center gap-2 w-fit max-w-full px-3 py-2 rounded-[6px] text-xs font-medium"
                 style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                <FileText className="w-3.5 h-3.5" />
-                {item.docFile.originalName}
+                <FileText className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{f.originalName}</span>
               </a>
-            )}
+            ))}
 
             {/* Video darslik */}
-            {item.videoFile && (
-              <div className="flex flex-col gap-1.5">
+            {videos.map(f => (
+              <div key={f.url} className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
                   <Video className="w-3.5 h-3.5" />
                   {t("scc.videoLesson")}
                 </div>
                 <video controls playsInline preload="metadata" className="aspect-video w-full rounded-[8px] bg-black"
-                  src={teachingApi.fileUrl(item.videoFile.url)} />
+                  src={teachingApi.fileUrl(f.url)} />
               </div>
-            )}
+            ))}
 
             {/* Online meeting */}
             {item.meetingLink && (
