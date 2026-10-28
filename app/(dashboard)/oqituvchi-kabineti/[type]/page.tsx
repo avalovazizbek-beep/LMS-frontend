@@ -27,7 +27,7 @@ import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
 import { ViolationChips } from "@/components/teaching/ViolationChips"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-import { GradeBudgetLine, useGradeBudget, oraliqPoints, LECTURE_PART, PRACTICE_PART, PART_TOTAL } from "@/components/teaching/GradeBudgetLine"
+import { GradeBudgetLine, useGradeBudget, budgetFree, oraliqPoints, LECTURE_PART, PRACTICE_PART, PART_TOTAL } from "@/components/teaching/GradeBudgetLine"
 import { MUSTAQIL_CONTROL } from "@/lib/controlWork"
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
@@ -2000,16 +2000,36 @@ function ContentFormModal({
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
+  // Guruhdagi fanlar: HEMIS dars jadvali + o'qituvchining shu guruhdagi
+  // kontenti (jadvali yo'q guruhda ham fan ro'yxatda bo'lsin). Bitta fan
+  // bo'lsa — o'zi tanlanadi.
+  const [groupSubjects, setGroupSubjects] = useState<string[]>([])
+  async function changeGroup(groupId: string) {
+    setForm(prev => ({ ...prev, groupId, subjectName: "" }))
+    setGroupSubjects([])
+    if (!groupId) return
+    const names = new Set(scheduleItems.filter(s => String(s.groupId) === groupId).map(s => s.subjectName).filter(Boolean))
+    try {
+      const res = await teachingApi.mySubjects(Number(groupId))
+      for (const s of res.data ?? []) if (s.subjectName) names.add(s.subjectName)
+    } catch { /* jadvaldagilar bilan qoladi */ }
+    const list = [...names].sort()
+    setGroupSubjects(list)
+    if (list.length === 1) {
+      setForm(prev => prev.groupId === groupId && !prev.subjectName ? { ...prev, subjectName: list[0] } : prev)
+    }
+  }
+
   const subjects = useMemo(() => {
     const pool = form.groupId
       ? scheduleItems.filter(s => String(s.groupId) === String(form.groupId))
       : scheduleItems
-    const names = new Set(pool.map(s => s.subjectName).filter(Boolean))
+    const names = new Set([...pool.map(s => s.subjectName).filter(Boolean), ...groupSubjects])
     // HEMIS nazoratidan kelgan fan nomi jadvalda bo'lmasa ham tanlangan holda ko'rinsin
     // (ro'yxat bo'sh bo'lsa — qo'lda yoziladigan maydon qoladi)
     if (names.size && form.subjectName) names.add(form.subjectName)
     return [...names].sort()
-  }, [scheduleItems, form.groupId, form.subjectName])
+  }, [scheduleItems, form.groupId, form.subjectName, groupSubjects])
 
   const isLesson  = config.type === "lesson"
   const isKalendar = config.type === "kalendar"
@@ -2023,6 +2043,8 @@ function ContentFormModal({
   const budgetPart = isMi ? form.gradePart : LECTURE_PART
   const { budget } = useGradeBudget(isOraliq ? form.groupId : null, isOraliq ? form.subjectName : null)
   const pointsValue = form.gradePoints.trim() ? Number(form.gradePoints) : null
+  // Ball qolgan (bo'sh) balldan oshmaydi — tahrirlanayotganining o'z eski balli bo'sh hisoblanadi
+  const maxPoints = budget ? Math.min(PART_TOTAL, budgetFree(budget, budgetPart, editingId).free) : PART_TOTAL
 
   const availFromLabel = isKalendar ? t("typeContentOq.form.availFromKalendar") : isMavzu ? t("typeContentOq.form.availFromMavzu") : t("typeContentOq.form.availFromDefault")
   const deadlineLabel  = isKalendar ? t("typeContentOq.form.deadlineKalendar") : config.gradable ? t("typeContentOq.form.deadlineGradable") : t("typeContentOq.form.deadlineDefault")
@@ -2113,7 +2135,7 @@ function ContentFormModal({
             <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.group")}</label>
             <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
               value={form.groupId} disabled={editing}
-              onChange={e => update("groupId", e.target.value)}>
+              onChange={e => changeGroup(e.target.value)}>
               <option value="">{t("typeContentOq.form.selectPlaceholder")}</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
@@ -2200,8 +2222,18 @@ function ContentFormModal({
                   {isMi ? t("fanResurslariOq.mi.points", { total: PART_TOTAL })
                     : form.slot ? t("typeContentOq.form.gradePointsSlot", { n: form.slot === "ON1" ? 1 : 2, total: PART_TOTAL }) : t("typeContentOq.form.gradePoints")}
                 </label>
-                <input type="number" min={1} max={PART_TOTAL} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
-                  value={form.gradePoints} onChange={e => update("gradePoints", e.target.value)} placeholder="10" />
+                <input type="number" min={1} max={maxPoints} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
+                  value={form.gradePoints} placeholder="10"
+                  onChange={e => {
+                    const raw = e.target.value
+                    const n = Number(raw)
+                    update("gradePoints", raw.trim() && Number.isFinite(n) && n > maxPoints ? String(maxPoints) : raw)
+                  }} />
+                {budget && (
+                  <p className="mt-1 text-xs font-medium" style={{ color: maxPoints > 0 ? "#0e58a8" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+                    {t("typeContentOq.form.pointsMax", { n: maxPoints })}
+                  </p>
+                )}
               </div>
               {form.groupId && form.subjectName && (
                 <div className="col-span-2">

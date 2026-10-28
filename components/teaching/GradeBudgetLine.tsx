@@ -53,19 +53,31 @@ export function GradeBudgetLine({ budget, part, excludeId, points }: {
   const after = points != null && !over ? free - points : null
   const practice = part === PRACTICE_PART
 
+  const none = free === 0 && !points
+
   return (
-    <div className="flex flex-col gap-1 text-xs px-3 py-2 rounded-[8px]"
-      style={{ backgroundColor: over ? "#fef2f2" : "#f0f5ff", color: over ? "#b91c1c" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+    <div className="flex flex-col gap-1.5 text-xs px-3 py-2.5 rounded-[8px]"
+      style={{ backgroundColor: over || none ? "#fef2f2" : "#f0f5ff", color: over || none ? "#b91c1c" : "#0e58a8", fontFamily: "var(--font-poppins)" }}>
       <span className="font-medium">
         {t(practice ? "gradeSplit.practiceLine" : "gradeSplit.lectureLine", { total, used, free })}
       </span>
+      {/* Shu qismda yaratilganlar: ON1, ON2, MI-1, ... — turi va bali bilan */}
       {items.length > 0 && (
-        <span style={{ color: over ? "#b91c1c" : "#445b7a" }}>
-          {items.map(i => `${i.label} «${i.title}» — ${i.points}`).join(" · ")}
-        </span>
+        <div className="flex flex-col gap-0.5 pl-1" style={{ color: "#445b7a" }}>
+          {items.map(i => (
+            <div key={i.id} className="flex items-center gap-2">
+              <span className="font-semibold w-12 shrink-0" style={{ color: "#012970" }}>{i.label}</span>
+              <span className="flex-1 min-w-0 truncate" title={i.title}>{i.title}</span>
+              <span className="shrink-0">{t(i.type === "assignment" ? "typeContentOq.form.formatAssignment" : "typeContentOq.form.formatTest")}</span>
+              <span className="font-semibold w-14 shrink-0 text-right" style={{ color: "#012970" }}>{t("gradeSplit.points", { n: i.points })}</span>
+            </div>
+          ))}
+        </div>
       )}
       {over ? (
         <span className="font-medium">{t("gradeSplit.over", { free })}</span>
+      ) : none ? (
+        <span className="font-medium">{t("gradeSplit.none")}</span>
       ) : after != null && (
         <span>{t(practice ? "gradeSplit.afterPractice" : "gradeSplit.afterLecture", { n: after })}</span>
       )}
