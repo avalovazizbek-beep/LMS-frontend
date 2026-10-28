@@ -1,15 +1,18 @@
 "use client"
 
-import { useMemo, useState, useCallback, useRef } from "react"
-import { Users, BarChart3, BookOpen, CheckCircle, Download, RefreshCw, Bell, Send, X } from "lucide-react"
+import { Fragment, useMemo, useState, useCallback, useRef } from "react"
+import { Users, BarChart3, BookOpen, CheckCircle, Download, RefreshCw, Bell, Send, X, ChevronDown, ChevronRight, Info } from "lucide-react"
 import {
   teachingApi,
   type JournalTopic,
   type JournalStudent,
   type JournalScale,
   type JournalMiColumn,
+  type JournalData,
   type PeriodSource,
 } from "@/lib/api"
+import { GradeBreakdown } from "@/components/teaching/GradeBreakdown"
+import { journalLayout, studentTotals, fmtBall, PASS_BALL } from "@/lib/gradeTotals"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -256,28 +259,14 @@ function NotifyModal({
 }
 
 /* ─── Asosiy jurnal jadvali ──────────────────────────────────────────── */
-// Jami ball (0-100) shu chegaradan boshlab "o'tgan" hisoblanadi — rang
-// shkalasidagi (86/71/56) qoniqarli chegarasi bilan bir xil.
-const PASS_BALL = 55
-
-function sumOrNull(values: (number | null)[]): number | null {
-  const known = values.filter((v): v is number => v !== null)
-  return known.length ? known.reduce((a, b) => a + b, 0) : null
-}
-
-/** Baho: 86–100 → 5, 71–85 → 4, 55–70 → 3, qolgani → 2 (100 ballikka nisbatan) */
-function bahoOf(ball: number, max: number): number {
-  const pct = max > 0 ? (ball / max) * 100 : 0
-  return pct >= 86 ? 5 : pct >= 71 ? 4 : pct >= PASS_BALL ? 3 : 2
-}
-
 function GradeJournal({
-  topics, students, scale, miColumns, untypedTopicCount, groupId, subjectName, onRefresh, refreshing,
+  topics, students, scale, miColumns, periodItems, untypedTopicCount, groupId, subjectName, onRefresh, refreshing,
 }: {
   topics: JournalTopic[]
   students: JournalStudent[]
   scale: JournalScale
   miColumns: JournalMiColumn[]
+  periodItems: JournalData["periodItems"]
   untypedTopicCount: number
   groupId: number
   subjectName: string
@@ -287,19 +276,17 @@ function GradeJournal({
   const { t } = useLanguage()
   const [overrides, setOverrides] = useState<Record<string, number | null>>({})
   const [notifyStudent, setNotifyStudent] = useState<JournalStudent | null>(null)
+  // Bosilgan talaba qatori ostida batafsil baholar ochiladi
+  const [openId, setOpenId] = useState<number | null>(null)
 
-  // Jurnal tuzilishi: Ma'ruza = ON1 + ON2 + ma'ruzadan mustaqil ishlar (/35),
-  // Amaliyot = JN + amaliyotdan mustaqil ishlar (/35), Joriy = Ma'ruza +
-  // Amaliyot (/70), Yakuniy (/30), Ball = Joriy + Yakuniy (/100), Baho.
-  const lectureMi = miColumns.filter(c => c.part !== "Amaliyot")
-  const practiceMi = miColumns.filter(c => c.part === "Amaliyot")
+  // Jurnal tuzilishi (lib/gradeTotals.ts): Ma'ruza = ON1 + ON2 + ma'ruzadan
+  // mustaqil ishlar (/35), Amaliyot = JN + amaliyotdan mustaqil ishlar (/35),
+  // Joriy (/70), Yakuniy (/30), Ball (/100), Baho.
+  const layout = journalLayout(scale, miColumns)
+  const { lectureMi, practiceMi, lectureMax, practiceMax, joriyMax, ballMax, lectureFree } = layout
+  const lectureOnPoints = scale.on1 + scale.on2
   const lectureMiPoints = lectureMi.reduce((a, c) => a + c.points, 0)
-  const lectureMax = scale.lecture ?? scale.on1 + scale.on2 + lectureMiPoints
-  const practiceMax = scale.practice ?? scale.jn + practiceMi.reduce((a, c) => a + c.points, 0)
-  const joriyMax = lectureMax + practiceMax
-  const ballMax = joriyMax + scale.yn
-  // Ma'ruzaning hali oraliq / mustaqil ishga taqsimlanmagan bali
-  const lectureFree = Math.max(0, lectureMax - scale.on1 - scale.on2 - lectureMiPoints)
+  const practiceMiPoints = practiceMi.reduce((a, c) => a + c.points, 0)
 
   function getVal(userId: number, field: "on1" | "on2" | "yn", s: JournalStudent): number | null {
     const k = `${userId}:${field}`
@@ -312,17 +299,9 @@ function GradeJournal({
   }
 
   function totals(s: JournalStudent) {
-    const on1 = getVal(s.userId, "on1", s)
-    const on2 = getVal(s.userId, "on2", s)
-    const yn = getVal(s.userId, "yn", s)
-    const mi = (c: JournalMiColumn) => s.miScores?.[c.id] ?? null
-    const lecture = sumOrNull([on1, on2, ...lectureMi.map(mi)])
-    const practice = sumOrNull([s.jn, ...practiceMi.map(mi)])
-    const joriy = lecture === null && practice === null ? null : (lecture ?? 0) + (practice ?? 0)
-    const ball = joriy === null && yn === null ? null : (joriy ?? 0) + (yn ?? 0)
-    // Baho yakuniy qo'yilgach chiqadi — undan oldingi ball to'liq emas
-    const baho = ball === null || yn === null ? null : bahoOf(ball, ballMax)
-    return { on1, on2, yn, mi, lecture, practice, joriy, ball, baho }
+    return studentTotals(layout, s, {
+      on1: getVal(s.userId, "on1", s), on2: getVal(s.userId, "on2", s), yn: getVal(s.userId, "yn", s),
+    })
   }
 
   // Katakka ball (masalan 0-17) kiritiladi, bazada esa foiz saqlanadi —
@@ -374,7 +353,7 @@ function GradeJournal({
       return [
         i + 1,
         s.fullName,
-        ...topics.map(tp => s.topicScores[tp.key] ?? ""),
+        ...topics.map(tp => s.topicPoints?.[tp.key] ?? s.topicScores[tp.key] ?? ""),
         r.on1 ?? "", r.on2 ?? "", ...lectureMi.map(c => r.mi(c) ?? ""), r.lecture ?? "",
         s.jn ?? "", ...practiceMi.map(c => r.mi(c) ?? ""), r.practice ?? "",
         r.joriy ?? "", r.yn ?? "", r.ball ?? "", r.baho ?? "",
@@ -408,6 +387,18 @@ function GradeJournal({
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Ball taqsimoti — o'qituvchi qo'ygan ballardan avtomatik */}
+      <div className="flex items-start gap-3 text-xs px-4 py-3 rounded-[10px]"
+        style={{ backgroundColor: "#f0f7ff", color: "#012970", border: "1px solid rgba(14,88,168,0.15)", fontFamily: "var(--font-poppins)" }}>
+        <Info className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#0e58a8" }} />
+        <div className="flex flex-col gap-0.5">
+          <span>{t("natijalarOq.splitLecture", { total: fmtBall(lectureMax), on: fmtBall(lectureOnPoints), mi: fmtBall(lectureMiPoints) })}</span>
+          <span>{topics.length > 0
+            ? t("natijalarOq.splitPractice", { total: fmtBall(practiceMax), mi: fmtBall(practiceMiPoints), jn: fmtBall(scale.jn), count: topics.length, each: fmtBall(topics[0].points ?? scale.jn / topics.length) })
+            : t("natijalarOq.splitPracticeNoTopics", { total: fmtBall(practiceMax), mi: fmtBall(practiceMiPoints), jn: fmtBall(scale.jn) })}</span>
+        </div>
       </div>
 
       {(topics.length === 0 || untypedTopicCount > 0 || lectureFree > 0) && (
@@ -480,7 +471,9 @@ function GradeJournal({
                     style={{ ...T, minWidth: 52, maxWidth: 70, borderRight: "1px solid rgba(1,41,112,0.08)", backgroundColor: "#f0f5ff" }}
                     title={tp.title}>
                     <div className="font-semibold">{t("natijalarOq.topicN", { n: tp.idx })}</div>
-                    {tp.maxScore > 0 && (
+                    {tp.points != null ? (
+                      <div className="font-normal" style={L}>/{fmtBall(tp.points)}</div>
+                    ) : tp.maxScore > 0 && (
                       <div className="font-normal" style={L}>/{tp.maxScore}</div>
                     )}
                   </th>
@@ -515,13 +508,19 @@ function GradeJournal({
                 </td></tr>
               ) : students.map((s, idx) => {
                 const r = totals(s)
+                const open = openId === s.userId
                 return (
-                <tr key={s.userId} className="hover:bg-[#f8faff]"
+                <Fragment key={s.userId}>
+                <tr className="hover:bg-[#f8faff]"
                   style={{ borderBottom: "1px solid rgba(1,41,112,0.05)" }}>
-                  {/* Talaba ismi — sticky */}
-                  <td className="sticky left-0 z-10 px-3 py-2 bg-white"
-                    style={{ borderRight: "2px solid rgba(1,41,112,0.1)" }}>
+                  {/* Talaba ismi — sticky; bosilsa batafsil baholari ochiladi */}
+                  <td className="sticky left-0 z-10 px-3 py-2 bg-white cursor-pointer"
+                    style={{ borderRight: "2px solid rgba(1,41,112,0.1)" }}
+                    onClick={() => setOpenId(open ? null : s.userId)} title={t("natijalarOq.showDetails")}>
                     <div className="flex items-center gap-2">
+                      {open
+                        ? <ChevronDown className="w-3.5 h-3.5 shrink-0" style={{ color: "#0e58a8" }} />
+                        : <ChevronRight className="w-3.5 h-3.5 shrink-0" style={{ color: "#7293b9" }} />}
                       <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
                         style={{ backgroundColor: "#eef4ff", color: "#0e58a8" }}>{idx + 1}</span>
                       <div>
@@ -531,9 +530,11 @@ function GradeJournal({
                     </div>
                   </td>
 
-                  {/* Mavzu ballari */}
-                  {topics.map(t => (
-                    <TopicCell key={t.key} score={s.topicScores[t.key] ?? null} max={t.maxScore} />
+                  {/* Amaliy topshiriqlar — har birining JN'dagi bali (ulush × foiz) */}
+                  {topics.map(tp => (
+                    <TopicCell key={tp.key}
+                      score={s.topicPoints ? s.topicPoints[tp.key] ?? null : s.topicScores[tp.key] ?? null}
+                      max={tp.points ?? tp.maxScore} />
                   ))}
 
                   {/* Ma'ruza: ON1, ON2, ma'ruzadan mustaqil ishlar, jami */}
@@ -570,6 +571,17 @@ function GradeJournal({
                     </button>
                   </td>
                 </tr>
+                {open && (
+                  <tr style={{ backgroundColor: "#f8faff", borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
+                    <td colSpan={topics.length + 12 + lectureMi.length + practiceMi.length} className="p-3">
+                      <div className="sticky left-3" style={{ maxWidth: "min(1200px, calc(100vw - 120px))" }}>
+                        <GradeBreakdown data={{ topics, scale, miColumns, periodItems }} student={s}
+                          values={{ on1: r.on1, on2: r.on2, yn: r.yn }} />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
                 )
               })}
             </tbody>
@@ -693,6 +705,7 @@ export default function NatijalarPage() {
           students={students}
           scale={scale}
           miColumns={data?.data?.miColumns ?? []}
+          periodItems={data?.data?.periodItems}
           untypedTopicCount={data?.data?.untypedTopicCount ?? 0}
           groupId={groupId as number}
           subjectName={subjectName}

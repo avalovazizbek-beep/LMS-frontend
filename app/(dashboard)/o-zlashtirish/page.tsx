@@ -8,6 +8,7 @@ import { Loading, ApiError } from "@/components/ui/ApiState"
 import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { GradeBreakdown } from "@/components/teaching/GradeBreakdown"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -108,6 +109,22 @@ function pctBg(pct: number | null): string {
   return "rgba(185,28,28,0.09)"
 }
 
+/* ─── Baholar tafsiloti: jurnaldagi ko'rinish (ma'ruza / amaliyot / joriy /
+   yakuniy / ball) — o'qituvchi jurnalidagi talaba qatori bilan bir xil ── */
+function MyGradeBreakdown({ subjectName }: { subjectName: string }) {
+  const { t } = useLanguage()
+  const { data } = useApi(() => teachingApi.myJournal(subjectName), [subjectName])
+  const journal = data?.data
+  const me = journal?.students[0]
+  if (!journal || !me) return null
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-semibold" style={T}>{t("ozlashtirish.breakdownTitle")}</div>
+      <GradeBreakdown data={journal} student={me} />
+    </div>
+  )
+}
+
 function TopicResultsPanel({ subjectName }: { subjectName: string }) {
   const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(
@@ -130,9 +147,12 @@ function TopicResultsPanel({ subjectName }: { subjectName: string }) {
   )
   if (error) return <ApiError message={error} onRetry={refetch} />
   if (topics.length === 0) return (
-    <div className="py-10 text-center">
-      <BookOpen className="w-8 h-8 mx-auto mb-2" style={{ color: "#d8e6f7" }} />
-      <p className="text-sm" style={L}>{t("ozlashtirish.noTopicsForSubject")}</p>
+    <div className="flex flex-col gap-4">
+      <div className="py-10 text-center">
+        <BookOpen className="w-8 h-8 mx-auto mb-2" style={{ color: "#d8e6f7" }} />
+        <p className="text-sm" style={L}>{t("ozlashtirish.noTopicsForSubject")}</p>
+      </div>
+      <MyGradeBreakdown subjectName={subjectName} />
     </div>
   )
 
@@ -224,6 +244,9 @@ function TopicResultsPanel({ subjectName }: { subjectName: string }) {
           {t("ozlashtirish.totalSummary", { n: topics.length, earned: totalEarned, max: totalMax })}
         </div>
       </div>
+
+      {/* Har topshiriq, oraliq va mustaqil ishdan necha ball olgani */}
+      <MyGradeBreakdown subjectName={subjectName} />
     </div>
   )
 }

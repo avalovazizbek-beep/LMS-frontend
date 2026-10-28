@@ -1297,7 +1297,7 @@ export default function TeacherContentTypePage() {
           ...(isTask ? {} : {
             durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : null,
             questionDisplayCount: form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
-            isAdaptive: config!.type === "exam" ? form.isAdaptive : undefined,
+            isAdaptive: config!.type === "exam" ? (isOraliq ? false : form.isAdaptive) : undefined,
           }),
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
@@ -1326,7 +1326,7 @@ export default function TeacherContentTypePage() {
           attemptsCount: isControl && !isTask ? attempts : undefined,
           durationMinutes: !isTask && form.durationMinutes ? Number(form.durationMinutes) : null,
           questionDisplayCount: !isTask && form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
-          isAdaptive: config!.type === "exam" && !isTask ? form.isAdaptive : undefined,
+          isAdaptive: config!.type === "exam" && !isTask ? (isOraliq ? false : form.isAdaptive) : undefined,
           trainingLoad: form.trainingLoad ? Number(form.trainingLoad) : null,
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
@@ -2285,8 +2285,9 @@ function ContentFormModal({
             </div>
           )}
 
-          {/* Moslashuvchan test — savol qiyinligi talaba javobiga qarab moslashadi */}
-          {config.hasDuration && !isTask && (
+          {/* Moslashuvchan test — savol qiyinligi talaba javobiga qarab moslashadi
+              (oraliq va mustaqil ishda yo'q — oddiy test) */}
+          {config.hasDuration && !isOraliq && (
             <div className="col-span-2">
               <button type="button" onClick={() => update("isAdaptive", !form.isAdaptive)}
                 className="flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm font-medium transition-colors"

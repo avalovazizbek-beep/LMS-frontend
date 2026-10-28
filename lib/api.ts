@@ -1455,6 +1455,9 @@ export interface JournalTopic {
   idx: number
   title: string
   maxScore: number
+  /** JN'dagi ulushi: (35 − amaliyot mustaqil ishi) ÷ amaliy topshiriqlar soni */
+  points?: number
+  types?: TeachingContentType[]
 }
 
 export interface JournalStudent {
@@ -1462,6 +1465,8 @@ export interface JournalStudent {
   fullName: string
   studentIdNumber: string | null
   topicScores: Record<string, number | null>
+  /** Topshiriqning JN'ga qo'shgan bali (ulush × foiz, 0.1 aniqlikda) */
+  topicPoints?: Record<string, number | null>
   /** Ballar — har biri o'z maksimaliga (JournalData.scale) nisbatan butun son */
   jn: number | null
   on1: number | null
@@ -1479,7 +1484,10 @@ export interface JournalStudent {
 export interface JournalScale { jn: number; on1: number; on2: number; mi?: number; lecture?: number; practice?: number; yn: number }
 
 /** Jurnaldagi mustaqil ish ustuni (ma'ruza / amaliyot qismi ichida MI-1, MI-2...) */
-export interface JournalMiColumn { id: number; label: string; title: string; part: string; points: number }
+export interface JournalMiColumn { id: number; label: string; title: string; part: string; points: number; type?: TeachingContentType }
+
+/** ON1 / ON2 / YN qaysi nazoratdan */
+export interface JournalPeriodItem { id: number; title: string; type: TeachingContentType; questionCount: number; points: number }
 
 /* ── Ball taqsimoti: ma'ruza 35 (ON1 + ON2 + ma'ruza MI), amaliyot 35 (JN + amaliyot MI) ── */
 export interface GradeBudgetItem { id: number; label: string; title: string; type: TeachingContentType; points: number }
@@ -1492,6 +1500,7 @@ export interface JournalData {
   students: JournalStudent[]
   scale: JournalScale
   miColumns?: JournalMiColumn[]
+  periodItems?: Partial<Record<"ON1" | "ON2" | "YN", JournalPeriodItem | null>>
   /** Test/topshirig'i bor, lekin mashg'ulot turi belgilanmagan mavzular — JN'ga kirmaydi */
   untypedTopicCount: number
 }
@@ -1865,6 +1874,12 @@ export const teachingApi = {
   gradeJournal: (groupId: number | string, subject: string) => {
     const q = new URLSearchParams({ groupId: String(groupId), subject }).toString()
     return get<{ success: boolean; data: JournalData }>(`/api/teaching/grade-journal?${q}`)
+  },
+
+  /** Talaba: o'z baholari jurnaldagi ko'rinishda (bitta qator) */
+  myJournal: (subject: string) => {
+    const q = new URLSearchParams({ subject }).toString()
+    return get<{ success: boolean; data: JournalData }>(`/api/teaching/my-journal?${q}`)
   },
 
   myTopicScores: (subject: string) => {
