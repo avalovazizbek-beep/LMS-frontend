@@ -1,4 +1,4 @@
-import type { JournalMiColumn, JournalScale, JournalStudent } from "@/lib/api"
+import type { JournalData, JournalMiColumn, JournalScale, JournalStudent } from "@/lib/api"
 
 /* Jurnal hisobi (backend services/gradeJournal.ts bilan bir xil):
    Ma'ruza = ON1 + ON2 + ma'ruzadan mustaqil ishlar (/35)
@@ -32,21 +32,33 @@ export interface JournalLayout {
   practiceMax: number
   joriyMax: number
   ballMax: number
+  /** Haqiqatan yaratilgan oraliqlar bali (yaratilmagan o'rin hisobga kirmaydi) */
+  lectureOnPoints: number
   /** Ma'ruzaning hali oraliq / mustaqil ishga taqsimlanmagan bali */
   lectureFree: number
 }
 
-export function journalLayout(scale: JournalScale, miColumns: JournalMiColumn[]): JournalLayout {
+export function journalLayout(
+  scale: JournalScale,
+  miColumns: JournalMiColumn[],
+  periodItems?: JournalData["periodItems"],
+): JournalLayout {
   const lectureMi = miColumns.filter(c => c.part !== PRACTICE_PART)
   const practiceMi = miColumns.filter(c => c.part === PRACTICE_PART)
   const lectureMiPoints = lectureMi.reduce((a, c) => a + c.points, 0)
   const lectureMax = scale.lecture ?? scale.on1 + scale.on2 + lectureMiPoints
   const practiceMax = scale.practice ?? scale.jn + practiceMi.reduce((a, c) => a + c.points, 0)
+  // Hali yaratilmagan ON o'rni jurnalda eski 17/18 ni ko'rsatadi, lekin
+  // "taqsimlangan" hisoblanmaydi
+  const lectureOnPoints = periodItems
+    ? (periodItems.ON1 ? scale.on1 : 0) + (periodItems.ON2 ? scale.on2 : 0)
+    : scale.on1 + scale.on2
   return {
     lectureMi, practiceMi, lectureMax, practiceMax,
     joriyMax: lectureMax + practiceMax,
     ballMax: lectureMax + practiceMax + scale.yn,
-    lectureFree: Math.max(0, lectureMax - scale.on1 - scale.on2 - lectureMiPoints),
+    lectureOnPoints,
+    lectureFree: Math.max(0, lectureMax - lectureOnPoints - lectureMiPoints),
   }
 }
 

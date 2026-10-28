@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
       // Deyarli hamma sahifa login talab qiladi — qidiruv tizimi baribir
       // login sahifasiga qaytariladi, shuning uchun ularni indekslashga
       // urinmasin (crawl budget'ni behuda sarflamasin).
-      disallow: ["/api/", "/dashboard", "/admin"],
+      disallow: ["/api/", "/dashboard", "/admin", "/sinov-login"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   }

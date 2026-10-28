@@ -282,9 +282,8 @@ function GradeJournal({
   // Jurnal tuzilishi (lib/gradeTotals.ts): Ma'ruza = ON1 + ON2 + ma'ruzadan
   // mustaqil ishlar (/35), Amaliyot = JN + amaliyotdan mustaqil ishlar (/35),
   // Joriy (/70), Yakuniy (/30), Ball (/100), Baho.
-  const layout = journalLayout(scale, miColumns)
-  const { lectureMi, practiceMi, lectureMax, practiceMax, joriyMax, ballMax, lectureFree } = layout
-  const lectureOnPoints = scale.on1 + scale.on2
+  const layout = journalLayout(scale, miColumns, periodItems)
+  const { lectureMi, practiceMi, lectureMax, practiceMax, joriyMax, ballMax, lectureFree, lectureOnPoints } = layout
   const lectureMiPoints = lectureMi.reduce((a, c) => a + c.points, 0)
   const practiceMiPoints = practiceMi.reduce((a, c) => a + c.points, 0)
 

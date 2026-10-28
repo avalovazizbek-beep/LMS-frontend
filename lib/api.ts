@@ -3175,6 +3175,12 @@ export const zoomApi = {
     post<{ success: boolean; token: string; role: "employee" }>("/api/integrations/zoom/review-login", { login, password }),
 }
 
+/* ── Sinov (demo) talabasi — talaba tomonini ko'rish uchun (backend services/sinovSandbox.ts) ── */
+export const sinovApi = {
+  login: (login: string, password: string) =>
+    post<{ success: boolean; token: string; role: "student" }>("/api/sinov/login", { login, password }),
+}
+
 /* ── Google Meet integratsiyasi (har bir o'qituvchi o'z hisobini ulaydi) ── */
 export interface GoogleMeetConnectionStatus {
   connected: boolean

@@ -13,7 +13,7 @@ import { journalLayout, studentTotals, fmtBall } from "@/lib/gradeTotals"
 
 const FONT = { fontFamily: "var(--font-poppins)" } as const
 
-interface Row { key: string; title: string; sub: string; max: number; got: number | null }
+interface Row { key: string; title: string; sub: string; max: number; got: number | null; /** hali yaratilmagan */ missing?: boolean }
 
 function pctOf(got: number | null, max: number): number | null {
   return got === null || max <= 0 ? null : Math.min(100, Math.round((got / max) * 100))
@@ -62,7 +62,7 @@ function PartTable({ title, Icon, color, soft, rows, totalLabel, total, totalMax
                     <div className="font-medium" style={{ color: "#012970" }}>{r.title}</div>
                     {r.sub && <div className="text-[11px]" style={{ color: "#7293b9" }}>{r.sub}</div>}
                   </td>
-                  <td className="px-3 py-2 text-center" style={{ color: "#445b7a" }}>{fmtBall(r.max)}</td>
+                  <td className="px-3 py-2 text-center" style={{ color: "#445b7a" }}>{r.missing ? "—" : fmtBall(r.max)}</td>
                   <td className="px-3 py-2 text-center font-semibold" style={{ color: "#012970" }}>{r.got === null ? "—" : fmtBall(r.got)}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ export function GradeBreakdown({ data, student, values }: {
     const sub = item
       ? [typeLabel(item.type), item.type === "exam" && item.questionCount > 0 ? t("gradeBreakdown.questions", { n: item.questionCount }) : ""].filter(Boolean).join(" · ")
       : t("gradeBreakdown.notCreated")
-    return { key: slot, title: item?.title || t("gradeBreakdown.onN", { n }), sub, max, got }
+    return { key: slot, title: item?.title || t("gradeBreakdown.onN", { n }), sub, max, got, missing: !item }
   }
   const lectureRows: Row[] = [
     onRow("ON1", 1, scale.on1, r.on1),
