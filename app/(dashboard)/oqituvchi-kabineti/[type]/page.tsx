@@ -28,7 +28,7 @@ import { QuestionsModal } from "@/components/teaching/QuestionsModal"
 import { ViolationChips } from "@/components/teaching/ViolationChips"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { GradeBudgetLine, useGradeBudget, budgetFree, oraliqPoints, LECTURE_PART, PRACTICE_PART, PART_TOTAL } from "@/components/teaching/GradeBudgetLine"
-import { MUSTAQIL_CONTROL } from "@/lib/controlWork"
+import { MUSTAQIL_CONTROL, isMustaqilWork } from "@/lib/controlWork"
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
 
@@ -1101,8 +1101,10 @@ export default function TeacherContentTypePage() {
       return all.filter(i => !i.controlType)
     }
     // Oraliq sahifasida mustaqil ishlar ham turadi — hammasi bir joyda
+    // Fan resurslaridagi eski "Mustaqil ish" mavzularining test/topshiriqlari ham —
+    // shu yerda ularga ball beriladi (ball qo'yilmaguncha jurnalga kirmaydi)
     if (config.filterControlType === "oraliq") {
-      return all.filter(i => i.controlType === "oraliq" || i.controlType === MUSTAQIL_CONTROL)
+      return all.filter(i => i.controlType === "oraliq" || i.controlType === MUSTAQIL_CONTROL || (!!i.topicKey && isMustaqilWork(i)))
     }
     return all.filter(i => i.controlType === config.filterControlType)
   }, [contentRes, config])
@@ -1119,6 +1121,9 @@ export default function TeacherContentTypePage() {
   const [gradingFor, setGradingFor] = useState<TeacherContent | null>(null)
   const [questionsFor, setQuestionsFor] = useState<TeacherContent | null>(null)
   const [copyFor, setCopyFor] = useState<TeacherContent | null>(null)
+  // Fan resurslaridagi eski mustaqil ishlarga ball berish (bittaga / guruh bo'yicha teng)
+  const [pointsFor, setPointsFor] = useState<TeacherContent | null>(null)
+  const [distributeFor, setDistributeFor] = useState<{ groupId: number; subjectName: string; items: TeacherContent[] } | null>(null)
 
   if (!config) {
     return (
@@ -1410,6 +1415,36 @@ export default function TeacherContentTypePage() {
         </div>
       </div>
 
+      {/* Ball qo'yilmagan eski mustaqil ishlar — guruh+fan bo'yicha */}
+      {config.filterControlType === "oraliq" && !loading && (() => {
+        const byKey = new Map<string, { groupId: number; subjectName: string; items: TeacherContent[] }>()
+        for (const i of items) {
+          if (!i.topicKey || i.gradePoints != null) continue
+          const k = `${i.groupId}|${i.subjectName}`
+          if (!byKey.has(k)) byKey.set(k, { groupId: i.groupId, subjectName: i.subjectName, items: [] })
+          byKey.get(k)!.items.push(i)
+        }
+        if (!byKey.size) return null
+        return (
+          <div className="flex flex-col gap-2 px-4 py-3 rounded-[10px]"
+            style={{ backgroundColor: "#fff7ed", border: "1px solid rgba(146,64,14,0.2)", fontFamily: "var(--font-poppins)" }}>
+            {[...byKey.values()].map(g => (
+              <div key={`${g.groupId}|${g.subjectName}`} className="flex items-center gap-3 flex-wrap text-xs" style={{ color: "#92400e" }}>
+                <span className="flex-1 min-w-[240px]">
+                  {t("typeContentOq.mi.legacyNotice", {
+                    group: groups.find(x => x.id === g.groupId)?.name ?? String(g.groupId), subject: g.subjectName, n: g.items.length,
+                  })}
+                </span>
+                <button onClick={() => setDistributeFor(g)}
+                  className="px-3 py-1.5 rounded-[6px] font-semibold text-white" style={{ backgroundColor: "#c2410c" }}>
+                  {t("typeContentOq.mi.distribute")}
+                </button>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
       {loading ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : items.length === 0 ? (
         <div className="bg-white rounded-[12px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
@@ -1421,6 +1456,8 @@ export default function TeacherContentTypePage() {
           {items.map(item => {
             const st = STATUS_LABEL[item.status]
             const groupName = groups.find(g => g.id === item.groupId)?.name ?? t("typeContentOq.groupFallback", { id: item.groupId })
+            // Fan resurslaridagi mavzuning mustaqil ishi — mazmuni o'sha yerda, bu yerda faqat bali
+            const legacyMi = !!item.topicKey
             return (
               <div key={item.id} className="bg-white rounded-[12px] p-5 flex flex-col gap-3"
                 style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
@@ -1432,12 +1469,23 @@ export default function TeacherContentTypePage() {
                     <div>
                       <div className="text-base font-semibold flex items-center gap-2 flex-wrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                         {item.title}
-                        {config.filterControlType === "oraliq" && item.controlType === MUSTAQIL_CONTROL && (
-                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ color: "#9333ea", backgroundColor: "#faf5ff" }}>
-                            {t("typeContentOq.badgeMi")} · {t(item.gradePart === PRACTICE_PART ? "fanResurslariOq.trainingType.practice" : "fanResurslariOq.trainingType.lecture")}
+                        {config.filterControlType === "oraliq" && (item.controlType === MUSTAQIL_CONTROL || legacyMi) && (
+                          item.gradePoints == null ? (
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ color: "#b91c1c", backgroundColor: "#fef2f2" }}>
+                              {t("typeContentOq.badgeMi")} · {t("typeContentOq.mi.noPoints")}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ color: "#9333ea", backgroundColor: "#faf5ff" }}>
+                              {t("typeContentOq.badgeMi")} · {t(item.gradePart === PRACTICE_PART ? "fanResurslariOq.trainingType.practice" : "fanResurslariOq.trainingType.lecture")}
+                            </span>
+                          )
+                        )}
+                        {legacyMi && (
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: "#445b7a", backgroundColor: "#f1f5f9" }}>
+                            {t("typeContentOq.mi.fromResources")}
                           </span>
                         )}
-                        {config.filterControlType === "oraliq" && item.controlType !== MUSTAQIL_CONTROL && (
+                        {config.filterControlType === "oraliq" && item.controlType !== MUSTAQIL_CONTROL && !legacyMi && (
                           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
                             style={{ color: item.kind === "ON1" || item.kind === "ON2" ? "#7c3aed" : "#b91c1c", backgroundColor: item.kind === "ON1" || item.kind === "ON2" ? "#f5f3ff" : "#fef2f2" }}>
                             {item.kind === "ON1" || item.kind === "ON2" ? item.kind : t("typeContentOq.slot.missing")}
@@ -1463,7 +1511,7 @@ export default function TeacherContentTypePage() {
                       <st.Icon className="w-3.5 h-3.5" />
                       {t(st.labelKey)}
                     </span>
-                    {config.hasActiveToggle && (
+                    {config.hasActiveToggle && !legacyMi && (
                       <button
                         onClick={() => handleToggleActive(item.id)}
                         className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition-colors"
@@ -1578,7 +1626,17 @@ export default function TeacherContentTypePage() {
                       {t("typeContentOq.viewGrade")}
                     </button>
                   )}
-                  {!config.readOnly && config.type === "exam" && !!item.controlType && (
+                  {legacyMi && !config.readOnly && (
+                    <button
+                      onClick={() => setPointsFor(item)}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-[6px] transition-colors text-white"
+                      style={{ backgroundColor: "#7c3aed", fontFamily: "var(--font-poppins)" }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      {t("typeContentOq.mi.givePoints")}
+                    </button>
+                  )}
+                  {!config.readOnly && config.type === "exam" && !!item.controlType && !legacyMi && (
                     <button
                       onClick={() => setCopyFor(item)}
                       className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors"
@@ -1588,7 +1646,7 @@ export default function TeacherContentTypePage() {
                       {t("typeContentOq.copy.button")}
                     </button>
                   )}
-                  {!config.readOnly && (
+                  {!config.readOnly && !legacyMi && (
                     <>
                       <button
                         onClick={() => openEditForm(item)}
@@ -1654,6 +1712,16 @@ export default function TeacherContentTypePage() {
         />
       )}
 
+      {pointsFor && (
+        <MiPointsModal item={pointsFor} onClose={() => setPointsFor(null)} onSaved={refetch}
+          groupName={groups.find(g => g.id === pointsFor.groupId)?.name ?? String(pointsFor.groupId)} />
+      )}
+
+      {distributeFor && (
+        <MiDistributeModal target={distributeFor} onClose={() => setDistributeFor(null)} onSaved={refetch}
+          groupName={groups.find(g => g.id === distributeFor.groupId)?.name ?? String(distributeFor.groupId)} />
+      )}
+
       {copyFor && (
         <CopyToGroupsModal
           content={copyFor}
@@ -1663,6 +1731,247 @@ export default function TeacherContentTypePage() {
           onDone={refetch}
         />
       )}
+    </div>
+  )
+}
+
+/* Fan resurslaridagi eski mustaqil ishga ball berish: qism (ma'ruza/amaliyot)
+   va ball — qolgan balldan oshmaydi. Faqat ball yoziladi (mazmuni, muddati
+   va talabalar topshirgan ishlar o'zgarmaydi). */
+function MiPointsModal({ item, groupName, onClose, onSaved }: {
+  item: TeacherContent
+  groupName: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { t } = useLanguage()
+  const [part, setPart] = useState(item.gradePart === PRACTICE_PART ? PRACTICE_PART : LECTURE_PART)
+  const [points, setPoints] = useState(item.gradePoints != null ? String(item.gradePoints) : "")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { budget } = useGradeBudget(item.groupId, item.subjectName)
+  const max = budget ? Math.min(PART_TOTAL, budgetFree(budget, part, item.id).free) : PART_TOTAL
+  const value = points.trim() ? Number(points) : null
+
+  async function save() {
+    if (!(value != null && Number.isInteger(value) && value >= 1 && value <= max)) {
+      setError(t("typeContentOq.err.enterPoints", { max }))
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await teachingApi.updateContent(item.id, { gradePoints: value, gradePart: part })
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("typeContentOq.err.saveError"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.35)" }}>
+      <div className="bg-white rounded-[14px] w-full max-w-md max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.mi.pointsTitle")}</h2>
+            <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+              {item.title} · {item.subjectName} · {groupName}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">
+            <X className="w-5 h-5" style={{ color: "#7293b9" }} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="text-sm px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{error}</div>
+        )}
+
+        <div>
+          <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("fanResurslariOq.mi.part")}</label>
+          <div className="flex gap-2">
+            {[LECTURE_PART, PRACTICE_PART].map(p => (
+              <button key={p} type="button" onClick={() => setPart(p)}
+                className="flex-1 px-3 py-2 rounded-[8px] text-sm font-medium transition-colors"
+                style={{
+                  border: `1px solid ${part === p ? "#7c3aed" : "rgba(1,41,112,0.2)"}`,
+                  backgroundColor: part === p ? "#f5f3ff" : "transparent",
+                  color: part === p ? "#7c3aed" : "#445b7a",
+                  fontFamily: "var(--font-poppins)",
+                }}>
+                {t(p === LECTURE_PART ? "fanResurslariOq.trainingType.lecture" : "fanResurslariOq.trainingType.practice")}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("fanResurslariOq.mi.points", { total: PART_TOTAL })}</label>
+          <input type="number" min={1} max={max} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
+            value={points} placeholder="3"
+            onChange={e => {
+              const n = Number(e.target.value)
+              setPoints(e.target.value.trim() && Number.isFinite(n) && n > max ? String(max) : e.target.value)
+            }} />
+          {budget && (
+            <p className="mt-1 text-xs font-medium" style={{ color: max > 0 ? "#0e58a8" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+              {t("typeContentOq.form.pointsMax", { n: max })}
+            </p>
+          )}
+        </div>
+
+        <GradeBudgetLine budget={budget} part={part} excludeId={item.id} points={value} />
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2.5 rounded-[8px] text-sm font-medium"
+            style={{ color: "#445b7a", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
+            {t("common.cancel")}
+          </button>
+          <button onClick={save} disabled={saving}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium disabled:opacity-60"
+            style={{ backgroundColor: "#7c3aed", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {t("common.save")}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Jami ballni n ta ishga butun son qilib teng bo'lish: 15 / 6 → 3, 3, 3, 2, 2, 2 */
+function splitPoints(total: number, n: number): number[] {
+  const base = Math.floor(total / n)
+  const rest = total - base * n
+  return Array.from({ length: n }, (_, i) => base + (i < rest ? 1 : 0))
+}
+
+/* Bir guruh+fandagi ball qo'yilmagan eski mustaqil ishlarga jami ballni teng
+   taqsimlash — 6 ta mustaqil ish yuklagan o'qituvchi har biriga alohida
+   kirib o'tirmasin. */
+function MiDistributeModal({ target, groupName, onClose, onSaved }: {
+  target: { groupId: number; subjectName: string; items: TeacherContent[] }
+  groupName: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { t } = useLanguage()
+  const list = [...target.items].sort((a, b) => new Date(a.availableFrom).getTime() - new Date(b.availableFrom).getTime() || a.id - b.id)
+  const n = list.length
+  const [part, setPart] = useState(LECTURE_PART)
+  const [total, setTotal] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { budget } = useGradeBudget(target.groupId, target.subjectName)
+  const free = budget ? Math.min(PART_TOTAL, budgetFree(budget, part).free) : PART_TOTAL
+  const totalNum = total.trim() ? Number(total) : null
+  const valid = totalNum != null && Number.isInteger(totalNum) && totalNum >= n && totalNum <= free
+  const shares = valid ? splitPoints(totalNum, n) : []
+
+  async function save() {
+    if (!valid) {
+      setError(totalNum != null && totalNum < n ? t("typeContentOq.mi.distributeMin", { n }) : t("typeContentOq.err.enterPoints", { max: free }))
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      for (const [i, item] of list.entries()) {
+        await teachingApi.updateContent(item.id, { gradePoints: shares[i], gradePart: part })
+      }
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("typeContentOq.err.saveError"))
+      onSaved()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.35)" }}>
+      <div className="bg-white rounded-[14px] w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.mi.distributeTitle")}</h2>
+            <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{target.subjectName} · {groupName}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors">
+            <X className="w-5 h-5" style={{ color: "#7293b9" }} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="text-sm px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{error}</div>
+        )}
+
+        <div>
+          <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("fanResurslariOq.mi.part")}</label>
+          <div className="flex gap-2">
+            {[LECTURE_PART, PRACTICE_PART].map(p => (
+              <button key={p} type="button" onClick={() => setPart(p)}
+                className="flex-1 px-3 py-2 rounded-[8px] text-sm font-medium transition-colors"
+                style={{
+                  border: `1px solid ${part === p ? "#7c3aed" : "rgba(1,41,112,0.2)"}`,
+                  backgroundColor: part === p ? "#f5f3ff" : "transparent",
+                  color: part === p ? "#7c3aed" : "#445b7a",
+                  fontFamily: "var(--font-poppins)",
+                }}>
+                {t(p === LECTURE_PART ? "fanResurslariOq.trainingType.lecture" : "fanResurslariOq.trainingType.practice")}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.mi.distributeTotal", { n })}</label>
+          <input type="number" min={n} max={free} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
+            value={total} placeholder={String(Math.min(free, n * 2))}
+            onChange={e => {
+              const v = Number(e.target.value)
+              setTotal(e.target.value.trim() && Number.isFinite(v) && v > free ? String(free) : e.target.value)
+            }} />
+          {budget && (
+            <p className="mt-1 text-xs font-medium" style={{ color: free >= n ? "#0e58a8" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>
+              {t("typeContentOq.form.pointsMax", { n: free })}
+            </p>
+          )}
+        </div>
+
+        <GradeBudgetLine budget={budget} part={part} points={totalNum} />
+
+        <div className="flex flex-col gap-1 text-xs" style={{ fontFamily: "var(--font-poppins)" }}>
+          {list.map((item, i) => (
+            <div key={item.id} className="flex items-center gap-2 px-3 py-1.5 rounded-[6px]" style={{ backgroundColor: "#f8faff" }}>
+              <span className="font-semibold w-12 shrink-0" style={{ color: "#012970" }}>MI-{i + 1}</span>
+              <span className="flex-1 min-w-0 truncate" style={{ color: "#445b7a" }} title={item.title}>{item.title}</span>
+              <span className="shrink-0" style={{ color: "#7293b9" }}>
+                {t(item.type === "assignment" ? "typeContentOq.form.formatAssignment" : "typeContentOq.form.formatTest")}
+              </span>
+              <span className="w-14 shrink-0 text-right font-semibold" style={{ color: "#7c3aed" }}>
+                {shares.length ? t("gradeSplit.points", { n: shares[i] }) : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2.5 rounded-[8px] text-sm font-medium"
+            style={{ color: "#445b7a", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
+            {t("common.cancel")}
+          </button>
+          <button onClick={save} disabled={saving || !valid}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium disabled:opacity-60"
+            style={{ backgroundColor: "#7c3aed", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {t("common.save")}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
