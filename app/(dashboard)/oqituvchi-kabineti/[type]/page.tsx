@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import {
   Plus, X, Trash2, Pencil, FileText, Lock, CheckCircle2, Clock, Users, Loader2, Download,
-  Video, Link as LinkIcon, File as FileIcon, HelpCircle, Power, CalendarCheck, BarChart2, ArrowLeft,
+  Video, Link as LinkIcon, File as FileIcon, HelpCircle, Power, CalendarCheck, BarChart2, ArrowLeft, Upload,
   RefreshCw, ShieldAlert, ExternalLink, Copy, Search,
 } from "lucide-react"
 import {
@@ -2286,6 +2286,66 @@ function HemisControlPickerModal({
   )
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
+/* Fayl tanlash: tortib tashlash yoki bosib tanlash; tanlangach nomi va hajmi */
+function FilePickZone({ file, onChange, accept, hint, color = "#0e58a8" }: {
+  file: File | null
+  onChange: (file: File | null) => void
+  accept: string
+  hint?: string
+  color?: string
+}) {
+  const { t } = useLanguage()
+  const [over, setOver] = useState(false)
+
+  if (file) {
+    return (
+      <div className="flex items-center gap-3 px-3 py-2.5 rounded-[8px] bg-white" style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
+        <div className="w-9 h-9 rounded-[8px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0f5ff" }}>
+          <FileIcon className="w-4 h-4" style={{ color }} />
+        </div>
+        <div className="flex-1 min-w-0" style={{ fontFamily: "var(--font-poppins)" }}>
+          <div className="text-sm font-medium truncate" style={{ color: "#012970" }}>{file.name}</div>
+          <div className="text-[11px]" style={{ color: "#7293b9" }}>{formatFileSize(file.size)}</div>
+        </div>
+        <button type="button" onClick={() => onChange(null)} title={t("typeContentOq.form.remove")}
+          className="p-1.5 rounded-full transition-colors hover:bg-[#fef2f2]">
+          <X className="w-4 h-4" style={{ color: "#b91c1c" }} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <label
+      onDragOver={e => { e.preventDefault(); setOver(true) }}
+      onDragLeave={() => setOver(false)}
+      onDrop={e => {
+        e.preventDefault()
+        setOver(false)
+        const dropped = e.dataTransfer.files?.[0]
+        if (dropped) onChange(dropped)
+      }}
+      className="flex flex-col items-center justify-center gap-1 px-4 py-6 rounded-[10px] cursor-pointer text-center transition-colors"
+      style={{ border: `2px dashed ${over ? color : "rgba(14,88,168,0.3)"}`, backgroundColor: over ? "#eef4ff" : "#fff", fontFamily: "var(--font-poppins)" }}>
+      <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1" style={{ backgroundColor: "#f0f5ff" }}>
+        <Upload className="w-5 h-5" style={{ color }} />
+      </div>
+      <span className="text-sm font-medium" style={{ color: "#012970" }}>{t("typeContentOq.form.dropTitle")}</span>
+      <span className="text-xs" style={{ color: "#7293b9" }}>
+        {t("typeContentOq.form.dropOr")} <span className="font-semibold underline" style={{ color }}>{t("typeContentOq.form.dropChoose")}</span>
+      </span>
+      {hint && <span className="text-[11px] mt-1" style={{ color: "#94a3b8" }}>{hint}</span>}
+      <input type="file" accept={accept} className="hidden"
+        onChange={e => { onChange(e.target.files?.[0] ?? null); e.target.value = "" }} />
+    </label>
+  )
+}
+
 function ContentFormModal({
   config, groups, scheduleItems, form, setForm, editing, editingId = null, saving, error, note, onClose, onSubmit,
 }: {
@@ -2691,19 +2751,9 @@ function ContentFormModal({
                        t("typeContentOq.form.docDefault")}
                     </span>
                   </div>
-                  {form.docFile ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs truncate flex-1 min-w-0" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{form.docFile.name}</span>
-                      <button type="button" onClick={() => update("docFile", null)}
-                        className="text-xs px-2 py-0.5 rounded" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                        {t("typeContentOq.form.remove")}
-                      </button>
-                    </div>
-                  ) : (
-                    <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar"
-                      className="text-xs" style={{ fontFamily: "var(--font-poppins)", color: "#445b7a" }}
-                      onChange={e => update("docFile", e.target.files?.[0] ?? null)} />
-                  )}
+                  <FilePickZone file={form.docFile} onChange={f => update("docFile", f)}
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar"
+                    hint={t("typeContentOq.form.docHint")} />
                 </div>
               )}
 
@@ -2715,19 +2765,8 @@ function ContentFormModal({
                       {t("typeContentOq.form.video")}
                     </span>
                   </div>
-                  {form.videoFile ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs truncate flex-1 min-w-0" style={{ color: "#6d28d9", fontFamily: "var(--font-poppins)" }}>{form.videoFile.name}</span>
-                      <button type="button" onClick={() => update("videoFile", null)}
-                        className="text-xs px-2 py-0.5 rounded" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
-                        {t("typeContentOq.form.remove")}
-                      </button>
-                    </div>
-                  ) : (
-                    <input type="file" accept="video/*,.mp4,.avi,.mov,.mkv,.webm"
-                      className="text-xs" style={{ fontFamily: "var(--font-poppins)", color: "#445b7a" }}
-                      onChange={e => update("videoFile", e.target.files?.[0] ?? null)} />
-                  )}
+                  <FilePickZone file={form.videoFile} onChange={f => update("videoFile", f)} color="#7c3aed"
+                    accept="video/*,.mp4,.avi,.mov,.mkv,.webm" hint="MP4, MOV, AVI, MKV, WEBM" />
                 </div>
               )}
 

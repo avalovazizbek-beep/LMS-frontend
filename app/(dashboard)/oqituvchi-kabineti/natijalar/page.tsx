@@ -337,10 +337,10 @@ function GradeJournal({
   function exportCsv() {
     const header = [
       "#", t("natijalarOq.csvStudent"),
-      ...topics.map(tp => t("natijalarOq.csvTopicCol", { n: tp.idx })),
       `ON1 (/${scale.on1})`, `ON2 (/${scale.on2})`,
       ...lectureMi.map(c => `${c.label} (/${c.points})`),
       `${t("natijalarOq.colLecture")} (/${lectureMax})`,
+      ...topics.map(tp => t("natijalarOq.csvTopicCol", { n: tp.idx })),
       `JN (/${scale.jn})`,
       ...practiceMi.map(c => `${c.label} (/${c.points})`),
       `${t("natijalarOq.colPractice")} (/${practiceMax})`,
@@ -353,8 +353,8 @@ function GradeJournal({
       return [
         i + 1,
         s.fullName,
-        ...topics.map(tp => s.topicPoints?.[tp.key] ?? s.topicScores[tp.key] ?? ""),
         r.on1 ?? "", r.on2 ?? "", ...lectureMi.map(c => r.mi(c) ?? ""), r.lecture ?? "",
+        ...topics.map(tp => s.topicPoints?.[tp.key] ?? s.topicScores[tp.key] ?? ""),
         s.jn ?? "", ...practiceMi.map(c => r.mi(c) ?? ""), r.practice ?? "",
         r.joriy ?? "", r.yn ?? "", r.ball ?? "", r.baho ?? "",
         s.attendancePct !== null ? `${s.attendancePct}%` : "",
@@ -367,6 +367,13 @@ function GradeJournal({
     a.download = `jurnal_${subjectName}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
+
+  const colTh = (col: { key: string; label: string; title?: string; bg: string; br: string }) => (
+    <th key={col.key} title={col.title} className="px-2 py-2 text-center text-[10px] font-semibold"
+      style={{ ...T, minWidth: 50, backgroundColor: col.bg, borderRight: `1px solid ${col.br}` }}>
+      {col.label}
+    </th>
+  )
 
   return (
     <div className="flex flex-col gap-4">
@@ -442,14 +449,10 @@ function GradeJournal({
                   style={{ ...T, backgroundColor: "#e8f0fe", minWidth: 190, borderRight: "2px solid rgba(1,41,112,0.15)" }}>
                   {t("natijalarOq.colStudent")}
                 </th>
-                {topics.length > 0 && (
-                  <th colSpan={topics.length} className="px-2 py-1.5 text-center text-xs font-semibold"
-                    style={{ ...T, borderRight: "2px solid rgba(1,41,112,0.15)", backgroundColor: "#dbeafe" }}>
-                    {t("natijalarOq.colPracticeTopics")}
-                  </th>
-                )}
                 {[
                   { label: t("natijalarOq.colLecture"),  span: 3 + lectureMi.length, bg: "#fef9c3" },
+                  // Amaliy mavzular (har birining JN'dagi bali) — ma'ruzadan keyin, amaliyot jamidan oldin
+                  ...(topics.length ? [{ label: t("natijalarOq.colPracticeTopics"), span: topics.length, bg: "#dbeafe" }] : []),
                   { label: t("natijalarOq.colPractice"), span: 2 + practiceMi.length, bg: "#dcfce7" },
                   { label: t("natijalarOq.colJoriy"),    span: 1, bg: "#e0e7ff" },
                   { label: t("natijalarOq.colYn"),       span: 1, bg: "#fce7f3" },
@@ -465,6 +468,12 @@ function GradeJournal({
               </tr>
               {/* 2-qator: har bir ustun */}
               <tr style={{ backgroundColor: "#f0f5ff", borderBottom: "2px solid rgba(1,41,112,0.12)" }}>
+                {[
+                  { key: "on1",   label: `ON1 /${scale.on1}`,   bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
+                  { key: "on2",   label: `ON2 /${scale.on2}`,   bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
+                  ...lectureMi.map(c => ({ key: `mi-${c.id}`, label: `${c.label} /${c.points}`, title: c.title, bg: "#fefce8", br: "rgba(1,41,112,0.08)" })),
+                  { key: "lecture", label: `${t("natijalarOq.colPartTotal")} /${lectureMax}`, bg: "#fef9c3", br: "rgba(1,41,112,0.15)" },
+                ].map(colTh)}
                 {topics.map(tp => (
                   <th key={tp.key}
                     className="px-1 py-2 text-center text-[10px] font-semibold"
@@ -479,10 +488,6 @@ function GradeJournal({
                   </th>
                 ))}
                 {[
-                  { key: "on1",   label: `ON1 /${scale.on1}`,   bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
-                  { key: "on2",   label: `ON2 /${scale.on2}`,   bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
-                  ...lectureMi.map(c => ({ key: `mi-${c.id}`, label: `${c.label} /${c.points}`, title: c.title, bg: "#fefce8", br: "rgba(1,41,112,0.08)" })),
-                  { key: "lecture", label: `${t("natijalarOq.colPartTotal")} /${lectureMax}`, bg: "#fef9c3", br: "rgba(1,41,112,0.15)" },
                   { key: "jn",    label: `JN /${scale.jn}`,     bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" },
                   ...practiceMi.map(c => ({ key: `mi-${c.id}`, label: `${c.label} /${c.points}`, title: c.title, bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" })),
                   { key: "practice", label: `${t("natijalarOq.colPartTotal")} /${practiceMax}`, bg: "#dcfce7", br: "rgba(1,41,112,0.15)" },
@@ -492,12 +497,7 @@ function GradeJournal({
                   { key: "baho",  label: "2–5",                 bg: "#f5f3ff", br: "rgba(1,41,112,0.12)" },
                   { key: "att",   label: t("natijalarOq.colAttendanceShort"), bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" },
                   { key: "bell",  label: "📣",                  bg: "#fff7ed", br: "transparent" },
-                ].map((col: { key: string; label: string; title?: string; bg: string; br: string }) => (
-                  <th key={col.key} title={col.title} className="px-2 py-2 text-center text-[10px] font-semibold"
-                    style={{ ...T, minWidth: 50, backgroundColor: col.bg, borderRight: `1px solid ${col.br}` }}>
-                    {col.label}
-                  </th>
-                ))}
+                ].map(colTh)}
               </tr>
             </thead>
 
@@ -530,18 +530,18 @@ function GradeJournal({
                     </div>
                   </td>
 
+                  {/* Ma'ruza: ON1, ON2, ma'ruzadan mustaqil ishlar, jami */}
+                  <EditCell value={r.on1} maxVal={scale.on1} source={getSource(s.userId, "on1", s)} onSave={v => save(s.userId, "ON1", v)} />
+                  <EditCell value={r.on2} maxVal={scale.on2} source={getSource(s.userId, "on2", s)} onSave={v => save(s.userId, "ON2", v)} />
+                  {lectureMi.map(c => <BallCell key={c.id} value={r.mi(c)} max={c.points} />)}
+                  <BallCell value={r.lecture} max={lectureMax} />
+
                   {/* Amaliy topshiriqlar — har birining JN'dagi bali (ulush × foiz) */}
                   {topics.map(tp => (
                     <TopicCell key={tp.key}
                       score={s.topicPoints ? s.topicPoints[tp.key] ?? null : s.topicScores[tp.key] ?? null}
                       max={tp.points ?? tp.maxScore} />
                   ))}
-
-                  {/* Ma'ruza: ON1, ON2, ma'ruzadan mustaqil ishlar, jami */}
-                  <EditCell value={r.on1} maxVal={scale.on1} source={getSource(s.userId, "on1", s)} onSave={v => save(s.userId, "ON1", v)} />
-                  <EditCell value={r.on2} maxVal={scale.on2} source={getSource(s.userId, "on2", s)} onSave={v => save(s.userId, "ON2", v)} />
-                  {lectureMi.map(c => <BallCell key={c.id} value={r.mi(c)} max={c.points} />)}
-                  <BallCell value={r.lecture} max={lectureMax} />
 
                   {/* Amaliyot: JN, amaliyotdan mustaqil ishlar, jami */}
                   <BallCell value={s.jn} max={scale.jn} />
