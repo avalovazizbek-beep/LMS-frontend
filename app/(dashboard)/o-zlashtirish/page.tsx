@@ -1,14 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ChevronUp, GraduationCap, BookOpen, BarChart3 } from "lucide-react"
+import { ChevronDown, ChevronUp, GraduationCap, BarChart3 } from "lucide-react"
 import { hemisApi, teachingApi, type HemisPerformance, type TeacherContent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-import { GradeBreakdown } from "@/components/teaching/GradeBreakdown"
 import { JournalRowTable } from "@/components/teaching/JournalRowTable"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
@@ -95,58 +94,11 @@ function SemesterAccordion({ code, semId, open, onToggle }: { code: number; semI
   )
 }
 
-/* ─── Mavzu natijalari ────────────────────────────────────────────────── */
-function pctColor(pct: number | null): string {
-  if (pct === null) return "#94a3b8"
-  if (pct >= 86) return "#15803d"
-  if (pct >= 71) return "#16a34a"
-  if (pct >= 56) return "#d97706"
-  return "#b91c1c"
-}
-function pctBg(pct: number | null): string {
-  if (pct === null) return "transparent"
-  if (pct >= 71) return "rgba(21,128,61,0.09)"
-  if (pct >= 56) return "rgba(217,119,6,0.09)"
-  return "rgba(185,28,28,0.09)"
-}
-
 /* ─── Jurnaldagi baholar: o'qituvchi jurnalidagi qator bilan bir xil jadval
-   (ma'ruza / amaliy mavzular / amaliyot / joriy / yakuniy / ball / baho)
-   va ostida batafsil — har topshiriq, oraliq va mustaqil ishdan olgan bali ── */
+   (ma'ruza / amaliy mavzular / amaliyot / joriy / yakuniy / ball / baho) ── */
 function MyJournal({ subjectName }: { subjectName: string }) {
   const { t } = useLanguage()
-  const { data } = useApi(() => teachingApi.myJournal(subjectName), [subjectName])
-  const [showDetails, setShowDetails] = useState(true)
-  const journal = data?.data
-  const me = journal?.students[0]
-  if (!journal || !me) return null
-  return (
-    <div className="flex flex-col gap-3">
-      <JournalRowTable data={journal} student={me} />
-      <button onClick={() => setShowDetails(v => !v)}
-        className="flex items-center gap-1.5 w-fit text-sm font-semibold" style={T}>
-        {showDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        {t("ozlashtirish.breakdownTitle")}
-      </button>
-      {showDetails && <GradeBreakdown data={journal} student={me} />}
-    </div>
-  )
-}
-
-function TopicResultsPanel({ subjectName }: { subjectName: string }) {
-  const { t } = useLanguage()
-  const { data, loading, error, refetch } = useApi(
-    () => teachingApi.myTopicScores(subjectName),
-    [subjectName]
-  )
-  const topics = data?.data?.topics ?? []
-  const on1 = data?.data?.on1 ?? null
-  const on2 = data?.data?.on2 ?? null
-  const yn  = data?.data?.yn  ?? null
-  // Mustaqil ishlar balli — fanda ball qo'yilgan mustaqil ish bo'lsagina
-  const mi    = data?.data?.mi ?? null
-  const miMax = data?.data?.scale?.mi ?? 0
-
+  const { data, loading, error, refetch } = useApi(() => teachingApi.myJournal(subjectName), [subjectName])
   if (loading) return (
     <div className="flex items-center justify-center py-10 gap-2" style={L}>
       <div className="w-5 h-5 border-2 border-[#0e58a8] border-t-transparent rounded-full animate-spin" />
@@ -154,105 +106,10 @@ function TopicResultsPanel({ subjectName }: { subjectName: string }) {
     </div>
   )
   if (error) return <ApiError message={error} onRetry={refetch} />
-  if (topics.length === 0) return (
-    <div className="flex flex-col gap-4">
-      <div className="py-10 text-center">
-        <BookOpen className="w-8 h-8 mx-auto mb-2" style={{ color: "#d8e6f7" }} />
-        <p className="text-sm" style={L}>{t("ozlashtirish.noTopicsForSubject")}</p>
-      </div>
-    </div>
-  )
-
-  const totalEarned = topics.reduce((sum, t) => sum + (t.score ?? 0), 0)
-  const totalMax = topics.reduce((sum, t) => sum + (t.maxScore > 0 ? t.maxScore : 0), 0)
-
-  // Average per-topic percentage (only submitted topics); default max to 100 when not set
-  const submittedPcts = topics
-    .filter(t => t.score !== null && t.score !== undefined)
-    .map(t => {
-      const max = t.maxScore > 0 ? t.maxScore : 100
-      return Math.min(100, Math.round((t.score! / max) * 1000) / 10)
-    })
-  const jnPct = submittedPcts.length > 0
-    ? Math.round(submittedPcts.reduce((a, b) => a + b, 0) / submittedPcts.length * 10) / 10
-    : null
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Stat cards */}
-      <div className={`grid grid-cols-2 ${miMax > 0 ? "sm:grid-cols-5" : "sm:grid-cols-4"} gap-3`}>
-        {[
-          { label: t("ozlashtirish.topicsCount"), val: topics.length, color: "#0e58a8", bg: "#eef4ff" },
-          { label: t("ozlashtirish.jnIndicator"), val: jnPct !== null ? `${jnPct}%` : "—", color: jnPct !== null ? pctColor(jnPct) : "#94a3b8", bg: jnPct !== null ? pctBg(jnPct) : "transparent" },
-          { label: t("ozlashtirish.onAverage"), val: on1 !== null || on2 !== null ? `${(((on1 ?? 0) + (on2 ?? 0)) / 2).toFixed(1)}` : "—", color: "#d97706", bg: "#fffbeb" },
-          ...(miMax > 0 ? [{ label: t("ozlashtirish.independentWork"), val: mi !== null ? `${mi}/${miMax}` : "—", color: "#9333ea", bg: "#faf5ff" }] : []),
-          { label: t("ozlashtirish.finalYn"), val: yn !== null ? String(yn) : "—", color: "#7c3aed", bg: "#f5f3ff" },
-        ].map(c => (
-          <div key={c.label} className="rounded-[10px] bg-white p-4"
-            style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
-            <div className="text-lg font-bold" style={{ color: c.color, fontFamily: "var(--font-poppins)" }}>{c.val}</div>
-            <div className="text-xs mt-0.5" style={L}>{c.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Topics table */}
-      <div className="rounded-[10px] bg-white overflow-hidden"
-        style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr style={{ backgroundColor: "#e8f0fe", borderBottom: "1px solid rgba(1,41,112,0.12)" }}>
-                <th className="px-4 py-3 text-left text-xs font-semibold" style={T}>{t("ozlashtirish.col.hash")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold" style={T}>{t("ozlashtirish.col.topic")}</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold" style={T}>{t("ozlashtirish.col.maxScore")}</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold" style={T}>{t("ozlashtirish.col.yourScore")}</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold" style={T}>{t("ozlashtirish.col.percent")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topics.map((t, i) => {
-                const pct = t.maxScore > 0 && t.score !== null ? Math.round((t.score / t.maxScore) * 100) : null
-                const c = pctColor(pct)
-                const bg = pctBg(pct)
-                return (
-                  <tr key={t.key} className="hover:bg-[#f8faff]"
-                    style={{ borderBottom: "1px solid rgba(1,41,112,0.05)" }}>
-                    <td className="px-4 py-3 text-sm" style={L}>{t.idx}</td>
-                    <td className="px-4 py-3 text-sm font-medium" style={T}>{t.title}</td>
-                    <td className="px-4 py-3 text-sm text-center" style={L}>{t.maxScore > 0 ? t.maxScore : "—"}</td>
-                    <td className="px-4 py-3 text-center">
-                      {t.score !== null ? (
-                        <span className="inline-block min-w-[36px] rounded-[4px] text-xs font-semibold px-1.5 py-0.5"
-                          style={{ color: c, backgroundColor: bg, fontFamily: "var(--font-poppins)" }}>
-                          {t.score}
-                        </span>
-                      ) : (
-                        <span style={{ color: "#d1d5db", fontSize: 13 }}>—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {pct !== null ? (
-                        <span className="inline-block min-w-[44px] rounded-[4px] text-xs font-semibold px-1.5 py-0.5"
-                          style={{ color: c, backgroundColor: bg, fontFamily: "var(--font-poppins)" }}>
-                          {pct}%
-                        </span>
-                      ) : (
-                        <span style={{ color: "#d1d5db", fontSize: 13 }}>—</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-4 py-2.5 text-xs" style={{ borderTop: "1px solid rgba(1,41,112,0.08)", ...L }}>
-          {t("ozlashtirish.totalSummary", { n: topics.length, earned: totalEarned, max: totalMax })}
-        </div>
-      </div>
-    </div>
-  )
+  const journal = data?.data
+  const me = journal?.students[0]
+  if (!journal || !me) return null
+  return <JournalRowTable data={journal} student={me} />
 }
 
 /* ─── Bosh sahifa ─────────────────────────────────────────────────────── */
@@ -321,10 +178,7 @@ export default function Ozlashtirish() {
           </div>
 
           {selectedSubject ? (
-            <>
-              <MyJournal subjectName={selectedSubject} />
-              <TopicResultsPanel subjectName={selectedSubject} />
-            </>
+            <MyJournal subjectName={selectedSubject} />
           ) : (
             <div className="rounded-[10px] bg-white p-14 text-center"
               style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
