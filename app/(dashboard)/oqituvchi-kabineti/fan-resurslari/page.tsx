@@ -1,6 +1,7 @@
 "use client"
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
@@ -797,6 +798,10 @@ const TRAINING_TYPE_OPTIONS = [
   { value: "Ma'ruza", labelKey: "fanResurslariOq.trainingType.lecture" },
   { value: "Amaliyot", labelKey: "fanResurslariOq.trainingType.practice" },
 ] as const
+
+function isOldMustaqil(trainingType: string | null | undefined): boolean {
+  return /mustaqil/i.test(trainingType ?? "")
+}
 
 /* Boshqa (qo'shimcha) guruhda shu nomdagi VA shu mashg'ulot turidagi mavzu
    bo'lmasa yaratadi, bo'lsa uning topicKey'ini qaytaradi — parallel
@@ -2438,16 +2443,21 @@ export default function FanResurslariPage() {
     [groups]
   )
   const overviewTopics = useMemo(() => buildOverviewTopics(mineRes?.data ?? [], groupOrder), [mineRes, groupOrder])
+  // Eski "Mustaqil ish" mavzulari — endi baholanmaydi (mustaqil ish Nazoratlar
+  // bo'limida yaratiladi); o'qituvchi ularni shu ro'yxatdan topib o'chiradi
+  const oldMiCount = useMemo(() => overviewTopics.filter(o => isOldMustaqil(o.topic.trainingType)).length, [overviewTopics])
+  const [onlyOldMi, setOnlyOldMi] = useState(false)
   const filteredOverview = useMemo(() => {
     const yearGroupIds = new Set(displayGroups.map(g => g.id))
     return overviewTopics.filter(o => {
       const gids = o.topic.instances.map(i => i.groupId)
+      if (onlyOldMi && !isOldMustaqil(o.topic.trainingType)) return false
       if (academicYear && !gids.some(g => yearGroupIds.has(g))) return false
       if (groupIds.length && !gids.some(g => groupIds.includes(g))) return false
       if (subjectName && o.subjectName !== subjectName) return false
       return true
     })
-  }, [overviewTopics, academicYear, displayGroups, groupIds, subjectName])
+  }, [overviewTopics, academicYear, displayGroups, groupIds, subjectName, onlyOldMi])
   const [overviewSort, setOverviewSort] = useState<OverviewSort>("type")
   const sortedOverview = useMemo(() => sortOverview(filteredOverview, overviewSort), [filteredOverview, overviewSort])
   // Jadvalda bosilgan mavzu — katagi alohida oynada ochiladi
@@ -2954,6 +2964,26 @@ export default function FanResurslariPage() {
             <TeacherCertificateCard refreshKey={mineRes} />
 
             {opBanners}
+
+            {oldMiCount > 0 && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-[10px] text-xs flex-wrap"
+                style={{ backgroundColor: "#fff7ed", border: "1px solid rgba(146,64,14,0.2)", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                <span className="flex-1 min-w-[260px]">{t("fanResurslariOq.oldMi.notice", { n: oldMiCount })}</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button onClick={() => setOnlyOldMi(v => !v)}
+                    className="px-3 py-1.5 rounded-[6px] font-semibold transition-colors"
+                    style={onlyOldMi
+                      ? { backgroundColor: "#c2410c", color: "#fff" }
+                      : { backgroundColor: "#fff", color: "#c2410c", border: "1px solid rgba(194,65,12,0.35)" }}>
+                    {onlyOldMi ? t("fanResurslariOq.oldMi.showAll") : t("fanResurslariOq.oldMi.showOnly", { n: oldMiCount })}
+                  </button>
+                  <Link href="/oqituvchi-kabineti/oraliq-nazorat"
+                    className="px-3 py-1.5 rounded-[6px] font-semibold text-white" style={{ backgroundColor: "#7c3aed" }}>
+                    {t("fanResurslariOq.oldMi.goControls")}
+                  </Link>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-[12px] bg-white overflow-hidden"
               style={{ border: "1px solid rgba(1,41,112,0.08)", boxShadow: "0 1px 4px rgba(1,41,112,0.06)" }}>
