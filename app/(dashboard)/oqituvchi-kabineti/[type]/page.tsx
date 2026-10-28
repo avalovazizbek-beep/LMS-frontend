@@ -27,7 +27,8 @@ import { Loading, ApiError } from "@/components/ui/ApiState"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
 import { ViolationChips } from "@/components/teaching/ViolationChips"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-import { GradeBudgetLine, useGradeBudget, oraliqPoints, LECTURE_PART, PART_TOTAL } from "@/components/teaching/GradeBudgetLine"
+import { GradeBudgetLine, useGradeBudget, oraliqPoints, LECTURE_PART, PRACTICE_PART, PART_TOTAL } from "@/components/teaching/GradeBudgetLine"
+import { MUSTAQIL_CONTROL } from "@/lib/controlWork"
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
 
@@ -1034,6 +1035,10 @@ interface FormState {
   format: "test" | "assignment"
   /** Oraliq balli — ma'ruzaning 35 balidan ulush */
   gradePoints: string
+  /** Oraliq nazorat yoki mustaqil ish — ikkalasi shu sahifada yaratiladi */
+  controlKind: "oraliq" | "mustaqil"
+  /** Mustaqil ish qaysi qism hisobidan: Ma'ruza / Amaliyot */
+  gradePart: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -1060,6 +1065,8 @@ const EMPTY_FORM: FormState = {
   attemptsCount: "1",
   format: "test",
   gradePoints: "",
+  controlKind: "oraliq",
+  gradePart: LECTURE_PART,
 }
 
 export default function TeacherContentTypePage() {
@@ -1092,6 +1099,10 @@ export default function TeacherContentTypePage() {
     if (!config || config.filterControlType === undefined) return all
     if (config.filterControlType === null) {
       return all.filter(i => !i.controlType)
+    }
+    // Oraliq sahifasida mustaqil ishlar ham turadi — hammasi bir joyda
+    if (config.filterControlType === "oraliq") {
+      return all.filter(i => i.controlType === "oraliq" || i.controlType === MUSTAQIL_CONTROL)
     }
     return all.filter(i => i.controlType === config.filterControlType)
   }, [contentRes, config])
@@ -1228,6 +1239,8 @@ export default function TeacherContentTypePage() {
       attemptsCount: item.attemptsCount != null ? String(item.attemptsCount) : "1",
       format: item.type === "assignment" ? "assignment" : "test",
       gradePoints: oraliqPoints(item) != null ? String(oraliqPoints(item)) : "",
+      controlKind: item.controlType === MUSTAQIL_CONTROL ? "mustaqil" : "oraliq",
+      gradePart: item.gradePart === PRACTICE_PART ? PRACTICE_PART : LECTURE_PART,
     })
     setFormError(null)
     setShowForm(true)
@@ -1255,8 +1268,10 @@ export default function TeacherContentTypePage() {
     // Oraliq/yakuniy nazorat: tugash vaqti majburiy, oraliqda ON1/ON2 tanlanadi
     const isControl = config!.filterControlType === "oraliq" || config!.filterControlType === "yakuniy"
     const isOraliq = config!.filterControlType === "oraliq"
+    // Shu sahifadagi mustaqil ish: ON o'rni yo'q, ball ma'ruza yoki amaliyotdan
+    const isMi = isOraliq && form.controlKind === "mustaqil"
     if (isControl && !deadline) { setFormError(t("typeContentOq.err.enterDeadline")); return }
-    if (isOraliq && !form.slot) { setFormError(t("typeContentOq.err.selectSlot")); return }
+    if (isOraliq && !isMi && !form.slot) { setFormError(t("typeContentOq.err.selectSlot")); return }
     const attempts = Math.max(1, Math.round(Number(form.attemptsCount) || 1))
     // Oraliq: ball (ma'ruzaning 35 balidan) majburiy; topshiriq shaklida — fayl yoki tavsif
     const points = Number(form.gradePoints)
@@ -1289,7 +1304,8 @@ export default function TeacherContentTypePage() {
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
           meetingLink: form.meetingLink.trim() || null,
           ...(isControl && !isTask ? { attemptsCount: attempts } : {}),
-          ...(isOraliq ? { kind: form.slot } : {}),
+          ...(isOraliq && !isMi ? { kind: form.slot } : {}),
+          ...(isMi ? { gradePart: form.gradePart } : {}),
         })
       } else {
         const created = await teachingApi.createContent({
@@ -1298,8 +1314,9 @@ export default function TeacherContentTypePage() {
           subjectName: form.subjectName.trim(),
           title: form.title.trim(),
           description: form.description.trim() || undefined,
-          kind: config!.type === "lesson" ? form.kind : isOraliq ? form.slot : undefined,
-          controlType: config!.filterControlType ?? undefined,
+          kind: config!.type === "lesson" ? form.kind : isOraliq && !isMi ? form.slot : undefined,
+          controlType: isMi ? MUSTAQIL_CONTROL : config!.filterControlType ?? undefined,
+          gradePart: isMi ? form.gradePart : undefined,
           availableFrom: availableFrom ?? new Date().toISOString(),
           deadline: deadline,
           // Oraliq topshirig'i 0..ball oralig'ida baholanadi; test 100 ballikda
@@ -1359,6 +1376,7 @@ export default function TeacherContentTypePage() {
             {config.subtitle}
           </p>
         </div>
+        <div className="flex items-center gap-2 flex-wrap">
         {!config.readOnly && (config.type === "lesson" ? (
           <Link
             href="/xodim/fan-resurslari/yaratish"
@@ -1378,6 +1396,18 @@ export default function TeacherContentTypePage() {
             {t("typeContentOq.addNew")}
           </button>
         ))}
+        {/* Mustaqil ish ham shu yerda — oraliq bilan bir joyda */}
+        {!config.readOnly && config.filterControlType === "oraliq" && (
+          <button
+            onClick={() => openCreateForm({ controlKind: "mustaqil" })}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium"
+            style={{ backgroundColor: "#7c3aed", color: "#fff", fontFamily: "var(--font-poppins)" }}
+          >
+            <Plus className="w-4 h-4" />
+            {t("typeContentOq.addMi")}
+          </button>
+        )}
+        </div>
       </div>
 
       {loading ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : items.length === 0 ? (
@@ -1402,7 +1432,12 @@ export default function TeacherContentTypePage() {
                     <div>
                       <div className="text-base font-semibold flex items-center gap-2 flex-wrap" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                         {item.title}
-                        {config.filterControlType === "oraliq" && (
+                        {config.filterControlType === "oraliq" && item.controlType === MUSTAQIL_CONTROL && (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ color: "#9333ea", backgroundColor: "#faf5ff" }}>
+                            {t("typeContentOq.badgeMi")} · {t(item.gradePart === PRACTICE_PART ? "fanResurslariOq.trainingType.practice" : "fanResurslariOq.trainingType.lecture")}
+                          </span>
+                        )}
+                        {config.filterControlType === "oraliq" && item.controlType !== MUSTAQIL_CONTROL && (
                           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
                             style={{ color: item.kind === "ON1" || item.kind === "ON2" ? "#7c3aed" : "#b91c1c", backgroundColor: item.kind === "ON1" || item.kind === "ON2" ? "#f5f3ff" : "#fef2f2" }}>
                             {item.kind === "ON1" || item.kind === "ON2" ? item.kind : t("typeContentOq.slot.missing")}
@@ -1984,6 +2019,8 @@ function ContentFormModal({
   const isControl = isOraliq || config.filterControlType === "yakuniy"
   // Oraliq topshiriq shaklida: test sozlamalari o'rniga fayl; ball ma'ruzaning 35 balidan
   const isTask    = isOraliq && form.format === "assignment"
+  const isMi      = isOraliq && form.controlKind === "mustaqil"
+  const budgetPart = isMi ? form.gradePart : LECTURE_PART
   const { budget } = useGradeBudget(isOraliq ? form.groupId : null, isOraliq ? form.subjectName : null)
   const pointsValue = form.gradePoints.trim() ? Number(form.gradePoints) : null
 
@@ -2020,7 +2057,7 @@ function ContentFormModal({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-              {editing ? t("typeContentOq.form.editTitle") : t("typeContentOq.form.newTitle", { item: config.itemLabel })}
+              {editing ? t("typeContentOq.form.editTitle") : t("typeContentOq.form.newTitle", { item: isMi ? t("typeContentOq.miItemLabel") : config.itemLabel })}
             </h2>
             {!editing && (
               <p className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
@@ -2131,19 +2168,44 @@ function ContentFormModal({
             </div>
           )}
 
-          {/* Oraliq balli — ma'ruzaning 35 balidan; qancha band / qolgani ko'rinib turadi */}
+          {/* Mustaqil ish: qaysi qism hisobidan — ma'ruza yoki amaliyot */}
+          {isMi && (
+            <div className="col-span-2 sm:col-span-1">
+              <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("fanResurslariOq.mi.part")}</label>
+              <div className="flex gap-2">
+                {[LECTURE_PART, PRACTICE_PART].map(p => {
+                  const active = form.gradePart === p
+                  return (
+                    <button key={p} type="button" onClick={() => update("gradePart", p)}
+                      className="flex-1 px-3 py-2 rounded-[8px] text-sm font-medium transition-colors"
+                      style={{
+                        border: `1px solid ${active ? "#7c3aed" : "rgba(1,41,112,0.2)"}`,
+                        backgroundColor: active ? "#f5f3ff" : "transparent",
+                        color: active ? "#7c3aed" : "#445b7a",
+                        fontFamily: "var(--font-poppins)",
+                      }}>
+                      {t(p === LECTURE_PART ? "fanResurslariOq.trainingType.lecture" : "fanResurslariOq.trainingType.practice")}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Oraliq / mustaqil ish balli — 35 balldan; qancha band / qolgani ko'rinib turadi */}
           {isOraliq && (
             <>
               <div className="col-span-2 sm:col-span-1">
                 <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
-                  {form.slot ? t("typeContentOq.form.gradePointsSlot", { n: form.slot === "ON1" ? 1 : 2, total: PART_TOTAL }) : t("typeContentOq.form.gradePoints")}
+                  {isMi ? t("fanResurslariOq.mi.points", { total: PART_TOTAL })
+                    : form.slot ? t("typeContentOq.form.gradePointsSlot", { n: form.slot === "ON1" ? 1 : 2, total: PART_TOTAL }) : t("typeContentOq.form.gradePoints")}
                 </label>
                 <input type="number" min={1} max={PART_TOTAL} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                   value={form.gradePoints} onChange={e => update("gradePoints", e.target.value)} placeholder="10" />
               </div>
               {form.groupId && form.subjectName && (
                 <div className="col-span-2">
-                  <GradeBudgetLine budget={budget} part={LECTURE_PART} excludeId={editingId} points={pointsValue} />
+                  <GradeBudgetLine budget={budget} part={budgetPart} excludeId={editingId} points={pointsValue} />
                 </div>
               )}
             </>
@@ -2168,8 +2230,8 @@ function ContentFormModal({
             </div>
           )}
 
-          {/* Oraliq: jurnaldagi o'rni — ON1 (17 ball) yoki ON2 (18 ball) */}
-          {isOraliq && (
+          {/* Oraliq: jurnaldagi o'rni — ON1 yoki ON2 (mustaqil ishda yo'q) */}
+          {isOraliq && !isMi && (
             <div className="col-span-2 sm:col-span-1">
               <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.slot")}</label>
               <select className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
@@ -2264,7 +2326,7 @@ function ContentFormModal({
 
           {isControl && !editing && (
             <p className="col-span-2 text-xs px-3 py-2 rounded-[8px]" style={{ color: "#0e58a8", backgroundColor: "#f0f5ff", fontFamily: "var(--font-poppins)" }}>
-              {t(isTask ? "typeContentOq.form.oraliqTaskHint" : isOraliq ? "typeContentOq.form.oraliqHint" : "typeContentOq.form.controlHint")}
+              {t(isMi ? "typeContentOq.form.miHint" : isTask ? "typeContentOq.form.oraliqTaskHint" : isOraliq ? "typeContentOq.form.oraliqHint" : "typeContentOq.form.controlHint")}
             </p>
           )}
 

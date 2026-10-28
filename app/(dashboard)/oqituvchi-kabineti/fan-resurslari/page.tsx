@@ -5,7 +5,7 @@ import {
   Video, Music, BookOpen, HelpCircle, ClipboardList, Library,
   Upload, Trash2, CheckCircle2, Loader2, ExternalLink,
   BookMarked, CalendarDays, VideoIcon, Save, BarChart3,
-  Check, X, Users, ChevronLeft, ChevronDown, ChevronUp, CirclePlus, Pencil, Plus, Clock, Link2, FolderOpen, ArrowRightLeft, Award,
+  Check, X, Users, ChevronLeft, ChevronDown, ChevronUp, CirclePlus, Pencil, Plus, Clock, Link2, FolderOpen, ArrowRightLeft,
 } from "lucide-react"
 import {
   teachingApi, meetingsApi, zoomApi, googleMeetApi, authApi,
@@ -21,9 +21,6 @@ import { RetakeTable } from "@/components/teaching/RetakeTable"
 import { TeacherCertificateCard } from "@/components/teaching/TeacherCertificate"
 import RichTextEditor from "@/components/ui/RichTextEditor"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-import {
-  GradeBudgetLine, useGradeBudget, budgetFree, isMustaqilType, LECTURE_PART, PRACTICE_PART, PART_TOTAL,
-} from "@/components/teaching/GradeBudgetLine"
 
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
@@ -791,12 +788,14 @@ const RESOURCE_TABS = [
 ] as const
 type TabKind = typeof RESOURCE_TABS[number]["kind"]
 
-/* ── Mashg'ulot turi (ma'ruza/amaliyot/mustaqil ish) — resurs qaysi mashg'ulot
-   uchun ekanini belgilash, resurs formatidan (video/hujjat/...) mustaqil ── */
+/* ── Mashg'ulot turi (ma'ruza/amaliyot) — resurs qaysi mashg'ulot uchun
+   ekanini belgilash, resurs formatidan (video/hujjat/...) mustaqil.
+   Mustaqil ish bu yerda yaratilmaydi — u Nazoratlar → Imtihonlar
+   ro'yxatida, oraliq bilan bir joyda. Avval yaratilgan "Mustaqil ish"
+   mavzulari ro'yxatda ko'rinadi va ochiladi (tanlovga qo'shib ko'rsatiladi). ── */
 const TRAINING_TYPE_OPTIONS = [
   { value: "Ma'ruza", labelKey: "fanResurslariOq.trainingType.lecture" },
   { value: "Amaliyot", labelKey: "fanResurslariOq.trainingType.practice" },
-  { value: "Mustaqil ish", labelKey: "fanResurslariOq.trainingType.independentStudy" },
 ] as const
 
 /* Boshqa (qo'shimcha) guruhda shu nomdagi VA shu mashg'ulot turidagi mavzu
@@ -875,7 +874,6 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
   const items = data?.data ?? []
   async function refetch() {
     await refetchPanel()
-    refetchBudget()
     onChanged()
   }
   const extraTopics = () => loadExtraTopics(extraGroupIds, sel.subjectName, sel.topicTitle, trainingType)
@@ -888,11 +886,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
     }
   }
 
-  // Mustaqil ishda faqat test yoki topshiriq bo'ladi (video/audio/taqdimot/qo'llanma yo'q)
-  const isMi = isMustaqilType(trainingType)
-  const tabs = isMi ? RESOURCE_TABS.filter(tb => tb.kind === "exam" || tb.kind === "assignment") : RESOURCE_TABS
-  const [selectedTab, setActiveTab] = useState<TabKind>(isMi ? "exam" : "video_lesson")
-  const activeTab: TabKind = tabs.some(tb => tb.kind === selectedTab) ? selectedTab : tabs[0].kind
+  const [activeTab, setActiveTab] = useState<TabKind>("video_lesson")
   const [uploadingKind, setUploadingKind] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [opErr, setOpErr] = useState<string | null>(null)
@@ -917,44 +911,6 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
   const meeting    = items.find(i => i.type === "mavzu" && i.kind === "meeting")
   const meetingLinks = items.filter(i => i.type === "mavzu" && i.kind === "uchrashuv")
   const topicMarker = items.find(i => i.type === "mavzu" && i.kind === "topic")
-
-  // Mustaqil ish bahosi: ma'ruza yoki amaliyotning 35 balidan ulush (jurnalda MI ustuni).
-  // Test yaratish / topshiriq yuklashdan oldin belgilanadi, keyin shu yerda o'zgartiriladi.
-  const miItem = test ?? assignment
-  const [miPart, setMiPart] = useState<string>(LECTURE_PART)
-  const [miPoints, setMiPoints] = useState("")
-  const [miSaving, setMiSaving] = useState(false)
-  const [miMsg, setMiMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  // Saqlangan qiymat o'zgarsa (boshqa mavzu, saqlash) — forma shunga qaytadi
-  const miSavedKey = `${miItem?.id ?? ""}:${miItem?.gradePoints ?? ""}:${miItem?.gradePart ?? ""}`
-  const [miSyncedKey, setMiSyncedKey] = useState("")
-  if (miSyncedKey !== miSavedKey) {
-    setMiSyncedKey(miSavedKey)
-    setMiPart(miItem?.gradePart === PRACTICE_PART ? PRACTICE_PART : LECTURE_PART)
-    setMiPoints(miItem?.gradePoints != null ? String(miItem.gradePoints) : "")
-  }
-  const { budget, refetch: refetchBudget } = useGradeBudget(isMi ? sel.groupId : null, isMi ? sel.subjectName : null)
-  const miPointsNum = miPoints.trim() ? Number(miPoints) : null
-  const miReady = !isMi || (miPointsNum != null && Number.isInteger(miPointsNum) && miPointsNum >= 1 &&
-    miPointsNum <= PART_TOTAL && miPointsNum <= budgetFree(budget, miPart, miItem?.id).free)
-  const miChanged = !!miItem && (miPointsNum !== miItem.gradePoints || miPart !== (miItem.gradePart === PRACTICE_PART ? PRACTICE_PART : LECTURE_PART))
-
-  async function saveMi() {
-    if (!miItem || !miReady) return
-    setMiSaving(true)
-    setMiMsg(null)
-    try {
-      const patch = { gradePoints: miPointsNum, gradePart: miPart }
-      await teachingApi.updateContent(miItem.id, patch)
-      await forEachExtraMatch(miItem, other => teachingApi.updateContent(other.id, patch))
-      await refetch()
-      setMiMsg({ ok: true, text: t("fanResurslariOq.mi.saved") })
-    } catch (e) {
-      setMiMsg({ ok: false, text: e instanceof Error ? e.message : t("fanResurslariOq.errors.saveError") })
-    } finally {
-      setMiSaving(false)
-    }
-  }
 
   const topicDeadline = effectiveDeadline(topicMarker?.deadline ?? null, items)
   const deadlinePassed = isPast(topicDeadline)
@@ -1108,10 +1064,8 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
      asosiy guruhdagi yangi yozuvni qaytaradi (test importi savollarini
      shunga yozadi). `extra` — test sozlamalari kabi qo'shimcha maydonlar. */
   async function createResource(
-    kind: string, type: "mavzu" | "exam" | "assignment", file: File | null, settings: ExamSettingsPatch = {}
+    kind: string, type: "mavzu" | "exam" | "assignment", file: File | null, extra: ExamSettingsPatch = {}
   ): Promise<TeacherContent | undefined> {
-    // Mustaqil ish testi/topshirig'i — belgilangan ball va qism bilan yaratiladi
-    const extra = isMi && type !== "mavzu" ? { ...settings, gradePoints: miPointsNum, gradePart: miPart } : settings
     const created = await teachingApi.createContent({
       type, groupId: sel.groupId, subjectName: sel.subjectName,
       topicKey: sel.topicKey, title: titleDraft.trim() || sel.topicTitle, description: descDraft || undefined, kind,
@@ -1164,7 +1118,6 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
      TestFileImport'ga qaytadi va o'sha yerda ko'rsatiladi. */
   async function importTestFile(questions: ExamQuestion[], patch: ExamSettingsPatch, mode: TestImportMode) {
     let target = test
-    if (!target && !miReady) throw new Error(t("fanResurslariOq.mi.needSettings"))
     if (!target) {
       target = await createResource("test", "exam", null, patch)
       if (!target) throw new Error(t("fanResurslariOq.errors.uploadError"))
@@ -1354,63 +1307,9 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
         </div>
       )}
 
-      {isMi && (
-        <div className="flex flex-col gap-3 px-4 py-3 rounded-[10px]" style={{ backgroundColor: "#faf5ff", border: "1px solid #e9d5ff" }}>
-          <div className="flex items-center gap-2">
-            <Award className="w-4 h-4" style={{ color: "#7c3aed" }} />
-            <span className="text-sm font-semibold" style={titleStyle}>{t("fanResurslariOq.mi.title")}</span>
-          </div>
-          <p className="text-xs" style={labelStyle}>{t("fanResurslariOq.mi.hint")}</p>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.mi.part")}</label>
-              <div className="flex gap-1">
-                {[LECTURE_PART, PRACTICE_PART].map(p => {
-                  const active = miPart === p
-                  return (
-                    <button key={p} type="button" onClick={() => { setMiPart(p); setMiMsg(null) }}
-                      className="px-3 py-1.5 rounded-[6px] text-sm font-medium transition-colors"
-                      style={{
-                        border: `1px solid ${active ? "#7c3aed" : "rgba(1,41,112,0.2)"}`,
-                        backgroundColor: active ? "#f5f3ff" : "#fff",
-                        color: active ? "#7c3aed" : "#445b7a",
-                        fontFamily: "var(--font-poppins)",
-                      }}>
-                      {t(p === LECTURE_PART ? "fanResurslariOq.trainingType.lecture" : "fanResurslariOq.trainingType.practice")}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.mi.points", { total: PART_TOTAL })}</label>
-              <input type="number" min={1} max={PART_TOTAL} value={miPoints} placeholder="5"
-                onChange={e => { setMiPoints(e.target.value); setMiMsg(null) }}
-                className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none bg-white"
-                style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
-            </div>
-            {miItem && (
-              <button onClick={saveMi} disabled={miSaving || !miReady || !miChanged}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-[6px] text-sm font-medium text-white disabled:opacity-60"
-                style={{ backgroundColor: "#7c3aed", fontFamily: "var(--font-poppins)" }}>
-                {miSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                {t("fanResurslariOq.form.saveMeta")}
-              </button>
-            )}
-          </div>
-          <GradeBudgetLine budget={budget} part={miPart} excludeId={miItem?.id} points={miPointsNum} />
-          {!miItem && !miReady && (
-            <p className="text-xs font-medium" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>{t("fanResurslariOq.mi.needSettings")}</p>
-          )}
-          {miMsg && (
-            <p className="text-xs font-medium" style={{ color: miMsg.ok ? "#15803d" : "#b91c1c", fontFamily: "var(--font-poppins)" }}>{miMsg.text}</p>
-          )}
-        </div>
-      )}
-
       {/* Tab bar */}
       <div className="flex items-center gap-1 p-1 rounded-[10px] flex-wrap" style={{ backgroundColor: "#eef4ff" }}>
-        {tabs.map(tab => {
+        {RESOURCE_TABS.map(tab => {
           const Icon = tab.icon
           const isActive = tab.kind === activeTab
           const hasItem = !!itemByTab[tab.kind]
@@ -1483,7 +1382,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
           ) : (
             <div className="flex flex-col gap-4">
               {!test ? (
-                <button onClick={() => upload("test", "exam", null)} disabled={uploadingKind === "test" || !miReady}
+                <button onClick={() => upload("test", "exam", null)} disabled={uploadingKind === "test"}
                   className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] text-sm font-medium w-fit transition-colors hover:bg-[#f6f9ff] disabled:opacity-60"
                   style={{ border: "1px dashed rgba(1,41,112,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                   {uploadingKind === "test" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
@@ -1653,11 +1552,7 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.form.fileLabel")}</label>
-              {activeTab === "assignment" && !activeItem && !miReady ? (
-                <p className="text-xs px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fff7ed", color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                  {t("fanResurslariOq.mi.needSettings")}
-                </p>
-              ) : activeTab === "assignment" && assignmentDisabled ? (
+              {activeTab === "assignment" && assignmentDisabled ? (
                 <div className="flex items-center gap-3 flex-wrap px-3 py-2 rounded-[6px]" style={{ backgroundColor: "#fff7ed" }}>
                   <p className="text-xs flex-1" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
                     {t("fanResurslariOq.assignment.disabledMessage")}
@@ -3040,6 +2935,10 @@ export default function FanResurslariPage() {
                 {TRAINING_TYPE_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
                 ))}
+                {/* Ro'yxatdan ochilgan eski "Mustaqil ish" mavzusi — tanlovda ham ko'rinsin */}
+                {trainingType && !TRAINING_TYPE_OPTIONS.some(o => o.value === trainingType) && (
+                  <option value={trainingType}>{trainingTypeLabel}</option>
+                )}
               </select>
             </div>
           </div>

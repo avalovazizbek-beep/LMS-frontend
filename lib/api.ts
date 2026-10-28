@@ -1468,13 +1468,18 @@ export interface JournalStudent {
   on2: number | null
   /** Mustaqil ishlardan to'plangan ball */
   mi?: number | null
+  /** Har bir mustaqil ishdan olingan ball — JournalData.miColumns id'si bo'yicha */
+  miScores?: Record<string, number | null>
   yn: number | null
   /** ON1/ON2/YN qayerdan: test / qo'lda / topshirmagan (0) */
   periodSource?: { on1: PeriodSource | null; on2: PeriodSource | null; yn: PeriodSource | null }
   attendancePct: number | null
 }
 
-export interface JournalScale { jn: number; on1: number; on2: number; mi?: number; yn: number }
+export interface JournalScale { jn: number; on1: number; on2: number; mi?: number; lecture?: number; practice?: number; yn: number }
+
+/** Jurnaldagi mustaqil ish ustuni (ma'ruza / amaliyot qismi ichida MI-1, MI-2...) */
+export interface JournalMiColumn { id: number; label: string; title: string; part: string; points: number }
 
 /* ── Ball taqsimoti: ma'ruza 35 (ON1 + ON2 + ma'ruza MI), amaliyot 35 (JN + amaliyot MI) ── */
 export interface GradeBudgetItem { id: number; label: string; title: string; type: TeachingContentType; points: number }
@@ -1486,6 +1491,7 @@ export interface JournalData {
   topics: JournalTopic[]
   students: JournalStudent[]
   scale: JournalScale
+  miColumns?: JournalMiColumn[]
   /** Test/topshirig'i bor, lekin mashg'ulot turi belgilanmagan mavzular — JN'ga kirmaydi */
   untypedTopicCount: number
 }

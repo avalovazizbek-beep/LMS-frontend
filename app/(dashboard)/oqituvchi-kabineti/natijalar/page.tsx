@@ -7,6 +7,7 @@ import {
   type JournalTopic,
   type JournalStudent,
   type JournalScale,
+  type JournalMiColumn,
   type PeriodSource,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -122,7 +123,7 @@ function BallCell({ value, max }: { value: number | null; max: number }) {
       <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
     </td>
   )
-  const pct = (value / max) * 100
+  const pct = max > 0 ? (value / max) * 100 : 0
   const c = pctColor(pct); const bg = pctBg(pct)
   return (
     <td className="text-center px-2 py-2 border-r border-[rgba(1,41,112,0.1)]">
@@ -130,6 +131,19 @@ function BallCell({ value, max }: { value: number | null; max: number }) {
         style={{ color: c, backgroundColor: bg, fontFamily: "var(--font-poppins)" }}>
         {value}
       </span>
+    </td>
+  )
+}
+
+/* ─── Baho katagi (5 / 4 / 3 / 2) ────────────────────────────────────── */
+const BAHO_COLOR: Record<number, string> = { 5: "#15803d", 4: "#16a34a", 3: "#d97706", 2: "#b91c1c" }
+
+function BahoCell({ value }: { value: number | null }) {
+  return (
+    <td className="text-center px-2 py-2 border-r border-[rgba(1,41,112,0.1)]">
+      {value === null
+        ? <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
+        : <span className="text-sm font-bold" style={{ color: BAHO_COLOR[value], fontFamily: "var(--font-poppins)" }}>{value}</span>}
     </td>
   )
 }
@@ -246,12 +260,24 @@ function NotifyModal({
 // shkalasidagi (86/71/56) qoniqarli chegarasi bilan bir xil.
 const PASS_BALL = 55
 
+function sumOrNull(values: (number | null)[]): number | null {
+  const known = values.filter((v): v is number => v !== null)
+  return known.length ? known.reduce((a, b) => a + b, 0) : null
+}
+
+/** Baho: 86–100 → 5, 71–85 → 4, 55–70 → 3, qolgani → 2 (100 ballikka nisbatan) */
+function bahoOf(ball: number, max: number): number {
+  const pct = max > 0 ? (ball / max) * 100 : 0
+  return pct >= 86 ? 5 : pct >= 71 ? 4 : pct >= PASS_BALL ? 3 : 2
+}
+
 function GradeJournal({
-  topics, students, scale, untypedTopicCount, groupId, subjectName, onRefresh, refreshing,
+  topics, students, scale, miColumns, untypedTopicCount, groupId, subjectName, onRefresh, refreshing,
 }: {
   topics: JournalTopic[]
   students: JournalStudent[]
   scale: JournalScale
+  miColumns: JournalMiColumn[]
   untypedTopicCount: number
   groupId: number
   subjectName: string
@@ -262,11 +288,18 @@ function GradeJournal({
   const [overrides, setOverrides] = useState<Record<string, number | null>>({})
   const [notifyStudent, setNotifyStudent] = useState<JournalStudent | null>(null)
 
-  // Mustaqil ish ustuni faqat ball qo'yilgan mustaqil ish bo'lsa chiqadi
-  const miMax = scale.mi ?? 0
-  const showMi = miMax > 0
-  const totalMax = scale.jn + scale.on1 + scale.on2 + miMax
-  const ballMax = totalMax + scale.yn
+  // Jurnal tuzilishi: Ma'ruza = ON1 + ON2 + ma'ruzadan mustaqil ishlar (/35),
+  // Amaliyot = JN + amaliyotdan mustaqil ishlar (/35), Joriy = Ma'ruza +
+  // Amaliyot (/70), Yakuniy (/30), Ball = Joriy + Yakuniy (/100), Baho.
+  const lectureMi = miColumns.filter(c => c.part !== "Amaliyot")
+  const practiceMi = miColumns.filter(c => c.part === "Amaliyot")
+  const lectureMiPoints = lectureMi.reduce((a, c) => a + c.points, 0)
+  const lectureMax = scale.lecture ?? scale.on1 + scale.on2 + lectureMiPoints
+  const practiceMax = scale.practice ?? scale.jn + practiceMi.reduce((a, c) => a + c.points, 0)
+  const joriyMax = lectureMax + practiceMax
+  const ballMax = joriyMax + scale.yn
+  // Ma'ruzaning hali oraliq / mustaqil ishga taqsimlanmagan bali
+  const lectureFree = Math.max(0, lectureMax - scale.on1 - scale.on2 - lectureMiPoints)
 
   function getVal(userId: number, field: "on1" | "on2" | "yn", s: JournalStudent): number | null {
     const k = `${userId}:${field}`
@@ -278,15 +311,18 @@ function GradeJournal({
     return s.periodSource?.[field] ?? null
   }
 
-  // Umumiy = JN + ON1 + ON2 + MI (yakuniyga qadar), Ball = Umumiy + YN
   function totals(s: JournalStudent) {
     const on1 = getVal(s.userId, "on1", s)
     const on2 = getVal(s.userId, "on2", s)
     const yn = getVal(s.userId, "yn", s)
-    const parts = [s.jn, on1, on2, s.mi ?? null]
-    const total = parts.every(v => v === null) ? null : parts.reduce<number>((a, v) => a + (v ?? 0), 0)
-    const ball = total === null && yn === null ? null : (total ?? 0) + (yn ?? 0)
-    return { on1, on2, yn, total, ball }
+    const mi = (c: JournalMiColumn) => s.miScores?.[c.id] ?? null
+    const lecture = sumOrNull([on1, on2, ...lectureMi.map(mi)])
+    const practice = sumOrNull([s.jn, ...practiceMi.map(mi)])
+    const joriy = lecture === null && practice === null ? null : (lecture ?? 0) + (practice ?? 0)
+    const ball = joriy === null && yn === null ? null : (joriy ?? 0) + (yn ?? 0)
+    // Baho yakuniy qo'yilgach chiqadi — undan oldingi ball to'liq emas
+    const baho = ball === null || yn === null ? null : bahoOf(ball, ballMax)
+    return { on1, on2, yn, mi, lecture, practice, joriy, ball, baho }
   }
 
   // Katakka ball (masalan 0-17) kiritiladi, bazada esa foiz saqlanadi —
@@ -323,9 +359,14 @@ function GradeJournal({
     const header = [
       "#", t("natijalarOq.csvStudent"),
       ...topics.map(tp => t("natijalarOq.csvTopicCol", { n: tp.idx })),
-      `JN (/${scale.jn})`, `ON1 (/${scale.on1})`, `ON2 (/${scale.on2})`,
-      ...(showMi ? [`MI (/${miMax})`] : []),
-      `${t("natijalarOq.colTotal")} (/${totalMax})`, `YN (/${scale.yn})`, `${t("natijalarOq.colBall")} (/${ballMax})`,
+      `ON1 (/${scale.on1})`, `ON2 (/${scale.on2})`,
+      ...lectureMi.map(c => `${c.label} (/${c.points})`),
+      `${t("natijalarOq.colLecture")} (/${lectureMax})`,
+      `JN (/${scale.jn})`,
+      ...practiceMi.map(c => `${c.label} (/${c.points})`),
+      `${t("natijalarOq.colPractice")} (/${practiceMax})`,
+      `${t("natijalarOq.colJoriy")} (/${joriyMax})`, `YN (/${scale.yn})`, `${t("natijalarOq.colBall")} (/${ballMax})`,
+      t("natijalarOq.colBaho"),
       t("natijalarOq.csvAttendancePct"),
     ]
     const rows = students.map((s, i) => {
@@ -334,7 +375,9 @@ function GradeJournal({
         i + 1,
         s.fullName,
         ...topics.map(tp => s.topicScores[tp.key] ?? ""),
-        s.jn ?? "", r.on1 ?? "", r.on2 ?? "", ...(showMi ? [s.mi ?? ""] : []), r.total ?? "", r.yn ?? "", r.ball ?? "",
+        r.on1 ?? "", r.on2 ?? "", ...lectureMi.map(c => r.mi(c) ?? ""), r.lecture ?? "",
+        s.jn ?? "", ...practiceMi.map(c => r.mi(c) ?? ""), r.practice ?? "",
+        r.joriy ?? "", r.yn ?? "", r.ball ?? "", r.baho ?? "",
         s.attendancePct !== null ? `${s.attendancePct}%` : "",
       ]
     })
@@ -367,9 +410,10 @@ function GradeJournal({
         ))}
       </div>
 
-      {(topics.length === 0 || untypedTopicCount > 0) && (
+      {(topics.length === 0 || untypedTopicCount > 0 || lectureFree > 0) && (
         <div className="flex flex-col gap-1 text-xs px-4 py-3 rounded-[10px]"
           style={{ backgroundColor: "#fff7ed", color: "#92400e", border: "1px solid rgba(146,64,14,0.15)", fontFamily: "var(--font-poppins)" }}>
+          {lectureFree > 0 && <span>{t("natijalarOq.lectureFree", { n: lectureFree, total: lectureMax })}</span>}
           {topics.length === 0 && <span>{t("natijalarOq.noPracticeTopics")}</span>}
           {untypedTopicCount > 0 && <span>{t("natijalarOq.untypedTopics", { n: untypedTopicCount })}</span>}
         </div>
@@ -414,12 +458,12 @@ function GradeJournal({
                   </th>
                 )}
                 {[
-                  { label: t("natijalarOq.colJn"),    span: 1, bg: "#dcfce7" },
-                  { label: t("natijalarOq.colOn"),    span: 2, bg: "#fef9c3" },
-                  ...(showMi ? [{ label: t("natijalarOq.colMi"), span: 1, bg: "#f3e8ff" }] : []),
-                  { label: t("natijalarOq.colTotal"), span: 1, bg: "#e0e7ff" },
-                  { label: t("natijalarOq.colYn"),    span: 1, bg: "#fce7f3" },
-                  { label: t("natijalarOq.colBall"),  span: 1, bg: "#ede9fe" },
+                  { label: t("natijalarOq.colLecture"),  span: 3 + lectureMi.length, bg: "#fef9c3" },
+                  { label: t("natijalarOq.colPractice"), span: 2 + practiceMi.length, bg: "#dcfce7" },
+                  { label: t("natijalarOq.colJoriy"),    span: 1, bg: "#e0e7ff" },
+                  { label: t("natijalarOq.colYn"),       span: 1, bg: "#fce7f3" },
+                  { label: t("natijalarOq.colBall"),     span: 1, bg: "#ede9fe" },
+                  { label: t("natijalarOq.colBaho"),     span: 1, bg: "#f5f3ff" },
                   { label: t("natijalarOq.colAttendance"), span: 2, bg: "#f0fdf4" },
                 ].map(g => (
                   <th key={g.label} colSpan={g.span} className="px-2 py-1.5 text-center text-xs font-semibold"
@@ -442,17 +486,21 @@ function GradeJournal({
                   </th>
                 ))}
                 {[
-                  { key: "jn",    label: `/${scale.jn}`,        bg: "#f0fdf4", br: "rgba(1,41,112,0.12)" },
                   { key: "on1",   label: `ON1 /${scale.on1}`,   bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
-                  { key: "on2",   label: `ON2 /${scale.on2}`,   bg: "#fefce8", br: "rgba(1,41,112,0.12)" },
-                  ...(showMi ? [{ key: "mi", label: `MI /${miMax}`, bg: "#faf5ff", br: "rgba(1,41,112,0.12)" }] : []),
-                  { key: "total", label: `/${totalMax}`,        bg: "#eef2ff", br: "rgba(1,41,112,0.12)" },
+                  { key: "on2",   label: `ON2 /${scale.on2}`,   bg: "#fefce8", br: "rgba(1,41,112,0.08)" },
+                  ...lectureMi.map(c => ({ key: `mi-${c.id}`, label: `${c.label} /${c.points}`, title: c.title, bg: "#fefce8", br: "rgba(1,41,112,0.08)" })),
+                  { key: "lecture", label: `${t("natijalarOq.colPartTotal")} /${lectureMax}`, bg: "#fef9c3", br: "rgba(1,41,112,0.15)" },
+                  { key: "jn",    label: `JN /${scale.jn}`,     bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" },
+                  ...practiceMi.map(c => ({ key: `mi-${c.id}`, label: `${c.label} /${c.points}`, title: c.title, bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" })),
+                  { key: "practice", label: `${t("natijalarOq.colPartTotal")} /${practiceMax}`, bg: "#dcfce7", br: "rgba(1,41,112,0.15)" },
+                  { key: "joriy", label: `/${joriyMax}`,        bg: "#eef2ff", br: "rgba(1,41,112,0.12)" },
                   { key: "yn",    label: `/${scale.yn}`,        bg: "#fdf2f8", br: "rgba(1,41,112,0.12)" },
                   { key: "ball",  label: `/${ballMax}`,         bg: "#f5f3ff", br: "rgba(1,41,112,0.12)" },
+                  { key: "baho",  label: "2–5",                 bg: "#f5f3ff", br: "rgba(1,41,112,0.12)" },
                   { key: "att",   label: t("natijalarOq.colAttendanceShort"), bg: "#f0fdf4", br: "rgba(1,41,112,0.08)" },
                   { key: "bell",  label: "📣",                  bg: "#fff7ed", br: "transparent" },
-                ].map(col => (
-                  <th key={col.key} className="px-2 py-2 text-center text-[10px] font-semibold"
+                ].map((col: { key: string; label: string; title?: string; bg: string; br: string }) => (
+                  <th key={col.key} title={col.title} className="px-2 py-2 text-center text-[10px] font-semibold"
                     style={{ ...T, minWidth: 50, backgroundColor: col.bg, borderRight: `1px solid ${col.br}` }}>
                     {col.label}
                   </th>
@@ -462,7 +510,7 @@ function GradeJournal({
 
             <tbody>
               {students.length === 0 ? (
-                <tr><td colSpan={topics.length + 9 + (showMi ? 1 : 0)} className="px-4 py-14 text-center text-sm" style={L}>
+                <tr><td colSpan={topics.length + 12 + lectureMi.length + practiceMi.length} className="px-4 py-14 text-center text-sm" style={L}>
                   {t("natijalarOq.noResults")}
                 </td></tr>
               ) : students.map((s, idx) => {
@@ -488,24 +536,26 @@ function GradeJournal({
                     <TopicCell key={t.key} score={s.topicScores[t.key] ?? null} max={t.maxScore} />
                   ))}
 
-                  {/* JN */}
-                  <BallCell value={s.jn} max={scale.jn} />
-
-                  {/* ON1, ON2 */}
+                  {/* Ma'ruza: ON1, ON2, ma'ruzadan mustaqil ishlar, jami */}
                   <EditCell value={r.on1} maxVal={scale.on1} source={getSource(s.userId, "on1", s)} onSave={v => save(s.userId, "ON1", v)} />
                   <EditCell value={r.on2} maxVal={scale.on2} source={getSource(s.userId, "on2", s)} onSave={v => save(s.userId, "ON2", v)} />
+                  {lectureMi.map(c => <BallCell key={c.id} value={r.mi(c)} max={c.points} />)}
+                  <BallCell value={r.lecture} max={lectureMax} />
 
-                  {/* Mustaqil ishlar — har biri o'z balli bilan */}
-                  {showMi && <BallCell value={s.mi ?? null} max={miMax} />}
+                  {/* Amaliyot: JN, amaliyotdan mustaqil ishlar, jami */}
+                  <BallCell value={s.jn} max={scale.jn} />
+                  {practiceMi.map(c => <BallCell key={c.id} value={r.mi(c)} max={c.points} />)}
+                  <BallCell value={r.practice} max={practiceMax} />
 
-                  {/* Umumiy = JN + ON1 + ON2 + MI */}
-                  <BallCell value={r.total} max={totalMax} />
+                  {/* Joriy = Ma'ruza + Amaliyot */}
+                  <BallCell value={r.joriy} max={joriyMax} />
 
                   {/* YN */}
                   <EditCell value={r.yn} maxVal={scale.yn} source={getSource(s.userId, "yn", s)} onSave={v => save(s.userId, "YN", v)} />
 
-                  {/* Ball = Umumiy + YN */}
+                  {/* Ball = Joriy + YN, va baho */}
                   <BallCell value={r.ball} max={ballMax} />
+                  <BahoCell value={r.baho} />
 
                   {/* Davomat */}
                   <AttCell pct={s.attendancePct} />
@@ -642,6 +692,7 @@ export default function NatijalarPage() {
           topics={topics}
           students={students}
           scale={scale}
+          miColumns={data?.data?.miColumns ?? []}
           untypedTopicCount={data?.data?.untypedTopicCount ?? 0}
           groupId={groupId as number}
           subjectName={subjectName}

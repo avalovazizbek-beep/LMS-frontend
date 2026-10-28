@@ -8,7 +8,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { StudentContentCard } from "@/components/teaching/StudentContentCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-import { isControlWork } from "@/lib/controlWork"
+import { isControlWork, MUSTAQIL_CONTROL } from "@/lib/controlWork"
 
 export default function Imtihonlar() {
   const { t } = useLanguage()
@@ -23,7 +23,8 @@ export default function Imtihonlar() {
       .then(([a, b]) => ({ ...a, data: [...(a.data ?? []), ...(b.data ?? [])] })),
     []
   )
-  const exams: TeacherContent[] = (data?.data ?? []).filter(e => (e.type === "exam" && !e.topicKey) || isControlWork(e))
+  const exams: TeacherContent[] = (data?.data ?? []).filter(e =>
+    (e.type === "exam" && !e.topicKey && e.controlType !== MUSTAQIL_CONTROL) || isControlWork(e))
 
   const grouped = useMemo(() => {
     const map: Record<ContentStatus, TeacherContent[]> = { locked: [], open: [], closed: [] }
