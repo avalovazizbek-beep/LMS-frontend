@@ -1441,6 +1441,7 @@ export const dictionary: Record<string, DictEntry> = {
   "typeContentOq.pageNotFound": { uz: "Sahifa topilmadi", ru: "Страница не найдена", en: "Page not found", kaa: "Bet tabılmadı" },
   "typeContentOq.add":          { uz: "Qo'shish",         ru: "Добавить",             en: "Add",             kaa: "Qosıw" },
   "typeContentOq.addNew":       { uz: "Yangi qo'shish",   ru: "Добавить новое",       en: "Add new",         kaa: "Jańa qosıw" },
+  "typeContentOq.addOn":        { uz: "Yangi ON qo'shish", ru: "Добавить ПК",         en: "Add ON",          kaa: "Jańa ON qosıw" },
   "typeContentOq.emptyState":   { uz: "Hozircha hech narsa yo'q. \"Yangi qo'shish\" orqali {item} yarating.", ru: "Пока ничего нет. Создайте {item} через кнопку «Добавить новое».", en: "Nothing here yet. Create {item} using \"Add new\".", kaa: "Házirshe hesh nárse joq. \"Jańa qosıw\" arqalı {item} jaratıń." },
   "typeContentOq.groupFallback": { uz: "Guruh #{id}",     ru: "Группа №{id}",         en: "Group #{id}",     kaa: "Gruppa #{id}" },
   "typeContentOq.deactivate":   { uz: "Nofaol qilish",    ru: "Деактивировать",       en: "Deactivate",      kaa: "Aktiv emes etiw" },

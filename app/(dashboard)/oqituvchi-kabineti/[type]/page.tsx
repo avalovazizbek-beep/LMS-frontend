@@ -1393,7 +1393,7 @@ export default function TeacherContentTypePage() {
             style={{ backgroundColor: "#0e58a8", color: "#fff", fontFamily: "var(--font-poppins)" }}
           >
             <Plus className="w-4 h-4" />
-            {t("typeContentOq.addNew")}
+            {t(config.filterControlType === "oraliq" ? "typeContentOq.addOn" : "typeContentOq.addNew")}
           </button>
         ))}
         {/* Mustaqil ish ham shu yerda — oraliq bilan bir joyda */}
