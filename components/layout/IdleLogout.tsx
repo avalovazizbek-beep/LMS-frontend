@@ -4,12 +4,16 @@ import { useEffect, useRef, useState } from "react"
 import { Clock } from "lucide-react"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { isZoomReviewSession, ZOOM_REVIEW_LOGIN_PATH } from "@/lib/zoomReview"
+import { pingSession } from "@/lib/api"
 
 /* HEMIS'dagi kabi: 30 daqiqa harakatsiz qolinsa tizimdan chiqariladi va
    qayta kirish talab qilinadi. Chiqishdan 1 daqiqa oldin ogohlantiriladi.
    Oxirgi faollik vaqti localStorage'da — bir nechta tab ochiq bo'lsa,
    birida ishlash hammasini faol saqlaydi. */
 const IDLE_MS = 30 * 60 * 1000
+// "Hali tizimda" signali: har 2 daqiqada, faqat so'nggi 5 daqiqada faollik bo'lsa
+const HEARTBEAT_MS = 2 * 60 * 1000
+const HEARTBEAT_IDLE_MS = 5 * 60 * 1000
 const WARN_MS = 60 * 1000
 const LAST_ACTIVITY_KEY = "lms_last_activity"
 const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "wheel", "touchstart", "scroll"] as const
@@ -46,6 +50,8 @@ function isMediaPlaying(): boolean {
 }
 
 export function clearSession() {
+  // Backend'da ham sessiya yopilsin ("Kirish tarixi"dagi chiqish vaqti)
+  pingSession("logout")
   for (const key of ["lms_token", "lms_role", "_hemis_sem", "_hemis_sem_v2", LAST_ACTIVITY_KEY]) {
     try { localStorage.removeItem(key) } catch { /* ignore */ }
   }
@@ -91,7 +97,18 @@ export function IdleLogout({ paused = false }: {
     }
     ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, onActivity, { passive: true, capture: true }))
 
+    // Tizimda turganini backend bilsin: ochilganda va har 2 daqiqada, tab
+    // ko'rinib turgan va so'nggi 5 daqiqada faollik bo'lgan bo'lsa
+    let lastPing = Date.now()
+    pingSession("heartbeat")
+
     const timer = window.setInterval(() => {
+      const now = Date.now()
+      if (now - lastPing >= HEARTBEAT_MS && document.visibilityState === "visible" &&
+        now - (readLastActivity() ?? now) < HEARTBEAT_IDLE_MS) {
+        lastPing = now
+        pingSession("heartbeat")
+      }
       if (paused || isMediaPlaying()) {
         writeLastActivity()
         setSecondsLeft(null)

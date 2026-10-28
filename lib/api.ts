@@ -10,6 +10,17 @@ function getToken() {
   return localStorage.getItem("lms_token")
 }
 
+/** Platforma sessiyasi: "heartbeat" — hali tizimda (oxirgi faollik), "logout" —
+    chiqish (sessiya yopiladi). Sahifa yopilayotganda ham yetib borsin deb
+    keepalive; javob kutilmaydi, xato bo'lsa ham ish to'xtamaydi. */
+export function pingSession(kind: "heartbeat" | "logout"): void {
+  const token = getToken()
+  if (!token) return
+  void fetch(`${BASE}/api/auth/${kind}`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}` }, keepalive: true,
+  }).catch(() => undefined)
+}
+
 // Bir nechta so'rov bir vaqtda 401 olsa ham, HEMIS'ga faqat bitta refresh
 // so'rovi yuborilishi uchun (parallel chaqiruvlar shu promise'ni bo'lishadi).
 let refreshPromise: Promise<string | null> | null = null

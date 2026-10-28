@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Menu, ChevronDown, LogOut, User as UserIcon, ShieldCheck } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { authApi, hemisApi, adminApi, HemisEmployee, HemisStudent } from "@/lib/api"
+import { authApi, hemisApi, adminApi, pingSession, HemisEmployee, HemisStudent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
@@ -73,6 +73,8 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const logout = () => {
     const target = isZoomReviewSession() ? ZOOM_REVIEW_LOGIN_PATH : "/login"
+    // Backend'da sessiya yopilsin ("Kirish tarixi"dagi chiqish vaqti) — token o'chirilishidan oldin
+    pingSession("logout")
     localStorage.removeItem("lms_token")
     localStorage.removeItem("lms_role")
     sessionStorage.removeItem("lms_token")

@@ -163,6 +163,8 @@ export const dictionary: Record<string, DictEntry> = {
   "davomat.status.late":          { uz: "Kech keldi", ru: "Опоздал",     en: "Late",       kaa: "Keship keldi" },
   "davomat.status.absent":        { uz: "Kelmadi",   ru: "Не пришёл",    en: "Absent",     kaa: "Kelmedi" },
   "davomat.status.notLoggedOut":  { uz: "Hali chiqmagan", ru: "Ещё не вышел", en: "Not logged out yet", kaa: "Áli shıqpaǵan" },
+  "davomat.status.online":       { uz: "Hozir tizimda", ru: "Сейчас в системе", en: "Online now", kaa: "Házir sistemada" },
+  "davomat.status.unknownExit":  { uz: "Qayd etilmagan", ru: "Не зафиксировано", en: "Not recorded", kaa: "Dizimge alınbaǵan" },
 
   "davomat.empty.hemis":     { uz: "Davomat yozuvlari topilmadi", ru: "Записи о посещаемости не найдены", en: "No attendance records found", kaa: "Qatnasıw jazıwları tabılmadı" },
   "davomat.empty.platform":  { uz: "Platformadan davomat yozuvlari topilmadi", ru: "Записи о посещаемости с платформы не найдены", en: "No platform attendance records found", kaa: "Platformadan qatnasıw jazıwları tabılmadı" },

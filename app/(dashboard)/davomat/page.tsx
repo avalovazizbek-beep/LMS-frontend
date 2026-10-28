@@ -24,6 +24,18 @@ function formatIso(iso: string) {
   return new Date(iso).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
+/* Chiqish vaqti: "Chiqish"/30 daqiqa harakatsizlik bilan yopilgan bo'lsa —
+   o'sha vaqt; brauzer shunchaki yopilgan bo'lsa — oxirgi faollik (5 daqiqadan
+   eski signal); aks holda hali tizimda. */
+const ONLINE_MS = 5 * 60 * 1000
+function sessionExit(s: { logoutAt: string | null; lastSeenAt: string; loginAt: string }): { text?: string; key?: string; color: string } {
+  if (s.logoutAt) return { text: formatTime(s.logoutAt), color: "#b91c1c" }
+  const seen = new Date(s.lastSeenAt).getTime()
+  if (Number.isFinite(seen) && Date.now() - seen < ONLINE_MS) return { key: "davomat.status.online", color: "#15803d" }
+  if (Number.isFinite(seen) && seen > new Date(s.loginAt).getTime()) return { text: `~${formatTime(s.lastSeenAt)}`, color: "#92400e" }
+  return { key: "davomat.status.unknownExit", color: "#94a3b8" }
+}
+
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })
 }
@@ -320,8 +332,8 @@ export default function Davomat() {
                     <td className="px-4 py-3 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{i + 1}</td>
                     <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{formatIso(s.loginAt)}</td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{formatTime(s.loginAt)}</td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: s.logoutAt ? "#b91c1c" : "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                      {s.logoutAt ? formatTime(s.logoutAt) : t("davomat.status.notLoggedOut")}
+                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: sessionExit(s).color, fontFamily: "var(--font-poppins)" }}>
+                      {sessionExit(s).text ?? t(sessionExit(s).key!)}
                     </td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                       {s.durationMinutes > 0 ? t("davomat.minutes", { n: s.durationMinutes }) : "—"}
