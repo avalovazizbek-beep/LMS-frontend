@@ -9,6 +9,7 @@ import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { GradeBreakdown } from "@/components/teaching/GradeBreakdown"
+import { JournalRowTable } from "@/components/teaching/JournalRowTable"
 
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
@@ -109,18 +110,25 @@ function pctBg(pct: number | null): string {
   return "rgba(185,28,28,0.09)"
 }
 
-/* ─── Baholar tafsiloti: jurnaldagi ko'rinish (ma'ruza / amaliyot / joriy /
-   yakuniy / ball) — o'qituvchi jurnalidagi talaba qatori bilan bir xil ── */
-function MyGradeBreakdown({ subjectName }: { subjectName: string }) {
+/* ─── Jurnaldagi baholar: o'qituvchi jurnalidagi qator bilan bir xil jadval
+   (ma'ruza / amaliy mavzular / amaliyot / joriy / yakuniy / ball / baho)
+   va ostida batafsil — har topshiriq, oraliq va mustaqil ishdan olgan bali ── */
+function MyJournal({ subjectName }: { subjectName: string }) {
   const { t } = useLanguage()
   const { data } = useApi(() => teachingApi.myJournal(subjectName), [subjectName])
+  const [showDetails, setShowDetails] = useState(true)
   const journal = data?.data
   const me = journal?.students[0]
   if (!journal || !me) return null
   return (
-    <div className="flex flex-col gap-2">
-      <div className="text-sm font-semibold" style={T}>{t("ozlashtirish.breakdownTitle")}</div>
-      <GradeBreakdown data={journal} student={me} />
+    <div className="flex flex-col gap-3">
+      <JournalRowTable data={journal} student={me} />
+      <button onClick={() => setShowDetails(v => !v)}
+        className="flex items-center gap-1.5 w-fit text-sm font-semibold" style={T}>
+        {showDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        {t("ozlashtirish.breakdownTitle")}
+      </button>
+      {showDetails && <GradeBreakdown data={journal} student={me} />}
     </div>
   )
 }
@@ -152,7 +160,6 @@ function TopicResultsPanel({ subjectName }: { subjectName: string }) {
         <BookOpen className="w-8 h-8 mx-auto mb-2" style={{ color: "#d8e6f7" }} />
         <p className="text-sm" style={L}>{t("ozlashtirish.noTopicsForSubject")}</p>
       </div>
-      <MyGradeBreakdown subjectName={subjectName} />
     </div>
   )
 
@@ -244,9 +251,6 @@ function TopicResultsPanel({ subjectName }: { subjectName: string }) {
           {t("ozlashtirish.totalSummary", { n: topics.length, earned: totalEarned, max: totalMax })}
         </div>
       </div>
-
-      {/* Har topshiriq, oraliq va mustaqil ishdan necha ball olgani */}
-      <MyGradeBreakdown subjectName={subjectName} />
     </div>
   )
 }
@@ -317,7 +321,10 @@ export default function Ozlashtirish() {
           </div>
 
           {selectedSubject ? (
-            <TopicResultsPanel subjectName={selectedSubject} />
+            <>
+              <MyJournal subjectName={selectedSubject} />
+              <TopicResultsPanel subjectName={selectedSubject} />
+            </>
           ) : (
             <div className="rounded-[10px] bg-white p-14 text-center"
               style={{ border: "1px solid rgba(1,41,112,0.1)" }}>

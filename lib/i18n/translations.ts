@@ -3679,6 +3679,8 @@ export const dictionary: Record<string, DictEntry> = {
   "natijalarOq.colMi":               { uz: "MUSTAQIL (MI)", ru: "САМОСТ. (MI)", en: "INDEPENDENT (MI)", kaa: "ÓZBETINSHE (MI)" },
   "ozlashtirish.independentWork":    { uz: "Mustaqil ish", ru: "Самостоятельная работа", en: "Independent work", kaa: "Ózbetinshe jumıs" },
   "ozlashtirish.breakdownTitle":    { uz: "Baholar tafsiloti", ru: "Подробно об оценках", en: "Grade details", kaa: "Bahalar tolıǵı" },
+  "ozlashtirish.journalTitle":     { uz: "Jurnaldagi baholaringiz", ru: "Ваши оценки в журнале", en: "Your grades in the journal", kaa: "Jurnaldaǵı bahalarıńız" },
+  "ozlashtirish.journalHint":      { uz: "· Ma'ruza = ON1 + ON2 + mustaqil ishlar · Amaliyot = JN (har amaliy topshiriq: ulush × natija) + mustaqil ishlar · Joriy = Ma'ruza + Amaliyot", ru: "· Лекции = ПК1 + ПК2 + самостоятельные · Практика = ТК (каждое задание: доля × результат) + самостоятельные · Текущий = Лекции + Практика", en: "· Lecture = ON1 + ON2 + independent work · Practice = CC (each task: share × result) + independent work · Current = Lecture + Practice", kaa: "· Lekciya = ON1 + ON2 + ózbetinshe jumıslar · Ámeliyat = JN (hár tapsırma: úles × nátiyje) + ózbetinshe jumıslar · Járiya = Lekciya + Ámeliyat" },
   "gradeBreakdown.lectureTitle":    { uz: "Ma'ruza bo'yicha ballar ({n})", ru: "Баллы по лекциям ({n})", en: "Lecture points ({n})", kaa: "Lekciya boyınsha ballar ({n})" },
   "gradeBreakdown.practiceTitle":   { uz: "Amaliyot bo'yicha ballar ({n})", ru: "Баллы по практике ({n})", en: "Practice points ({n})", kaa: "Ámeliyat boyınsha ballar ({n})" },
   "gradeBreakdown.colItem":         { uz: "Nazorat turi", ru: "Вид контроля", en: "Item", kaa: "Baqlaw túri" },
