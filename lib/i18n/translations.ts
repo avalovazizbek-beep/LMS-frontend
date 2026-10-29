@@ -3355,7 +3355,7 @@ export const dictionary: Record<string, DictEntry> = {
   "adminRetry.clearDeadline": { uz: "Muddatsiz qilish", ru: "Без срока", en: "Remove deadline", kaa: "Múddetsiz etiw" },
   "adminRetry.deadlineAllGroups": { uz: "O'qituvchining boshqa guruhlaridagi shu mavzuga ham qo'llash", ru: "Применить и к этой теме в других группах преподавателя", en: "Also apply to this topic in the teacher's other groups", kaa: "Oqıtıwshınıń basqa gruppalarındaǵı usı temaǵa da qollanıw" },
   "adminOraliq.title":         { uz: "Oraliqlar", ru: "Промежуточные контроли", en: "Interim assessments", kaa: "Aralıq baqlawlar" },
-  "adminOraliq.subtitle":      { uz: "Oraliq va yakuniy nazoratlar: kim topshirdi, kim kelmadi — kelmaganlarga qayta ochish", ru: "Промежуточные и итоговые контроли: кто сдал, кто отсутствовал — повторное открытие для отсутствовавших", en: "Interim and final assessments: who took them, who missed them — reopen for those who missed", kaa: "Aralıq hám juwmaqlawshı baqlawlar: kim tapsırdı, kim kelmedi — kelmegenlerge qayta ashıw" },
+  "adminOraliq.subtitle":      { uz: "Oraliq, mustaqil ish va yakuniy nazoratlar: kim topshirdi, kim kelmadi — kelmaganlarga qayta ochish", ru: "Промежуточные контроли, самостоятельные работы и итоговые: кто сдал, кто отсутствовал — повторное открытие для отсутствовавших", en: "Interim, independent-work and final assessments: who submitted, who was absent — reopen for the absent", kaa: "Aralıq, ózbetinshe jumıs hám juwmaqlawshı baqlawlar: kim tapsırdı, kim kelmedi — kelmegenlerge qayta ashıw" },
   "adminOraliq.statAll":       { uz: "Nazoratlar", ru: "Контроли", en: "Assessments", kaa: "Baqlawlar" },
   "adminOraliq.statOpen":      { uz: "Hozir ochiq", ru: "Сейчас открыты", en: "Open now", kaa: "Házir ashıq" },
   "adminOraliq.statClosed":    { uz: "Muddati tugagan", ru: "Срок истёк", en: "Deadline passed", kaa: "Múddeti tawsılǵan" },
@@ -3708,6 +3708,8 @@ export const dictionary: Record<string, DictEntry> = {
   "gradeBreakdown.baho":            { uz: "Baho", ru: "Оценка", en: "Grade", kaa: "Baha" },
   "adminOraliq.pointsShort":         { uz: "ball", ru: "балл.", en: "pts", kaa: "ball" },
   "adminOraliq.formatAssignment":    { uz: "Topshiriq", ru: "Задание", en: "Assignment", kaa: "Tapsırma" },
+  "adminOraliq.slotMi": { uz: "Mustaqil ish", ru: "Самостоятельная", en: "Independent work", kaa: "Ózbetinshe jumıs" },
+  "adminOraliq.miBadge": { uz: "MI", ru: "СР", en: "IW", kaa: "ÓJ" },
   // Yuzni sinab ko'rish (oraliqdan oldingi demo test) — 2026-10-29
   "sidebar.item.faceIdPractice": { uz: "Yuzni sinab ko'rish", ru: "Проверка лица", en: "Face check", kaa: "Júzdi sınap kóriw" },
   "facePractice.title": { uz: "Yuzni sinab ko'rish", ru: "Проверка лица", en: "Face check", kaa: "Júzdi sınap kóriw" },

@@ -251,7 +251,8 @@ function OraliqStudents({ exam, onChanged }: { exam: AdminExamListItem; onChange
 }
 
 type Kind = "oraliq" | "yakuniy"
-type SlotFilter = "all" | "ON1" | "ON2"
+type SlotFilter = "all" | "ON1" | "ON2" | "MI"
+const isMi = (e: AdminExamListItem) => e.controlType === "mustaqil"
 
 export default function AdminOraliqlar() {
   const { t } = useLanguage()
@@ -260,13 +261,15 @@ export default function AdminOraliqlar() {
   const [search, setSearch] = useState("")
   const [openId, setOpenId] = useState<number | null>(null)
 
-  const { data, loading, error, refetch } = useApi(() => adminApi.examsList({ controlType: kind }), [kind])
+  // Oraliq bo'limida mustaqil ishlar ham (MI filtri) — ular ham muddatli, kelmaganga qayta ochiladi
+  const { data, loading, error, refetch } = useApi(
+    () => adminApi.examsList({ controlType: kind === "oraliq" ? "oraliq,mustaqil" : kind }), [kind])
   const exams: AdminExamListItem[] = useMemo(() => data?.data ?? [], [data])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return exams.filter(e =>
-      (kind !== "oraliq" || slotFilter === "all" || e.slot === slotFilter) &&
+      (kind !== "oraliq" || slotFilter === "all" || (slotFilter === "MI" ? isMi(e) : e.slot === slotFilter)) &&
       (!q || [e.title, e.groupName, e.subjectName, e.teacherName].some(v => v.toLowerCase().includes(q)))
     )
   }, [exams, search, slotFilter, kind])
@@ -306,10 +309,10 @@ export default function AdminOraliqlar() {
         </div>
         {kind === "oraliq" && (
           <div className="flex items-center gap-1.5">
-            {(["all", "ON1", "ON2"] as SlotFilter[]).map(s => (
+            {(["all", "ON1", "ON2", "MI"] as SlotFilter[]).map(s => (
               <button key={s} onClick={() => setSlotFilter(s)} data-active={slotFilter === s}
                 className="adm-chip rounded-full px-3 py-1.5 text-[13px] font-medium">
-                {s === "all" ? t("adminOraliq.slotAll") : s}
+                {s === "all" ? t("adminOraliq.slotAll") : s === "MI" ? t("adminOraliq.slotMi") : s}
               </button>
             ))}
           </div>
@@ -350,6 +353,12 @@ export default function AdminOraliqlar() {
                       <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[var(--adm-text)]">
                         {exam.title}
                         {exam.slot && <span className="adm-pill" style={{ "--c": "var(--role-dean)" } as CssVars}>{exam.slot}{exam.controlType === "oraliq" ? ` · ${exam.gradePoints ?? SLOT_MAX[exam.slot]} ${t("adminOraliq.pointsShort")}` : ""}</span>}
+                        {isMi(exam) && (
+                          <span className="adm-pill" style={{ "--c": "#9333ea" } as CssVars}>
+                            {t("adminOraliq.miBadge")} · {t(exam.gradePart === "Amaliyot" ? "fanResurslariOq.trainingType.practice" : "fanResurslariOq.trainingType.lecture")}
+                            {exam.gradePoints != null ? ` · ${exam.gradePoints} ${t("adminOraliq.pointsShort")}` : ""}
+                          </span>
+                        )}
                         {exam.type === "assignment" && <span className="adm-pill" style={{ "--c": "var(--role-pending)" } as CssVars}>{t("adminOraliq.formatAssignment")}</span>}
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

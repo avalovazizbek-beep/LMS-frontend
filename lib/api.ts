@@ -1405,6 +1405,8 @@ export interface AdminExamListItem {
   maxScore: number | null
   /** Jurnaldagi ball (ma'ruza 35 balidan); eski oraliqlarda null — 17 / 18 */
   gradePoints?: number | null
+  /** Mustaqil ish qaysi qism hisobidan (Ma'ruza / Amaliyot); boshqalarda null */
+  gradePart?: string | null
   availableFrom: string
   deadline: string | null
   submissionCount: number
@@ -1437,7 +1439,7 @@ export interface AdminOraliqDetail {
     groupName: string
     type?: TeachingContentType
     controlType: string | null
-    slot: "ON1" | "ON2" | "YN" | null
+    slot: "ON1" | "ON2" | "YN" | "MI" | null
     maxScore: number | null
     gradePoints?: number | null
     attemptsCount: number | null
