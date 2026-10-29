@@ -1619,6 +1619,7 @@ export const dictionary: Record<string, DictEntry> = {
   "typeContentOq.submission.grading":     { uz: "Baholash",            ru: "Оценивание",                en: "Grading",                   kaa: "Baha beriw" },
   "typeContentOq.submission.gradePlaceholder": { uz: "Baho",           ru: "Оценка",                    en: "Grade",                     kaa: "Baha" },
   "typeContentOq.submission.gradeOutOf": { uz: "{n} balldan siz qo'yadigan ball", ru: "Ваша оценка из {n} баллов", en: "Your grade out of {n} points", kaa: "{n} balldan siz qoyatuǵın ball" },
+  "typeContentOq.submission.gradeRange": { uz: "Baho 0 dan {n} gacha bo'lishi kerak", ru: "Оценка должна быть от 0 до {n}", en: "The grade must be between 0 and {n}", kaa: "Baha 0 den {n} ge shekem bolıwı kerek" },
   "typeContentOq.submission.commentPlaceholder": { uz: "Izoh (ixtiyoriy)", ru: "Комментарий (необязательно)", en: "Comment (optional)", kaa: "Pikir (miynetsiz)" },
 
   // ── Oqituvchi kabineti: Fan resurslari (mavzu materiallari boshqaruvi) ──

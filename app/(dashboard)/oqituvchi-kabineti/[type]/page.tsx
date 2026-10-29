@@ -2798,10 +2798,13 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
   const [feedback, setFeedback] = useState(sub.feedback ?? "")
   const [saving, setSaving] = useState(false)
   const [gradeError, setGradeError] = useState<string | null>(null)
+  // Maksimal ball qo'yilmagan topshiriq jurnalda 100 ballik hisoblanadi
+  const maxScore = content.maxScore && content.maxScore > 0 ? content.maxScore : 100
 
   async function saveGrade() {
     const num = Number(grade)
     if (!grade.trim() || Number.isNaN(num)) { setGradeError(t("typeContentOq.submission.enterGrade")); return }
+    if (num < 0 || num > maxScore) { setGradeError(t("typeContentOq.submission.gradeRange", { n: maxScore })); return }
     setSaving(true)
     try {
       await teachingApi.grade(sub.id, { grade: num, feedback: feedback.trim() || undefined })
@@ -2932,18 +2935,16 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
         {!readOnly && (
           <div className="flex flex-col gap-2 pt-2" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
             <h3 className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.submission.grading")}</h3>
-            {content.maxScore != null && (
-              <p className="text-xs" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
-                {t("typeContentOq.submission.gradeOutOf", { n: content.maxScore })}
-              </p>
-            )}
+            <p className="text-xs" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
+              {t("typeContentOq.submission.gradeOutOf", { n: maxScore })}
+            </p>
             {gradeError && (
               <div className="text-xs px-3 py-1.5 rounded-[6px]" style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                 {gradeError}
               </div>
             )}
             <div className="flex gap-2">
-              <input type="number" min={0} max={content.maxScore ?? undefined} placeholder={t("typeContentOq.submission.gradePlaceholder")} value={grade} onChange={e => setGrade(e.target.value)}
+              <input type="number" min={0} max={maxScore} placeholder={t("typeContentOq.submission.gradePlaceholder")} value={grade} onChange={e => setGrade(e.target.value)}
                 className={inputCls} style={{ fontFamily: "var(--font-poppins)", maxWidth: 120 }} />
               <input placeholder={t("typeContentOq.submission.commentPlaceholder")} value={feedback} onChange={e => setFeedback(e.target.value)}
                 className={inputCls} style={{ fontFamily: "var(--font-poppins)" }} />

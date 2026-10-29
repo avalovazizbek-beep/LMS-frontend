@@ -64,6 +64,8 @@ function SubmissionsList({
   onBack: () => void
 }) {
   const { t } = useLanguage()
+  // Maksimal ball qo'yilmagan topshiriq jurnalda 100 ballik hisoblanadi
+  const maxScore = content.maxScore && content.maxScore > 0 ? content.maxScore : 100
   const { data, loading, error, refetch } = useApi(
     () => teachingApi.submissions(content.id),
     [content.id]
@@ -112,8 +114,10 @@ function SubmissionsList({
   const handleGrade = useCallback(async (sub: TeachingSubmission) => {
     const gradeStr = grades[sub.id] ?? (sub.grade !== null ? String(sub.grade) : "")
     const gradeNum = parseFloat(gradeStr.replace(",", "."))
-    if (isNaN(gradeNum) || gradeNum < 0) return
-    if (content.maxScore !== null && gradeNum > content.maxScore) return
+    if (isNaN(gradeNum) || gradeNum < 0 || gradeNum > maxScore) {
+      setSaveError(t("typeContentOq.submission.gradeRange", { n: maxScore }))
+      return
+    }
     const feedback = feedbacks[sub.id] ?? sub.feedback ?? ""
     setSaving(prev => ({ ...prev, [sub.id]: true }))
     setSaveError(null)
@@ -126,7 +130,7 @@ function SubmissionsList({
     } finally {
       setSaving(prev => ({ ...prev, [sub.id]: false }))
     }
-  }, [grades, feedbacks, content.maxScore, refetch])
+  }, [grades, feedbacks, maxScore, refetch, t])
 
   const handleFinalize = useCallback(async () => {
     setFinalizing(true)
@@ -169,7 +173,7 @@ function SubmissionsList({
               <div className="flex flex-wrap gap-2 mt-2">
                 <span className="text-[11px] px-2.5 py-1 rounded-full font-medium"
                   style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  {t("baholashPageOq.maxScore", { n: content.maxScore ?? "—" })}
+                  {t("baholashPageOq.maxScore", { n: maxScore })}
                 </span>
                 {content.deadline && (
                   <span className="text-[11px] px-2.5 py-1 rounded-full font-medium"
@@ -327,12 +331,12 @@ function SubmissionsList({
                     <div className="flex items-end gap-3 flex-wrap">
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-medium" style={L}>
-                          {t("baholashPageOq.gradeLabel", { range: content.maxScore !== null ? `(0–${content.maxScore})` : "" })}
+                          {t("baholashPageOq.gradeLabel", { range: `(0–${maxScore})` })}
                         </label>
                         <input
                           type="number"
                           min="0"
-                          max={content.maxScore ?? undefined}
+                          max={maxScore}
                           value={gradeVal}
                           onChange={e => setGrades(prev => ({ ...prev, [sub.id]: e.target.value }))}
                           placeholder={t("baholashPageOq.gradePlaceholder")}
@@ -656,7 +660,7 @@ export default function BaholashPage() {
                 <div className="text-sm font-semibold" style={T}>{content.title}</div>
                 <div className="text-xs mt-0.5" style={L}>
                   {content.topicKey && <span>{content.topicKey} · </span>}
-                  {t("baholashPageOq.maxScore", { n: content.maxScore ?? "—" })}
+                  {t("baholashPageOq.maxScore", { n: content.maxScore && content.maxScore > 0 ? content.maxScore : 100 })}
                   {content.deadline && <span> · {t("baholashPageOq.deadline", { date: new Date(content.deadline).toLocaleDateString("uz-UZ") })}</span>}
                 </div>
               </div>
