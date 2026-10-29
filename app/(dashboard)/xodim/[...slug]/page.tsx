@@ -487,6 +487,16 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {}
 }
 
+/* HEMIS sanani unix vaqt (soniya) bilan beradi — jadvalda 1793836800 emas, 05.11.2026 chiqsin */
+function formatTimestamp(key: string, value: unknown): string | null {
+  const field = key.split(".").pop() ?? ""
+  if (!/date|_at$|At$/i.test(field)) return null
+  const n = typeof value === "number" ? value : typeof value === "string" && /^\d{9,13}$/.test(value) ? Number(value) : NaN
+  if (!Number.isFinite(n) || n <= 0) return null
+  const d = new Date(n < 1e11 ? n * 1000 : n)
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`
+}
+
 function itemValue(item: unknown, keys: string[], t: TFunc): string {
   const read = (source: unknown, path: string): unknown => {
     return path.split(".").reduce<unknown>((current, key) => {
@@ -516,6 +526,8 @@ function itemValue(item: unknown, keys: string[], t: TFunc): string {
       continue
     }
     if (typeof value === "boolean") return value ? t("xodimSlug.common.yes") : t("xodimSlug.common.no")
+    const date = formatTimestamp(key, value)
+    if (date) return date
     return String(value)
   }
   return "-"
