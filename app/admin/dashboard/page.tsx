@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   Users, BookOpen, Video, CalendarCheck, ShieldAlert,
-  ClipboardList, CheckCircle2, TrendingUp, ArrowRight, ArrowUp, ArrowDown,
+  ClipboardList, LogIn, TrendingUp, ArrowRight, ArrowUp, ArrowDown,
   GraduationCap, ShieldCheck, ScanFace, UsersRound, ChevronRight,
   CalendarDays, PlayCircle, FileCheck2, BarChart3, LayoutGrid,
 } from "lucide-react"
@@ -388,7 +388,7 @@ export default function AdminDashboard() {
               g1="#9b6cf6" g2="#6d28d9" href="/admin/foydalanuvchilar" />
             <HeroStat icon={BookOpen} label={t("adminDashboard.statTotalContent")} value={stats.totalContent}
               g1="#22b45f" g2="#13803f" href="/admin/oqituvchilar" />
-            <HeroStat icon={CheckCircle2} label={t("adminDashboard.statCompletions")} value={stats.totalCompletions}
+            <HeroStat icon={LogIn} label={t("adminDashboard.statTodayUsers")} value={stats.todayUsers}
               g1="#fb8a3c" g2="#e05a0c" />
           </motion.div>
 

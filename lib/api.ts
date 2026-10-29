@@ -2559,7 +2559,8 @@ export interface AdminStats {
   /** Tizimga kirgan talabalardan Face ID'dan o'tganlari */
   faceRegistered: number
   activeStudents30d: number
-  /** Takrorsiz foydalanuvchilar: so'nggi 7 kun va undan oldingi 7 kun */
+  /** Takrorsiz foydalanuvchilar: bugun, so'nggi 7 kun va undan oldingi 7 kun */
+  todayUsers: number
   activeUsers7d: number
   activeUsersPrev7d: number
   /** Talabalar kirishi qayd etila boshlangan kun (YYYY-MM-DD) */
