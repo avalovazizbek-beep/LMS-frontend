@@ -2539,19 +2539,26 @@ export interface AdminUser {
   createdAt: string
 }
 
+/** Bosh sahifa — faqat haqiqiy ma'lumot (sinov guruhi / Zoom test / demo'siz) */
 export interface AdminStats {
+  /** Tizimga kamida bir marta kirgan talabalar */
   totalStudents: number
-  totalEmployees: number
-  grantedAdmins: number
-  totalContent: number
-  totalVideos: number
-  totalMeetings: number
+  /** Kontent joylagan o'qituvchilar (O'qituvchi hisobotidagi ro'yxat) */
+  totalTeachers: number
+  /** Bugun tizimga kirgan foydalanuvchilar (takrorsiz) */
+  todayUsers: number
+  /** So'nggi 5 daqiqada faol, chiqmagan foydalanuvchilar */
+  onlineNow: number
   facePending: number
-  totalSubmissions: number
-  totalCompletions: number
-  gradedSubmissions: number
-  faceRegistered: number
-  activeStudents30d: number
+  /** Noyob mavzu bo'yicha (bir mavzu bir necha guruhda — bitta); bo'sh qism sanalmaydi */
+  content: {
+    topics: number
+    videos: number
+    presentations: number
+    guides: number
+    tests: number
+    assignments: number
+  }
 }
 
 export interface AdminTeacherStat {
@@ -2564,12 +2571,14 @@ export interface AdminTeacherStat {
   mavzuAmaliyot: number
   mavzuMustaqil: number
   mavzuTurisiz: number
+  /** Material soni — fayli (YouTube: havolasi, test: savoli, topshiriq: fayli/matni) borlari */
   videolar: number
   audiolar: number
   taqdimotlar: number
   qollanmalar: number
+  youtube: number
   testlar: number
-  amaliy: number
+  topshiriqlar: number
   guruhlar: number
   studentsCompleted: number
   studentsSubmitted: number

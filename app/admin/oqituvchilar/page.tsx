@@ -5,7 +5,7 @@ import {
   BookOpen, Video, CalendarCheck, CheckCircle2,
   RefreshCw, TrendingUp, ChevronDown, ChevronUp, Clock,
   FileText, Search, ChevronLeft, ChevronRight, Music, Layers, Users, Clapperboard, ClipboardList,
-  ExternalLink, FileSpreadsheet, Send, Loader2, GraduationCap, X,
+  ExternalLink, FileSpreadsheet, Send, Loader2, GraduationCap, X, Presentation, ListChecks,
 } from "lucide-react"
 import { adminApi, type AdminTeacherStat, type AdminTeacherTopic, type AdminTeacherTopicContent, type AdminExamQuestion } from "@/lib/api"
 import { exportToExcel, exportToPdf, buildPdfBase64 } from "@/lib/exportUtils"
@@ -25,6 +25,7 @@ const C = {
   topic: "var(--adm-accent)",
   video: "var(--cat-2)",
   audio: "var(--cat-3)",
+  presentation: "var(--role-dean)",
   test: "var(--role-admin)",
   group: "var(--role-dean)",
   meeting: "var(--cat-1)",
@@ -334,10 +335,10 @@ function TeacherTopicsTable({ teacherHemisId, state, onChange }: {
                       <div className="flex flex-wrap gap-1">
                         <ContentBadge active={tp.has.video} icon={Video} label={t("adminOqituvchilar.contentKindVideo")} color={C.video} />
                         <ContentBadge active={tp.has.audio} icon={Music} label={t("adminOqituvchilar.contentKindAudio")} color={C.audio} />
-                        <ContentBadge active={tp.has.theory} icon={FileText} label={t("adminOqituvchilar.contentKindTheory")} color={C.group} />
+                        <ContentBadge active={tp.has.theory} icon={Presentation} label={t("adminOqituvchilar.contentKindTheory")} color={C.presentation} />
                         <ContentBadge active={tp.has.qollanma} icon={Layers} label={t("adminOqituvchilar.contentKindQollanma")} color={C.qollanma} />
                         <ContentBadge active={tp.has.youtube} icon={Clapperboard} label={t("adminOqituvchilar.contentKindYoutube")} color={C.test} />
-                        <ContentBadge active={tp.has.test} icon={CheckCircle2} label={t("adminOqituvchilar.itemTypeTest")} color={C.test} />
+                        <ContentBadge active={tp.has.test} icon={ListChecks} label={t("adminOqituvchilar.itemTypeTest")} color={C.test} />
                         <ContentBadge active={tp.has.assignment} icon={ClipboardList} label={t("adminOqituvchilar.itemTypeAssignment")} color={C.assignment} />
                       </div>
                     </td>
@@ -421,14 +422,18 @@ export default function AdminOqituvchilar() {
   const curPage = Math.min(page, pageCount - 1)
   const slice = filtered.slice(curPage * PAGE_SIZE, (curPage + 1) * PAGE_SIZE)
 
+  // Har o'qituvchining mavzulari alohida — yig'indi takrorsiz jami
   const totals = useMemo(() => stats.reduce(
     (acc, s) => ({
       topics: acc.topics + s.mavzular,
       videos: acc.videos + s.videolar,
+      presentations: acc.presentations + s.taqdimotlar,
+      guides: acc.guides + s.qollanmalar,
       tests: acc.tests + s.testlar,
+      assignments: acc.assignments + s.topshiriqlar,
       meetings: acc.meetings + s.meetingCount,
     }),
-    { topics: 0, videos: 0, tests: 0, meetings: 0 }
+    { topics: 0, videos: 0, presentations: 0, guides: 0, tests: 0, assignments: 0, meetings: 0 }
   ), [stats])
 
   function patchRow(hemisId: string, patch: Partial<RowState>) {
@@ -455,12 +460,13 @@ export default function AdminOqituvchilar() {
   const reportColumns = [
     t("adminOqituvchilar.colIndex"), t("adminOqituvchilar.reportColTeacher"), t("adminOqituvchilar.reportColTopics"),
     lectureLabel, practiceLabel, independentLabel,
-    t("adminOqituvchilar.reportColVideos"), t("adminOqituvchilar.reportColAudios"), t("adminOqituvchilar.reportColTests"),
+    t("adminOqituvchilar.reportColVideos"), t("adminOqituvchilar.reportColAudios"), t("adminOqituvchilar.reportColPresentations"),
+    t("adminOqituvchilar.reportColGuides"), t("adminOqituvchilar.reportColTests"), t("adminOqituvchilar.reportColAssignments"),
     t("adminOqituvchilar.reportColGroups"), t("adminOqituvchilar.reportColMeetings"), t("adminOqituvchilar.reportColStudents"),
     t("adminOqituvchilar.reportColLastActivity"),
   ]
   const reportRows = (): (string | number)[][] =>
-    filtered.map((s, i) => [i + 1, s.fullName, s.mavzular, s.mavzuMaruza ?? 0, s.mavzuAmaliyot ?? 0, s.mavzuMustaqil ?? 0, s.videolar, s.audiolar, s.testlar, s.guruhlar, s.meetingCount, s.studentsCompleted, fmtDate(s.lastSeen)])
+    filtered.map((s, i) => [i + 1, s.fullName, s.mavzular, s.mavzuMaruza ?? 0, s.mavzuAmaliyot ?? 0, s.mavzuMustaqil ?? 0, s.videolar, s.audiolar, s.taqdimotlar, s.qollanmalar, s.testlar, s.topshiriqlar, s.guruhlar, s.meetingCount, s.studentsCompleted, fmtDate(s.lastSeen)])
 
   function doExportExcel() {
     exportToExcel("oqituvchi-hisoboti", [{
@@ -469,7 +475,9 @@ export default function AdminOqituvchilar() {
         [t("adminOqituvchilar.colIndex")]: i + 1, [t("adminOqituvchilar.reportColTeacher")]: s.fullName, [t("adminOqituvchilar.reportColTopics")]: s.mavzular,
         [lectureLabel]: s.mavzuMaruza ?? 0, [practiceLabel]: s.mavzuAmaliyot ?? 0, [independentLabel]: s.mavzuMustaqil ?? 0,
         [t("adminOqituvchilar.reportColVideos")]: s.videolar, [t("adminOqituvchilar.reportColAudios")]: s.audiolar,
-        [t("adminOqituvchilar.reportColTests")]: s.testlar, [t("adminOqituvchilar.reportColGroups")]: s.guruhlar, [t("adminOqituvchilar.reportColMeetings")]: s.meetingCount, [t("adminOqituvchilar.reportColStudents")]: s.studentsCompleted,
+        [t("adminOqituvchilar.reportColPresentations")]: s.taqdimotlar, [t("adminOqituvchilar.reportColGuides")]: s.qollanmalar,
+        [t("adminOqituvchilar.reportColTests")]: s.testlar, [t("adminOqituvchilar.reportColAssignments")]: s.topshiriqlar,
+        [t("adminOqituvchilar.reportColGroups")]: s.guruhlar, [t("adminOqituvchilar.reportColMeetings")]: s.meetingCount, [t("adminOqituvchilar.reportColStudents")]: s.studentsCompleted,
         [t("adminOqituvchilar.reportColLastActivity")]: fmtDate(s.lastSeen),
       })),
     }])
@@ -541,13 +549,19 @@ export default function AdminOqituvchilar() {
         </span>
       )}
 
-      {/* Qisqa xulosa */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-        <StatCard icon={GraduationCap} color="var(--role-teacher)" value={stats.length} label={t("adminOqituvchilar.exportSheetName")} loading={!loaded} />
-        <StatCard icon={BookOpen} color={C.topic} value={totals.topics} label={t("adminOqituvchilar.reportColTopics")} loading={!loaded} />
-        <StatCard icon={Video} color={C.video} value={totals.videos} label={t("adminOqituvchilar.reportColVideos")} loading={!loaded} />
-        <StatCard icon={FileText} color={C.test} value={totals.tests} label={t("adminOqituvchilar.reportColTests")} loading={!loaded} />
-        <StatCard icon={CalendarCheck} color={C.meeting} value={totals.meetings} label={t("adminOqituvchilar.reportColMeetings")} loading={!loaded} />
+      {/* Qisqa xulosa — har bir material turi alohida */}
+      <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <StatCard icon={GraduationCap} color="var(--role-teacher)" value={stats.length} label={t("adminOqituvchilar.exportSheetName")} loading={!loaded} />
+          <StatCard icon={BookOpen} color={C.topic} value={totals.topics} label={t("adminOqituvchilar.reportColTopics")} loading={!loaded} />
+          <StatCard icon={Video} color={C.video} value={totals.videos} label={t("adminOqituvchilar.reportColVideos")} loading={!loaded} />
+          <StatCard icon={Presentation} color={C.presentation} value={totals.presentations} label={t("adminOqituvchilar.reportColPresentations")} loading={!loaded} />
+          <StatCard icon={Layers} color={C.qollanma} value={totals.guides} label={t("adminOqituvchilar.reportColGuides")} loading={!loaded} />
+          <StatCard icon={ListChecks} color={C.test} value={totals.tests} label={t("adminOqituvchilar.reportColTests")} loading={!loaded} />
+          <StatCard icon={ClipboardList} color={C.assignment} value={totals.assignments} label={t("adminOqituvchilar.reportColAssignments")} loading={!loaded} />
+          <StatCard icon={CalendarCheck} color={C.meeting} value={totals.meetings} label={t("adminOqituvchilar.reportColMeetings")} loading={!loaded} />
+        </div>
+        <p className="px-1 text-xs" style={L}>{t("adminOqituvchilar.countRuleHint")}</p>
       </div>
 
       {/* Qidiruv */}
@@ -578,7 +592,7 @@ export default function AdminOqituvchilar() {
       ) : (
         <div className="adm-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px]">
+            <table className="w-full min-w-[1320px]">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--adm-border)" }}>
                   <th className={`${headCls} w-12 text-left`}>{t("adminOqituvchilar.colIndex")}</th>
@@ -586,7 +600,10 @@ export default function AdminOqituvchilar() {
                   <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColTopics")}</th>
                   <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColVideos")}</th>
                   <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColAudios")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColPresentations")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColGuides")}</th>
                   <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColTests")}</th>
+                  <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColAssignments")}</th>
                   <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColGroups")}</th>
                   <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColMeetings")}</th>
                   <th className={`${headCls} text-center`}>{t("adminOqituvchilar.reportColStudents")}</th>
@@ -598,7 +615,7 @@ export default function AdminOqituvchilar() {
                 {!loaded ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid var(--adm-border)" }}>
-                      <td colSpan={11} className="px-4 py-4">
+                      <td colSpan={14} className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 animate-pulse rounded-full bg-[var(--adm-grid)]" />
                           <div className="flex flex-1 flex-col gap-1.5">
@@ -658,7 +675,10 @@ export default function AdminOqituvchilar() {
 
                         <td className="px-4 py-3 text-center"><MetricPill icon={Video} value={s.videolar} color={C.video} /></td>
                         <td className="px-4 py-3 text-center"><MetricPill icon={Music} value={s.audiolar} color={C.audio} /></td>
-                        <td className="px-4 py-3 text-center"><MetricPill icon={FileText} value={s.testlar} color={C.test} /></td>
+                        <td className="px-4 py-3 text-center"><MetricPill icon={Presentation} value={s.taqdimotlar} color={C.presentation} /></td>
+                        <td className="px-4 py-3 text-center"><MetricPill icon={Layers} value={s.qollanmalar} color={C.qollanma} /></td>
+                        <td className="px-4 py-3 text-center"><MetricPill icon={ListChecks} value={s.testlar} color={C.test} /></td>
+                        <td className="px-4 py-3 text-center"><MetricPill icon={ClipboardList} value={s.topshiriqlar} color={C.assignment} /></td>
                         <td className="px-4 py-3 text-center"><MetricPill icon={Users} value={s.guruhlar} color={C.group} /></td>
                         <td className="px-4 py-3 text-center"><MetricPill icon={CalendarCheck} value={s.meetingCount} color={C.meeting} /></td>
                         <td className="px-4 py-3 text-center"><MetricPill icon={CheckCircle2} value={s.studentsCompleted} color={C.students} /></td>
@@ -679,7 +699,7 @@ export default function AdminOqituvchilar() {
                       {/* Ochilgan mavzular ro'yxati */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan={11} className="p-0"
+                          <td colSpan={14} className="p-0"
                             style={{ borderBottom: "1px solid var(--adm-border)", backgroundColor: "color-mix(in srgb, var(--adm-accent) 3%, var(--adm-card))" }}>
                             <div style={{ borderTop: "1px solid var(--adm-border)" }}>
                               <TeacherTopicsTable
