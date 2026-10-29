@@ -8,7 +8,8 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { StudentContentCard } from "@/components/teaching/StudentContentCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-import { isControlWork, MUSTAQIL_CONTROL } from "@/lib/controlWork"
+import { isControlWork, isProctoredControlTest, MUSTAQIL_CONTROL } from "@/lib/controlWork"
+import { FacePracticeNotice, useFacePractice } from "@/components/teaching/FacePracticeNotice"
 
 export default function Imtihonlar() {
   const { t } = useLanguage()
@@ -25,6 +26,10 @@ export default function Imtihonlar() {
   )
   const exams: TeacherContent[] = (data?.data ?? []).filter(e =>
     (e.type === "exam" && !e.topicKey && e.controlType !== MUSTAQIL_CONTROL) || isControlWork(e))
+
+  // Ochiq yoki kutilayotgan oraliq / mustaqil ish testi bor — yuz sinovini taklif qilamiz
+  const hasControlTest = exams.some(e => e.status !== "closed" && isProctoredControlTest(e))
+  const facePractice = useFacePractice(hasControlTest)
 
   const grouped = useMemo(() => {
     const map: Record<ContentStatus, TeacherContent[]> = { locked: [], open: [], closed: [] }
@@ -43,6 +48,10 @@ export default function Imtihonlar() {
           {t("exams.subtitle")}
         </p>
       </motion.div>
+
+      {hasControlTest && !facePractice.loading && !facePractice.passed && (
+        <FacePracticeNotice compact />
+      )}
 
       <div className="grid grid-cols-3 gap-5">
         {[

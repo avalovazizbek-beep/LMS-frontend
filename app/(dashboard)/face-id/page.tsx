@@ -115,6 +115,14 @@ export default function FaceIdPage() {
               {st.registered ? t("faceId.reregister") : t("faceId.registerFace")}
             </Link>
           )}
+          {st.registered && (
+            <Link href="/face-id/sinov"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-semibold transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "#ea580c", color: "#fff", fontFamily: "var(--font-poppins)" }}>
+              <ShieldCheck className="w-4 h-4" />
+              {t("facePractice.title")}
+            </Link>
+          )}
           {st.registered && !st.hasPendingRequest && !st.hasApprovedRequest && (
             <Link href="/face-id/re-register"
               className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium transition-opacity hover:opacity-90"

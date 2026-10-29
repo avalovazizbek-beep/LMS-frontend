@@ -98,10 +98,16 @@ interface FaceProcProps {
   disabled?: boolean
   fixed?: boolean                // render widget + overlays as position:fixed
   maxViolations?: number         // admin-configurable "Face ID bloklash chegarasi" (lms_settings)
+  /** "Yuzni sinab ko'rish" (demo test): chegaraga yetganda test tugamaydi —
+      "haqiqiy imtihonda shu yerda chiqarilardingiz" deb ogohlantirib, davom etadi */
+  practice?: boolean
+  onError?: (key: string) => void   // kamera/model ochilmadi (lug'at kaliti)
+  onVerifyResult?: (verified: boolean, confidence: number | null, reason?: string) => void
 }
 
 export default function FaceProctor({
   children, onTerminate, onFirstVerified, onViolation, disabled = false, fixed = false, maxViolations,
+  practice = false, onError, onVerifyResult,
 }: FaceProcProps) {
   const MAX_VIOLATIONS = maxViolations && maxViolations > 0 ? maxViolations : DEFAULT_MAX_VIOLATIONS
   const videoRef            = useRef<HTMLVideoElement>(null)
@@ -124,6 +130,9 @@ export default function FaceProctor({
   const statusRef              = useRef<ProcStatus>("loading")  // RAF da fresh qiymat
   const absentGraceRef         = useRef(ABSENT_GRACE)
   useEffect(() => { onFirstVerifiedRef.current = onFirstVerified }, [onFirstVerified])
+  const onErrorRef        = useRef(onError)
+  const onVerifyResultRef = useRef(onVerifyResult)
+  useEffect(() => { onErrorRef.current = onError; onVerifyResultRef.current = onVerifyResult }, [onError, onVerifyResult])
   useEffect(() => {
     absentGraceRef.current = window.matchMedia("(pointer: coarse)").matches ? ABSENT_GRACE_TOUCH : ABSENT_GRACE
   }, [])
@@ -149,6 +158,7 @@ export default function FaceProctor({
   const { t } = useLanguage()
   const [statusMsg,    setStatusMsg]    = useState<ProctorMsg>({ key: "proctor.loading" })
   const [examBlocked,      setExamBlocked]      = useState(false)
+  const [practiceLimit,    setPracticeLimit]    = useState(false)   // sinovda chegaraga yetildi
   const [multiPersonBlocked, setMultiPersonBlocked] = useState(false)
   const [faceMissing,  setFaceMissing]  = useState(false)
   const faceMissingRef = useRef(false)   // har kadrda setState chaqirmaslik uchun
@@ -174,6 +184,7 @@ export default function FaceProctor({
       } catch {
         setStatusSynced("error")
         setStatusMsg({ key: "proctor.modelFailed" })
+        onErrorRef.current?.("proctor.modelFailed")
       }
     })()
   }, [scriptReady])
@@ -201,6 +212,7 @@ export default function FaceProctor({
       .catch(() => {
         setStatusSynced("error")
         setStatusMsg({ key: "proctor.cameraDenied" })
+        onErrorRef.current?.("proctor.cameraDenied")
       })
     return () => {
       cancelled = true
@@ -261,7 +273,18 @@ export default function FaceProctor({
     setViolations(next)
     setExamBlocked(true)
 
-    if (next >= MAX_VIOLATIONS) {
+    if (next >= MAX_VIOLATIONS && practice) {
+      // Sinov: testni tugatmaymiz — haqiqiy imtihonda nima bo'lishini ko'rsatib, davom etamiz
+      setPracticeLimit(true)
+      setStatusSynced("warning")
+      setStatusMsg({ key: "proctor.practice.wouldEnd", params: { max: MAX_VIOLATIONS }, reason })
+      setTimeout(() => {
+        setPracticeLimit(false)
+        setExamBlocked(false)
+        setStatusSynced("ok")
+        setStatusMsg({ key: "proctor.continuing" })
+      }, 6000)
+    } else if (next >= MAX_VIOLATIONS) {
       setStatusSynced("violation")
       setStatusMsg({ key: "proctor.terminated", params: { max: MAX_VIOLATIONS } })
       stopAll()
@@ -276,7 +299,7 @@ export default function FaceProctor({
         setStatusMsg({ key: "proctor.continuing" })
       }, 4000)
     }
-  }, [onTerminate, pushHistory, setStatusSynced])
+  }, [onTerminate, pushHistory, setStatusSynced, practice])
 
   const runVerify = useCallback(async () => {
     if (isVerifyingRef.current) return
@@ -304,6 +327,7 @@ export default function FaceProctor({
       const descriptor = Array.from(result.descriptor) as number[]
       const res = await faceApi.verify(descriptor)
 
+      onVerifyResultRef.current?.(res.verified, res.confidence !== undefined ? Math.round(res.confidence * 100) : null, res.reason)
       if (!res.verified) {
         if (res.reason === "not_registered" || res.reason === "expired") {
           consecutiveVerifyFails.current = 0
@@ -561,7 +585,9 @@ export default function FaceProctor({
     </div>
   )
 
-  const blockedOverlay = examBlocked && violations < MAX_VIOLATIONS ? (
+  // Sinovda chegaradan oshsa ham test tugamaydi — "tugadi" holati faqat haqiqiy imtihonda
+  const limitReached = !practice && violations >= MAX_VIOLATIONS
+  const blockedOverlay = examBlocked && (practice || violations < MAX_VIOLATIONS) ? (
     <div style={{
       position: fixed ? "fixed" : "absolute", inset: 0, zIndex: fixed ? 10000 : 40,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14,
@@ -601,9 +627,17 @@ export default function FaceProctor({
           )}
           <div style={{ textAlign: "center", padding: "0 32px" }}>
             <p style={{ fontSize: 16, fontWeight: 700, color: "#7f1d1d", margin: "0 0 4px", fontFamily: "var(--font-poppins)" }}>
-              {t("proctor.violationTitle", { n: violations, max: MAX_VIOLATIONS })}
+              {practiceLimit
+                ? t("proctor.practice.limitTitle")
+                : t("proctor.violationTitle", { n: Math.min(violations, MAX_VIOLATIONS), max: MAX_VIOLATIONS })}
             </p>
             <p style={{ fontSize: 14, color: "#92400e", margin: 0, fontFamily: "var(--font-poppins)" }}>{msgText(statusMsg)}</p>
+            {practice && (
+              <p style={{ fontSize: 12.5, color: "#7f1d1d", margin: "10px auto 0", maxWidth: 420, padding: "8px 12px", borderRadius: 8,
+                backgroundColor: "rgba(255,255,255,0.75)", fontFamily: "var(--font-poppins)", lineHeight: 1.45 }}>
+                {practiceLimit ? t("proctor.practice.limitDesc", { max: MAX_VIOLATIONS }) : t("proctor.practice.counts", { max: MAX_VIOLATIONS })}
+              </p>
+            )}
             <p style={{ fontSize: 12, color: "#b45309", margin: "8px 0 0", fontFamily: "var(--font-poppins)" }}>
               {t("proctor.resumeSoon")}
             </p>
@@ -613,7 +647,7 @@ export default function FaceProctor({
     </div>
   ) : null
 
-  const terminatedOverlay = violations >= MAX_VIOLATIONS ? (
+  const terminatedOverlay = limitReached ? (
     <div style={{
       position: fixed ? "fixed" : "absolute", inset: 0, zIndex: fixed ? 10000 : 50,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14,
@@ -639,7 +673,7 @@ export default function FaceProctor({
 
   // Yuz ko'rinmayapti — savollar yopilgan; nima qilish kerakligini ekran
   // markazida aytamiz (telefonda kichik kamera vidgetidagi yozuv ko'rinmay qoladi)
-  const faceMissingBanner = faceMissing && !examBlocked && violations < MAX_VIOLATIONS ? (
+  const faceMissingBanner = faceMissing && !examBlocked && !limitReached ? (
     <div style={{
       position: fixed ? "fixed" : "absolute", left: 0, right: 0, top: "38%", zIndex: fixed ? 10000 : 40,
       display: "flex", justifyContent: "center", padding: "0 16px", pointerEvents: "none",
@@ -659,7 +693,7 @@ export default function FaceProctor({
     </div>
   ) : null
 
-  const contentBlocked = status !== "ok" || examBlocked || violations >= MAX_VIOLATIONS
+  const contentBlocked = status !== "ok" || examBlocked || limitReached
   const childrenWrapper = (
     <div style={{
       pointerEvents: contentBlocked ? "none" : "auto",
@@ -782,7 +816,7 @@ export default function FaceProctor({
         {terminatedOverlay}
         {faceMissingBanner}
         <div className="relative" style={{
-          pointerEvents: examBlocked || violations >= MAX_VIOLATIONS ? "none" : "auto",
+          pointerEvents: examBlocked || limitReached ? "none" : "auto",
           opacity: examBlocked ? 0.4 : 1,
           transition: "opacity 0.3s",
         }}>

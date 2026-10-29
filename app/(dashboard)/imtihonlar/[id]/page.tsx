@@ -11,6 +11,8 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import FaceProctor from "@/components/ui/FaceProctor"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { isProctoredControlTest } from "@/lib/controlWork"
+import { FacePracticeNotice, FacePracticePassed, useFacePractice } from "@/components/teaching/FacePracticeNotice"
 
 type Phase = "intro" | "face_scan" | "exam" | "submitted_now"
 
@@ -36,6 +38,12 @@ export default function ImtihonTopshirish() {
 
   const { data: settingsRes } = useApi(() => teachingApi.examSettings(), [])
   const examSettings = settingsRes?.data ?? null
+
+  // Oraliq / mustaqil ish testidan oldin "Yuzni sinab ko'rish" demo testi
+  const isControlTest = content ? isProctoredControlTest(content) : false
+  const facePractice = useFacePractice(isControlTest)
+  const practiceGate = isControlTest && !facePractice.loading && !facePractice.passed
+  const practiceBlocks = isControlTest && (facePractice.loading || (practiceGate && facePractice.required))
 
   const [attemptKey, setAttemptKey]   = useState(0)
 
@@ -465,12 +473,17 @@ export default function ImtihonTopshirish() {
                 : <span style={{ color: "#0e58a8" }}>{t("examTake.retakeGrantedNotice")}</span>
             )}
           </div>
+          {practiceGate && (
+            <div className="mt-4"><FacePracticeNotice back={`/imtihonlar/${id}`} required={facePractice.required} /></div>
+          )}
           <div className="flex flex-col gap-3 mt-6">
-            <button onClick={startExam}
-              className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-[5px] text-white font-medium"
-              style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              <RefreshCw className="w-4 h-4" /> {t("examTake.retry")}
-            </button>
+            {!practiceBlocks && (
+              <button onClick={startExam}
+                className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-[5px] text-white font-medium"
+                style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                <RefreshCw className="w-4 h-4" /> {t("examTake.retry")}
+              </button>
+            )}
             <button onClick={() => router.push("/imtihonlar")}
               className="px-6 py-2 rounded-[5px] text-sm font-medium"
               style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
@@ -535,11 +548,20 @@ export default function ImtihonTopshirish() {
               {t("examTake.cameraTips")}
             </p>
           </div>
-          <button onClick={startExam}
-            className="inline-flex items-center gap-2 mt-6 px-6 py-2.5 rounded-[5px] text-white font-medium"
-            style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-            {t("examTake.start")}
-          </button>
+          {/* Oraliq / mustaqil ish: avval yuz sinovi (sinovdan o'tgan bo'lsa — belgi) */}
+          {practiceGate && (
+            <div className="mt-3"><FacePracticeNotice back={`/imtihonlar/${id}`} required={facePractice.required} /></div>
+          )}
+          {isControlTest && facePractice.passed && !facePractice.loading && (
+            <div className="mt-3"><FacePracticePassed /></div>
+          )}
+          {!practiceBlocks && (
+            <button onClick={startExam}
+              className="inline-flex items-center gap-2 mt-6 px-6 py-2.5 rounded-[5px] text-white font-medium"
+              style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+              {t("examTake.start")}
+            </button>
+          )}
         </div>
       </div>
     )

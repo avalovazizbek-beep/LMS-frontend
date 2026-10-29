@@ -20,3 +20,9 @@ export function isControlWork(item: TeacherContent): boolean {
   if (item.type === "assignment" && !item.topicKey && item.controlType === "oraliq") return true
   return isMustaqilWork(item)
 }
+
+/** Yuz nazorati ostida ishlanadigan oraliq / mustaqil ish testi — undan oldin
+    "Yuzni sinab ko'rish" demo testi taklif qilinadi (yoki majburiy) */
+export function isProctoredControlTest(item: Pick<TeacherContent, "type" | "controlType" | "topicKey">): boolean {
+  return item.type === "exam" && !item.topicKey && (item.controlType === "oraliq" || item.controlType === MUSTAQIL_CONTROL)
+}

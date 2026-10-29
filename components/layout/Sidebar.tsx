@@ -91,6 +91,7 @@ const studentSections: Section[] = [
     icon: ScanFace,
     items: [
       { label: "Face ID holati",     href: "/face-id",             tKey: "sidebar.item.faceIdStatus" },
+      { label: "Yuzni sinab ko'rish", href: "/face-id/sinov",      tKey: "sidebar.item.faceIdPractice" },
       { label: "Yuzni ro'yxatdan o'tkazish", href: "/face-id/register",   tKey: "sidebar.item.faceIdRegister" },
       { label: "Qayta ro'yxatdan o'tish",    href: "/face-id/re-register", tKey: "sidebar.item.faceIdReregister" },
       { label: "Arizalar",           href: "/face-id/requests",    tKey: "sidebar.item.applications" },

@@ -949,6 +949,13 @@ export interface FaceStatus {
   hasApprovedRequest?: boolean
   adminRequestedReregister?: boolean
 }
+export type FacePracticeIssue = "camera" | "not_registered" | "not_verified" | "mismatch" | "multi_face" | "no_face" | "fullscreen" | "tab_blur"
+export interface FacePracticeStatus {
+  passed: boolean
+  lastPassedAt: number | null
+  lastAt: number | null
+  runs: number
+}
 export interface StudentFaceRow {
   hemisId: number
   fullName: string
@@ -980,6 +987,11 @@ export const faceApi = {
     get<{ success: boolean; data: ReRegRequest[] }>("/api/face/requests"),
   reviewRequest: (id: string, action: "approve" | "reject", adminNote?: string) =>
     put<{ success: boolean; message: string }>(`/api/face/requests/${id}`, { action, adminNote }),
+  /** "Yuzni sinab ko'rish" (oraliqdan oldingi demo test) holati */
+  practiceStatus: () =>
+    get<{ success: boolean; data: FacePracticeStatus }>("/api/face/practice"),
+  savePractice: (result: { passed: boolean; violations: number; maxViolations: number; confidence: number | null; issues: FacePracticeIssue[] }) =>
+    post<{ success: boolean; data: FacePracticeStatus & { passedNow: boolean } }>("/api/face/practice", result),
 }
 
 // Builds an authenticated download URL by passing the JWT token as a query param
@@ -1641,7 +1653,7 @@ export const teachingApi = {
   groupsByYear: (year: string) => get<ListRes<TeacherGroup>>(`/api/teaching/groups-by-year?year=${encodeURIComponent(year)}`),
 
   examSettings: () =>
-    get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null; attendanceMode: "auto" | "manual" } }>("/api/teaching/exam-settings"),
+    get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null; attendanceMode: "auto" | "manual"; facePracticeRequired?: boolean } }>("/api/teaching/exam-settings"),
 
   sync: () =>
     post<{ success: boolean; message: string; data: { groups: TeacherGroup[]; schedule: TeacherScheduleItem[] } }>(

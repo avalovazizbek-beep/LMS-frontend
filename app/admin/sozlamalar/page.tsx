@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import {
   RefreshCw, Save, ShieldAlert, FileText, CheckCircle2, Video, ClipboardCheck, Award, Upload, RotateCcw, ArrowRight, Loader2,
-  MonitorCheck, Send, Search,
+  MonitorCheck, Send, Search, ScanFace,
 } from "lucide-react"
 import { adminApi, type CertificateTopicPart } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -72,6 +72,7 @@ export default function AdminSozlamalar() {
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const [faceThreshold, setFaceThreshold] = useState("3")
+  const [facePractice, setFacePractice] = useState(true)
   const [testAttempts, setTestAttempts] = useState("1")
   const [meetingMinutes, setMeetingMinutes] = useState("2")
   const [attendanceMode, setAttendanceMode] = useState<"auto" | "manual">("auto")
@@ -101,6 +102,7 @@ export default function AdminSozlamalar() {
         const d = res.data ?? {}
         setSettings(d)
         setFaceThreshold(d.face_block_threshold ?? "3")
+        setFacePractice(d.face_practice_required !== "0")
         setTestAttempts(d.test_max_attempts ?? "1")
         setMeetingMinutes(d.meeting_attendance_minutes ?? "2")
         setAttendanceMode(d.attendance_mode === "manual" ? "manual" : "auto")
@@ -129,6 +131,7 @@ export default function AdminSozlamalar() {
     try {
       await adminApi.saveSettings({
         face_block_threshold: faceThreshold,
+        face_practice_required: facePractice ? "1" : "0",
         test_max_attempts: testAttempts,
         meeting_attendance_minutes: meetingMinutes,
         attendance_mode: attendanceMode,
@@ -240,6 +243,25 @@ export default function AdminSozlamalar() {
               desc={<>{t("adminSozlamalar.faceThresholdDesc")}{current("face_block_threshold", "3")}</>}>
               <NumberField label={t("adminSozlamalar.errorCountLabel")} value={faceThreshold} onChange={setFaceThreshold}
                 min={1} max={20} hint={t("adminSozlamalar.rangeHint1to20")} />
+            </SettingCard>
+
+            {/* Oraliq / mustaqil ish testidan oldin "Yuzni sinab ko'rish" demo testi */}
+            <SettingCard icon={<ScanFace className="w-5 h-5" style={{ color: "#c2410c" }} />} iconBg="#fff7ed"
+              title={t("adminSozlamalar.facePracticeTitle")} desc={t("adminSozlamalar.facePracticeDesc")}>
+              <div className="flex items-start gap-3">
+                <button type="button" role="switch" aria-checked={facePractice} onClick={() => setFacePractice(v => !v)}
+                  className="relative w-11 h-6 rounded-full shrink-0 transition-colors mt-0.5"
+                  style={{ backgroundColor: facePractice ? "#0e58a8" : "#cbd5e1" }}>
+                  <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
+                    style={{ left: facePractice ? 22 : 2 }} />
+                </button>
+                <div>
+                  <div className="text-sm font-medium" style={{ color: "#012970", ...font }}>{t("adminSozlamalar.facePracticeToggle")}</div>
+                  <div className="text-xs mt-0.5" style={{ color: "#7293b9", ...font }}>
+                    {facePractice ? t("adminSozlamalar.facePracticeOn") : t("adminSozlamalar.facePracticeOff")}
+                  </div>
+                </div>
+              </div>
             </SettingCard>
 
             <SettingCard icon={<FileText className="w-5 h-5" style={{ color: "#0e58a8" }} />} iconBg="#eef4ff"
