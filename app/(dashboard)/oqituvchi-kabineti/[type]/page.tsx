@@ -24,6 +24,7 @@ import {
 import { useApi } from "@/hooks/useApi"
 import { sortByName } from "@/lib/utils"
 import { Loading, ApiError } from "@/components/ui/ApiState"
+import { TaskFileCard } from "@/components/teaching/TaskFileCard"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
 import { ViolationChips } from "@/components/teaching/ViolationChips"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -1514,16 +1515,7 @@ export default function TeacherContentTypePage() {
 
                 {/* Oraliq topshirig'i fayli — API uni `file` sifatida beradi */}
                 {!item.docFile && item.file && item.type === "assignment" && (
-                  <a
-                    href={teachingApi.fileUrl(item.file.url)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-xs font-medium w-fit px-3 py-1.5 rounded-[6px]"
-                    style={{ color: "#0e58a8", backgroundColor: "#f0f5ff", fontFamily: "var(--font-poppins)" }}
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    {item.file.originalName}
-                  </a>
+                  <TaskFileCard files={[item.file]} controlType={item.controlType} audience="teacher" />
                 )}
                 {item.docFile && (
                   <a

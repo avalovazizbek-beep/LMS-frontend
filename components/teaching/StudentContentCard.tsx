@@ -11,6 +11,7 @@ import { useApi } from "@/hooks/useApi"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { ViolationChips } from "./ViolationChips"
 import { oraliqPoints } from "./GradeBudgetLine"
+import { TaskFileCard } from "./TaskFileCard"
 
 const STATUS_CONFIG: Record<ContentStatus, { labelKey: string; color: string; bg: string; Icon: typeof Lock }> = {
   locked: { labelKey: "scc.status.locked", color: "#b91c1c", bg: "#fef2f2", Icon: Lock },
@@ -184,8 +185,11 @@ export function StudentContentCard({ item, submittable = false }: Props) {
 
         {!locked && (attachments.length > 0 || item.meetingLink) && (
           <div className="flex flex-col gap-2">
+            {/* Topshiriqda biriktirilgan fayl — bajariladigan vazifaning o'zi */}
+            {isAssignment && <TaskFileCard files={docs} controlType={item.controlType} audience="student" />}
+
             {/* Hujjat fayllari */}
-            {docs.map(f => (
+            {!isAssignment && docs.map(f => (
               <a key={f.url} href={teachingApi.fileUrl(f.url)} target="_blank" rel="noreferrer" download
                 className="flex items-center gap-2 w-fit max-w-full px-3 py-2 rounded-[6px] text-xs font-medium"
                 style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
