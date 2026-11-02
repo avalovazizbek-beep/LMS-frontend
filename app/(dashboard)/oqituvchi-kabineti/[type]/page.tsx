@@ -25,6 +25,7 @@ import { useApi } from "@/hooks/useApi"
 import { sortByName } from "@/lib/utils"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { TaskFileCard } from "@/components/teaching/TaskFileCard"
+import { SubjectBadge } from "@/components/teaching/SubjectBadge"
 import { QuestionsModal } from "@/components/teaching/QuestionsModal"
 import { ViolationChips } from "@/components/teaching/ViolationChips"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -1464,8 +1465,11 @@ export default function TeacherContentTypePage() {
                           </span>
                         )}
                       </div>
-                      <div className="text-xs mt-0.5" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-                        {item.subjectName} • <Users className="w-3 h-3 inline -mt-0.5" /> {groupName}
+                      <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                        <SubjectBadge name={item.subjectName} />
+                        <span className="flex items-center gap-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                          <Users className="w-3.5 h-3.5" /> {groupName}
+                        </span>
                       </div>
                     </div>
                   </div>

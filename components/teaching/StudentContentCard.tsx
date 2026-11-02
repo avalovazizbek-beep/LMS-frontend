@@ -12,6 +12,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { ViolationChips } from "./ViolationChips"
 import { oraliqPoints } from "./GradeBudgetLine"
 import { TaskFileCard } from "./TaskFileCard"
+import { SubjectBadge } from "./SubjectBadge"
 
 const STATUS_CONFIG: Record<ContentStatus, { labelKey: string; color: string; bg: string; Icon: typeof Lock }> = {
   locked: { labelKey: "scc.status.locked", color: "#b91c1c", bg: "#fef2f2", Icon: Lock },
@@ -147,10 +148,12 @@ export function StudentContentCard({ item, submittable = false }: Props) {
               </h3>
               {/* Mavzusiz ishlar (oraliq, mustaqil ish) bir sahifada aralash turadi — qaysi fan, kimniki */}
               {!item.topicKey && (
-                <p className="text-xs font-semibold mt-0.5" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                  {item.subjectName}
-                  {item.teacherName && <span className="font-normal" style={{ color: "#7293b9" }}> · {item.teacherName}</span>}
-                </p>
+                <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                  <SubjectBadge name={item.subjectName} />
+                  {item.teacherName && (
+                    <span className="text-xs" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{item.teacherName}</span>
+                  )}
+                </div>
               )}
               {!locked && item.description && (
                 <p className={`text-xs mt-1 ${isAssignment ? "whitespace-pre-line" : "line-clamp-2"}`} style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
