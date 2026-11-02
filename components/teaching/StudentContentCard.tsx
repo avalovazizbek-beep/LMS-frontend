@@ -273,7 +273,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
               const retakeGranted = mySubmission.retakeGranted === true || item.retakeGranted === true
               const openNow = item.status === "open" || (item.status === "closed" && (reopened || retakeGranted))
               const hasRegularAttempt = maxAttempts === null || used < maxAttempts
-              const canRetry = !alreadyPassed && openNow && (hasRegularAttempt || reopened || retakeGranted)
+              const canRetry = (!alreadyPassed || reopened || retakeGranted) && openNow && (hasRegularAttempt || reopened || retakeGranted)
               return (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 flex-wrap">

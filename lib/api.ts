@@ -1932,7 +1932,8 @@ export const teachingApi = {
     put<ListRes<ExamQuestion>>(`/api/teaching/content/${contentId}/questions`, { questions }),
 
   submitExam: (contentId: number | string, answers: number[]) =>
-    post<ItemRes<{ submission: TeachingSubmission; maxScore: number | null }>>(
+    // submission.grade — hisobga olinadigan (eng yuqori) baho, attemptScore — shu urinishniki
+    post<ItemRes<{ submission: TeachingSubmission; maxScore: number | null; attemptScore?: number }>>(
       `/api/teaching/content/${contentId}/exam-submit`,
       { answers }
     ),

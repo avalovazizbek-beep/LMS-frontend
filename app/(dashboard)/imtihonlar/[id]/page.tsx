@@ -61,7 +61,7 @@ export default function ImtihonTopshirish() {
   const [submitting,    setSubmitting]    = useState(false)
   const submittingRef = useRef(false)   // ikki marta yuborishdan himoya (race condition)
   const [submitError,   setSubmitError]   = useState<string | null>(null)
-  const [result,        setResult]        = useState<{ grade: number | null; maxScore: number | null; attemptsUsed: number } | null>(null)
+  const [result,        setResult]        = useState<{ grade: number | null; maxScore: number | null; attemptsUsed: number; attemptScore?: number | null } | null>(null)
   const [fsExited,      setFsExited]      = useState(false)   // to'liq ekrandan chiqildi
   const [fsHint,        setFsHint]        = useState(false)   // telefonda: savollarni yopmaydigan "qaytish" tugmasi
   const [winHidden,     setWinHidden]     = useState(false)   // Alt+Tab: oyna yashirildi
@@ -92,9 +92,14 @@ export default function ImtihonTopshirish() {
 
   const maxAttempts  = content?.attemptsCount && content.attemptsCount > 0 ? content.attemptsCount : null
   const attemptsUsed = mySubmission?.attemptsUsed ?? 0
+  // Testdan o'tgan (60%) talabaga keyingi urinish ochilmaydi — server ham shunday;
+  // baho baribir eng yuqori urinishdan olinadi
+  const passThreshold = content?.maxScore && content.maxScore > 0 ? content.maxScore * 0.6 : 60
+  const isPassed = (grade: number | null | undefined) => grade != null && grade >= passThreshold
+  const alreadyPassed = isPassed(mySubmission?.grade)
   // Admin/o'qituvchi shu talabaga qo'shimcha urinish bergan bo'lsa (retake grant)
   // yoki mavzu qayta ochilgan bo'lsa — limitga va muddatga qaramasdan qayta urinish mumkin
-  const canRetry     = openForMe && mySubmission !== null &&
+  const canRetry     = openForMe && mySubmission !== null && (!alreadyPassed || retakeGranted || topicReopened) &&
     (maxAttempts === null || attemptsUsed < maxAttempts || retakeGranted || topicReopened)
 
   /* ── To'liq ekran lock ────────────────────────────────────────────── */
@@ -268,6 +273,7 @@ export default function ImtihonTopshirish() {
         grade:        res.data.submission.grade,
         maxScore:     res.data.maxScore,
         attemptsUsed: res.data.submission.attemptsUsed ?? 1,
+        attemptScore: res.data.attemptScore ?? null,
       })
       setPhase("submitted_now")
       refetchSub()
@@ -323,6 +329,7 @@ export default function ImtihonTopshirish() {
           grade:        res.data.submission?.grade ?? null,
           maxScore:     res.data.maxScore ?? null,
           attemptsUsed: res.data.submission?.attemptsUsed ?? 1,
+          attemptScore: res.data.score ?? null,
         })
         setPhase("submitted_now")
         refetchSub()
@@ -366,8 +373,12 @@ export default function ImtihonTopshirish() {
     // holatiga tushib qolib, qayta kira olmay qolardi.
     const usedNow      = result?.attemptsUsed ?? attemptsUsed
     // Qo'shimcha urinish ruxsati bir martalik — topshirilgach sarflangan bo'ladi
+    const passedNow    = isPassed(result?.grade)
     const canRetryNow  = (content.status === "open" || (content.status === "closed" && topicReopened)) &&
+      (!passedNow || topicReopened) &&
       (maxAttempts === null || usedNow < maxAttempts || topicReopened)
+    // Bu urinish oldingisidan past chiqdi — hisobga yuqorisi qoldi
+    const lowerThanBest = result?.attemptScore != null && result.grade != null && result.attemptScore < result.grade
     return (
       <div className="min-h-full flex items-center justify-center p-[30px]">
         <div className="bg-white rounded-[10px] p-10 text-center max-w-md w-full"
@@ -381,9 +392,19 @@ export default function ImtihonTopshirish() {
               <p className="text-base mt-3 font-semibold" style={{ color: "#1cc2dc", fontFamily: "var(--font-poppins)" }}>
                 {t("examTake.result")} {result.grade ?? "—"}{result.maxScore != null ? ` / ${result.maxScore}` : ""}
               </p>
+              {lowerThanBest && (
+                <p className="text-sm mt-1" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
+                  {t("examTake.thisAttemptLower", { score: `${result.attemptScore}${result.maxScore != null ? ` / ${result.maxScore}` : ""}` })}
+                </p>
+              )}
               {maxAttempts !== null && (
                 <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                   {t("examTake.attemptsUsedOf", { used: usedNow, max: maxAttempts })}
+                </p>
+              )}
+              {passedNow && maxAttempts !== null && usedNow < maxAttempts && (
+                <p className="text-sm mt-2" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                  {t("examTake.passedNoMore")}
                 </p>
               )}
               {proctorEnded && (
@@ -436,7 +457,11 @@ export default function ImtihonTopshirish() {
             {mySubmission.feedback && (
               <p className="text-sm mt-2" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{mySubmission.feedback}</p>
             )}
-            {maxAttempts !== null && (
+            {alreadyPassed && maxAttempts !== null && attemptsUsed < maxAttempts ? (
+              <p className="text-sm mt-1" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>
+                {t("examTake.passedNoMore")}
+              </p>
+            ) : maxAttempts !== null && (
               <p className="text-sm mt-1" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
                 {t("examTake.allAttemptsUsed", { n: maxAttempts })}
               </p>

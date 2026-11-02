@@ -259,6 +259,9 @@ export default function AdminOraliqlar() {
   const [kind, setKind] = useState<Kind>("oraliq")
   const [slotFilter, setSlotFilter] = useState<SlotFilter>("all")
   const [search, setSearch] = useState("")
+  const [teacherFilter, setTeacherFilter] = useState("")
+  const [groupFilter, setGroupFilter] = useState("")
+  const [subjectFilter, setSubjectFilter] = useState("")
   const [openId, setOpenId] = useState<number | null>(null)
 
   // Oraliq bo'limida mustaqil ishlar ham (MI filtri) — ular ham muddatli, kelmaganga qayta ochiladi
@@ -266,13 +269,26 @@ export default function AdminOraliqlar() {
     () => adminApi.examsList({ controlType: kind === "oraliq" ? "oraliq,mustaqil" : kind }), [kind])
   const exams: AdminExamListItem[] = useMemo(() => data?.data ?? [], [data])
 
+  // O'qituvchi → guruh → fan tanlovlari: keyingisining ro'yxati oldingisiga qarab toraytiriladi
+  const uniq = (list: string[]) => [...new Set(list.filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  const teacherOptions = useMemo(() => uniq(exams.map(e => e.teacherName)), [exams])
+  const groupOptions = useMemo(() =>
+    uniq(exams.filter(e => !teacherFilter || e.teacherName === teacherFilter).map(e => e.groupName)), [exams, teacherFilter])
+  const subjectOptions = useMemo(() =>
+    uniq(exams.filter(e => (!teacherFilter || e.teacherName === teacherFilter) && (!groupFilter || e.groupName === groupFilter))
+      .map(e => e.subjectName)), [exams, teacherFilter, groupFilter])
+  const hasSelectFilter = !!(teacherFilter || groupFilter || subjectFilter)
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return exams.filter(e =>
       (kind !== "oraliq" || slotFilter === "all" || (slotFilter === "MI" ? isMi(e) : e.slot === slotFilter)) &&
+      (!teacherFilter || e.teacherName === teacherFilter) &&
+      (!groupFilter || e.groupName === groupFilter) &&
+      (!subjectFilter || e.subjectName === subjectFilter) &&
       (!q || [e.title, e.groupName, e.subjectName, e.teacherName].some(v => v.toLowerCase().includes(q)))
     )
-  }, [exams, search, slotFilter, kind])
+  }, [exams, search, slotFilter, kind, teacherFilter, groupFilter, subjectFilter])
 
   const counts = useMemo(() => ({
     all: exams.length,
@@ -327,6 +343,30 @@ export default function AdminOraliqlar() {
             </button>
           )}
         </label>
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
+          {[
+            { value: teacherFilter, options: teacherOptions, all: t("adminOraliq.allTeachers"),
+              set: (v: string) => { setTeacherFilter(v); setGroupFilter(""); setSubjectFilter("") } },
+            { value: groupFilter, options: groupOptions, all: t("adminOraliq.allGroups"),
+              set: (v: string) => { setGroupFilter(v); setSubjectFilter("") } },
+            { value: subjectFilter, options: subjectOptions, all: t("adminOraliq.allSubjects"), set: setSubjectFilter },
+          ].map(f => (
+            <select key={f.all} value={f.value} onChange={e => { f.set(e.target.value); setOpenId(null) }}
+              className="adm-input h-10 w-full rounded-xl px-3 text-sm text-[var(--adm-text)] outline-none">
+              <option value="">{f.all}</option>
+              {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          ))}
+        </div>
+        {hasSelectFilter && (
+          <div className="flex w-full items-center justify-between gap-2 text-[13px] text-[var(--adm-muted)]">
+            <span>{t("adminOraliq.foundN", { n: filtered.length })}</span>
+            <button onClick={() => { setTeacherFilter(""); setGroupFilter(""); setSubjectFilter("") }}
+              className="font-semibold text-[var(--adm-accent)]">
+              {t("adminOraliq.clearFilters")}
+            </button>
+          </div>
+        )}
       </div>
 
       {error && <Notice ok={false}><AlertCircle className="h-4 w-4 shrink-0" />{error}</Notice>}
