@@ -1494,7 +1494,7 @@ export const dictionary: Record<string, DictEntry> = {
   "typeContentOq.err.saveError":           { uz: "Saqlashda xatolik yuz berdi",        ru: "Ошибка при сохранении",               en: "Error while saving",                kaa: "Saqlawda qátelik boldı" },
   "typeContentOq.err.enterDeadline":       { uz: "Tugash sanasi va vaqtini kiriting",  ru: "Введите дату и время окончания",      en: "Enter the closing date and time",   kaa: "Tamamlanıw sánesi hám waqtın kiritiń" },
   "typeContentOq.err.selectSlot":          { uz: "Qaysi oraliq ekanini tanlang: ON1 yoki ON2", ru: "Выберите, какой это контроль: ON1 или ON2", en: "Choose which assessment this is: ON1 or ON2", kaa: "Qaysı aralıq ekenin tańlań: ON1 yamasa ON2" },
-  "typeContentOq.confirmDelete":           { uz: "Ushbu kontentni o'chirishni tasdiqlaysizmi?", ru: "Подтвердите удаление этого контента", en: "Confirm deletion of this content?", kaa: "Bul kontentti óshiriwdi tastıyıqlaysızba?" },
+  "typeContentOq.confirmDelete":           { uz: "O'chirilsinmi? Talabalarning shu bo'yicha natijalari (baholari) ham o'chadi. Muddati tugagan va natijasi bor ishni o'chirib bo'lmaydi.", ru: "Удалить? Результаты (оценки) студентов по нему тоже будут удалены. Работу с истёкшим сроком и результатами удалить нельзя.", en: "Delete it? Students' results (grades) for it will be deleted too. Work past its deadline that already has results cannot be deleted.", kaa: "Óshirilsinbe? Studentlerdiń bul boyınsha nátiyjeleri (bahaları) da óshedi. Múddeti tawsılǵan hám nátiyjesi bar jumıstı óshirip bolmaydı." },
   "typeContentOq.err.deleteError":         { uz: "O'chirishda xatolik",                ru: "Ошибка при удалении",                 en: "Error while deleting",              kaa: "Óshiriwde qátelik" },
   "typeContentOq.err.toggleError":         { uz: "Holatni almashtirishda xatolik",     ru: "Ошибка при изменении статуса",        en: "Error while toggling status",       kaa: "Halattı almastırıwda qátelik" },
 
@@ -1531,6 +1531,7 @@ export const dictionary: Record<string, DictEntry> = {
   "typeContentOq.form.maxScore":    { uz: "Maksimal ball", ru: "Максимальный балл", en: "Maximum score", kaa: "Maksimal ball" },
   "typeContentOq.form.duration":    { uz: "Davomiyligi (daqiqa)", ru: "Продолжительность (мин)", en: "Duration (minutes)", kaa: "Dawamlılıǵı (minut)" },
   "typeContentOq.form.questionDisplayCount": { uz: "Talabaga ko'rsatiladigan savollar soni", ru: "Число вопросов, показываемых студенту", en: "Number of questions shown to student", kaa: "Studentke kórsetiletuǵın sorawlar sanı" },
+  "typeContentOq.form.questionDisplayCountAll": { uz: "Hammasi", ru: "Все", en: "All", kaa: "Barlıǵı" },
   "typeContentOq.form.questionDisplayCountHint": { uz: "Bo'sh qoldirilsa, savol bazasidagi barchasi ko'rsatiladi", ru: "Если оставить пустым, показываются все вопросы из базы", en: "Leave blank to show every question in the bank", kaa: "Bos qaldırılsa, bazadaǵı barlıq sorawlar kórsetiledi" },
   "typeContentOq.form.slot":        { uz: "Qaysi oraliq", ru: "Какой контроль", en: "Which assessment", kaa: "Qaysı aralıq" },
   "typeContentOq.form.slotOn1":     { uz: "ON1 — 1-oraliq", ru: "ON1 — 1-й контроль", en: "ON1 — 1st assessment", kaa: "ON1 — 1-aralıq" },

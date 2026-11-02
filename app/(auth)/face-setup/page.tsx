@@ -338,7 +338,7 @@ export default function FaceSetupPage() {
 
   return (
     <>
-      <Script src="/face-api.min.js" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
+      <Script src="/face-api.min.js" strategy="afterInteractive" onReady={() => setScriptReady(true)} />
 
       <div className="flex min-h-screen items-center justify-center p-6" style={{ backgroundColor: "#f6f9ff" }}>
         <div className="w-full max-w-md">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
 import { useRouter } from "next/navigation"
 import { Bell, CheckCheck } from "lucide-react"
 import { notificationsApi, type Notif } from "@/lib/api"
@@ -20,6 +20,7 @@ export function NotificationBell({ buttonClassName }: { buttonClassName?: string
   const [items, setItems] = useState<Notif[]>([])
   const [unread, setUnread] = useState(0)
   const [open, setOpen] = useState(false)
+  const [mobileTop, setMobileTop] = useState(64)
   const ref = useRef<HTMLDivElement>(null)
 
   const load = useCallback(() => {
@@ -63,7 +64,11 @@ export function NotificationBell({ buttonClassName }: { buttonClassName?: string
   return (
     <div ref={ref} className="relative">
       <button type="button" aria-label={t("header.notifications")} aria-expanded={open}
-        onClick={() => { setOpen(o => !o); if (!open) load() }}
+        onClick={() => {
+          if (!open) setMobileTop((ref.current?.getBoundingClientRect().bottom ?? 56) + 8)
+          setOpen(o => !o)
+          if (!open) load()
+        }}
         className={`relative ${buttonClassName ?? "flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--lms-bg)]"}`}>
         <Bell className="h-[19px] w-[19px] text-[var(--lms-primary)]" />
         {unread > 0 && (
@@ -75,8 +80,10 @@ export function NotificationBell({ buttonClassName }: { buttonClassName?: string
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[340px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[10px] bg-white"
-          style={{ boxShadow: "0 8px 28px rgba(1,41,112,0.16)", border: "1px solid rgba(1,41,112,0.1)" }}>
+        // Telefonda qo'ng'iroqcha sarlavha o'rtasida turadi — tugmaga bog'langan
+        // 340px oyna ekrandan chapga chiqib ketardi; u yerda ekran chetlariga bog'lanadi
+        <div className="fixed left-3 right-3 z-50 overflow-hidden rounded-[10px] bg-white top-[var(--bell-top)] sm:absolute sm:left-auto sm:right-0 sm:top-[calc(100%+8px)] sm:w-[340px]"
+          style={{ "--bell-top": `${mobileTop}px`, boxShadow: "0 8px 28px rgba(1,41,112,0.16)", border: "1px solid rgba(1,41,112,0.1)" } as CSSProperties}>
           <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
             <span className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
               {t("header.notifications")}

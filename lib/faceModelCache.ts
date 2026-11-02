@@ -44,6 +44,9 @@ export async function ensureFaceModels(onProgress?: (loaded: number, total: numb
     ])
     modelsLoaded = true
   })()
+  // Sekin tarmoqda yuklash uzilsa — keyingi urinish qaytadan yuklasin
+  // (aks holda rad etilgan va'da saqlanib, sahifa yangilanmaguncha xato qolardi)
+  loadingPromise.catch(() => { loadingPromise = null })
 
   return loadingPromise
 }

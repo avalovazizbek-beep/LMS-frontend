@@ -430,7 +430,7 @@ export default function FaceRegisterPage() {
   /* ── Render ──────────────────────────────────────────────────────── */
   return (
     <>
-      <Script src="/face-api.min.js" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
+      <Script src="/face-api.min.js" strategy="afterInteractive" onReady={() => setScriptReady(true)} />
 
       <div className="flex flex-col gap-6 p-[30px] max-w-[720px]">
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, ReactNode } from "react"
 import Script from "next/script"
 import { ShieldAlert, ShieldCheck, ShieldX, Loader2 } from "lucide-react"
 import { faceApi } from "@/lib/api"
+import { ensureFaceModels } from "@/lib/faceModelCache"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { translate } from "@/lib/i18n/translations"
 
@@ -12,7 +13,6 @@ declare global {
 }
 
 /* ── Config ─────────────────────────────────────────────────────────── */
-const MODEL_URL           = "/models"
 const TINY_CONF           = 0.30   // 0.25→0.30: kamroq soxta aniqlash (identifikatsiya uchun)
 // Borlik (yuz kadrdami) uchun yumshoqroq aniqlagich: savolni o'qish uchun
 // boshini yon tomonga burgan talabaning yuzini ham topishi kerak — kichik
@@ -172,14 +172,10 @@ export default function FaceProctor({
     if (!scriptReady) return
     ;(async () => {
       try {
-        const fa = window.faceapi
         // Parallel yuklash — SsdMobilenetv1 olib tashlandi (5.6 MB tejaldi)
-        // TinyFaceDetector ham verification uchun ishlatiladi (3-5x tezroq)
-        await Promise.all([
-          fa.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          fa.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          fa.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-        ])
+        // TinyFaceDetector ham verification uchun ishlatiladi (3-5x tezroq).
+        // Ikkinchi testda (sinov → imtihon) modellar qayta yuklanmaydi.
+        await ensureFaceModels()
         setModelsLoaded(true)
       } catch {
         setStatusSynced("error")
@@ -708,7 +704,9 @@ export default function FaceProctor({
   if (fixed) {
     return (
       <>
-        <Script src="/face-api.min.js" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
+        {/* onReady (onLoad emas): onLoad skript faqat birinchi yuklanganda chaqiriladi —
+            sahifa yangilanmay ochilgan ikkinchi testda Face ID "Yuklanmoqda" da qotardi */}
+        <Script src="/face-api.min.js" strategy="afterInteractive" onReady={() => setScriptReady(true)} />
         {/* Katta kamera vidgeti — o'ng yuqori burchak (mobil ekranda kichraytiriladi) */}
         <div style={{
           position: "fixed", top: isMobile ? 6 : 10, right: isMobile ? 6 : 10, zIndex: 10001,
@@ -809,7 +807,7 @@ export default function FaceProctor({
   /* ── Default mode (original layout) ─────────────────────────────────── */
   return (
     <>
-      <Script src="/face-api.min.js" strategy="afterInteractive" onLoad={() => setScriptReady(true)} />
+      <Script src="/face-api.min.js" strategy="afterInteractive" onReady={() => setScriptReady(true)} />
       <div className="relative flex flex-col gap-4">
         <div className="self-end">{cameraWidget}</div>
         {blockedOverlay}

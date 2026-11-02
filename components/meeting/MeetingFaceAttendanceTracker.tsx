@@ -97,7 +97,7 @@ export default function MeetingFaceAttendanceTracker({ meetingId, stream, camera
       <Script
         src="/face-api.min.js"
         strategy="afterInteractive"
-        onLoad={() => { loadModels() }}
+        onReady={() => { loadModels() }}
       />
       <video ref={videoRef} autoPlay playsInline muted
         style={{ position: "fixed", width: 1, height: 1, opacity: 0, pointerEvents: "none", top: -9999, left: -9999 }}

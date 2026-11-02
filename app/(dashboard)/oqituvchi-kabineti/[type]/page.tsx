@@ -2317,7 +2317,8 @@ function ContentFormModal({
             <div className="col-span-2 sm:col-span-1">
               <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.questionDisplayCount")}</label>
               <input type="number" min={0} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
-                value={form.questionDisplayCount} onChange={e => update("questionDisplayCount", e.target.value)} placeholder="20" />
+                value={form.questionDisplayCount} onChange={e => update("questionDisplayCount", e.target.value)}
+                placeholder={t("typeContentOq.form.questionDisplayCountAll")} />
               <p className="mt-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.questionDisplayCountHint")}</p>
             </div>
           )}
