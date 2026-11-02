@@ -1511,6 +1511,16 @@ export default function TeacherContentTypePage() {
                   {item.durationMinutes != null && <span>{t("typeContentOq.duration")} <strong style={{ color: "#012970" }}>{t("typeContentOq.minutesUnit", { n: item.durationMinutes })}</strong></span>}
                   {item.trainingLoad != null && <span>{t("typeContentOq.load")} <strong style={{ color: "#012970" }}>{t("typeContentOq.hoursUnit", { n: item.trainingLoad })}</strong></span>}
                   {item.controlType && item.attemptsCount != null && <span>{t("typeContentOq.attempts")} <strong style={{ color: "#012970" }}>{item.attemptsCount}</strong></span>}
+                  {/* Har guruh nusxasining o'z soni bor — bazadagi (106) emas, talabaga beriladigani ko'rinsin */}
+                  {item.type === "exam" && item.questionCount > 0 && (() => {
+                    const shown = item.questionDisplayCount && item.questionDisplayCount > 0 && item.questionDisplayCount < item.questionCount
+                      ? item.questionDisplayCount : item.questionCount
+                    return (
+                      <span>{t("typeContentOq.shownToStudent")} <strong style={{ color: "#0e58a8" }}>{shown}</strong>
+                        {shown < item.questionCount && <span> / {item.questionCount}</span>}
+                      </span>
+                    )
+                  })()}
                 </div>
 
                 {/* Oraliq topshirig'i fayli — API uni `file` sifatida beradi */}
