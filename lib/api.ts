@@ -1842,6 +1842,8 @@ export const teachingApi = {
     patch<ItemRes<TeacherContent>>(`/api/teaching/content/${id}/toggle`, {}),
 
   removeContent: (id: number | string) => del<MsgRes>(`/api/teaching/content/${id}`),
+  /** Talaba: oraliq / mustaqil ish topshirig'iga yuklagan, baholanmagan ishini o'chiradi */
+  deleteMySubmission: (id: number | string) => del<MsgRes>(`/api/teaching/content/${id}/my-submission`),
 
   submit: (contentId: number | string, input: { comment?: string; file?: File | null }) => {
     if (input.file) {

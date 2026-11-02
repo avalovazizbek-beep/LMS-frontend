@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import Link from "next/link"
 import {
   Lock, CheckCircle2, Clock, Download, Paperclip, X, Loader2, Send, AlertCircle,
-  Video, Link as LinkIcon, FileText, Camera,
+  Video, Link as LinkIcon, FileText, Camera, Trash2,
 } from "lucide-react"
 import { teachingApi, type TeacherContent, type TeachingFile, type TeachingSubmission, type ContentStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -76,6 +76,8 @@ export function StudentContentCard({ item, submittable = false }: Props) {
 
   const [formOpen, setFormOpen] = useState(false)
   const [sub, setSub] = useState<SubmitState>(defaultSubmit())
+  const [deleteStep, setDeleteStep] = useState<"idle" | "confirm" | "deleting">("idle")
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const mediaInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -113,6 +115,24 @@ export function StudentContentCard({ item, submittable = false }: Props) {
     .filter((f, i, all): f is TeachingFile => !!f && all.findIndex(o => o?.url === f.url) === i)
   const videos = attachments.filter(f => isVideoFile(f.mimeType, f.originalName))
   const docs = attachments.filter(f => !isVideoFile(f.mimeType, f.originalName))
+
+  // Oraliq / mustaqil ish: baholanmagan (birinchi urinishdagi) ishni talaba o'zi
+  // o'chira oladi — masalan xato fayl yuklagan bo'lsa. Server ham shu shartni tekshiradi.
+  const canDeleteWork = isAssignment && !item.topicKey && canSubmit && mySubmission != null &&
+    mySubmission.grade == null && (mySubmission.attemptsUsed ?? 1) <= 1
+
+  async function handleDeleteWork() {
+    setDeleteStep("deleting")
+    setDeleteError(null)
+    try {
+      await teachingApi.deleteMySubmission(item.id)
+      setDeleteStep("idle")
+      refetchSubmission()
+    } catch (err) {
+      setDeleteStep("confirm")
+      setDeleteError(err instanceof Error ? err.message : t("scc.errSend"))
+    }
+  }
 
   async function handleSubmit() {
     if (!sub.file && !sub.comment.trim()) {
@@ -388,12 +408,42 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                     {t("scc.teacherComment", { text: mySubmission.feedback })}
                   </p>
                 )}
-                {canSubmit && (
-                  <button onClick={() => setFormOpen(o => !o)}
-                    className="w-fit text-xs font-medium px-3 py-1.5 rounded-[6px] mt-1"
-                    style={{ color: "#0e58a8", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
-                    {formOpen ? t("common.cancel") : t("scc.resubmit")}
-                  </button>
+                {(canSubmit || canDeleteWork) && (
+                  <div className="flex items-center gap-2 flex-wrap mt-1">
+                    {canSubmit && (
+                      <button onClick={() => setFormOpen(o => !o)}
+                        className="w-fit text-xs font-medium px-3 py-1.5 rounded-[6px]"
+                        style={{ color: "#0e58a8", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
+                        {formOpen ? t("common.cancel") : mySubmission.grade != null ? t("scc.replaceOld") : t("scc.resubmit")}
+                      </button>
+                    )}
+                    {canDeleteWork && deleteStep === "idle" && (
+                      <button onClick={() => { setDeleteStep("confirm"); setDeleteError(null) }}
+                        className="w-fit flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px]"
+                        style={{ color: "#b91c1c", border: "1px solid rgba(185,28,28,0.25)", fontFamily: "var(--font-poppins)" }}>
+                        <Trash2 className="w-3.5 h-3.5" /> {t("scc.deleteWork")}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {canDeleteWork && deleteStep !== "idle" && (
+                  <div className="flex flex-col gap-2 px-3 py-2.5 rounded-[8px]" style={{ backgroundColor: "#fef2f2", border: "1px solid rgba(185,28,28,0.2)" }}>
+                    <p className="text-xs" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{t("scc.deleteConfirm")}</p>
+                    {deleteError && <p className="text-xs font-medium" style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>{deleteError}</p>}
+                    <div className="flex items-center gap-2">
+                      <button onClick={handleDeleteWork} disabled={deleteStep === "deleting"}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold text-white disabled:opacity-60"
+                        style={{ backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+                        {deleteStep === "deleting" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        {t("scc.deleteYes")}
+                      </button>
+                      <button onClick={() => { setDeleteStep("idle"); setDeleteError(null) }} disabled={deleteStep === "deleting"}
+                        className="px-3 py-1.5 rounded-[6px] text-xs font-medium"
+                        style={{ color: "#445b7a", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
+                        {t("common.cancel")}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             ) : canSubmit ? (
