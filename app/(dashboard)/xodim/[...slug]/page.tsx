@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, FileVideo, Filter, Plus, Search, Upload } from "lucide-react"
 import { hemisApi, teachingApi, type LocalResourceKind, type HemisSchedule } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -1022,7 +1022,13 @@ function DavomatJurnaliSelector() {
 
 function EmployeeGenericPage({ slug }: { slug: string }) {
   const { t } = useLanguage()
+  const router = useRouter()
   const config = pageConfigs[slug] ?? pageConfigs.tizim
+  // Oraliq nazorat qatori → Imtihonlar ro'yxati, HEMIS'dagi shu nazorat tanlangan holda
+  const oraliqHref = (item: unknown) => {
+    const id = config.resource === "midterm-controls" ? recordId(item) : ""
+    return id ? `/oqituvchi-kabineti/oraliq-nazorat?hemis=${encodeURIComponent(id)}` : null
+  }
   const [search, setSearch] = useState("")
   const [filters, setFilters] = useState<Record<string, string>>({
     _education_year: String(academicYearStart()),
@@ -1191,7 +1197,9 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
             <tbody>
               {rows.length ? (
                 rows.map((item, index) => (
-                  <tr key={index} className="hover:bg-[#f6f9ff]" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                  <tr key={index} className={`hover:bg-[#f6f9ff]${oraliqHref(item) ? " cursor-pointer" : ""}`}
+                    onClick={oraliqHref(item) ? () => router.push(oraliqHref(item)!) : undefined}
+                    style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
                     <td className="px-4 py-2.5 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{index + 1}</td>
                     {config.fields.map((field) => {
                       const value = itemValue(item, field.keys, t)
@@ -1204,6 +1212,16 @@ function EmployeeGenericPage({ slug }: { slug: string }) {
                         return (
                           <td key={field.label} className="px-4 py-2.5 text-sm">
                             <Link href={href} className="font-medium hover:underline" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                              {value}
+                            </Link>
+                          </td>
+                        )
+                      }
+                      if (oraliqHref(item) && field.label === "Fanlar" && value !== "-") {
+                        return (
+                          <td key={field.label} className="px-4 py-2.5 text-sm">
+                            <Link href={oraliqHref(item)!} onClick={(e) => e.stopPropagation()}
+                              className="font-medium hover:underline" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
                               {value}
                             </Link>
                           </td>

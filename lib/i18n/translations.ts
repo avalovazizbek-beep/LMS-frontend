@@ -1466,6 +1466,8 @@ export const dictionary: Record<string, DictEntry> = {
   "typeContentOq.viewGrade":    { uz: "Topshirilganlarni ko'rish / baholash", ru: "Просмотр / оценивание сданных работ", en: "View / grade submissions", kaa: "Tapsırılǵanlardı kóriw / baha beriw" },
   "typeContentOq.edit":         { uz: "Tahrirlash",       ru: "Редактировать",        en: "Edit",            kaa: "Redaktorlaw" },
   "typeContentOq.delete":       { uz: "O'chirish",        ru: "Удалить",              en: "Delete",          kaa: "Óshiriw" },
+  "typeContentOq.hemisPick.focused": { uz: "Nazoratlar ro'yxatida tanlangan nazorat — bosing, forma to'ldirilgan holda ochiladi", ru: "Контроль, выбранный в списке контролей — нажмите, форма откроется заполненной", en: "The assessment you picked in the Controls list — click it to open the form pre-filled", kaa: "Baqlawlar diziminde tańlanǵan baqlaw — basıń, forma toltırılǵan halda ashıladı" },
+  "typeContentOq.hemisPick.showAll": { uz: "Barcha nazoratlar", ru: "Все контроли", en: "All assessments", kaa: "Barlıq baqlawlar" },
   "typeContentOq.shownToStudent": { uz: "Talabaga:", ru: "Студенту:", en: "Shown to student:", kaa: "Studentke:" },
   "typeContentOq.attempts":     { uz: "Urinishlar:",      ru: "Попыток:",             en: "Attempts:",       kaa: "Urınıwlar:" },
   "typeContentOq.slot.missing": { uz: "ON1/ON2 tanlanmagan", ru: "ON1/ON2 не выбран", en: "ON1/ON2 not set", kaa: "ON1/ON2 tańlanbaǵan" },

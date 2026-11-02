@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import {
   Plus, X, Trash2, Pencil, FileText, Lock, CheckCircle2, Clock, Users, Loader2, Download,
   Video, Link as LinkIcon, File as FileIcon, HelpCircle, Power, CalendarCheck, BarChart2, ArrowLeft, Upload,
@@ -1121,6 +1121,17 @@ export default function TeacherContentTypePage() {
   const [questionsFor, setQuestionsFor] = useState<TeacherContent | null>(null)
   const [copyFor, setCopyFor] = useState<TeacherContent | null>(null)
 
+  // Nazoratlar → Oraliq nazorat (HEMIS ro'yxati) qatori bosilganda ?hemis=<id>
+  // bilan kelinadi — HEMIS ro'yxati o'sha nazorat ajratilgan holda ochiladi
+  const searchParams = useSearchParams()
+  const [hemisFocusClosed, setHemisFocusClosed] = useState(false)
+  const hemisFocus = isOraliqPage && !hemisFocusClosed ? searchParams.get("hemis") : null
+  function closeHemisFocus() {
+    setHemisFocusClosed(true)
+    // Sahifa yangilansa ro'yxat qayta ochilmasin
+    window.history.replaceState(null, "", window.location.pathname)
+  }
+
   if (!config) {
     return (
       <div className="p-[30px]">
@@ -1634,13 +1645,14 @@ export default function TeacherContentTypePage() {
         />
       )}
 
-      {showHemisPicker && (
+      {(showHemisPicker || hemisFocus) && (
         <HemisControlPickerModal
           groups={groups}
           existing={items}
-          onPick={openCreateForm}
-          onManual={() => openCreateForm()}
-          onClose={() => setShowHemisPicker(false)}
+          onPick={(prefill, note) => { closeHemisFocus(); openCreateForm(prefill, note) }}
+          onManual={() => { closeHemisFocus(); openCreateForm() }}
+          onClose={() => { closeHemisFocus(); setShowHemisPicker(false) }}
+          focusKey={hemisFocus}
         />
       )}
 
@@ -1844,16 +1856,19 @@ function toHemisControlRow(item: unknown): HemisControlRow | null {
 }
 
 function HemisControlPickerModal({
-  groups, existing, onPick, onManual, onClose,
+  groups, existing, onPick, onManual, onClose, focusKey = null,
 }: {
   groups: TeacherGroup[]
   existing: TeacherContent[]
   onPick: (prefill: Partial<FormState>, note: string) => void
   onManual: () => void
   onClose: () => void
+  /** Nazoratlar ro'yxatidan bosilgan HEMIS nazorati — ro'yxatda faqat u ko'rsatiladi */
+  focusKey?: string | null
 }) {
   const { t } = useLanguage()
   const [search, setSearch] = useState("")
+  const [showAll, setShowAll] = useState(false)
   const { data, loading, error, refetch } = useApi(
     () => hemisApi.employeeData("controls", { _education_year: String(academicYearStart()) }),
     []
@@ -1864,10 +1879,13 @@ function HemisControlPickerModal({
       .map(toHemisControlRow)
       .filter((row): row is HemisControlRow => row !== null)
     list.sort((a, b) => a.ts - b.ts || a.subjectName.localeCompare(b.subjectName) || a.groupName.localeCompare(b.groupName))
+    const focused = focusKey && !showAll ? list.filter(row => row.key === focusKey) : []
+    if (focused.length) return focused
     const query = search.trim().toLowerCase()
     if (!query) return list
     return list.filter(row => `${row.subjectName} ${row.groupName} ${row.typeName}`.toLowerCase().includes(query))
-  }, [data, search])
+  }, [data, search, focusKey, showAll])
+  const focusedOnly = !!focusKey && !showAll && rows.length === 1 && rows[0].key === focusKey
 
   const ownGroupIds = useMemo(() => new Set(groups.map(g => g.id)), [groups])
 
@@ -1922,8 +1940,18 @@ function HemisControlPickerModal({
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#7293b9" }} />
           <input className={`${inputCls} pl-9`} style={{ fontFamily: "var(--font-poppins)" }}
-            value={search} onChange={e => setSearch(e.target.value)} placeholder={t("typeContentOq.hemisPick.search")} />
+            value={search} onChange={e => { setSearch(e.target.value); setShowAll(true) }} placeholder={t("typeContentOq.hemisPick.search")} />
         </div>
+
+        {focusedOnly && (
+          <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-2 rounded-[8px]"
+            style={{ backgroundColor: "#eef4ff", fontFamily: "var(--font-poppins)" }}>
+            <span className="text-xs font-medium" style={{ color: "#0e58a8" }}>{t("typeContentOq.hemisPick.focused")}</span>
+            <button type="button" onClick={() => setShowAll(true)} className="text-xs font-semibold underline" style={{ color: "#0e58a8" }}>
+              {t("typeContentOq.hemisPick.showAll")}
+            </button>
+          </div>
+        )}
 
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
           {loading ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : rows.length === 0 ? (
