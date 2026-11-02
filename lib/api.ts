@@ -1315,6 +1315,8 @@ export interface TeacherContent {
   teacherUserId: number
   groupId: number
   subjectName: string
+  /** Talabaga qaytariladi — kartada "qaysi fan, kimniki" */
+  teacherName?: string | null
   topicKey: string | null
   title: string
   description: string | null

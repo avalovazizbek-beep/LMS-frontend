@@ -1315,7 +1315,7 @@ export default function TeacherContentTypePage() {
           lessonDate: config!.type === "kalendar" ? (form.lessonDate || null) : undefined,
           delivered: config!.type === "kalendar" ? form.delivered : undefined,
           meetingLink: form.meetingLink.trim() || null,
-          ...(isControl && !isTask ? { attemptsCount: attempts } : {}),
+          ...(isControl && (!isTask || isMi) ? { attemptsCount: attempts } : {}),
           ...(isOraliq && !isMi ? { kind: form.slot } : {}),
           ...(isMi ? { gradePart: form.gradePart } : {}),
         })
@@ -1335,7 +1335,7 @@ export default function TeacherContentTypePage() {
           // yechiladi, jurnalda foizi shu ballga aylanadi (10 ballikda 80% → 8)
           maxScore: isTask ? points : isOraliq ? null : form.maxScore ? Number(form.maxScore) : null,
           gradePoints: isOraliq ? points : undefined,
-          attemptsCount: isControl && !isTask ? attempts : undefined,
+          attemptsCount: isControl && (!isTask || isMi) ? attempts : undefined,
           durationMinutes: !isTask && form.durationMinutes ? Number(form.durationMinutes) : null,
           questionDisplayCount: !isTask && form.questionDisplayCount ? Number(form.questionDisplayCount) : null,
           isAdaptive: config!.type === "exam" && !isTask ? (isOraliq ? false : form.isAdaptive) : undefined,
@@ -2366,13 +2366,16 @@ function ContentFormModal({
             </div>
           )}
 
-          {/* Oraliq/yakuniy: urinishlar soni — cheksiz bo'lmaydi */}
-          {isControl && !isTask && (
+          {/* Oraliq/yakuniy: urinishlar soni — cheksiz bo'lmaydi. Mustaqil ish
+              topshirig'ida — baholangan ishni necha marta qayta yuklash mumkin */}
+          {isControl && (!isTask || isMi) && (
             <div className="col-span-2 sm:col-span-1">
               <label className={labelCls} style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.attempts")}</label>
               <input type="number" min={1} className={inputCls} style={{ fontFamily: "var(--font-poppins)" }}
                 value={form.attemptsCount} onChange={e => update("attemptsCount", e.target.value)} placeholder="1" />
-              <p className="mt-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.form.attemptsHint")}</p>
+              <p className="mt-1 text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+                {t(isTask ? "typeContentOq.form.attemptsHintTask" : "typeContentOq.form.attemptsHint")}
+              </p>
             </div>
           )}
 

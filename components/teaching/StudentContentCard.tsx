@@ -90,7 +90,12 @@ export function StudentContentCard({ item, submittable = false }: Props) {
   // baho qo'yilgach qayta yuklanmaydi. Admin qayta ochgan (kelmagan) talaba
   // muddat o'tgan bo'lsa ham yuklay oladi.
   const isScored = item.controlType === "oraliq" || (item.gradePoints != null && item.gradePoints > 0)
-  const scoredGraded = isAssignment && isScored && mySubmission?.grade != null && item.retakeGranted !== true
+  // Mustaqil ishga o'qituvchi bir necha urinish bergan bo'lsa — baholangach
+  // ham urinishlar tugaguncha qayta yuklanadi (oxirgi baho hisoblanadi)
+  const taskMaxAttempts = item.attemptsCount && item.attemptsCount > 0 ? item.attemptsCount : 1
+  const taskAttemptsUsed = mySubmission?.attemptsUsed ?? 1
+  const taskAttemptLeft = isAssignment && isScored && mySubmission?.grade != null && taskAttemptsUsed < taskMaxAttempts
+  const scoredGraded = isAssignment && isScored && mySubmission?.grade != null && item.retakeGranted !== true && !taskAttemptLeft
   // Ball qo'yilgan test 100 ballikda yechiladi — jurnalga foizi shu ballga
   // aylanib tushadi (10 ballik testda 80% → 8)
   const journalMax = item.controlType === "oraliq" ? oraliqPoints(item) : item.gradePoints
@@ -140,6 +145,13 @@ export function StudentContentCard({ item, submittable = false }: Props) {
               <h3 className="font-semibold text-sm" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
                 {item.title}
               </h3>
+              {/* Mavzusiz ishlar (oraliq, mustaqil ish) bir sahifada aralash turadi — qaysi fan, kimniki */}
+              {!item.topicKey && (
+                <p className="text-xs font-semibold mt-0.5" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                  {item.subjectName}
+                  {item.teacherName && <span className="font-normal" style={{ color: "#7293b9" }}> · {item.teacherName}</span>}
+                </p>
+              )}
               {!locked && item.description && (
                 <p className={`text-xs mt-1 ${isAssignment ? "whitespace-pre-line" : "line-clamp-2"}`} style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
                   {item.description}
@@ -317,6 +329,12 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                   <span className="text-xs font-medium" style={{ color: "#22c55e", fontFamily: "var(--font-poppins)" }}>
                     {t("scc.submittedAt2", { time: formatDateTime(mySubmission.submittedAt) })}
                   </span>
+                  {isAssignment && isScored && taskMaxAttempts > 1 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+                      {t("scc.taskAttempts", { used: Math.min(taskAttemptsUsed, taskMaxAttempts), max: taskMaxAttempts })}
+                    </span>
+                  )}
                   {mySubmission.grade != null && (
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
                       style={isAssignment && !isScored && !assignmentPassed
@@ -344,6 +362,11 @@ export function StudentContentCard({ item, submittable = false }: Props) {
                 {scoredGraded && (
                   <p className="text-xs" style={{ color: "#445b7a", fontFamily: "var(--font-poppins)" }}>
                     {t("scc.scoredGraded")}
+                  </p>
+                )}
+                {taskAttemptLeft && canSubmit && (
+                  <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
+                    {t("scc.taskRetryNote", { n: taskMaxAttempts - taskAttemptsUsed })}
                   </p>
                 )}
                 {mySubmission.comment && (
