@@ -239,7 +239,7 @@ function OraliqStudents({ exam, onChanged }: { exam: AdminExamListItem; onChange
                       <span className="adm-pill" style={{ "--c": "var(--role-admin)" } as CssVars}><UserX className="h-3 w-3" /> {t("adminOraliq.absent")}</span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5"><ViolationChips counts={s.violations ?? undefined} /></td>
+                  <td className="px-3 py-2.5"><ViolationChips counts={s.violations ?? undefined} contentId={exam.id} studentUserId={s.userId} /></td>
                 </tr>
               )
             })}

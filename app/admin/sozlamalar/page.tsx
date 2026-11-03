@@ -73,6 +73,7 @@ export default function AdminSozlamalar() {
 
   const [faceThreshold, setFaceThreshold] = useState("3")
   const [facePractice, setFacePractice] = useState(true)
+  const [faceTerminate, setFaceTerminate] = useState(false)
   const [testAttempts, setTestAttempts] = useState("1")
   const [meetingMinutes, setMeetingMinutes] = useState("2")
   const [attendanceMode, setAttendanceMode] = useState<"auto" | "manual">("auto")
@@ -103,6 +104,7 @@ export default function AdminSozlamalar() {
         setSettings(d)
         setFaceThreshold(d.face_block_threshold ?? "3")
         setFacePractice(d.face_practice_required !== "0")
+        setFaceTerminate(d.face_terminate === "1")
         setTestAttempts(d.test_max_attempts ?? "1")
         setMeetingMinutes(d.meeting_attendance_minutes ?? "2")
         setAttendanceMode(d.attendance_mode === "manual" ? "manual" : "auto")
@@ -132,6 +134,7 @@ export default function AdminSozlamalar() {
       await adminApi.saveSettings({
         face_block_threshold: faceThreshold,
         face_practice_required: facePractice ? "1" : "0",
+        face_terminate: faceTerminate ? "1" : "0",
         test_max_attempts: testAttempts,
         meeting_attendance_minutes: meetingMinutes,
         attendance_mode: attendanceMode,
@@ -243,6 +246,25 @@ export default function AdminSozlamalar() {
               desc={<>{t("adminSozlamalar.faceThresholdDesc")}{current("face_block_threshold", "3")}</>}>
               <NumberField label={t("adminSozlamalar.errorCountLabel")} value={faceThreshold} onChange={setFaceThreshold}
                 min={1} max={20} hint={t("adminSozlamalar.rangeHint1to20")} />
+            </SettingCard>
+
+            {/* Face ID chegaraga yetganda testni yakunlaydimi (o'chiq — faqat rasm bilan qayd) */}
+            <SettingCard icon={<ShieldAlert className="w-5 h-5" style={{ color: "#b91c1c" }} />} iconBg="#fef2f2"
+              title={t("adminSozlamalar.faceTerminateTitle")} desc={t("adminSozlamalar.faceTerminateDesc")}>
+              <div className="flex items-start gap-3">
+                <button type="button" role="switch" aria-checked={faceTerminate} onClick={() => setFaceTerminate(v => !v)}
+                  className="relative w-11 h-6 rounded-full shrink-0 transition-colors mt-0.5"
+                  style={{ backgroundColor: faceTerminate ? "#b91c1c" : "#cbd5e1" }}>
+                  <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
+                    style={{ left: faceTerminate ? 22 : 2 }} />
+                </button>
+                <div>
+                  <div className="text-sm font-medium" style={{ color: "#012970", ...font }}>{t("adminSozlamalar.faceTerminateToggle")}</div>
+                  <div className="text-xs mt-0.5" style={{ color: "#7293b9", ...font }}>
+                    {faceTerminate ? t("adminSozlamalar.faceTerminateOn") : t("adminSozlamalar.faceTerminateOff")}
+                  </div>
+                </div>
+              </div>
             </SettingCard>
 
             {/* Oraliq / mustaqil ish testidan oldin "Yuzni sinab ko'rish" demo testi */}

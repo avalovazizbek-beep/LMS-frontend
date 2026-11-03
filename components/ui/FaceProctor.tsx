@@ -42,6 +42,24 @@ const BLINK_OPEN_RATIO    = 0.88   // 88% dan yuqori — qayta ochildi
 const BLINK_TIMEOUT       = 180000 // faqat yuz to'g'ri ko'ringan vaqt hisoblanadi
 const VERIFY_FAIL_LIMIT   = 3      // ketma-ket 3 ta (to'g'ri qaragan) kadr mos kelmasa
 const MULTI_FACE_INTERVAL = 4000   // 8s→4s: tezroq ko'p-yuz tekshiruv
+// Ikkinchi yuz faqat aniq (ishonch ≥ 0.5) va asosiy yuzga nisbatan yetarli
+// kattalikda bo'lsa sanaladi, ketma-ket 2 tekshiruvda ko'rinsa bloklanadi.
+// Avval 0.20 edi — devordagi rasm, kiyimdagi naqsh "boshqa odam" deb
+// olinib, halol talabalar testdan chiqarilardi (2026-11-03).
+const MULTI_FACE_CONF     = 0.5
+const MULTI_FACE_MIN_SIZE = 0.35   // asosiy yuz enining kamida 35%
+const MULTI_FACE_HITS     = 2
+// Serverga rasm bilan yuboriladigan buzilishlar (har tur uchun)
+const SNAPSHOTS_PER_TYPE  = 3
+
+/** Ishonchli va yetarli kattalikdagi yuzlar soni */
+function countSignificantFaces(faces: { box?: { width: number } }[] | undefined): number {
+  if (!faces?.length) return 0
+  const widths = faces.map(f => f.box?.width ?? 0)
+  const maxW = Math.max(...widths)
+  if (maxW <= 0) return faces.length
+  return widths.filter(w => w >= maxW * MULTI_FACE_MIN_SIZE).length
+}
 
 /**
  * Bosh to'g'ri qaraganmi (68 nuqtali landmark'lardan). Yon tomonga burilgan
@@ -94,22 +112,39 @@ interface FaceProcProps {
   children: ReactNode
   onTerminate?: () => void
   onFirstVerified?: () => void   // fires once after first successful identity verification
-  onViolation?: (type: FaceViolationType, detail: string) => void  // server-side proctoring log uchun (ixtiyoriy)
+  /** Server hisoboti uchun. snapshot — buzilish paytidagi kichik JPEG (har turdan birinchi 3 tasi) */
+  onViolation?: (type: FaceViolationType, detail: string, snapshot?: string | null) => void
   disabled?: boolean
   fixed?: boolean                // render widget + overlays as position:fixed
   maxViolations?: number         // admin-configurable "Face ID bloklash chegarasi" (lms_settings)
   /** "Yuzni sinab ko'rish" (demo test): chegaraga yetganda test tugamaydi —
       "haqiqiy imtihonda shu yerda chiqarilardingiz" deb ogohlantirib, davom etadi */
   practice?: boolean
+  /** false — chegaraga yetganda ham test tugamaydi: buzilish rasm bilan qayd
+      etiladi, savollar yopilmaydi, o'qituvchi/admin o'zi hal qiladi
+      (Admin → Sozlamalar → "Face ID testni yakunlasin") */
+  terminate?: boolean
   onError?: (key: string) => void   // kamera/model ochilmadi (lug'at kaliti)
   onVerifyResult?: (verified: boolean, confidence: number | null, reason?: string) => void
 }
 
 export default function FaceProctor({
   children, onTerminate, onFirstVerified, onViolation, disabled = false, fixed = false, maxViolations,
-  practice = false, onError, onVerifyResult,
+  practice = false, terminate = true, onError, onVerifyResult,
 }: FaceProcProps) {
   const MAX_VIOLATIONS = maxViolations && maxViolations > 0 ? maxViolations : DEFAULT_MAX_VIOLATIONS
+  // Qayd rejimi (testni yakunlamaydi). Sozlamalar kamera ochilgandan keyin
+  // kelishi mumkin — kamera tsikllari eski closure'ni ushlaydi, shuning uchun ref.
+  const soft = !practice && !terminate
+  const softRef = useRef(soft)
+  softRef.current = soft
+  const maxRef = useRef(MAX_VIOLATIONS)
+  maxRef.current = MAX_VIOLATIONS
+  const snapSentRef = useRef<Record<string, number>>({})
+  const notRegisteredReportedRef = useRef(false)
+  const multiHitsRef = useRef(0)
+  const [softNotice, setSoftNotice] = useState<ProctorMsg | null>(null)
+  const softNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const videoRef            = useRef<HTMLVideoElement>(null)
   const rafRef              = useRef<number>(0)
   const verifyTimerRef      = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -220,6 +255,7 @@ export default function FaceProctor({
     cancelAnimationFrame(rafRef.current)
     if (verifyTimerRef.current) clearInterval(verifyTimerRef.current)
     if (multiPersonTimerRef.current) clearTimeout(multiPersonTimerRef.current)
+    if (softNoticeTimer.current) clearTimeout(softNoticeTimer.current)
     const vid = videoRef.current
     if (vid?.srcObject) {
       ;(vid.srcObject as MediaStream).getTracks().forEach(t => t.stop())
@@ -229,11 +265,11 @@ export default function FaceProctor({
 
   const violationsRef = useRef(0)  // state updater ichida ishlatish uchun ref
 
-  const pushHistory = useCallback((type: FaceViolationType, reason: ProctorMsg) => {
+  const pushHistory = useCallback((type: FaceViolationType, reason: ProctorMsg, snapshot?: string | null) => {
     const now = new Date()
     const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`
     setViolationHistory(h => [...h, { msg: reason, time: timeStr }])
-    onViolation?.(type, translate("uz", reason.key, reason.params))
+    onViolation?.(type, translate("uz", reason.key, reason.params), snapshot ?? null)
   }, [onViolation])
 
   /* Faqat serverdagi hisobotga (o'qituvchi ko'radi) — talaba ekranidagi
@@ -243,30 +279,46 @@ export default function FaceProctor({
   }, [onViolation])
 
   const addViolation = useCallback((type: FaceViolationType, reason: ProctorMsg) => {
-    // Xatolik paytidagi video kadr
+    const MAX_VIOLATIONS = maxRef.current
+    // Xatolik paytidagi video kadr (serverga ham shu — eni ko'pi bilan 320px)
+    let snap: string | null = null
     try {
       const vid = videoRef.current
       if (vid && vid.videoWidth > 0 && vid.readyState >= 2) {
+        const scale = Math.min(1, 320 / vid.videoWidth)
         const canvas = document.createElement("canvas")
-        canvas.width = vid.videoWidth
-        canvas.height = vid.videoHeight
+        canvas.width = Math.round(vid.videoWidth * scale)
+        canvas.height = Math.round(vid.videoHeight * scale)
         const ctx = canvas.getContext("2d")
         if (ctx) {
           ctx.save()
           ctx.scale(-1, 1)
-          ctx.drawImage(vid, -canvas.width, 0)
+          ctx.drawImage(vid, -canvas.width, 0, canvas.width, canvas.height)
           ctx.restore()
-          setViolationSnap(canvas.toDataURL("image/jpeg", 0.55))
+          snap = canvas.toDataURL("image/jpeg", 0.6)
+          setViolationSnap(snap)
         }
       }
     } catch { /* ignore */ }
 
-    pushHistory(type, reason)
+    const sent = snapSentRef.current[type] ?? 0
+    const upload = snap && !practice && sent < SNAPSHOTS_PER_TYPE ? snap : null
+    if (upload) snapSentRef.current[type] = sent + 1
+    pushHistory(type, reason, upload)
 
     // ref orqali hisoblash — state updater ichida setState chaqirishdan qochish
     violationsRef.current += 1
     const next = violationsRef.current
     setViolations(next)
+
+    if (softRef.current) {
+      // Qayd rejimi: savollar yopilmaydi, test tugamaydi — qisqa ogohlantirish
+      setExamBlocked(false)
+      setSoftNotice(reason)
+      if (softNoticeTimer.current) clearTimeout(softNoticeTimer.current)
+      softNoticeTimer.current = setTimeout(() => setSoftNotice(null), 6000)
+      return
+    }
     setExamBlocked(true)
 
     if (next >= MAX_VIOLATIONS && practice) {
@@ -329,6 +381,9 @@ export default function FaceProctor({
           consecutiveVerifyFails.current = 0
           const conf = res.confidence !== undefined ? Math.round(res.confidence * 100) : 0
           setConfidence(conf)
+          // Qayd rejimida har 6 soniyada takrorlanmasin — bir marta yetarli
+          if (softRef.current && notRegisteredReportedRef.current) return
+          notRegisteredReportedRef.current = true
           addViolation("face_mismatch", { key: res.reason === "not_registered" ? "proctor.v.notRegistered" : "proctor.v.expired" })
         } else {
           consecutiveVerifyFails.current += 1
@@ -395,15 +450,17 @@ export default function FaceProctor({
       if (now - lastMultiFaceCheck.current >= MULTI_FACE_INTERVAL) {
         lastMultiFaceCheck.current = now
         try {
-          const allFaces = await fa.detectAllFaces(vid, new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.20 }))
-          if (allFaces && allFaces.length > 1) {
+          const allFaces = await fa.detectAllFaces(vid, new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: MULTI_FACE_CONF }))
+          const faceCount = countSignificantFaces(allFaces)
+          multiHitsRef.current = faceCount > 1 ? multiHitsRef.current + 1 : 0
+          if (faceCount > 1 && multiHitsRef.current >= MULTI_FACE_HITS) {
             if (!multiPersonRef.current) {
               // Yangi bloklash — darhol to'xtatish
               multiPersonRef.current = true
               setMultiPersonBlocked(true)
               setExamBlocked(true)
               setStatusSynced("warning")
-              setStatusMsg({ key: "proctor.multiFaces", params: { n: allFaces.length } })
+              setStatusMsg({ key: "proctor.multiFaces", params: { n: faceCount } })
               // 15 soniya ichida ketmasa → violation
               if (multiPersonTimerRef.current) clearTimeout(multiPersonTimerRef.current)
               multiPersonTimerRef.current = setTimeout(() => {
@@ -414,7 +471,7 @@ export default function FaceProctor({
                 }
               }, 15000)
             }
-          } else {
+          } else if (faceCount <= 1) {
             // Ko'p yuz yo'qoldi — blokni olib tashlash
             if (multiPersonRef.current) {
               multiPersonRef.current = false
@@ -559,7 +616,7 @@ export default function FaceProctor({
           style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }}
         />
         <div style={{ position: "absolute", bottom: 4, left: 4, display: "flex", gap: 4 }}>
-          {Array.from({ length: MAX_VIOLATIONS }).map((_, i) => (
+          {!soft && Array.from({ length: MAX_VIOLATIONS }).map((_, i) => (
             <div key={i} style={{
               width: 8, height: 8, borderRadius: "50%",
               backgroundColor: i < violations ? "#ef4444" : "rgba(255,255,255,0.3)",
@@ -574,7 +631,7 @@ export default function FaceProctor({
             {msgText(statusMsg)}
           </p>
           <p style={{ fontSize: 10, color: c.text, opacity: 0.7, margin: 0, fontFamily: "var(--font-poppins)" }}>
-            {t("proctor.counter", { n: violations, max: MAX_VIOLATIONS })}{confidence !== null ? ` · ${confidence}%` : ""}
+            {soft ? t("proctor.recordedCount", { n: violations }) : t("proctor.counter", { n: violations, max: MAX_VIOLATIONS })}{confidence !== null ? ` · ${confidence}%` : ""}
           </p>
         </div>
       </div>
@@ -582,8 +639,8 @@ export default function FaceProctor({
   )
 
   // Sinovda chegaradan oshsa ham test tugamaydi — "tugadi" holati faqat haqiqiy imtihonda
-  const limitReached = !practice && violations >= MAX_VIOLATIONS
-  const blockedOverlay = examBlocked && (practice || violations < MAX_VIOLATIONS) ? (
+  const limitReached = !practice && !soft && violations >= MAX_VIOLATIONS
+  const blockedOverlay = examBlocked && (practice || soft || violations < MAX_VIOLATIONS) ? (
     <div style={{
       position: fixed ? "fixed" : "absolute", inset: 0, zIndex: fixed ? 10000 : 40,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14,
@@ -689,6 +746,27 @@ export default function FaceProctor({
     </div>
   ) : null
 
+  // Qayd rejimi: buzilish haqida qisqa, bosishni to'smaydigan xabar
+  const softNoticeBanner = softNotice && !examBlocked ? (
+    <div style={{
+      position: fixed ? "fixed" : "absolute", left: 0, right: 0, top: fixed ? 12 : 0, zIndex: fixed ? 10000 : 40,
+      display: "flex", justifyContent: "center", padding: "0 16px", pointerEvents: "none",
+    }}>
+      <div style={{
+        maxWidth: 440, padding: "12px 16px", borderRadius: 12, textAlign: "center",
+        backgroundColor: "#fff7ed", border: "1.5px solid rgba(234,88,12,0.45)",
+        boxShadow: "0 6px 24px rgba(0,0,0,0.15)",
+      }}>
+        <p style={{ fontSize: 14, fontWeight: 700, color: "#c2410c", margin: "0 0 4px", fontFamily: "var(--font-poppins)" }}>
+          {t("proctor.recordedTitle")}
+        </p>
+        <p style={{ fontSize: 12.5, color: "#9a3412", margin: 0, lineHeight: 1.45, fontFamily: "var(--font-poppins)" }}>
+          {t("proctor.recordedDesc", { reason: msgText(softNotice) })}
+        </p>
+      </div>
+    </div>
+  ) : null
+
   const contentBlocked = status !== "ok" || examBlocked || limitReached
   const childrenWrapper = (
     <div style={{
@@ -726,7 +804,7 @@ export default function FaceProctor({
             />
             {/* Xatolik nuqtalari — yuqori chap */}
             <div style={{ position: "absolute", top: 6, left: 6, display: "flex", gap: 4 }}>
-              {Array.from({ length: MAX_VIOLATIONS }).map((_, i) => (
+              {!soft && Array.from({ length: MAX_VIOLATIONS }).map((_, i) => (
                 <div key={i} style={{
                   width: 9, height: 9, borderRadius: "50%",
                   backgroundColor: i < violations ? "#ef4444" : "rgba(255,255,255,0.35)",
@@ -759,7 +837,7 @@ export default function FaceProctor({
               </span>
             </div>
             <span style={{ fontSize: 10, color: c.text, opacity: 0.75, fontFamily: "var(--font-poppins)" }}>
-              {violations}/{MAX_VIOLATIONS}{confidence !== null ? ` · ${confidence}%` : ""}
+              {soft ? violations : `${violations}/${MAX_VIOLATIONS}`}{confidence !== null ? ` · ${confidence}%` : ""}
             </span>
           </div>
 
@@ -799,6 +877,7 @@ export default function FaceProctor({
         {blockedOverlay}
         {terminatedOverlay}
         {faceMissingBanner}
+        {softNoticeBanner}
         {childrenWrapper}
       </>
     )
@@ -813,6 +892,7 @@ export default function FaceProctor({
         {blockedOverlay}
         {terminatedOverlay}
         {faceMissingBanner}
+        {softNoticeBanner}
         <div className="relative" style={{
           pointerEvents: examBlocked || limitReached ? "none" : "auto",
           opacity: examBlocked ? 0.4 : 1,

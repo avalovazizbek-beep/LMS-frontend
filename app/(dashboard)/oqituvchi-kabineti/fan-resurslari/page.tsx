@@ -759,6 +759,7 @@ function TestResultsModal({ test, onClose }: { test: TeacherContent; onClose: ()
               onChanged={refetchSubs}
               onView={setSelectedSub}
               violations={violData?.data ?? []}
+              contentId={test.id}
             />
           )}
         </div>

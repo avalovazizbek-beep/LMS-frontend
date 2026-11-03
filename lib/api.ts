@@ -1625,6 +1625,17 @@ export interface ViolationSummaryRow {
   counts: Record<string, number>
   total: number
   lastAt: string
+  /** Saqlangan Face ID rasmlari soni */
+  snapshots?: number
+}
+
+/** Bitta talabaning bitta buzilishi (Face ID rasmi bilan, agar saqlangan bo'lsa) */
+export interface ViolationDetailRow {
+  id: number
+  violationType: string
+  detail: string | null
+  snapshot: string | null
+  createdAt: string
 }
 
 /* ── Antiplagiat ──────────────────────────────────────────────────────── */
@@ -1657,7 +1668,7 @@ export const teachingApi = {
   groupsByYear: (year: string) => get<ListRes<TeacherGroup>>(`/api/teaching/groups-by-year?year=${encodeURIComponent(year)}`),
 
   examSettings: () =>
-    get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null; attendanceMode: "auto" | "manual"; facePracticeRequired?: boolean } }>("/api/teaching/exam-settings"),
+    get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null; attendanceMode: "auto" | "manual"; facePracticeRequired?: boolean; faceTerminate?: boolean } }>("/api/teaching/exam-settings"),
 
   sync: () =>
     post<{ success: boolean; message: string; data: { groups: TeacherGroup[]; schedule: TeacherScheduleItem[] } }>(
@@ -1947,12 +1958,16 @@ export const teachingApi = {
     post<ItemRes<AdaptiveAnswerResult>>(`/api/teaching/content/${contentId}/adaptive/answer`, { questionId, selectedIndex }),
 
   /** Imtihon paytida fullscreen/tab/Face ID buzilishini xabar qilish */
-  reportViolation: (contentId: number | string, violationType: ViolationType, detail?: string) =>
-    post<MsgRes>(`/api/teaching/content/${contentId}/violation`, { violationType, detail }),
+  reportViolation: (contentId: number | string, violationType: ViolationType, detail?: string, snapshot?: string | null) =>
+    post<MsgRes>(`/api/teaching/content/${contentId}/violation`, { violationType, detail, ...(snapshot ? { snapshot } : {}) }),
 
   /** O'qituvchi/admin: bitta imtihon bo'yicha buzilishlar xulosasi (talaba bo'yicha) */
   violations: (contentId: number | string) =>
     get<ListRes<ViolationSummaryRow>>(`/api/teaching/content/${contentId}/violations`),
+
+  /** O'qituvchi/admin: bitta talabaning buzilishlari, Face ID rasmlari bilan */
+  studentViolations: (contentId: number | string, studentUserId: number | string) =>
+    get<ListRes<ViolationDetailRow>>(`/api/teaching/content/${contentId}/violations/${studentUserId}`),
 
   /** Antiplagiat: keshlangan natijalarni olish (qayta hisoblamaydi) */
   plagiarismResults: (contentId: number | string) =>

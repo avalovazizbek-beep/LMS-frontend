@@ -696,8 +696,9 @@ export default function ImtihonTopshirish() {
         fixed
         onFirstVerified={handleFirstVerified}
         onTerminate={handleTerminate}
-        onViolation={(type, detail) => { teachingApi.reportViolation(id, type, detail).catch(() => {}) }}
+        onViolation={(type, detail, snapshot) => { teachingApi.reportViolation(id, type, detail, snapshot).catch(() => {}) }}
         maxViolations={examSettings?.faceBlockThreshold}
+        terminate={examSettings?.faceTerminate === true}
       >
         {/* ── Yuz tekshiruvi fazasi ───────────────────────────────── */}
         {phase === "face_scan" && (

@@ -48,6 +48,8 @@ interface Props {
   onView?: (sub: TeachingSubmission) => void
   /** Imtihon paytidagi qoidabuzarliklar (talaba bo'yicha) — berilsa alohida ustun chiqadi */
   violations?: ViolationSummaryRow[]
+  /** Berilsa qoidabuzarliklar yonida "Batafsil" (Face ID rasmlari) chiqadi */
+  contentId?: number
 }
 
 /**
@@ -55,7 +57,7 @@ interface Props {
  * aynan ularga qayta urinish ruxsatini berish. Ruxsat bir martalik —
  * talaba testni yana bir marta topshiradi (muddat o'tgan bo'lsa ham).
  */
-export function RetakeTable({ submissions, maxScore, attemptsCount, grant, revoke, onChanged, onView, violations }: Props) {
+export function RetakeTable({ submissions, maxScore, attemptsCount, grant, revoke, onChanged, onView, violations, contentId }: Props) {
   const { t } = useLanguage()
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [busy, setBusy] = useState(false)
@@ -230,7 +232,7 @@ export function RetakeTable({ submissions, maxScore, attemptsCount, grant, revok
                   </td>
                   {violations && (
                     <td className="px-3 py-2.5">
-                      <ViolationChips counts={violationsByStudent.get(sub.studentUserId)} />
+                      <ViolationChips counts={violationsByStudent.get(sub.studentUserId)} contentId={contentId} studentUserId={sub.studentUserId} />
                     </td>
                   )}
                   <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={{ ...L, fontVariantNumeric: "tabular-nums" }}>{fmtDate(sub.submittedAt)}</td>

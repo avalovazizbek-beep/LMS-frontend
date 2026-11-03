@@ -68,6 +68,7 @@ function TopicTestResults({ topic }: { topic: AdminTopicRow }) {
       revoke={(studentUserId) => adminApi.revokeRetake(testId, studentUserId)}
       onChanged={refetch}
       violations={violData?.data ?? []}
+      contentId={Number(testId)}
     />
   )
 }

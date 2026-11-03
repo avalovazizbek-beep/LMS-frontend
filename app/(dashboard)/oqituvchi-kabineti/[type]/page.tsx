@@ -2735,7 +2735,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                       <td className="px-4 py-3" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{pct}</td>
                       {content.type === "exam" && (
                         <td className="px-4 py-3">
-                          <ViolationChips counts={violationsByStudent.get(sub.studentUserId)?.counts} />
+                          <ViolationChips counts={violationsByStudent.get(sub.studentUserId)?.counts} contentId={content.id} studentUserId={sub.studentUserId} />
                         </td>
                       )}
                       {isPlagiarismCheckable && (
