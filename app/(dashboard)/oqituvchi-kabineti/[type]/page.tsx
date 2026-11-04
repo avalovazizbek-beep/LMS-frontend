@@ -2819,16 +2819,19 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
     return m
   }, [questions])
 
+  // Talaba javobi variantning bazadagi ASL raqami bo'lib saqlanadi: imtihon
+  // sahifasi origIdx yozadi, server ham shu raqamni kalit bilan solishtiradi.
+  // optionPerms faqat talaba ko'rgan tartibni tiklash uchun — javobni u orqali
+  // qayta almashtirish talaba bosmagan variantni ko'rsatardi (2026-11-04 xatosi).
   const questionResults = useMemo(() => {
-    if (!isExam || !sub.questionIds || !sub.answers || !sub.optionPerms) return []
+    if (!isExam || !sub.questionIds || !sub.answers) return []
     return sub.questionIds.map((qId, i) => {
       const q = questionsMap.get(qId)
-      const shuffledAnswer = sub.answers![i] ?? -1
-      const optionPerm = sub.optionPerms![qId] ?? []
-      const originalAnswer = shuffledAnswer >= 0 && shuffledAnswer < optionPerm.length
-        ? optionPerm[shuffledAnswer] : -1
-      const isCorrect = q != null && originalAnswer === q.correctIndex
-      return { q, qId, originalAnswer, isCorrect }
+      const originalAnswer = sub.answers![i] ?? -1
+      const correctSet = q ? (q.correctIndexes?.length ? q.correctIndexes : [q.correctIndex]) : []
+      const isCorrect = q != null && correctSet.includes(originalAnswer)
+      const order = sub.optionPerms?.[qId] ?? q?.options.map((_, oi) => oi) ?? []
+      return { q, qId, originalAnswer, isCorrect, correctSet, order }
     })
   }, [isExam, sub, questionsMap])
 
@@ -2923,7 +2926,7 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
         {isExam && (
           qLoading ? <Loading /> : (
             <div className="flex flex-col gap-3">
-              {questionResults.map(({ q, qId, originalAnswer, isCorrect }, i) => (
+              {questionResults.map(({ q, qId, originalAnswer, isCorrect, correctSet, order }, i) => (
                 <div key={i} className="rounded-[10px] p-4 flex flex-col gap-2"
                   style={{ border: `1px solid ${isCorrect ? "#bbf7d0" : "#fecaca"}`, backgroundColor: isCorrect ? "#f0fdf4" : "#fff5f5" }}>
                   <div className="text-sm font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
@@ -2931,18 +2934,19 @@ function SubmissionDetailModal({ content, sub, readOnly, onBack, onClose, onGrad
                   </div>
                   {q?.options && (
                     <div className="flex flex-col gap-1 mt-1">
-                      {q.options.map((opt, oi) => {
+                      {/* Variantlar talaba ekranda ko'rgan tartibda va harflar bilan */}
+                      {order.map((oi, pos) => {
+                        const opt = q.options[oi]
                         const isStudentChoice = oi === originalAnswer
-                        const isCorrectOpt = oi === q.correctIndex
+                        const isCorrectOpt = correctSet.includes(oi)
                         const bg = isCorrectOpt ? "#dcfce7" : isStudentChoice ? "#fee2e2" : "transparent"
                         const color = isCorrectOpt ? "#15803d" : isStudentChoice ? "#dc2626" : "#445b7a"
                         return (
                           <div key={oi} className="text-sm px-3 py-1.5 rounded-[6px]"
                             style={{ backgroundColor: bg, color, fontFamily: "var(--font-poppins)", fontWeight: isStudentChoice || isCorrectOpt ? 600 : 400 }}>
-                            {String.fromCharCode(65 + oi)}. {opt}
-                            {isStudentChoice && !isCorrectOpt && ` ${t("typeContentOq.submission.studentAnswer")}`}
+                            {String.fromCharCode(65 + pos)}. {opt}
+                            {isStudentChoice && ` ${t("typeContentOq.submission.studentAnswer")}`}
                             {isCorrectOpt && " ✓"}
-                            {isStudentChoice && isCorrectOpt && ` ${t("typeContentOq.submission.studentAnswer")} ✓`}
                           </div>
                         )
                       })}
