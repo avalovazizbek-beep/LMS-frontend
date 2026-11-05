@@ -31,6 +31,7 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
   const [students, setStudents] = useState<StudentFaceRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<number | null>(null)
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -53,11 +54,18 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
     if (!window.confirm(confirmMsg)) return
 
     setSendingId(hemisId)
+    setNotice(null)
     try {
       await adminApi.requestFaceReregister(hemisId)
-      setStudents(prev => prev?.map(s => s.hemisId === hemisId ? { ...s, faceRegistered: false, adminRequestPending: false } : s) ?? prev)
-    } catch {
-      // jimgina — tugma yana bosiladigan holatga qaytadi, qayta urinish mumkin
+      // Ro'yxatdan o'tgan: Face ID o'chirildi → "O'tmagan", talaba qayta o'tadi.
+      // O'tmagan: so'rov yozildi → "So'rov yuborilgan" (ilgari qator o'zgarmay
+      // qolardi va so'rov ketmagandek ko'rinardi).
+      setStudents(prev => prev?.map(s => s.hemisId !== hemisId ? s
+        : alreadyRegistered ? { ...s, faceRegistered: false, adminRequestPending: false }
+        : { ...s, adminRequestPending: true }) ?? prev)
+      setNotice({ ok: true, text: t(alreadyRegistered ? "adminStudents.resetDone" : "adminStudents.requestDone", { name: fullName }) })
+    } catch (e) {
+      setNotice({ ok: false, text: t("adminStudents.actionFailed", { name: fullName, error: e instanceof Error ? e.message : String(e) }) })
     } finally {
       setSendingId(null)
     }
@@ -107,6 +115,21 @@ function RosterModal({ group, onClose }: { group: GroupRow; onClose: () => void 
               </div>
               <span className="text-xs font-semibold text-[var(--adm-text-2)]" style={{ fontVariantNumeric: "tabular-nums" }}>{share}%</span>
             </div>
+          </div>
+        )}
+
+        {notice && (
+          <div className="flex items-start gap-2 px-5 py-2.5 text-[13px] font-medium"
+            style={{
+              borderBottom: "1px solid var(--adm-border)",
+              color: notice.ok ? "var(--adm-up)" : "var(--role-admin)",
+              backgroundColor: `color-mix(in srgb, ${notice.ok ? "var(--adm-up)" : "var(--role-admin)"} 8%, transparent)`,
+            }}>
+            {notice.ok ? <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" /> : <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />}
+            <span className="flex-1">{notice.text}</span>
+            <button onClick={() => setNotice(null)} aria-label={t("common.close")} className="shrink-0 opacity-70 hover:opacity-100">
+              <X className="h-4 w-4" />
+            </button>
           </div>
         )}
 
