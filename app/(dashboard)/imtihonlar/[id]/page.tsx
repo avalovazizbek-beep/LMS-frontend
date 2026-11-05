@@ -38,6 +38,7 @@ export default function ImtihonTopshirish() {
 
   const { data: settingsRes } = useApi(() => teachingApi.examSettings(), [])
   const examSettings = settingsRes?.data ?? null
+  const tabLimit = examSettings?.tabLeaveLimit && examSettings.tabLeaveLimit > 0 ? examSettings.tabLeaveLimit : 3
 
   // Oraliq / mustaqil ish testidan oldin "Yuzni sinab ko'rish" demo testi
   const isControlTest = content ? isProctoredControlTest(content) : false
@@ -47,7 +48,7 @@ export default function ImtihonTopshirish() {
 
   const [attemptKey, setAttemptKey]   = useState(0)
 
-  const { data: questionsRes, loading: lQuestions } = useApi(
+  const { data: questionsRes, loading: lQuestions, error: questionsError } = useApi(
     () => (attemptKey > 0 && openForMe ? teachingApi.questions(id) : Promise.resolve({ success: true, data: [] })),
     [id, openForMe, attemptKey]
   )
@@ -65,7 +66,14 @@ export default function ImtihonTopshirish() {
   const [fsExited,      setFsExited]      = useState(false)   // to'liq ekrandan chiqildi
   const [fsHint,        setFsHint]        = useState(false)   // telefonda: savollarni yopmaydigan "qaytish" tugmasi
   const [winHidden,     setWinHidden]     = useState(false)   // Alt+Tab: oyna yashirildi
-  const [proctorEnded,  setProctorEnded]  = useState(false)   // Face ID xatoliklari chegarasi — avtomatik yuborildi
+  // Oynadan chiqish chegarasiga yetib, test avtomatik yuborildi (Face ID testni yakunlamaydi)
+  const [tabEnded,      setTabEnded]      = useState(false)
+  // Shu urinishda chegaraga sanalgan oynadan chiqishlar (server sanaydi — sahifa yangilansa ham saqlanadi)
+  const [tabLeaves,     setTabLeaves]     = useState(0)
+  const leftOutRef = useRef(false)   // oyna yashirilgan, talaba hali "Imtihonga qaytish"ni bosmagan
+  const isAdaptiveRef = useRef(false)
+  // Chegaraga yetganda chaqiriladi; har renderdan keyin yangilanadi (eng so'nggi javoblar bilan)
+  const onTabLimitRef = useRef<() => void>(() => {})
   const [isMobile,      setIsMobile]      = useState(false)
 
   // Moslashuvchan (adaptive) test — bitta-bittalab savol, sinovga qarab qiyinlik moslashadi
@@ -170,7 +178,25 @@ export default function ImtihonTopshirish() {
       if (el) el.style.display = show ? "flex" : "none"
       // React state ham yangilanadi (qaytish tugmasi uchun)
       setWinHidden(show)
-      if (show) teachingApi.reportViolation(id, "tab_blur").catch(() => {})
+      if (!show) return
+      // Bitta chiqishda blur va visibilitychange ikkalasi keladi; talaba
+      // "Imtihonga qaytish"ni bosmaguncha bu — bitta chiqish
+      if (leftOutRef.current) return
+      leftOutRef.current = true
+      // Savollar ochiq paytdagi chiqish chegaraga sanaladi (moslashuvchan
+      // testni erta yakunlab bo'lmaydi — u yerda faqat qayd)
+      if (phaseRef.current === "exam" && !isAdaptiveRef.current) {
+        setTabLeaves(n => n + 1)
+        teachingApi.reportTabLeave(id)
+          .then(res => {
+            if (!res.data) return
+            setTabLeaves(res.data.tabLeaves)
+            if (res.data.blocked) onTabLimitRef.current()
+          })
+          .catch(() => {})
+      } else {
+        teachingApi.reportViolation(id, "tab_blur").catch(() => {})
+      }
     }
 
     const onBlur = () => showHideOverlay(true)
@@ -252,7 +278,9 @@ export default function ImtihonTopshirish() {
     setTimeLeft(content?.durationMinutes ? content.durationMinutes * 60 : null)
     setFsExited(false)
     setWinHidden(false)
-    setProctorEnded(false)
+    setTabEnded(false)
+    setTabLeaves(0)
+    leftOutRef.current = false
     requestFS()
     setPhase("face_scan")
   }
@@ -287,13 +315,32 @@ export default function ImtihonTopshirish() {
     }
   }, [questions, answers, id, refetchSub])
 
-  const handleTerminate = useCallback(() => {
-    if (phase !== "exam" && phase !== "face_scan") return
-    // O'qituvchi natijalar jadvalida "Face ID sababli yakunlangan" deb ko'rishi uchun
-    teachingApi.reportViolation(id, "proctor_terminated").catch(() => {})
-    setProctorEnded(true)
-    handleSubmit()
-  }, [phase, handleSubmit, id])
+  /* Oynadan chiqish chegarasiga yetildi (server aytdi): test shu chiqishda
+     yakunlanadi — belgilangan javoblar yuboriladi. Face ID testni yakunlamaydi. */
+  useEffect(() => {
+    isAdaptiveRef.current = isAdaptive
+    onTabLimitRef.current = () => {
+      if (phaseRef.current !== "exam" || isAdaptive) return
+      const el = contentHideRef.current
+      if (el) el.style.display = "none"
+      setWinHidden(false)
+      setTabEnded(true)
+      handleSubmit()
+    }
+  })
+
+  /* Savollar ochilmadi (masalan, oldingi urinish oynadan chiqish sababli
+     yakunlangan yoki urinishlar tugagan) — cheksiz yuklanish o'rniga sabab */
+  useEffect(() => {
+    if (!questionsError || attemptKey === 0) return
+    if (phaseRef.current !== "face_scan" && phaseRef.current !== "exam") return
+    setResult(null)
+    setSubmitError(questionsError)
+    setPhase("submitted_now")
+    exitFS()
+    refetchSub()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionsError, attemptKey])
 
   /* ── Moslashuvchan test: fazaga kirganda birinchi savolni yuklash ──── */
   useEffect(() => {
@@ -407,12 +454,12 @@ export default function ImtihonTopshirish() {
                   {t("examTake.passedNoMore")}
                 </p>
               )}
-              {proctorEnded && (
+              {tabEnded && (
                 <div className="mt-4 px-4 py-3 rounded-[8px] text-sm flex items-start gap-2 text-left"
                   style={{ backgroundColor: "#fef2f2", border: "1px solid rgba(185,28,28,0.2)" }}>
                   <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#b91c1c" }} />
                   <p style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)", margin: 0 }}>
-                    {t("examTake.terminatedNotice")}
+                    {t("examTake.tabLimitNotice", { n: tabLeaves })}
                   </p>
                 </div>
               )}
@@ -567,6 +614,14 @@ export default function ImtihonTopshirish() {
               {t("examTake.fullscreenNotice")}
             </p>
           </div>
+          {!isAdaptive && (
+            <div className="mt-3 px-4 py-3 rounded-[8px] text-sm text-left"
+              style={{ backgroundColor: "#fef2f2", border: "1px solid rgba(185,28,28,0.2)" }}>
+              <p style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)", margin: 0 }}>
+                {t("examTake.tabLimitRule", { max: tabLimit })}
+              </p>
+            </div>
+          )}
           <div className="mt-3 px-4 py-3 rounded-[8px] text-sm text-left"
             style={{ backgroundColor: "#fff7ed", border: "1px solid rgba(234,88,12,0.25)" }}>
             <p style={{ color: "#9a3412", fontFamily: "var(--font-poppins)", margin: 0 }}>
@@ -676,10 +731,19 @@ export default function ImtihonTopshirish() {
         <p style={{ color: "rgba(255,255,255,0.8)", fontFamily: "var(--font-poppins)", marginBottom: 24, textAlign: "center" }}>
           {t("examTake.leftWindowDesc")}
         </p>
+        {phase === "exam" && !isAdaptive && tabLeaves > 0 && (
+          <p style={{
+            color: "#fff", fontFamily: "var(--font-poppins)", fontWeight: 700, fontSize: 16,
+            marginTop: -12, marginBottom: 24, textAlign: "center", padding: "0 16px",
+          }}>
+            {t("examTake.leftWindowCount", { n: tabLeaves, max: tabLimit })}
+          </p>
+        )}
         <button onClick={() => {
           const el = contentHideRef.current
           if (el) el.style.display = "none"
           setWinHidden(false)
+          leftOutRef.current = false
           window.focus()
         }} style={{
           padding: "12px 28px", borderRadius: 8, backgroundColor: "#fff",
@@ -695,10 +759,10 @@ export default function ImtihonTopshirish() {
         key={attemptKey}
         fixed
         onFirstVerified={handleFirstVerified}
-        onTerminate={handleTerminate}
         onViolation={(type, detail, snapshot) => { teachingApi.reportViolation(id, type, detail, snapshot).catch(() => {}) }}
         maxViolations={examSettings?.faceBlockThreshold}
-        terminate={examSettings?.faceTerminate === true}
+        // Face ID testni hech qachon yakunlamaydi — xatolar faqat rasm bilan qayd etiladi (2026-11-05)
+        terminate={false}
       >
         {/* ── Yuz tekshiruvi fazasi ───────────────────────────────── */}
         {phase === "face_scan" && (

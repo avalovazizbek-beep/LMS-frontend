@@ -7,7 +7,7 @@ import { Modal } from "@/components/ui/Modal"
 import { teachingApi, type ViolationDetailRow } from "@/lib/api"
 
 const ORDER = [
-  "proctor_terminated", "face_mismatch", "multi_face", "liveness", "no_face",
+  "tab_limit", "proctor_terminated", "face_mismatch", "multi_face", "liveness", "no_face",
   "tab_blur", "fullscreen_exit", "screenshot_attempt",
 ] as const
 
@@ -18,6 +18,7 @@ const ORANGE = "var(--cat-2, #c2410c)"
 const AMBER = "var(--role-pending, #92400e)"
 const tint = (color: string) => ({ bg: `color-mix(in srgb, ${color} 12%, transparent)`, color })
 const STYLE: Record<string, { bg: string; color: string }> = {
+  tab_limit:          { bg: RED, color: "#fff" },
   proctor_terminated: { bg: RED, color: "#fff" },
   face_mismatch:      tint(RED),
   multi_face:         tint(RED),
@@ -73,7 +74,7 @@ export function ViolationChips({ counts, compact = false, contentId, studentUser
         return (
           <span key={k} className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
             style={{ backgroundColor: st.bg, color: st.color, fontFamily: "var(--font-poppins)" }}>
-            {label}{k === "proctor_terminated" ? "" : ` ×${n}`}
+            {label}{k === "proctor_terminated" || k === "tab_limit" ? "" : ` ×${n}`}
           </span>
         )
       })}
