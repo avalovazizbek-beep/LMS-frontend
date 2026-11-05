@@ -3408,6 +3408,7 @@ export const dictionary: Record<string, DictEntry> = {
   "adminOraliq.allSubjects":  { uz: "Barcha fanlar", ru: "Все предметы", en: "All subjects", kaa: "Barlıq pánler" },
   "adminOraliq.foundN":       { uz: "{n} ta nazorat topildi", ru: "Найдено контролей: {n}", en: "{n} assessments found", kaa: "{n} baqlaw tabıldı" },
   "adminOraliq.clearFilters": { uz: "Filtrni tozalash", ru: "Сбросить фильтр", en: "Clear filters", kaa: "Filtrdi tazalaw" },
+  "adminOraliq.showMore":     { uz: "Yana ko'rsatish ({n} ta qoldi)", ru: "Показать ещё (осталось {n})", en: "Show more ({n} left)", kaa: "Jáne kórsetiw ({n} qaldı)" },
   "adminOraliq.searchPh":      { uz: "Guruh, fan yoki o'qituvchi…", ru: "Группа, предмет или преподаватель…", en: "Group, subject or teacher…", kaa: "Gruppa, pán yamasa oqıtıwshı…" },
   "adminOraliq.empty":         { uz: "Nazorat topilmadi", ru: "Контроли не найдены", en: "No assessments found", kaa: "Baqlaw tabılmadı" },
   "adminOraliq.emptyHint":     { uz: "O'qituvchilar oraliqni «Imtihonlar ro'yxati» sahifasida yaratadi", ru: "Преподаватели создают контроли на странице «Список экзаменов»", en: "Teachers create assessments on the “Exams List” page", kaa: "Oqıtıwshılar aralıqtı «Emtihanlar dizimi» betinde jaratadı" },

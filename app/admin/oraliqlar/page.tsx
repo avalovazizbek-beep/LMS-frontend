@@ -253,6 +253,7 @@ function OraliqStudents({ exam, onChanged }: { exam: AdminExamListItem; onChange
 type Kind = "oraliq" | "yakuniy"
 type SlotFilter = "all" | "ON1" | "ON2" | "MI"
 const isMi = (e: AdminExamListItem) => e.controlType === "mustaqil"
+const PAGE_SIZE = 50
 
 export default function AdminOraliqlar() {
   const { t } = useLanguage()
@@ -263,6 +264,9 @@ export default function AdminOraliqlar() {
   const [groupFilter, setGroupFilter] = useState("")
   const [subjectFilter, setSubjectFilter] = useState("")
   const [openId, setOpenId] = useState<number | null>(null)
+  // Server endi hamma nazoratni qaytaradi (avval 300 ta bilan kesilardi) —
+  // sahifa og'irlashmasin deb kartalar bo'lib-bo'lib chiziladi
+  const [shown, setShown] = useState(PAGE_SIZE)
 
   // Oraliq bo'limida mustaqil ishlar ham (MI filtri) — ular ham muddatli, kelmaganga qayta ochiladi
   const { data, loading, error, refetch } = useApi(
@@ -289,6 +293,12 @@ export default function AdminOraliqlar() {
       (!q || [e.title, e.groupName, e.subjectName, e.teacherName].some(v => v.toLowerCase().includes(q)))
     )
   }, [exams, search, slotFilter, kind, teacherFilter, groupFilter, subjectFilter])
+
+  // Filtr o'zgarsa ro'yxat yana boshidan (50 ta) ko'rsatiladi
+  const filterKey = [search, slotFilter, kind, teacherFilter, groupFilter, subjectFilter].join("|")
+  const [shownFor, setShownFor] = useState(filterKey)
+  if (shownFor !== filterKey) { setShownFor(filterKey); setShown(PAGE_SIZE) }
+  const visible = filtered.slice(0, shown)
 
   const counts = useMemo(() => ({
     all: exams.length,
@@ -379,7 +389,7 @@ export default function AdminOraliqlar() {
         <EmptyCard icon={ClipboardList} text={t("adminOraliq.empty")} hint={t("adminOraliq.emptyHint")} />
       ) : (
         <div className={`flex flex-col gap-3 transition-opacity ${loading ? "opacity-60" : ""}`}>
-          {filtered.map(exam => {
+          {visible.map(exam => {
             const st = STATUS_STYLE[examStatus(exam)]
             const isOpen = openId === exam.id
             return (
@@ -432,6 +442,14 @@ export default function AdminOraliqlar() {
               </div>
             )
           })}
+          {filtered.length > visible.length && (
+            <button onClick={() => setShown(n => n + PAGE_SIZE)}
+              className="adm-btn-outline mx-auto flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-semibold"
+              style={{ boxShadow: "var(--adm-shadow)" }}>
+              <ChevronDown className="h-4 w-4" />
+              {t("adminOraliq.showMore", { n: filtered.length - visible.length })}
+            </button>
+          )}
         </div>
       )}
     </motion.div>
