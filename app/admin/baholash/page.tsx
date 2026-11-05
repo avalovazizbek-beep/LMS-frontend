@@ -9,6 +9,7 @@ import { adminApi, type AdminLockedAssignment } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { trainingTypeLabelKey, normalizeTrainingType } from "@/lib/attendanceTrainingTypes"
+import { MUSTAQIL_CONTROL } from "@/lib/controlWork"
 import { motion, pageVariants } from "@/components/ui/motion"
 import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { Field, FieldSelect, TintStat, EmptyCard, PageHeader, Notice, type CssVars } from "@/components/admin/AdminUi"
@@ -227,7 +228,9 @@ export default function AdminBaholash() {
                             <div className="max-w-[340px] truncate text-[13px] font-semibold text-[var(--adm-text)]" title={item.title}>{item.title}</div>
                             <div className="mt-1 flex flex-wrap gap-1">
                               <span className="adm-pill" style={{ "--c": "var(--adm-accent)", padding: "0 8px", fontSize: 11 } as CssVars}>
-                                {t("adminBaholash.practicalAssignment")}
+                                {t(item.controlType === "oraliq" ? "adminBaholash.oraliqAssignment"
+                                  : item.controlType === MUSTAQIL_CONTROL ? "adminBaholash.mustaqilAssignment"
+                                  : "adminBaholash.practicalAssignment")}
                               </span>
                               {/* "Amaliy" — "Amaliy topshiriq" bilan takror; boshqa tur bo'lsa ko'rsatiladi */}
                               {item.trainingType && normalizeTrainingType(item.trainingType) !== "Amaliy" && (

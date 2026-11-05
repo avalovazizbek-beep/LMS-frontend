@@ -149,6 +149,12 @@ function SubmissionsList({
   if (error) return <ApiError message={error} onRetry={refetch} />
 
   const gradedCount = submissions.filter(s => s.grade !== null).length
+  // "Yakunlash" faqat hamma baholangach chiqadi. Nofaol bo'lsa-yu baholanmagan
+  // ish qolgan bo'lsa — o'qituvchi uni "Faol" tugmasi bilan o'chirgan, yakunlamagan:
+  // qolganlarini baholash mumkin (qo'yilgan baho baribir o'zgarmaydi).
+  const hasUngraded = submissions.some(s => s.grade === null && !saved[s.id])
+  const isInactive = content.isActive === false || finalized
+  const isFinalized = isInactive && !hasUngraded
 
   return (
     <div className="flex flex-col gap-5">
@@ -181,10 +187,15 @@ function SubmissionsList({
                     {t("baholashPageOq.deadline", { date: new Date(content.deadline).toLocaleDateString("uz-UZ") })}
                   </span>
                 )}
-                {(content.isActive === false || finalized) && (
+                {isFinalized ? (
                   <span className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-medium"
                     style={{ backgroundColor: "#fef2f2", color: "#b91c1c", fontFamily: "var(--font-poppins)" }}>
                     <Lock className="w-3 h-3" /> {t("baholashPageOq.finalizedTag")}
+                  </span>
+                ) : isInactive && (
+                  <span className="text-[11px] px-2.5 py-1 rounded-full font-medium"
+                    style={{ backgroundColor: "#fff7ed", color: "#c2410c", fontFamily: "var(--font-poppins)" }}>
+                    {t("baholashPageOq.inactiveTag")}
                   </span>
                 )}
               </div>
@@ -253,7 +264,7 @@ function SubmissionsList({
                   style={{
                     border: `1px solid ${(isGraded || isSavedNow) ? "rgba(21,128,61,0.2)" : "rgba(1,41,112,0.1)"}`,
                     boxShadow: "0px 0px 5px rgba(1,41,112,0.05)",
-                    opacity: (content.isActive === false || finalized) ? 0.8 : 1,
+                    opacity: isFinalized ? 0.8 : 1,
                   }}
                 >
                   <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -327,7 +338,7 @@ function SubmissionsList({
                   )}
 
                   {/* Grade input — only for ungraded submissions (locked once saved) */}
-                  {!(content.isActive === false || finalized) && !isGraded && !isSavedNow && (
+                  {!isGraded && !isSavedNow && (
                     <div className="flex items-end gap-3 flex-wrap">
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-medium" style={L}>
@@ -378,7 +389,7 @@ function SubmissionsList({
           </div>
 
           {/* Finalize button */}
-          {!(content.isActive === false || finalized) && allGraded && (
+          {!isInactive && allGraded && (
             <div className="rounded-[10px] p-4 flex items-center justify-between gap-4" style={{ backgroundColor: "#fffbeb", border: "1px solid rgba(217,119,6,0.25)" }}>
               <div>
                 <div className="text-sm font-semibold" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>{t("baholashPageOq.allGradedTitle")}</div>
