@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState, useCallback, useRef } from "react"
 import { Users, BarChart3, BookOpen, CheckCircle, Download, RefreshCw, Bell, Send, X, ChevronDown, ChevronRight, Info } from "lucide-react"
 import {
   teachingApi,
+  hemisApi,
   type JournalTopic,
   type JournalStudent,
   type JournalScale,
@@ -14,6 +15,7 @@ import {
 import { GradeBreakdown } from "@/components/teaching/GradeBreakdown"
 import { pctColor, pctBg, TopicCell, BallCell, BahoCell, AttCell } from "@/components/teaching/JournalCells"
 import { journalLayout, studentTotals, fmtBall, PASS_BALL } from "@/lib/gradeTotals"
+import { downloadJournalExcel } from "@/lib/journalExcel"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -174,7 +176,7 @@ function NotifyModal({
 
 /* ─── Asosiy jurnal jadvali ──────────────────────────────────────────── */
 function GradeJournal({
-  topics, students, scale, miColumns, periodItems, untypedTopicCount, groupId, subjectName, onRefresh, refreshing,
+  topics, students, scale, miColumns, periodItems, untypedTopicCount, groupId, groupName, subjectName, onRefresh, refreshing,
 }: {
   topics: JournalTopic[]
   students: JournalStudent[]
@@ -183,6 +185,7 @@ function GradeJournal({
   periodItems: JournalData["periodItems"]
   untypedTopicCount: number
   groupId: number
+  groupName: string
   subjectName: string
   onRefresh: () => void
   refreshing: boolean
@@ -247,38 +250,26 @@ function GradeJournal({
     ? `${Math.round(withJn.reduce((sum, s) => sum + (s.jn ?? 0), 0) / withJn.length)}/${scale.jn}`
     : "—"
 
-  function exportCsv() {
-    const header = [
-      "#", t("natijalarOq.csvStudent"),
-      `ON1 (/${scale.on1})`, `ON2 (/${scale.on2})`,
-      ...lectureMi.map(c => `${c.label} (/${c.points})`),
-      `${t("natijalarOq.colLecture")} (/${lectureMax})`,
-      ...topics.map(tp => t("natijalarOq.csvTopicCol", { n: tp.idx })),
-      `JN (/${scale.jn})`,
-      ...practiceMi.map(c => `${c.label} (/${c.points})`),
-      `${t("natijalarOq.colPractice")} (/${practiceMax})`,
-      `${t("natijalarOq.colJoriy")} (/${joriyMax})`, `YN (/${scale.yn})`, `${t("natijalarOq.colBall")} (/${ballMax})`,
-      t("natijalarOq.colBaho"),
-      t("natijalarOq.csvAttendancePct"),
-    ]
-    const rows = students.map((s, i) => {
-      const r = totals(s)
-      return [
-        i + 1,
-        s.fullName,
-        r.on1 ?? "", r.on2 ?? "", ...lectureMi.map(c => r.mi(c) ?? ""), r.lecture ?? "",
-        ...topics.map(tp => s.topicPoints?.[tp.key] ?? s.topicScores[tp.key] ?? ""),
-        s.jn ?? "", ...practiceMi.map(c => r.mi(c) ?? ""), r.practice ?? "",
-        r.joriy ?? "", r.yn ?? "", r.ball ?? "", r.baho ?? "",
-        s.attendancePct !== null ? `${s.attendancePct}%` : "",
+  // Bezakli Excel (.xlsx): sahifadagi jadval ranglari, guruh o'rtachasi,
+  // ranglar izohi, imzo joyi va ustunlar izohi varag'i (lib/journalExcel.ts)
+  const [exporting, setExporting] = useState(false)
+  async function exportExcel() {
+    setExporting(true)
+    try {
+      const me = await hemisApi.employeeMe().catch(() => null)
+      const splitLines = [
+        t("natijalarOq.splitLecture", { total: fmtBall(lectureMax), on: fmtBall(lectureOnPoints), mi: fmtBall(lectureMiPoints) }),
+        topics.length > 0
+          ? t("natijalarOq.splitPractice", { total: fmtBall(practiceMax), mi: fmtBall(practiceMiPoints), jn: fmtBall(scale.jn), count: topics.length, each: fmtBall(topics[0].points ?? scale.jn / topics.length) })
+          : t("natijalarOq.splitPracticeNoTopics", { total: fmtBall(practiceMax), mi: fmtBall(practiceMiPoints), jn: fmtBall(scale.jn) }),
       ]
-    })
-    const csv = [header, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n")
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a"); a.href = url
-    a.download = `jurnal_${subjectName}.csv`; a.click()
-    URL.revokeObjectURL(url)
+      downloadJournalExcel({
+        t, groupName, subjectName, teacherName: me?.data?.full_name ?? "",
+        topics, students, scale, layout, periodItems, totals, splitLines,
+      })
+    } finally {
+      setExporting(false)
+    }
   }
 
   const colTh = (col: { key: string; label: string; title?: string; bg: string; br: string }) => (
@@ -340,10 +331,10 @@ function GradeJournal({
             <span className="ml-2 text-xs" style={L}>{t("natijalarOq.journalHint", { jn: scale.jn })}</span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={exportCsv}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#eef4ff]"
+            <button onClick={exportExcel} disabled={exporting || students.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#eef4ff] disabled:opacity-50"
               style={{ border: "1px solid rgba(14,88,168,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              <Download className="w-3.5 h-3.5" /> {t("natijalarOq.export")}
+              <Download className={`w-3.5 h-3.5 ${exporting ? "animate-pulse" : ""}`} /> {t("natijalarOq.export")} (Excel)
             </button>
             <button onClick={onRefresh}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#f0fdf4]"
@@ -621,6 +612,7 @@ export default function NatijalarPage() {
           periodItems={data?.data?.periodItems}
           untypedTopicCount={data?.data?.untypedTopicCount ?? 0}
           groupId={groupId as number}
+          groupName={groups.find(g => g.id === groupId)?.name ?? String(groupId)}
           subjectName={subjectName}
           onRefresh={refetch}
           refreshing={loading}
