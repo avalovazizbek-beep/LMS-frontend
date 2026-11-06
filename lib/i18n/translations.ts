@@ -3398,6 +3398,7 @@ export const dictionary: Record<string, DictEntry> = {
   "adminStudents.statAvg":        { uz: "O'rtacha guruh hajmi",            ru: "Средний размер группы",                 en: "Average group size",              kaa: "Ortasha gruppa kólemi" },
 
   // ── Admin: HEMIS'da "Bekor qilingan" talabalar va LMS bloki ──────────
+  "adminStudents.cancelButton":    { uz: "Chetlatilgan talabalar", ru: "Отчисленные студенты", en: "Removed students", kaa: "Shıǵarılǵan studentler" },
   "adminStudents.cancelTitle":     { uz: "Bekor qilingan talabalar", ru: "Аннулированные студенты", en: "Cancelled students", kaa: "Biykar etilgen studentler" },
   "adminStudents.cancelSubtitle":  { uz: "HEMIS'da «Bekor qilingan» holatidagi masofaviy talabalar. Bloklangan talaba LMS'ga kira olmaydi — «talabalar safidan chetlatilgansiz» xabarini ko'radi.", ru: "Студенты дистанционной формы со статусом «Аннулирован» в HEMIS. Заблокированный студент не может войти в LMS и видит сообщение об исключении.", en: "Distance-learning students marked “Cancelled” in HEMIS. A blocked student cannot sign in to the LMS and sees a “removed from the student body” message.", kaa: "HEMIS'te «Biykar etilgen» halındaǵı qashıqtan oqıtıw studentleri. Bloklanǵan student LMS'ke kire almaydı." },
   "adminStudents.cancelSync":      { uz: "HEMIS'dan yangilash", ru: "Обновить из HEMIS", en: "Refresh from HEMIS", kaa: "HEMIS'ten jańalaw" },

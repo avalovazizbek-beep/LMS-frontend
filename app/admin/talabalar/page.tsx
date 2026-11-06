@@ -318,7 +318,7 @@ function DecreeModal({ row, onClose, onSaved }: {
   )
 }
 
-function CancelledStudentsSection() {
+function CancelledStudentsSection({ onTotal }: { onTotal?: (n: number) => void }) {
   const { t, locale } = useLanguage()
   const [data, setData] = useState<CancelledStudentsResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -331,10 +331,10 @@ function CancelledStudentsSection() {
   useEffect(() => {
     let cancelled = false
     adminApi.cancelledStudents()
-      .then(res => { if (!cancelled) setData(res) })
+      .then(res => { if (!cancelled) { setData(res); onTotal?.(res.total) } })
       .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : tr("adminStudents.errLoad")) })
     return () => { cancelled = true }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fmtDate = (iso: string | null, withTime = false) => {
     if (!iso) return "—"
@@ -359,6 +359,7 @@ function CancelledStudentsSection() {
     try {
       const res = await adminApi.syncCancelledStudents()
       setData(res)
+      onTotal?.(res.total)
       setError(null)
       setNotice({ ok: true, text: t("adminStudents.cancelSyncDone", { n: res.total }) })
     } catch (e) {
@@ -564,6 +565,13 @@ export default function AdminTalabalar() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [selectedGroup, setSelectedGroup] = useState<GroupRow | null>(null)
+  // "Chetlatilgan talabalar" tugmasi — guruhlar jadvali o'rniga alohida ro'yxat
+  const [view, setView] = useState<"groups" | "cancelled">("groups")
+  const [cancelledCount, setCancelledCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    adminApi.cancelledStudents().then(res => setCancelledCount(res.total)).catch(() => undefined)
+  }, [])
 
   function load(courseArg?: string, degreeArg?: string, pageArg?: number) {
     setLoading(true)
@@ -651,6 +659,12 @@ export default function AdminTalabalar() {
       {/* Qidiruv va filtrlar — daraja avval tanlanadi, kurs ro'yxati shunga
           qarab o'zgaradi (Bakalavr va Magistr'ning kurslari har xil) */}
       <div className="adm-card flex flex-wrap items-center gap-3 p-3 sm:p-4">
+        {view === "cancelled" ? (
+          <button onClick={() => setView("groups")}
+            className="adm-btn-outline inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold">
+            <ChevronLeft className="h-4 w-4" /> {t("adminStudents.byGroups")}
+          </button>
+        ) : (<>
         <label className="adm-input flex h-10 w-full items-center gap-2 rounded-xl px-3 sm:w-[300px]">
           <Search className="h-4 w-4 shrink-0 text-[var(--adm-muted)]" />
           <input
@@ -676,9 +690,25 @@ export default function AdminTalabalar() {
             {courses.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
           </select>
         </label>
+        </>)}
+        <button onClick={() => setView(v => v === "cancelled" ? "groups" : "cancelled")}
+          data-active={view === "cancelled"}
+          className="adm-chip inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold sm:ml-auto">
+          <UserX className="h-4 w-4" /> {t("adminStudents.cancelButton")}
+          {cancelledCount !== null && (
+            <span className="rounded-full px-2 py-0.5 text-[11px] font-bold leading-4"
+              style={view === "cancelled"
+                ? { backgroundColor: "rgba(255,255,255,0.22)", color: "#fff" }
+                : { backgroundColor: "color-mix(in srgb, var(--role-admin) 14%, transparent)", color: "var(--role-admin)" }}>
+              {cancelledCount}
+            </span>
+          )}
+        </button>
       </div>
 
-      {error ? (
+      {view === "cancelled" ? (
+        <CancelledStudentsSection onTotal={setCancelledCount} />
+      ) : error ? (
         <div className="adm-card p-6 text-sm" style={{ color: "var(--role-admin)" }}>{error}</div>
       ) : (
         <div className="adm-card overflow-hidden">
@@ -768,9 +798,6 @@ export default function AdminTalabalar() {
           )}
         </div>
       )}
-
-      {/* HEMIS'da "Bekor qilingan" talabalar — guruhlar jadvali ostida, alohida bo'lim */}
-      <CancelledStudentsSection />
 
       {selectedGroup && <RosterModal group={selectedGroup} onClose={() => setSelectedGroup(null)} />}
     </motion.div>
