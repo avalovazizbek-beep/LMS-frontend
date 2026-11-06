@@ -4,7 +4,6 @@ import { Fragment, useMemo, useState, useCallback, useRef } from "react"
 import { Users, BarChart3, BookOpen, CheckCircle, Download, RefreshCw, Bell, Send, X, ChevronDown, ChevronRight, Info } from "lucide-react"
 import {
   teachingApi,
-  hemisApi,
   type JournalTopic,
   type JournalStudent,
   type JournalScale,
@@ -250,26 +249,10 @@ function GradeJournal({
     ? `${Math.round(withJn.reduce((sum, s) => sum + (s.jn ?? 0), 0) / withJn.length)}/${scale.jn}`
     : "—"
 
-  // Bezakli Excel (.xlsx): sahifadagi jadval ranglari, guruh o'rtachasi,
-  // ranglar izohi, imzo joyi va ustunlar izohi varag'i (lib/journalExcel.ts)
-  const [exporting, setExporting] = useState(false)
-  async function exportExcel() {
-    setExporting(true)
-    try {
-      const me = await hemisApi.employeeMe().catch(() => null)
-      const splitLines = [
-        t("natijalarOq.splitLecture", { total: fmtBall(lectureMax), on: fmtBall(lectureOnPoints), mi: fmtBall(lectureMiPoints) }),
-        topics.length > 0
-          ? t("natijalarOq.splitPractice", { total: fmtBall(practiceMax), mi: fmtBall(practiceMiPoints), jn: fmtBall(scale.jn), count: topics.length, each: fmtBall(topics[0].points ?? scale.jn / topics.length) })
-          : t("natijalarOq.splitPracticeNoTopics", { total: fmtBall(practiceMax), mi: fmtBall(practiceMiPoints), jn: fmtBall(scale.jn) }),
-      ]
-      downloadJournalExcel({
-        t, groupName, subjectName, teacherName: me?.data?.full_name ?? "",
-        topics, students, scale, layout, periodItems, totals, splitLines,
-      })
-    } finally {
-      setExporting(false)
-    }
+  // Bezakli Excel (.xlsx): faqat natijalar jadvali, sahifadagi ranglarda,
+  // oxirida guruh o'rtachasi (lib/journalExcel.ts)
+  function exportExcel() {
+    downloadJournalExcel({ t, groupName, subjectName, topics, students, scale, layout, totals })
   }
 
   const colTh = (col: { key: string; label: string; title?: string; bg: string; br: string }) => (
@@ -331,10 +314,10 @@ function GradeJournal({
             <span className="ml-2 text-xs" style={L}>{t("natijalarOq.journalHint", { jn: scale.jn })}</span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={exportExcel} disabled={exporting || students.length === 0}
+            <button onClick={exportExcel} disabled={students.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#eef4ff] disabled:opacity-50"
               style={{ border: "1px solid rgba(14,88,168,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-              <Download className={`w-3.5 h-3.5 ${exporting ? "animate-pulse" : ""}`} /> {t("natijalarOq.export")} (Excel)
+              <Download className="w-3.5 h-3.5" /> {t("natijalarOq.export")} (Excel)
             </button>
             <button onClick={onRefresh}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium transition-colors hover:bg-[#f0fdf4]"

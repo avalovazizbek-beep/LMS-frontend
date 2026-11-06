@@ -1,11 +1,11 @@
 /* Talabalar ballari jurnali → bezakli Excel (.xlsx).
-   Ko'rinishi sahifadagi jadvalga mos: bo'limlar ranglari (Ma'ruza sariq,
-   Amaliyot yashil, Joriy, Yakuniy, Ball...), har bir ball foiziga qarab
-   rangli, guruh o'rtachasi, ranglar izohi va imzo joyi. Ikkinchi varaqda —
-   ustunlar izohi (ON1, MI-1, 3-mavzu... aslida qaysi nazorat/mavzu). */
+   Faqat natijalar jadvali (foydalanuvchi so'rovi, 2026-11-06: sarlavha
+   bloki, ranglar izohi va imzo kerak emas). Ko'rinishi sahifadagi jadvalga
+   mos: bo'limlar ranglari (Ma'ruza sariq, Amaliyot yashil, Joriy, Yakuniy,
+   Ball...), har bir ball foiziga qarab rangli, oxirida guruh o'rtachasi. */
 
-import type { JournalData, JournalMiColumn, JournalScale, JournalStudent, JournalTopic } from "@/lib/api"
-import { PASS_BALL, fmtBall, type JournalLayout } from "@/lib/gradeTotals"
+import type { JournalMiColumn, JournalScale, JournalStudent, JournalTopic } from "@/lib/api"
+import { fmtBall, type JournalLayout } from "@/lib/gradeTotals"
 import { colName, downloadXlsx, type XCell, type XSheet, type XStyle } from "@/lib/xlsxWriter"
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
@@ -20,20 +20,15 @@ export interface JournalExcelInput {
   t: TFunc
   groupName: string
   subjectName: string
-  teacherName?: string
   topics: JournalTopic[]
   students: JournalStudent[]
   scale: JournalScale
   layout: JournalLayout
-  periodItems?: JournalData["periodItems"]
   totals: (s: JournalStudent) => JournalRowTotals
-  /** Ball taqsimoti bannerining ikki qatori (sahifadagi matn) */
-  splitLines: string[]
 }
 
 /* ── Ranglar (sahifadagi jadval bilan bir xil) ───────────────────────── */
 const NAVY = "#012970"
-const ACCENT = "#0E58A8"
 const MUTED = "#7293B9"
 const GRID = "#C9D6EA"
 const ZEBRA = "#F8FAFF"
@@ -150,45 +145,8 @@ export function buildJournalSheets(inp: JournalExcelInput): XSheet[] {
     if (h) heights[r] = h
   }
 
-  /* ── Sarlavha bloki ── */
-  fullRow(1, { v: t("natijalarOq.journalTitle").toUpperCase(), s: { font: { bold: true, size: 15, color: "#FFFFFF" }, fill: NAVY, h: "left", indent: 1 } }, 30)
-  fullRow(2, { v: t("natijalarOq.xlsx.subtitle"), s: { font: { size: 10, color: "#DCE8FF" }, fill: ACCENT, h: "left", indent: 1 } }, 18)
-  heights[3] = 8
-
-  // Ma'lumot qatorlari: chap yarmi va o'ng yarmi
-  const split = Math.max(2, Math.ceil(cols.length / 2))
-  const infoStyle: XStyle = { font: { size: 10, color: NAVY }, h: "left", indent: 1, fill: "#F6F9FF", border: { color: "#E2EAF6" } }
-  const now = new Date()
-  const dateText = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" }) + " " +
-    now.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })
-  const passed = students.filter(s => (totals(s).ball ?? 0) >= PASS_BALL).length
-  const info: [string, string][][] = [
-    [[t("natijalarOq.group"), inp.groupName], [t("natijalarOq.xlsx.exportedAt"), dateText]],
-    [[t("natijalarOq.subject"), inp.subjectName], [t("natijalarOq.xlsx.teacher"), inp.teacherName || "—"]],
-    [[t("natijalarOq.totalStudents"), String(students.length)], [t("natijalarOq.xlsx.passedShort", { n: PASS_BALL }), `${passed} / ${students.length}`]],
-  ]
-  info.forEach((pair, i) => {
-    const r = 4 + i
-    heights[r] = 18
-    const [left, right] = pair
-    put(r, 0, { v: null, s: infoStyle, rich: [{ t: `${left[0]}:  `, bold: true, color: MUTED }, { t: left[1], bold: true }] })
-    merges.push(`A${r}:${colName(split - 1)}${r}`)
-    if (split <= last) {
-      put(r, split, { v: null, s: infoStyle, rich: [{ t: `${right[0]}:  `, bold: true, color: MUTED }, { t: right[1], bold: true }] })
-      if (split < last) merges.push(`${colName(split)}${r}:${lastCol}${r}`)
-    }
-  })
-
-  // Ball taqsimoti (sahifadagi ko'k banner)
-  const splitRow = 8
-  fullRow(splitRow, {
-    v: inp.splitLines.map(l => `•  ${l}`).join("\n"),
-    s: { font: { size: 9, color: NAVY }, fill: "#F0F7FF", h: "left", v: "center", wrap: true, indent: 1, border: { color: "#CFE0F5" } },
-  }, 16 * Math.max(1, inp.splitLines.length) + 6)
-  heights[9] = 8
-
-  /* ── Jadval sarlavhasi: 10 — bo'limlar, 11 — ustunlar ── */
-  const H1 = 10, H2 = 11
+  /* ── Jadval sarlavhasi: 1 — bo'limlar, 2 — ustunlar ── */
+  const H1 = 1, H2 = 2
   heights[H1] = 22
   heights[H2] = 32
   const headBorder = { color: "#B7C7E2", bottomStyle: "medium" as const, bottomColor: NAVY }
@@ -218,7 +176,6 @@ export function buildJournalSheets(inp: JournalExcelInput): XSheet[] {
   /* ── Talabalar ── */
   const firstData = H2 + 1
   const sums = cols.map(() => ({ sum: 0, n: 0 }))
-  const bahoCount: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0 }
   students.forEach((s, i) => {
     const r = firstData + i
     heights[r] = 18
@@ -236,7 +193,6 @@ export function buildJournalSheets(inp: JournalExcelInput): XSheet[] {
       if (num === null) { put(r, ci, { v: "—", s: { font: { size: 10, color: "#B6C2D4" }, fill: zebra, h: "center", border } }); return }
 
       if (col.kind === "baho") {
-        bahoCount[num] = (bahoCount[num] ?? 0) + 1
         const tone = BAHO_TONE[num] ?? { color: NAVY, fill: zebra }
         put(r, ci, { v: num, s: { font: { size: 11, bold: true, color: tone.color }, fill: tone.fill, h: "center", border } })
         return
@@ -252,10 +208,9 @@ export function buildJournalSheets(inp: JournalExcelInput): XSheet[] {
     })
   })
 
-  let r = firstData + students.length
+  const r = firstData + students.length
   if (students.length === 0) {
     fullRow(r, { v: t("natijalarOq.noResults"), s: { font: { italic: true, color: MUTED }, h: "center", border: { color: GRID } } }, 24)
-    r++
   } else {
     // Guruh o'rtachasi
     heights[r] = 20
@@ -271,54 +226,7 @@ export function buildJournalSheets(inp: JournalExcelInput): XSheet[] {
       put(r, ci, { v: Math.round(avg * 10) / 10, s: { ...st, numFmt: "0.0" } })
     })
     if (hasIds) merges.push(`B${r}:C${r}`)
-    r++
   }
-
-  /* ── Qisqacha, ranglar izohi, imzo ── */
-  r++
-  const noteStyle: XStyle = { font: { size: 9, color: "#445B7A" }, h: "left", indent: 1 }
-  const nameSpan = hasIds ? 2 : 1   // B (va C) — legend matni shu yerda
-  const graded = Object.values(bahoCount).reduce((a, b) => a + b, 0)
-  if (graded > 0) {
-    put(r, 1, { v: null, s: noteStyle, rich: [
-      { t: `${t("natijalarOq.colBaho")}:  `, bold: true, color: NAVY },
-      { t: "«5» ", bold: true, color: BAHO_TONE[5].color }, { t: `— ${bahoCount[5]}    ` },
-      { t: "«4» ", bold: true, color: BAHO_TONE[4].color }, { t: `— ${bahoCount[4]}    ` },
-      { t: "«3» ", bold: true, color: BAHO_TONE[3].color }, { t: `— ${bahoCount[3]}    ` },
-      { t: "«2» ", bold: true, color: BAHO_TONE[2].color }, { t: `— ${bahoCount[2]}` },
-    ] })
-    merges.push(`B${r}:${colName(Math.min(last, nameSpan + 6))}${r}`)
-    heights[r] = 18
-    r++
-  }
-
-  // Ranglar izohi: rangli namunaviy katak + matn
-  put(r, 1, { v: t("natijalarOq.xlsx.legendTitle"), s: { font: { bold: true, size: 9, color: NAVY }, h: "left", indent: 1 } })
-  heights[r] = 16
-  r++
-  const legend: { label: string; tone: { color: string; fill?: string } }[] = [
-    { label: "86–100%", tone: pctTone(90) },
-    { label: "71–85%", tone: pctTone(75) },
-    { label: "56–70%", tone: pctTone(60) },
-    { label: t("natijalarOq.xlsx.legendLow"), tone: pctTone(10) },
-  ]
-  legend.forEach(l => {
-    put(r, 1, { v: l.label, s: { font: { bold: true, size: 9, color: l.tone.color }, fill: l.tone.fill, h: "center", border: { color: GRID } } })
-    heights[r] = 15
-    r++
-  })
-  put(r, 1, { v: `—  ${t("natijalarOq.xlsx.legendEmpty")}`, s: { font: { size: 9, color: MUTED }, h: "left", indent: 1 } })
-  r += 3
-
-  // Imzo
-  heights[r] = 22
-  put(r, 1, { v: null, s: { font: { size: 10, color: NAVY }, h: "left", indent: 1, v: "bottom" }, rich: [
-    { t: `${t("natijalarOq.xlsx.teacher")}:  `, bold: true },
-    { t: inp.teacherName ? `${inp.teacherName}` : "________________________________" },
-  ] })
-  const signCol = Math.min(last, Math.max(nameSpan + 2, split))
-  put(r, signCol, { v: `${t("natijalarOq.xlsx.signature")}:  ____________________`, s: { font: { size: 10, bold: true, color: NAVY }, h: "left", v: "bottom" } })
-  if (signCol + 4 <= last) merges.push(`${colName(signCol)}${r}:${colName(signCol + 4)}${r}`)
 
   const journal: XSheet = {
     name: t("natijalarOq.xlsx.sheetJournal"),
@@ -333,64 +241,7 @@ export function buildJournalSheets(inp: JournalExcelInput): XSheet[] {
     showGridLines: false,
   }
 
-  return [journal, columnsSheet(inp)]
-}
-
-/* ── 2-varaq: ustunlar izohi ─────────────────────────────────────────── */
-function columnsSheet(inp: JournalExcelInput): XSheet {
-  const { t, topics, scale, layout, periodItems } = inp
-  const rows: (XCell | null)[][] = []
-  const merges: string[] = []
-  const heights: Record<number, number> = {}
-  const head: XStyle = { font: { bold: true, size: 10, color: NAVY }, fill: "#E8F0FE", h: "center", border: { color: "#B7C7E2", bottomStyle: "medium", bottomColor: NAVY } }
-
-  rows.push([{ v: t("natijalarOq.xlsx.sheetColumns").toUpperCase(), s: { font: { bold: true, size: 13, color: "#FFFFFF" }, fill: NAVY, h: "left", indent: 1 } }])
-  merges.push("A1:D1"); heights[1] = 26
-  rows.push([{ v: `${inp.groupName} · ${inp.subjectName}`, s: { font: { size: 10, color: "#DCE8FF" }, fill: ACCENT, h: "left", indent: 1 } }])
-  merges.push("A2:D2"); heights[2] = 18
-  rows.push([])
-  rows.push([
-    { v: t("natijalarOq.xlsx.colCode"), s: head },
-    { v: t("natijalarOq.xlsx.colName"), s: { ...head, h: "left", indent: 1 } },
-    { v: t("natijalarOq.xlsx.colPart"), s: head },
-    { v: t("natijalarOq.xlsx.colMax"), s: head },
-  ])
-  heights[4] = 22
-
-  const lecture = t("natijalarOq.xlsx.partLecture")
-  const practice = t("natijalarOq.xlsx.partPractice")
-  const items: { code: string; name: string; part: string; max: number; group: GroupKey }[] = [
-    { code: "ON1", name: periodItems?.ON1?.title ?? t("natijalarOq.xlsx.notCreated"), part: lecture, max: scale.on1, group: "lecture" },
-    { code: "ON2", name: periodItems?.ON2?.title ?? t("natijalarOq.xlsx.notCreated"), part: lecture, max: scale.on2, group: "lecture" },
-    ...layout.lectureMi.map(c => ({ code: c.label, name: c.title, part: lecture, max: c.points, group: "lecture" as const })),
-    ...topics.map(tp => ({ code: t("natijalarOq.topicN", { n: tp.idx }), name: tp.title, part: practice, max: tp.points ?? (tp.maxScore || 100), group: "topics" as const })),
-    { code: "JN", name: t("natijalarOq.xlsx.jnName"), part: practice, max: scale.jn, group: "practice" },
-    ...layout.practiceMi.map(c => ({ code: c.label, name: c.title, part: practice, max: c.points, group: "practice" as const })),
-    { code: "YN", name: periodItems?.YN?.title ?? t("natijalarOq.xlsx.notCreated"), part: t("natijalarOq.xlsx.partFinal"), max: scale.yn, group: "yn" },
-  ]
-  items.forEach((it, i) => {
-    const fill = i % 2 ? ZEBRA : "#FFFFFF"
-    const b = { color: GRID }
-    rows.push([
-      { v: it.code, s: { font: { bold: true, size: 10, color: NAVY }, fill: GROUP_FILL[it.group].sub, h: "center", border: b } },
-      { v: it.name, s: { font: { size: 10, color: "#1E293B" }, fill, h: "left", indent: 1, wrap: true, border: b } },
-      { v: it.part, s: { font: { size: 9, color: "#445B7A" }, fill, h: "center", border: b } },
-      { v: round2(it.max), s: { font: { bold: true, size: 10, color: NAVY }, fill, h: "center", border: b } },
-    ])
-  })
-
-  return {
-    name: t("natijalarOq.xlsx.sheetColumns"),
-    rows,
-    merges,
-    rowHeights: heights,
-    colWidths: [12, 70, 14, 12],
-    freeze: { row: 4, col: 0 },
-    printTitleRows: [4, 4],
-    landscape: false,
-    footer: `SamISI LMS · ${inp.groupName} · ${inp.subjectName}`,
-    showGridLines: false,
-  }
+  return [journal]
 }
 
 function safeFilePart(s: string): string {
@@ -400,7 +251,7 @@ function safeFilePart(s: string): string {
 export function downloadJournalExcel(inp: JournalExcelInput): void {
   const sheets = buildJournalSheets(inp)
   downloadXlsx(
-    { sheets, title: `${inp.t("natijalarOq.journalTitle")} — ${inp.groupName} — ${inp.subjectName}`, creator: inp.teacherName || "SamISI LMS" },
+    { sheets, title: `${inp.t("natijalarOq.journalTitle")} — ${inp.groupName} — ${inp.subjectName}` },
     `jurnal_${safeFilePart(inp.groupName)}_${safeFilePart(inp.subjectName)}.xlsx`,
   )
 }
