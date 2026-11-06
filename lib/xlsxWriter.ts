@@ -37,6 +37,32 @@ export interface XSheet {
   landscape?: boolean
   footer?: string
   showGridLines?: boolean
+  /** Varaq himoyasi: kataklarni belgilash va nusxalash mumkin, o'zgartirish —
+      parolsiz yo'q. Ustun/qator kengligini o'zgartirish ruxsat (ballarga ta'sir qilmaydi). */
+  protect?: { password: string }
+}
+
+/** Excel'ning varaq paroli xeshi (ECMA-376, sheetProtection@password; openpyxl
+    hash_password bilan bir xil). Parol bu yerda saqlanmaydi — faqat xesh. */
+export function legacyPasswordHash(password: string): string {
+  let hash = 0
+  for (let i = 0; i < password.length; i++) {
+    let value = password.charCodeAt(i) << (i + 1)
+    const rotated = value >> 15
+    value &= 0x7fff
+    hash ^= value | rotated
+  }
+  hash ^= password.length
+  hash ^= 0xce4b
+  return hash.toString(16).toUpperCase()
+}
+
+/** Tasodifiy parol — hech qayerda ko'rsatilmaydi, ya'ni himoyani hech kim ochmaydi */
+export function randomPassword(length = 24): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+  const bytes = new Uint8Array(length)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, b => chars[b % chars.length]).join("")
 }
 
 export interface XWorkbook { sheets: XSheet[]; title?: string; creator?: string }
@@ -205,12 +231,17 @@ function sheetXml(sh: XSheet, styles: StyleTable): string {
   const merges = sh.merges?.length
     ? `<mergeCells count="${sh.merges.length}">${sh.merges.map(m => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>`
     : ""
+  // sheetProtection — sheetData'dan keyin, mergeCells'dan oldin (OOXML tartibi).
+  // Qulflangan kataklarni belgilash ochiq qoladi (selectLockedCells=0) — nusxalash ishlaydi.
+  const protection = sh.protect
+    ? `<sheetProtection password="${legacyPasswordHash(sh.protect.password)}" sheet="1" objects="1" scenarios="1" formatColumns="0" formatRows="0" selectLockedCells="0" selectUnlockedCells="0"/>`
+    : ""
   const footer = sh.footer
-    ? `<headerFooter><oddFooter>${esc(`&L&8${sh.footer}&R&8&P / &N`)}</oddFooter></headerFooter>`
+    ?`<headerFooter><oddFooter>${esc(`&L&8${sh.footer}&R&8&P / &N`)}</oddFooter></headerFooter>`
     : ""
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:${lastRef}"/><sheetViews><sheetView workbookViewId="0"${sh.showGridLines === false ? ' showGridLines="0"' : ""} zoomScale="100">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${body.join("")}</sheetData>${merges}<printOptions horizontalCentered="1"/><pageMargins left="0.35" right="0.35" top="0.45" bottom="0.55" header="0.25" footer="0.25"/><pageSetup paperSize="9" orientation="${sh.landscape ? "landscape" : "portrait"}" fitToWidth="1" fitToHeight="0"/>${footer}</worksheet>`
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:${lastRef}"/><sheetViews><sheetView workbookViewId="0"${sh.showGridLines === false ? ' showGridLines="0"' : ""} zoomScale="100">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${body.join("")}</sheetData>${protection}${merges}<printOptions horizontalCentered="1"/><pageMargins left="0.35" right="0.35" top="0.45" bottom="0.55" header="0.25" footer="0.25"/><pageSetup paperSize="9" orientation="${sh.landscape ? "landscape" : "portrait"}" fitToWidth="1" fitToHeight="0"/>${footer}</worksheet>`
 }
 
 /* ── ZIP (STORE) ─────────────────────────────────────────────────────── */

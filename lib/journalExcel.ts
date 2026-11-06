@@ -6,7 +6,7 @@
 
 import type { JournalMiColumn, JournalScale, JournalStudent, JournalTopic } from "@/lib/api"
 import { fmtBall, type JournalLayout } from "@/lib/gradeTotals"
-import { colName, downloadXlsx, type XCell, type XSheet, type XStyle } from "@/lib/xlsxWriter"
+import { colName, downloadXlsx, randomPassword, type XCell, type XSheet, type XStyle } from "@/lib/xlsxWriter"
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string
 
@@ -239,6 +239,9 @@ export function buildJournalSheets(inp: JournalExcelInput): XSheet[] {
     landscape: true,
     footer: `SamISI LMS · ${inp.groupName} · ${inp.subjectName}`,
     showGridLines: false,
+    // Ko'rish va nusxalash mumkin, ballarni o'zgartirib bo'lmaydi. Parol har
+    // safar tasodifiy va hech qayerda saqlanmaydi (2026-11-06 so'rov).
+    protect: { password: randomPassword() },
   }
 
   return [journal]
