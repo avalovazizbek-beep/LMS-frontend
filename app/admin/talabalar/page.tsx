@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react"
 import {
   Users, UsersRound, RefreshCw, GraduationCap, ChevronLeft, ChevronRight, X, ScanFace,
   CircleCheck, CircleAlert, Send, Search, LayoutGrid, Gauge,
+  UserX, Lock, LockOpen, FileText, Pencil, CloudDownload,
 } from "lucide-react"
-import { adminApi, type StudentFaceRow } from "@/lib/api"
+import { adminApi, type StudentFaceRow, type CancelledStudentRow, type CancelledStudentsResponse } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { tr } from "@/lib/i18n/translations"
 import { motion, pageVariants } from "@/components/ui/motion"
@@ -220,6 +221,329 @@ function StatCard({ icon: Icon, color, value, label, loading }: {
         )}
         <div className="truncate text-sm text-[var(--adm-text-2)]">{label}</div>
       </div>
+    </div>
+  )
+}
+
+/* ── HEMIS'da "Bekor qilingan" masofaviy talabalar — LMS'ga kirish bloki ── */
+
+function DecreeModal({ row, onClose, onSaved }: {
+  row: CancelledStudentRow
+  onClose: () => void
+  onSaved: (row: CancelledStudentRow) => void
+}) {
+  const { t } = useLanguage()
+  const [number, setNumber] = useState(row.decreeNumber ?? "")
+  const [date, setDate] = useState(row.decreeDate ?? "")
+  const [note, setNote] = useState(row.note ?? "")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  async function save() {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await adminApi.updateCancelledStudent(row.studentIdNumber, {
+        decreeNumber: number.trim() || null,
+        decreeDate: date || null,
+        note: note.trim() || null,
+      })
+      onSaved(res.student)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(8,15,40,0.55)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.2 }}
+        onClick={e => e.stopPropagation()}
+        className="adm-card flex w-full max-w-md flex-col overflow-hidden"
+        style={{ boxShadow: "var(--adm-shadow-pop)" }}>
+        <div className="flex items-start justify-between gap-4 px-5 py-4" style={{ borderBottom: "1px solid var(--adm-border)" }}>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="adm-icon-soft flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ "--c": "var(--adm-accent)" } as CssVars}>
+              <FileText className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-[16px] font-bold text-[var(--adm-text)]">{t("adminStudents.cancelDecreeTitle")}</h2>
+              <p className="truncate text-xs text-[var(--adm-muted)]">{row.fullName} · {row.groupName ?? "—"}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="adm-btn-outline flex h-9 w-9 shrink-0 items-center justify-center rounded-full" aria-label={t("common.close")}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-3 px-5 py-4">
+          <p className="text-xs leading-5 text-[var(--adm-muted)]">{t("adminStudents.cancelDecreeHint")}</p>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-[var(--adm-text-2)]">{t("adminStudents.cancelDecreeNumber")}</span>
+            <input value={number} onChange={e => setNumber(e.target.value)} maxLength={120} placeholder="№ 123-T"
+              className="adm-input h-10 rounded-xl px-3 text-sm outline-none" />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-[var(--adm-text-2)]">{t("adminStudents.cancelDecreeDate")}</span>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              className="adm-input h-10 rounded-xl px-3 text-sm outline-none" />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-[var(--adm-text-2)]">{t("adminStudents.cancelNote")}</span>
+            <textarea value={note} onChange={e => setNote(e.target.value)} maxLength={500} rows={2}
+              className="adm-input resize-none rounded-xl px-3 py-2 text-sm outline-none" />
+          </label>
+          {error && <p className="text-[13px]" style={{ color: "var(--role-admin)" }}>{error}</p>}
+        </div>
+
+        <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: "1px solid var(--adm-border)" }}>
+          <button onClick={onClose} className="adm-btn-outline rounded-xl px-4 py-2 text-sm font-semibold">{t("common.cancel")}</button>
+          <button onClick={save} disabled={saving} className="adm-btn-primary rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60">
+            {saving ? t("common.saving") : t("common.save")}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+function CancelledStudentsSection() {
+  const { t, locale } = useLanguage()
+  const [data, setData] = useState<CancelledStudentsResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [busySid, setBusySid] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const [search, setSearch] = useState("")
+  const [decreeRow, setDecreeRow] = useState<CancelledStudentRow | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    adminApi.cancelledStudents()
+      .then(res => { if (!cancelled) setData(res) })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : tr("adminStudents.errLoad")) })
+    return () => { cancelled = true }
+  }, [])
+
+  const fmtDate = (iso: string | null, withTime = false) => {
+    if (!iso) return "—"
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return "—"
+    return d.toLocaleString(locale, withTime
+      ? { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }
+      : { day: "2-digit", month: "2-digit", year: "numeric" })
+  }
+
+  function replaceRow(row: CancelledStudentRow) {
+    setData(prev => {
+      if (!prev) return prev
+      const students = prev.students.map(s => s.studentIdNumber === row.studentIdNumber ? row : s)
+      return { ...prev, students, blocked: students.filter(s => s.blocked).length }
+    })
+  }
+
+  async function syncNow() {
+    setSyncing(true)
+    setNotice(null)
+    try {
+      const res = await adminApi.syncCancelledStudents()
+      setData(res)
+      setError(null)
+      setNotice({ ok: true, text: t("adminStudents.cancelSyncDone", { n: res.total }) })
+    } catch (e) {
+      setNotice({ ok: false, text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  async function toggleBlock(row: CancelledStudentRow) {
+    const next = !row.blocked
+    if (!window.confirm(t(next ? "adminStudents.cancelConfirmBlock" : "adminStudents.cancelConfirmUnblock", { name: row.fullName }))) return
+    setBusySid(row.studentIdNumber)
+    setNotice(null)
+    try {
+      const res = await adminApi.updateCancelledStudent(row.studentIdNumber, { blocked: next })
+      replaceRow(res.student)
+    } catch (e) {
+      setNotice({ ok: false, text: t("adminStudents.actionFailed", { name: row.fullName, error: e instanceof Error ? e.message : String(e) }) })
+    } finally {
+      setBusySid(null)
+    }
+  }
+
+  const q = search.trim().toLowerCase()
+  const rows = (data?.students ?? []).filter(s => !q
+    || s.fullName.toLowerCase().includes(q)
+    || s.studentIdNumber.includes(q)
+    || (s.groupName ?? "").toLowerCase().includes(q))
+
+  const headers = ["#", t("adminStudents.cancelColStudent"), t("common.group"), t("adminStudents.cancelColCourse"),
+    t("adminStudents.cancelColHemis"), t("adminStudents.cancelColDecree"), t("adminStudents.cancelColStatus"), ""]
+
+  return (
+    <div id="bekor-qilinganlar" className="adm-card overflow-hidden">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--adm-border)" }}>
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="adm-icon-soft flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ "--c": "var(--role-admin)" } as CssVars}>
+            <UserX className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-semibold text-[var(--adm-text)]">{t("adminStudents.cancelTitle")}</h2>
+            <p className="mt-0.5 max-w-[720px] text-xs leading-5 text-[var(--adm-muted)]">{t("adminStudents.cancelSubtitle")}</p>
+            <p className="mt-1 text-[11px] text-[var(--adm-muted)]">
+              {data?.lastSyncedAt ? t("adminStudents.cancelLastSync", { time: fmtDate(data.lastSyncedAt, true) }) : data ? t("adminStudents.cancelNever") : ""}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {data && (
+            <>
+              <span className="adm-pill" style={{ "--c": "var(--adm-text-2)" } as CssVars}>{t("adminStudents.cancelTotal")}: {data.total}</span>
+              <span className="adm-pill" style={{ "--c": "var(--role-admin)" } as CssVars}><Lock className="h-3.5 w-3.5" /> {t("adminStudents.cancelBlocked")}: {data.blocked}</span>
+            </>
+          )}
+          <button onClick={syncNow} disabled={syncing}
+            className="adm-btn-outline inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-60">
+            <CloudDownload className={`h-3.5 w-3.5 ${syncing ? "animate-pulse" : ""}`} /> {t("adminStudents.cancelSync")}
+          </button>
+        </div>
+      </div>
+
+      {notice && (
+        <div className="flex items-start gap-2 px-5 py-2.5 text-[13px] font-medium"
+          style={{
+            borderBottom: "1px solid var(--adm-border)",
+            color: notice.ok ? "var(--adm-up)" : "var(--role-admin)",
+            backgroundColor: `color-mix(in srgb, ${notice.ok ? "var(--adm-up)" : "var(--role-admin)"} 8%, transparent)`,
+          }}>
+          {notice.ok ? <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" /> : <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />}
+          <span className="flex-1">{notice.text}</span>
+          <button onClick={() => setNotice(null)} aria-label={t("common.close")} className="shrink-0 opacity-70 hover:opacity-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {data && data.total > 0 && (
+        <div className="px-5 py-3" style={{ borderBottom: "1px solid var(--adm-border)" }}>
+          <label className="adm-input flex h-10 w-full items-center gap-2 rounded-xl px-3 sm:w-[300px]">
+            <Search className="h-4 w-4 shrink-0 text-[var(--adm-muted)]" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("adminStudents.cancelSearch")}
+              className="w-full bg-transparent text-sm text-[var(--adm-text)] outline-none placeholder:text-[var(--adm-muted)]" />
+          </label>
+        </div>
+      )}
+
+      {error ? (
+        <div className="p-6 text-sm" style={{ color: "var(--role-admin)" }}>{error}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[920px]">
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--adm-border)" }}>
+                {headers.map((h, i) => (
+                  <th key={i} className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--adm-muted)]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {!data ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid var(--adm-border)" }}>
+                    <td colSpan={headers.length} className="px-4 py-3.5">
+                      <div className="h-3 w-1/3 animate-pulse rounded bg-[var(--adm-grid)]" />
+                    </td>
+                  </tr>
+                ))
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={headers.length} className="px-5 py-12 text-center text-sm text-[var(--adm-muted)]">
+                    <div className="flex flex-col items-center gap-2">
+                      <UserX className="h-8 w-8 opacity-40" />
+                      {data.total === 0 ? t("adminStudents.cancelEmpty") : t("adminStudents.noStudents")}
+                    </div>
+                  </td>
+                </tr>
+              ) : rows.map((s, i) => (
+                <tr key={s.studentIdNumber} className="adm-hover-row" style={{ borderBottom: "1px solid var(--adm-border)" }}>
+                  <td className="w-10 px-4 py-2.5 text-xs text-[var(--adm-muted)]" style={{ fontVariantNumeric: "tabular-nums" }}>{i + 1}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <PersonAvatar kind="student" id={s.hemisId} className="h-9 w-9 rounded-full"
+                        style={{ boxShadow: "0 0 0 2px var(--adm-card), 0 0 0 3px var(--adm-border-strong)" }}>
+                        <Initial name={s.fullName} />
+                      </PersonAvatar>
+                      <div className="min-w-0">
+                        <div className="max-w-[300px] truncate text-[13px] font-semibold text-[var(--adm-text)]" title={s.fullName}>{s.fullName}</div>
+                        <div className="mt-0.5 text-xs text-[var(--adm-muted)]" style={{ fontVariantNumeric: "tabular-nums" }}>{s.studentIdNumber}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] font-semibold text-[var(--adm-text)]">{s.groupName ?? "—"}</td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-[var(--adm-text-2)]">{s.levelName ?? "—"}</td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-[var(--adm-text-2)]" style={{ fontVariantNumeric: "tabular-nums" }}>{fmtDate(s.hemisUpdatedAt)}</td>
+                  <td className="px-4 py-2.5">
+                    <button onClick={() => setDecreeRow(s)} className="group inline-flex max-w-[200px] items-center gap-1.5 text-left text-[13px]"
+                      title={s.note ?? undefined}>
+                      {s.decreeNumber || s.decreeDate ? (
+                        <span className="truncate font-medium text-[var(--adm-text)]">
+                          {s.decreeNumber ? `№ ${s.decreeNumber}` : ""}{s.decreeNumber && s.decreeDate ? " · " : ""}{s.decreeDate ? fmtDate(s.decreeDate) : ""}
+                        </span>
+                      ) : (
+                        <span className="italic text-[var(--adm-muted)]">{t("adminStudents.cancelNoDecree")}</span>
+                      )}
+                      <Pencil className="h-3.5 w-3.5 shrink-0 text-[var(--adm-accent)] opacity-60 group-hover:opacity-100" />
+                    </button>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex flex-col items-start gap-0.5">
+                      {s.blocked ? (
+                        <span className="adm-pill" style={{ "--c": "var(--role-admin)" } as CssVars}><Lock className="h-3.5 w-3.5" /> {t("adminStudents.cancelBlocked")}</span>
+                      ) : (
+                        <span className="adm-pill" style={{ "--c": "var(--adm-up)" } as CssVars}><LockOpen className="h-3.5 w-3.5" /> {t("adminStudents.cancelAllowed")}</span>
+                      )}
+                      <span className="text-[11px] text-[var(--adm-muted)]">
+                        {s.blockSource === "admin" && s.blockChangedByName
+                          ? t("adminStudents.cancelChangedBy", { name: s.blockChangedByName, time: fmtDate(s.blockChangedAt) })
+                          : t("adminStudents.cancelAuto")}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    {busySid === s.studentIdNumber ? (
+                      <RefreshCw className="ml-auto h-4 w-4 animate-spin text-[var(--adm-accent)]" />
+                    ) : (
+                      <button onClick={() => toggleBlock(s)}
+                        className="adm-btn-outline inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold"
+                        style={s.blocked ? { color: "var(--adm-up)" } : { color: "var(--role-admin)" }}>
+                        {s.blocked ? <LockOpen className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                        {s.blocked ? t("adminStudents.cancelUnblock") : t("adminStudents.cancelBlock")}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {decreeRow && (
+        <DecreeModal row={decreeRow} onClose={() => setDecreeRow(null)}
+          onSaved={row => { replaceRow(row); setDecreeRow(null) }} />
+      )}
     </div>
   )
 }
@@ -444,6 +768,9 @@ export default function AdminTalabalar() {
           )}
         </div>
       )}
+
+      {/* HEMIS'da "Bekor qilingan" talabalar — guruhlar jadvali ostida, alohida bo'lim */}
+      <CancelledStudentsSection />
 
       {selectedGroup && <RosterModal group={selectedGroup} onClose={() => setSelectedGroup(null)} />}
     </motion.div>

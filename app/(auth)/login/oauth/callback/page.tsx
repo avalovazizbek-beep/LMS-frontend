@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { GraduationCap, RefreshCw } from "lucide-react"
-import { hemisApi, adminApi, faceApi } from "@/lib/api"
+import { hemisApi, adminApi, faceApi, STUDENT_CANCELLED_CODE } from "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
 import { AFTER_LOGIN_KEY, ZOOM_SETUP_PATH } from "@/components/public/ZoomAddButton"
@@ -73,7 +73,10 @@ function CallbackCard({ message, error }: { message: string; error?: string | nu
 // so'ragan aniq dizayn bo'yicha. Boshqa xato holatlaridan (sessiya
 // almashinuvi, umumiy OAuth xatosi) ataylab ajratilgan — chunki bu
 // haqiqiy "xato" emas, balki tizimning ataylab qilingan qarori.
-function NotMasofaviyScreen() {
+// variant="cancelled" — HEMIS'da "Bekor qilingan" va LMS'da bloklangan
+// talaba uchun xuddi shu dizayn, faqat matn boshqa ("talabalar safidan
+// chetlatilgansiz"). Kunduzgi/kechki/sirtqi talabalar eski matnni ko'radi.
+function NotMasofaviyScreen({ variant = "notMasofaviy" }: { variant?: "notMasofaviy" | "cancelled" }) {
   const { t } = useLanguage()
   return (
     <div className="masofaviy-wrap">
@@ -147,7 +150,7 @@ function NotMasofaviyScreen() {
 
             <h1>{t("oauthCallback.noAccessTitle")} <span>{t("oauthCallback.noAccessTitleEm")}</span></h1>
 
-            <p>{t("oauthCallback.notMasofaviy")}</p>
+            <p>{t(variant === "cancelled" ? "oauthCallback.studentCancelled" : "oauthCallback.notMasofaviy")}</p>
 
             <Link href="/login" className="back-btn">
               <span className="arrow" style={{ transform: "none" }}>&larr;</span>
@@ -562,6 +565,7 @@ function OAuthCallbackContent() {
   const [messageKey, setMessageKey] = useState("oauthCallback.checking")
   const [error, setError] = useState<string | null>(null)
   const [notMasofaviy, setNotMasofaviy] = useState(false)
+  const [cancelledStudent, setCancelledStudent] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -622,6 +626,10 @@ function OAuthCallbackContent() {
           setNotMasofaviy(true)
           return
         }
+        if (oauthError === STUDENT_CANCELLED_CODE) {
+          setCancelledStudent(true)
+          return
+        }
         const description = oauthDescription ? ` - ${oauthDescription}` : ""
         const message = tr("oauthCallback.oauthError", { error: `${oauthError}${description}` })
         setError(
@@ -669,6 +677,10 @@ function OAuthCallbackContent() {
       cancelled = true
     }
   }, [router, searchParams])
+
+  if (cancelledStudent) {
+    return <NotMasofaviyScreen variant="cancelled" />
+  }
 
   if (notMasofaviy) {
     return <NotMasofaviyScreen />

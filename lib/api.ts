@@ -21,6 +21,9 @@ export function pingSession(kind: "heartbeat" | "logout"): void {
   }).catch(() => undefined)
 }
 
+/** Backend authMiddleware/login javobidagi kod — bloklangan "Bekor qilingan" talaba */
+export const STUDENT_CANCELLED_CODE = "student_cancelled"
+
 // Bir nechta so'rov bir vaqtda 401 olsa ham, HEMIS'ga faqat bitta refresh
 // so'rovi yuborilishi uchun (parallel chaqiruvlar shu promise'ni bo'lishadi).
 let refreshPromise: Promise<string | null> | null = null
@@ -77,6 +80,14 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
   }
 
   const data = await res.json()
+  // HEMIS'da "Bekor qilingan" va LMS'da bloklangan talaba — sessiya yopiladi,
+  // "talabalar safidan chetlatilgansiz" oynasi ko'rsatiladi
+  if (res.status === 403 && (data as { code?: string })?.code === STUDENT_CANCELLED_CODE && typeof window !== "undefined") {
+    localStorage.removeItem("lms_token")
+    localStorage.removeItem("lms_role")
+    window.location.href = `/login/oauth/callback?error=${STUDENT_CANCELLED_CODE}`
+    throw new Error(readApiMessage(data) || tr("common.error"))
+  }
   if (!res.ok) {
     const error = new Error(readApiMessage(data) || tr("common.error")) as Error & {
       status?: number
@@ -963,6 +974,35 @@ export interface StudentFaceRow {
   faceRegistered: boolean
   faceRegisteredAt: string | null
   adminRequestPending: boolean
+}
+/** HEMIS'da "Bekor qilingan" masofaviy talaba va uning LMS'dagi bloki */
+export interface CancelledStudentRow {
+  studentIdNumber: string
+  hemisId: number | null
+  fullName: string
+  groupName: string | null
+  department: string | null
+  specialty: string | null
+  levelName: string | null
+  educationFormName: string | null
+  paymentForm: string | null
+  statusName: string | null
+  hemisUpdatedAt: string | null
+  blocked: boolean
+  blockSource: "auto" | "admin"
+  blockChangedByName: string | null
+  blockChangedAt: string | null
+  decreeNumber: string | null
+  decreeDate: string | null
+  note: string | null
+  firstSeenAt: string
+}
+export interface CancelledStudentsResponse {
+  success: boolean
+  students: CancelledStudentRow[]
+  total: number
+  blocked: number
+  lastSyncedAt: string | null
 }
 export interface ReRegRequest {
   id: string
@@ -2872,6 +2912,17 @@ export const adminApi = {
   /** Talabaga "Face ID'ingiz eskirgan/noto'g'ri bo'lishi mumkin, qayta ro'yxatdan o'ting" so'rovini yuboradi */
   requestFaceReregister: (hemisId: number) =>
     post<{ success: boolean; message: string }>(`/api/admin/hemis-students/${hemisId}/request-face-reregister`, {}),
+
+  /** HEMIS'da "Bekor qilingan" masofaviy talabalar (bloklash holati, buyruq bilan) */
+  cancelledStudents: () => get<CancelledStudentsResponse>("/api/admin/cancelled-students"),
+
+  /** Bekor qilinganlar ro'yxatini HEMIS'dan hozir qayta olish */
+  syncCancelledStudents: () =>
+    post<CancelledStudentsResponse & { sync: { total: number; added: number; removed: number } }>("/api/admin/cancelled-students/sync", {}),
+
+  /** Bloklash / blokdan chiqarish, buyruq raqami-sanasi, izoh */
+  updateCancelledStudent: (studentIdNumber: string, body: { blocked?: boolean; decreeNumber?: string | null; decreeDate?: string | null; note?: string | null }) =>
+    put<{ success: boolean; student: CancelledStudentRow }>(`/api/admin/cancelled-students/${encodeURIComponent(studentIdNumber)}`, body),
 
   /** Face ID'dan hali o'tmagan masofaviy talabalar, guruhi bilan, 20 talik sahifalash */
   notRegisteredFace: (params?: { limit?: number; offset?: number }) => {
