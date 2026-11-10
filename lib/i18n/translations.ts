@@ -3799,6 +3799,8 @@ export const dictionary: Record<string, DictEntry> = {
   "gradeBreakdown.baho":            { uz: "Baho", ru: "Оценка", en: "Grade", kaa: "Baha" },
   "adminOraliq.pointsShort":         { uz: "ball", ru: "балл.", en: "pts", kaa: "ball" },
   "adminOraliq.formatAssignment":    { uz: "Topshiriq", ru: "Задание", en: "Assignment", kaa: "Tapsırma" },
+  "adminOraliq.inactive":            { uz: "Nofaol", ru: "Неактивно", en: "Inactive", kaa: "Aktiv emes" },
+  "adminOraliq.inactiveHint":        { uz: "O'qituvchi o'chirgan yoki baholashni yakunlagan. Talabalar baribir ko'radi, jurnalda hisoblanadi.", ru: "Отключено преподавателем или оценивание завершено. Студенты всё равно видят, в журнале учитывается.", en: "Turned off by the teacher or grading was finished. Students still see it and the journal counts it.", kaa: "Oqıtıwshı óshirgen yamasa bahalawdı juwmaqlaǵan. Studentler bári bir kóredi, jurnalda esaplanadı." },
   "adminOraliq.slotMi": { uz: "Mustaqil ish", ru: "Самостоятельная", en: "Independent work", kaa: "Ózbetinshe jumıs" },
   "adminOraliq.miBadge": { uz: "MI", ru: "СР", en: "IW", kaa: "ÓJ" },
   // Yuzni sinab ko'rish (oraliqdan oldingi demo test) — 2026-10-29

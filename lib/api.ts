@@ -1454,6 +1454,9 @@ export interface AdminExamListItem {
   submissionCount: number
   /** Faol qayta urinish ruxsatlari soni */
   grantCount: number
+  /** O'qituvchi o'chirgan yoki "Baholashni yakunlash" bosilgan — talaba baribir
+      ko'radi, jurnal hisoblaydi; eski backendda yo'q (= faol) */
+  isActive?: boolean
 }
 
 export type PeriodSource = "exam" | "manual" | "absent"

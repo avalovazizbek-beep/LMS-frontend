@@ -410,6 +410,7 @@ export default function AdminOraliqlar() {
                           </span>
                         )}
                         {exam.type === "assignment" && <span className="adm-pill" style={{ "--c": "var(--role-pending)" } as CssVars}>{t("adminOraliq.formatAssignment")}</span>}
+                        {exam.isActive === false && <span className="adm-pill" title={t("adminOraliq.inactiveHint")}>{t("adminOraliq.inactive")}</span>}
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <span className="adm-pill" style={{ "--c": "var(--adm-accent)" } as CssVars}><UsersRound className="h-3 w-3" /> {exam.groupName}</span>
