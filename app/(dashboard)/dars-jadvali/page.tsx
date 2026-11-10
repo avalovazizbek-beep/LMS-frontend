@@ -8,6 +8,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { ZoomJoinCard } from "@/components/meeting/ZoomJoinCard"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { PageHero } from "@/components/layout/PageHero"
 
 const DAYS = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
 const DAY_SHORT = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"]
@@ -239,15 +240,8 @@ export default function DarsJadvali() {
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-[30px]">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {t("darsJadvali.title")}
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {t("darsJadvali.subtitle")}
-          </p>
-        </div>
+      <PageHero icon={CalendarDays} title={t("darsJadvali.title")} subtitle={t("darsJadvali.subtitle")} />
+      <div className="flex items-start justify-end gap-4 flex-wrap">
 
         {/* Hafta navigatsiyasi — telefonda ikki qator: hafta tanlash tepada butun
             kenglikda, ostida Oldingi / Bugun / Keyingi teng bo'lib */}

@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MessageSquarePlus, RefreshCw, Send, X, CheckCircle2, AlertCircle } from "lucide-react"
+import { MessageSquarePlus, RefreshCw, Send, X, CheckCircle2, AlertCircle, MessageSquareText } from "lucide-react"
 import { supportApi, type SupportRecipientType, type SupportTeacherOption } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import ConversationThread from "@/components/support/ConversationThread"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 const T = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
 const L = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 
@@ -173,11 +174,7 @@ export default function MurojaatlarPage() {
 
   return (
     <div className="flex flex-col gap-5 p-4 sm:p-8">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[28px] font-semibold" style={T}>{t("support.title")}</h1>
-          <p className="text-sm mt-1" style={L}>{t("support.studentSubtitle")}</p>
-        </div>
+      <PageHero icon={MessageSquareText} title={t("support.title")} subtitle={t("support.studentSubtitle")}>
         <div className="flex items-center gap-2">
           <button onClick={() => refetch()} className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-[8px]"
             style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
@@ -189,7 +186,7 @@ export default function MurojaatlarPage() {
             <MessageSquarePlus className="w-4 h-4" /> {t("support.newRequest")}
           </button>
         </div>
-      </div>
+      </PageHero>
 
       {loading ? (
         <div className="flex items-center justify-center py-20"><RefreshCw className="w-5 h-5 animate-spin" style={{ color: "#0e58a8" }} /></div>

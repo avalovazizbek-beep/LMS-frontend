@@ -73,6 +73,7 @@ import { ATTENDANCE_TRAINING_TYPES } from "@/lib/attendanceTrainingTypes"
 import type { Lang } from "@/lib/i18n/translations"
 import { translate, tr } from "@/lib/i18n/translations"
 import { isZoomReviewSession } from "@/lib/zoomReview"
+import { PageHero } from "@/components/layout/PageHero"
 
 /* ── JWT payload decode (faqat o'qish uchun, imzo tekshirilmaydi) ── */
 function readJwtPayload(): Record<string, unknown> {
@@ -1680,21 +1681,8 @@ function LobbyStage({
       className="h-full overflow-y-auto"
     >
       <div className="mx-auto w-full max-w-[1540px] px-4 py-5 sm:px-6 sm:py-6">
-        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1
-              className="text-2xl font-semibold text-[#012970]"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              {t("meetingPage.title")}
-            </h1>
-            <p
-              className="mt-1 text-sm text-[#7293b9]"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              {t("meetingPage.subtitle")}
-            </p>
-          </div>
+        <div className="mb-5">
+          <PageHero icon={Video} title={t("meetingPage.title")} subtitle={t("meetingPage.subtitle")}>
           <div className="flex flex-wrap items-center gap-2">
             <SourceBadge label={sourceLabel} tone={sourceTone} />
             {isTeacher && (
@@ -1717,6 +1705,7 @@ function LobbyStage({
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </button>
           </div>
+          </PageHero>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">

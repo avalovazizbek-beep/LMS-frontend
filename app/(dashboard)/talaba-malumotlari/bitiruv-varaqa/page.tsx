@@ -1,11 +1,12 @@
 "use client"
 
-import { GraduationCap, Download } from "lucide-react"
+import { GraduationCap, Download, ScrollText } from "lucide-react"
 import { hemisApi, HemisStudentDoc, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 export default function BitiruVaraqa() {
   const { t } = useLanguage()
   const { data, loading, error, refetch } = useApi(() => hemisApi.documents())
@@ -16,14 +17,7 @@ export default function BitiruVaraqa() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("bitiruvVaraqa.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("bitiruvVaraqa.subtitle")}
-        </p>
-      </div>
+      <PageHero icon={ScrollText} title={t("bitiruvVaraqa.title")} subtitle={t("bitiruvVaraqa.subtitle")} />
 
       {docs.length === 0 ? (
         <div className="bg-white rounded-[10px] p-14 text-center"

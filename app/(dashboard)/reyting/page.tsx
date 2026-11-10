@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Download, GraduationCap, ClipboardList } from "lucide-react"
+import { Download, GraduationCap, ClipboardList, Trophy } from "lucide-react"
 import { hemisApi, type HemisGrade } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -10,6 +10,7 @@ import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { translate, type Lang } from "@/lib/i18n/translations"
 
+import { PageHero } from "@/components/layout/PageHero"
 function gradeColor(grade: number | null): string {
   if (grade == null) return "#7293b9"
   if (grade >= 4) return "#15803d"
@@ -85,14 +86,7 @@ export default function Reyting() {
 
   return (
     <div className="flex flex-col gap-5 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("reyting.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("reyting.subtitle")}
-        </p>
-      </div>
+      <PageHero icon={Trophy} title={t("reyting.title")} subtitle={t("reyting.subtitle")} />
 
       {/* Guruh + semestr tablari */}
       <div className="bg-white rounded-[10px] px-5 py-3 flex items-center justify-between gap-4 flex-wrap"

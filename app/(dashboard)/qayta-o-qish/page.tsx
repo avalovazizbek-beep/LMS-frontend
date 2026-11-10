@@ -5,6 +5,7 @@ import { RefreshCw, GraduationCap, CheckCircle2, XCircle, Clock } from "lucide-r
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { reeduApi } from "@/lib/api"
 
+import { PageHero } from "@/components/layout/PageHero"
 type MyEnrollment = Awaited<ReturnType<typeof reeduApi.me>>["data"][number]
 
 export default function QaytaOqish() {
@@ -24,12 +25,7 @@ export default function QaytaOqish() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("qaytaOqish.title")}</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("qaytaOqish.pageSubtitle")}
-        </p>
-      </div>
+      <PageHero icon={RefreshCw} title={t("qaytaOqish.title")} subtitle={t("qaytaOqish.pageSubtitle")} />
 
       {loading ? (
         <div className="flex items-center justify-center py-20">

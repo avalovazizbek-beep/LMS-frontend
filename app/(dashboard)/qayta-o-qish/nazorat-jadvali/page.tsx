@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Calendar, RefreshCw } from "lucide-react"
+import { Calendar, RefreshCw, CalendarClock } from "lucide-react"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { reeduApi } from "@/lib/api"
 
+import { PageHero } from "@/components/layout/PageHero"
 const WEEK_DAYS = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
 
 type MyEnrollment = Awaited<ReturnType<typeof reeduApi.me>>["data"][number]
@@ -22,14 +23,7 @@ export default function QaytaOqishNazorat() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("qaytaOqishNazorat.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("qaytaOqishNazorat.subtitle")}
-        </p>
-      </div>
+      <PageHero icon={CalendarClock} title={t("qaytaOqishNazorat.title")} subtitle={t("qaytaOqishNazorat.subtitle")} />
 
       {loading ? (
         <div className="flex items-center justify-center py-20">

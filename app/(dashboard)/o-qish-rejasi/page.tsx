@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { BookOpen, Clock, CheckCircle2, Circle } from "lucide-react"
+import { BookOpen, Clock, CheckCircle2, Circle, BookOpenCheck } from "lucide-react"
 import { hemisApi, HemisGrade } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -9,6 +9,7 @@ import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 export default function OqishRejasi() {
   const { t } = useLanguage()
   const { currentCode, getSemesterId } = useCurrentSemester()
@@ -32,17 +33,9 @@ export default function OqishRejasi() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {t("oqishRejasi.title")}
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {t("oqishRejasi.subtitle")}
-          </p>
-        </div>
+      <PageHero icon={BookOpenCheck} title={t("oqishRejasi.title")} subtitle={t("oqishRejasi.subtitle")}>
         <SemesterTabs currentCode={currentCode} value={activeCode || currentCode} onChange={code => setSelectedCode(code)} lockFuture={false} />
-      </div>
+      </PageHero>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">

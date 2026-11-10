@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ChevronDown, Search, XCircle, AlertCircle, ClipboardList, CheckCircle2, Monitor, Clock } from "lucide-react"
+import { ChevronDown, Search, XCircle, AlertCircle, ClipboardList, CheckCircle2, Monitor, Clock, ClipboardCheck } from "lucide-react"
 import { hemisApi, attendanceApi, type HemisAttendance, type StudentAttendanceEntry, type PlatformSessionEntry } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -10,6 +10,7 @@ import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { trainingTypeLabelKey } from "@/lib/attendanceTrainingTypes"
 
+import { PageHero } from "@/components/layout/PageHero"
 function getAbsenceType(r: HemisAttendance): "excused" | "absent" {
   if (r.explicable === true) return "excused"
   if ((r.absent_on ?? 0) > 0 && (r.absent_off ?? 0) === 0) return "excused"
@@ -103,17 +104,9 @@ export default function Davomat() {
 
   return (
     <div className="flex flex-col gap-5 p-[30px]">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {t("davomat.title")}
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {t("davomat.subtitle")}
-          </p>
-        </div>
+      <PageHero icon={ClipboardCheck} title={t("davomat.title")} subtitle={t("davomat.subtitle")}>
         <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => setSelectedCode(code)} />
-      </div>
+      </PageHero>
 
       {/* Tab tugmalari */}
       <div className="flex gap-2 flex-wrap">

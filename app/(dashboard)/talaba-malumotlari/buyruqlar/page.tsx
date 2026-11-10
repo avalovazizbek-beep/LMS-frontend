@@ -6,6 +6,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 function formatDate(ts?: number): string {
   if (!ts) return "—"
   return new Date(ts * 1000).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -21,10 +22,7 @@ export default function Buyruqlar() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("buyruqlar.title")}</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("buyruqlar.subtitle")}</p>
-      </div>
+      <PageHero icon={FileText} title={t("buyruqlar.title")} subtitle={t("buyruqlar.subtitle")} />
 
       <div className="flex flex-col gap-4">
         {decrees.length === 0 ? (

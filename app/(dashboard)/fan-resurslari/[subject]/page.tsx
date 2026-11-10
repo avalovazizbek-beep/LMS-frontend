@@ -2,7 +2,9 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, BookOpen, CheckCircle2, ClipboardList, HelpCircle, Lock, Circle, Library, ExternalLink, Video, Play, Clapperboard, FolderOpen, ChevronRight } from "lucide-react"
+import { BookOpen, CheckCircle2, ClipboardList, HelpCircle, Lock, Circle, Library, ExternalLink, Video, Play, Clapperboard, FolderOpen, ChevronRight, ChevronDown } from "lucide-react"
+import { PageHero } from "@/components/layout/PageHero"
+import { subjectVisual, tint } from "@/components/teaching/ExamBoardArt"
 import { teachingApi, hemisApi, meetingsApi, NO_TRAINING_TYPE, type StudentTopic, type StudentTopicSectionWithLock, type LocalResource, type SubjectRecording } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -119,69 +121,63 @@ function TrainingTypePicker({
   const legacyCount = countFor(null)
 
   return (
-    <div className="flex flex-col gap-6 p-[30px]">
-      <div className="flex items-start gap-4">
-        <button onClick={onBack}
-          className="flex items-center justify-center w-9 h-9 rounded-[8px] transition-colors hover:bg-[#f0f5ff] shrink-0 mt-1"
-          style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
-          <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        </button>
-        <div>
-          <h1 className="text-[24px] font-semibold leading-snug" style={titleStyle}>{subjectName}</h1>
-          <p className="text-sm mt-0.5" style={labelStyle}>{t("fanResurslari.pickTrainingType")}</p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-5 p-4 sm:p-6 lg:p-[30px]" style={{ fontFamily: "var(--font-poppins)" }}>
+      <PageHero icon={subjectVisual(subjectName).Icon} title={subjectName} subtitle={t("fanResurslari.pickTrainingType")} onBack={onBack} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {TRAINING_TYPE_PICKS.filter(p => countFor(p.value) > 0).map(p => {
-          const Icon = p.icon
-          return (
-            <button key={p.value} onClick={() => onSelect(p.value)}
-              className="group flex flex-col gap-3 p-5 rounded-[12px] bg-white text-left transition-all hover:-translate-y-0.5"
-              style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
-              <div className="flex items-center justify-between">
-                <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef4ff" }}>
-                  <Icon className="w-5 h-5 transition-transform group-hover:scale-110" style={{ color: "#0e58a8" }} />
-                </div>
-                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" style={{ color: "#b0c2d8" }} />
-              </div>
-              <span className="text-base font-semibold" style={titleStyle}>{t(p.labelKey)}</span>
-              <span className="text-xs" style={labelStyle}>{t("fanResurslari.topicCount", { n: countFor(p.value) })}</span>
-            </button>
-          )
-        })}
-
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {TRAINING_TYPE_PICKS.filter(p => countFor(p.value) > 0).map(p => (
+          <PickCard key={p.value} color={TYPE_COLORS[p.value]} Icon={p.icon} title={t(p.labelKey)}
+            sub={t("fanResurslari.topicCount", { n: countFor(p.value) })} onClick={() => onSelect(p.value)} />
+        ))}
         {legacyCount > 0 && (
-          <button onClick={() => onSelect(NO_TRAINING_TYPE)}
-            className="group flex flex-col gap-3 p-5 rounded-[12px] bg-white text-left transition-all hover:-translate-y-0.5"
-            style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
-            <div className="flex items-center justify-between">
-              <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f1f5f9" }}>
-                <FolderOpen className="w-5 h-5 transition-transform group-hover:scale-110" style={{ color: "#64748b" }} />
-              </div>
-              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" style={{ color: "#b0c2d8" }} />
-            </div>
-            <span className="text-base font-semibold" style={titleStyle}>{t("fanResurslari.otherMaterials")}</span>
-            <span className="text-xs" style={labelStyle}>{t("fanResurslari.topicCount", { n: legacyCount })}</span>
-          </button>
+          <PickCard color="#64748b" Icon={FolderOpen} title={t("fanResurslari.otherMaterials")}
+            sub={t("fanResurslari.topicCount", { n: legacyCount })} onClick={() => onSelect(NO_TRAINING_TYPE)} />
         )}
-
         {recordingCount > 0 && (
-          <button onClick={() => onSelect(RECORDINGS_VIEW)}
-            className="group flex flex-col gap-3 p-5 rounded-[12px] bg-white text-left transition-all hover:-translate-y-0.5"
-            style={{ border: "1px solid rgba(1,41,112,0.12)", boxShadow: "0px 2px 8px rgba(1,41,112,0.06)" }}>
-            <div className="flex items-center justify-between">
-              <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f0fdf4" }}>
-                <Video className="w-5 h-5 transition-transform group-hover:scale-110" style={{ color: "#15803d" }} />
-              </div>
-              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" style={{ color: "#b0c2d8" }} />
-            </div>
-            <span className="text-base font-semibold" style={titleStyle}>{t("fanResurslari.videoRecordings")}</span>
-            <span className="text-xs" style={labelStyle}>{t("fanResurslari.videoRecordingsCount", { n: recordingCount })}</span>
-          </button>
+          <PickCard color="#16a34a" Icon={Video} title={t("fanResurslari.videoRecordings")}
+            sub={t("fanResurslari.videoRecordingsCount", { n: recordingCount })} onClick={() => onSelect(RECORDINGS_VIEW)} />
         )}
       </div>
     </div>
+  )
+}
+
+const TYPE_COLORS: Record<string, string> = { "Ma'ruza": "#2563eb", "Amaliyot": "#0d9488", "Mustaqil ish": "#7c3aed" }
+
+/** Mashg'ulot turi kartasi: rangli belgi, nom, mavzular soni */
+function PickCard({ color, Icon, title, sub, onClick }: {
+  color: string
+  Icon: typeof BookOpen
+  title: string
+  sub: string
+  onClick: () => void
+}) {
+  return (
+    <button type="button" onClick={onClick}
+      className="group relative flex flex-col gap-4 overflow-hidden rounded-2xl p-5 text-left transition-transform hover:-translate-y-1"
+      style={{ background: "var(--lms-cell)", border: "1px solid var(--lms-border)", boxShadow: "var(--lms-shadow)" }}>
+      <svg viewBox="0 0 120 120" className="pointer-events-none absolute -right-6 -top-6 h-32 w-32" aria-hidden>
+        <circle cx="60" cy="60" r="56" fill={color} opacity="0.09" />
+        <circle cx="60" cy="60" r="34" fill={color} opacity="0.08" />
+      </svg>
+      <div className="relative flex items-center justify-between">
+        <span className="flex h-13 w-13 items-center justify-center rounded-2xl p-3"
+          style={{ background: `linear-gradient(135deg, ${color}, ${color}cc)`, boxShadow: `0 8px 18px ${color}40` }}>
+          <Icon className="h-6 w-6 text-white" />
+        </span>
+        <span className="flex h-8 w-8 items-center justify-center rounded-full transition-transform group-hover:translate-x-1"
+          style={{ background: tint(color, 12) }}>
+          <ChevronRight className="h-4 w-4" style={{ color }} />
+        </span>
+      </div>
+      <div className="relative">
+        <span className="block text-[17px] font-semibold" style={{ color: "var(--lms-primary)" }}>{title}</span>
+        <span className="mt-0.5 block text-[13px]" style={{ color: "var(--lms-muted)" }}>{sub}</span>
+      </div>
+      <span className="relative h-1.5 w-full rounded-full" style={{ background: tint(color, 22) }}>
+        <span className="block h-1.5 w-1/3 rounded-full transition-all group-hover:w-2/3" style={{ background: color }} />
+      </span>
+    </button>
   )
 }
 
@@ -269,24 +265,9 @@ export default function FanResurslariDetail() {
   // ── Video yozuvlar (fan bo'yicha, mavzuga bog'lanmagan) ──
   if (selectedType === RECORDINGS_VIEW) {
     return (
-      <div className="flex flex-col gap-6 p-[30px]">
-        <div className="flex items-start gap-4">
-          <button onClick={backToPicker}
-            className="flex items-center justify-center w-9 h-9 rounded-[8px] transition-colors hover:bg-[#f0f5ff] shrink-0 mt-1"
-            style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
-            <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
-          </button>
-          <div>
-            <h1 className="text-[24px] font-semibold leading-snug" style={titleStyle}>
-              {subjectName}
-              <span className="ml-2 align-middle text-xs font-medium px-2 py-1 rounded-full"
-                style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                {t("fanResurslari.videoRecordings")}
-              </span>
-            </h1>
-            <p className="text-sm mt-0.5" style={labelStyle}>{t("fanResurslari.videoRecordingsHint")}</p>
-          </div>
-        </div>
+      <div className="flex flex-col gap-5 p-4 sm:p-6 lg:p-[30px]" style={{ fontFamily: "var(--font-poppins)" }}>
+        <PageHero icon={subjectVisual(subjectName).Icon} title={subjectName} subtitle={t("fanResurslari.videoRecordingsHint")} onBack={backToPicker}
+          badge={<TypeBadge color="#16a34a">{t("fanResurslari.videoRecordings")}</TypeBadge>} />
         <MeetingRecordingsSection subjectName={subjectName} topicTitle={undefined} />
       </div>
     )
@@ -297,42 +278,37 @@ export default function FanResurslariDetail() {
   if (error)   return <ApiError message={error} onRetry={refetch} />
 
   const typePick = TRAINING_TYPE_PICKS.find(p => p.value === selectedType)
+  const typeColor = typePick ? TYPE_COLORS[typePick.value] : "#2563eb"
+  const doneCount = topics.filter(tp => tp.completed).length
+  const donePct = topics.length ? Math.round((doneCount / topics.length) * 100) : 0
+  const selectedIndex = selected ? topics.findIndex(tp => tp.topicKey === selected.topicKey) : -1
 
   return (
-    <div ref={topRef} className="flex flex-col gap-6 p-[30px]">
-      <div className="flex items-start gap-4 flex-wrap">
-        <button onClick={hasTypedBuckets ? backToPicker : () => router.back()}
-          className="flex items-center justify-center w-9 h-9 rounded-[8px] transition-colors hover:bg-[#f0f5ff] shrink-0 mt-1"
-          style={{ border: "1px solid rgba(1,41,112,0.15)" }}>
-          <ArrowLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-[24px] font-semibold leading-snug" style={titleStyle}>
-            {subjectName}
-            {typePick && (
-              <span className="ml-2 align-middle text-xs font-medium px-2 py-1 rounded-full"
-                style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
-                {t(typePick.labelKey)}
-              </span>
-            )}
-          </h1>
-          <p className="text-sm mt-0.5" style={labelStyle}>
-            {t("fanResurslari.topicCount", { n: topics.length })}
-          </p>
-        </div>
+    <div ref={topRef} className="flex flex-col gap-5 p-4 sm:p-6 lg:p-[30px]" style={{ fontFamily: "var(--font-poppins)" }}>
+      <PageHero icon={subjectVisual(subjectName).Icon} title={subjectName}
+        onBack={hasTypedBuckets ? backToPicker : () => router.back()}
+        badge={typePick ? <TypeBadge color={typeColor}>{t(typePick.labelKey)}</TypeBadge> : undefined}
+        subtitle={topics.length === 0 ? t("fanResurslari.topicCount", { n: 0 }) : (
+          <div className="flex flex-col gap-1.5">
+            <span>{t("fanResurslari.progress", { done: doneCount, total: topics.length })}</span>
+            <span className="block h-2 w-full max-w-[340px] overflow-hidden rounded-full" style={{ background: tint("#16a34a", 16) }}>
+              <span className="block h-2 rounded-full transition-all" style={{ width: `${donePct}%`, background: "linear-gradient(90deg, #22c55e, #16a34a)" }} />
+            </span>
+          </div>
+        )}>
         {recordingCount > 0 && (
           <button onClick={() => { setSelectedType(RECORDINGS_VIEW); setAdvanceTo(null) }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-semibold shrink-0"
-            style={{ backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.25)", fontFamily: "var(--font-poppins)" }}>
-            <Video className="w-3.5 h-3.5" /> {t("fanResurslari.videoRecordingsCount", { n: recordingCount })}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold"
+            style={{ background: tint("#16a34a", 10), color: "#15803d", border: `1px solid ${tint("#16a34a", 30)}` }}>
+            <Video className="h-3.5 w-3.5" /> {t("fanResurslari.videoRecordingsCount", { n: recordingCount })}
           </button>
         )}
-      </div>
+      </PageHero>
 
       {topics.length === 0 ? (
         <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-[10px] p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-            <BookOpen className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
+          <div className="rounded-2xl p-14 text-center" style={{ background: "var(--lms-cell)", border: "1px solid var(--lms-border)" }}>
+            <BookOpen className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--lms-muted)" }} />
             <p className="text-sm font-medium" style={titleStyle}>
               {t("fanResurslari.notFound")}
             </p>
@@ -346,52 +322,61 @@ export default function FanResurslariDetail() {
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 flex flex-col gap-4 min-w-0">
             {advanceTo && (
-              <div className="flex items-center gap-2 px-5 py-3 rounded-[10px] text-sm font-semibold"
-                style={{ backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.25)", fontFamily: "var(--font-poppins)" }}>
+              <div className="flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold"
+                style={{ background: tint("#16a34a", 10), color: "#15803d", border: `1px solid ${tint("#16a34a", 30)}` }}>
                 <CheckCircle2 className="w-4 h-4 shrink-0" /> {t("fanResurslari.autoNext")}
               </div>
             )}
             {selected ? (
               // key — har mavzuda bo'limlar qaytadan ochiladi (birinchi bajarilmagani o'zi ochiq)
-              <TopicContent key={selected.topicKey} topic={selected} onProgress={refetch} />
+              <TopicContent key={selected.topicKey} topic={selected} index={selectedIndex} onProgress={refetch} />
             ) : (
-              <div className="bg-white rounded-[10px] p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-                <Lock className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
+              <div className="rounded-2xl p-14 text-center" style={{ background: "var(--lms-cell)", border: "1px solid var(--lms-border)" }}>
+                <Lock className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--lms-muted)" }} />
                 <p className="text-sm font-medium" style={titleStyle}>{t("fanResurslari.topicLocked")}</p>
               </div>
             )}
             <MeetingRecordingsSection subjectName={subjectName} topicTitle={selected?.title} />
           </div>
 
-          <div className="lg:w-[300px] shrink-0 bg-white rounded-[10px]"
-            style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
-            <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
-              <h2 className="text-sm font-semibold" style={titleStyle}>{t("fanResurslari.topicsHeading")}</h2>
+          {/* Mavzular ro'yxati */}
+          <div className="shrink-0 overflow-hidden rounded-2xl lg:sticky lg:top-4 lg:w-[320px] lg:self-start"
+            style={{ background: "var(--lms-cell)", border: "1px solid var(--lms-border)", boxShadow: "var(--lms-shadow)" }}>
+            <div className="flex items-center justify-between gap-2 px-4 py-3.5" style={{ borderBottom: "1px solid var(--lms-border)" }}>
+              <h2 className="text-[15px] font-semibold" style={{ color: "var(--lms-primary)" }}>{t("fanResurslari.topicsHeading")}</h2>
+              <span className="rounded-full px-2.5 py-1 text-[12px] font-semibold" style={{ background: tint("#16a34a", 12), color: "#15803d" }}>
+                {doneCount} / {topics.length}
+              </span>
             </div>
-            <div className="flex flex-col">
+            <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto p-2">
               {topics.map((topic, idx) => {
                 const isActive = topic.topicKey === selectedKey
+                const circle = topic.completed ? "#16a34a" : topic.locked ? "#94a3b8" : typeColor
                 return (
                   <button
                     key={topic.topicKey}
                     onClick={() => !topic.locked && selectTopic(topic.topicKey)}
                     disabled={topic.locked}
-                    className="flex items-center gap-3 px-4 py-3 text-left transition-colors disabled:cursor-not-allowed"
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed"
                     style={{
-                      borderBottom: "1px solid rgba(1,41,112,0.06)",
-                      backgroundColor: isActive ? "#f6f9ff" : "transparent",
+                      background: isActive ? tint(typeColor, 10) : "transparent",
+                      boxShadow: isActive ? `inset 3px 0 0 ${typeColor}` : undefined,
                       opacity: topic.locked ? 0.55 : 1,
                     }}
                   >
-                    <span className="flex items-center justify-center w-7 h-7 rounded-full shrink-0 text-xs font-semibold"
-                      style={{
-                        backgroundColor: topic.completed ? "#f0fdf4" : topic.locked ? "#f4f6fa" : "#eef4ff",
-                        color: topic.completed ? "#15803d" : topic.locked ? "#9aa8bd" : "#0e58a8",
-                      }}>
-                      {topic.locked ? <Lock className="w-3.5 h-3.5" /> : topic.completed ? <CheckCircle2 className="w-3.5 h-3.5" /> : idx + 1}
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                      style={topic.completed || isActive
+                        ? { background: circle, color: "#fff" }
+                        : { background: tint(circle, 12), color: circle }}>
+                      {topic.locked ? <Lock className="h-3.5 w-3.5" /> : topic.completed ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
                     </span>
-                    <span className="text-sm font-medium truncate flex-1 min-w-0" style={{ color: isActive ? "#0e58a8" : "#104475", fontFamily: "var(--font-poppins)" }}>
-                      {topic.title}
+                    <span className="min-w-0 flex-1">
+                      <span className="line-clamp-2 text-[13px] font-medium leading-snug" style={{ color: isActive ? typeColor : "var(--lms-primary)" }}>
+                        {topic.title}
+                      </span>
+                      {isActive && !topic.completed && (
+                        <span className="text-[11px] font-semibold" style={{ color: typeColor }}>{t("fanResurslari.current")}</span>
+                      )}
                     </span>
                   </button>
                 )
@@ -401,6 +386,14 @@ export default function FanResurslariDetail() {
         </div>
       )}
     </div>
+  )
+}
+
+function TypeBadge({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span className="whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: tint(color, 12), color }}>
+      {children}
+    </span>
   )
 }
 
@@ -472,48 +465,51 @@ function SectionAccordion({
   defaultOpen: boolean
   children: React.ReactNode
 }) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(defaultOpen && !locked)
   // Oldingi bo'lim tugab, navbat shu bo'limga kelganda — o'zi ochiladi
   useEffect(() => {
     if (defaultOpen && !locked) setOpen(true)
   }, [defaultOpen, locked])
 
-  const borderColor = locked
-    ? "rgba(1,41,112,0.07)"
-    : completed
-      ? "rgba(34,197,94,0.3)"
-      : "rgba(1,41,112,0.15)"
-
-  const headerBg = open && !locked ? "#f0f5ff" : completed ? "rgba(240,253,244,0.6)" : "white"
+  const accent = locked ? "#94a3b8" : completed ? "#16a34a" : "#2563eb"
+  const active = open && !locked
 
   return (
-    <div className="rounded-[10px] overflow-hidden" style={{ border: `1px solid ${borderColor}` }}>
+    <div className="overflow-hidden rounded-2xl transition-shadow"
+      style={{
+        background: "var(--lms-cell)",
+        border: `1px solid ${active ? tint("#2563eb", 30) : completed ? tint("#16a34a", 28) : "var(--lms-border)"}`,
+        boxShadow: active ? "var(--lms-shadow)" : undefined,
+      }}>
       <button
         onClick={() => !locked && setOpen(o => !o)}
         disabled={locked}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
-        style={{ backgroundColor: headerBg, cursor: locked ? "default" : "pointer" }}>
-        <div className="shrink-0 p-1.5 rounded-[6px]"
-          style={{ backgroundColor: locked ? "#f1f5f9" : completed ? "rgba(34,197,94,0.12)" : "#eef4ff" }}>
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors"
+        style={{ background: active ? tint("#2563eb", 5) : "transparent", cursor: locked ? "default" : "pointer" }}>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: tint(accent, 12) }}>
           {icon}
-        </div>
-        <span className="text-sm font-semibold flex-1"
-          style={{ color: locked ? "#94a3b8" : "#012970", fontFamily: "var(--font-poppins)" }}>
+        </span>
+        <span className="flex-1 text-[14px] font-semibold"
+          style={{ color: locked ? "var(--lms-muted)" : "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
           {title}
         </span>
-        {locked && <Lock className="w-4 h-4 shrink-0" style={{ color: "#b0c2d8" }} />}
-        {!locked && completed && !open && <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: "#22c55e" }} />}
+        {locked && (
+          <span className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: tint("#94a3b8", 14), color: "#64748b" }}>
+            <Lock className="h-3 w-3" /> {t("fanResurslari.locked")}
+          </span>
+        )}
+        {!locked && completed && (
+          <span className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: tint("#16a34a", 12), color: "#15803d" }}>
+            <CheckCircle2 className="h-3 w-3" /> {t("fanResurslari.done")}
+          </span>
+        )}
         {!locked && (
-          <svg
-            className="w-4 h-4 shrink-0 transition-transform"
-            style={{ color: "#7293b9", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
+          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} style={{ color: "var(--lms-muted)" }} />
         )}
       </button>
-      {!locked && open && (
-        <div className="p-4" style={{ borderTop: `1px solid ${borderColor}`, backgroundColor: "white" }}>
+      {active && (
+        <div className="p-4" style={{ borderTop: "1px solid var(--lms-border)" }}>
           {children}
         </div>
       )}
@@ -521,7 +517,7 @@ function SectionAccordion({
   )
 }
 
-function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: () => void }) {
+function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index: number; onProgress: () => void }) {
   const { t } = useLanguage()
   const { video, audio, theory, qollanma, test, assignment, youtube } = topic.sections
   // Topshiriq yuklangani yetarli — baholanishini kutmasdan keyingi mavzu ochiladi
@@ -552,14 +548,30 @@ function TopicContent({ topic, onProgress }: { topic: StudentTopic; onProgress: 
 
   return (
     <>
-      <div className="bg-white rounded-[10px] p-4 flex items-center gap-2"
-        style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
-        {topic.completed && <CheckCircle2 className="w-5 h-5" style={{ color: "#22c55e" }} />}
-        <h2 className="text-base font-semibold" style={titleStyle}>{topic.title}</h2>
+      <div className="flex items-center gap-3 rounded-2xl p-4 sm:p-5"
+        style={{ background: `linear-gradient(105deg, var(--lms-cell) 0%, ${tint("#2563eb", 7)} 100%)`, border: "1px solid var(--lms-border)", boxShadow: "var(--lms-shadow)" }}>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[15px] font-bold text-white"
+          style={{ background: topic.completed ? "linear-gradient(135deg, #22c55e, #15803d)" : "linear-gradient(135deg, #2563eb, #1e3a8a)" }}>
+          {topic.completed ? <CheckCircle2 className="h-5 w-5" /> : index + 1}
+        </span>
+        <div className="min-w-0 flex-1">
+          {index >= 0 && (
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#2563eb" }}>
+              {t("fanResurslari.topicN", { n: index + 1 })}
+            </span>
+          )}
+          <h2 className="text-[16px] font-semibold leading-snug sm:text-[17px]" style={{ color: "var(--lms-primary)" }}>{topic.title}</h2>
+        </div>
+        {topic.completed && (
+          <span className="hidden shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold sm:flex"
+            style={{ background: tint("#16a34a", 12), color: "#15803d" }}>
+            <CheckCircle2 className="h-3.5 w-3.5" /> {t("fanResurslari.done")}
+          </span>
+        )}
       </div>
 
       {!hasAny && (
-        <div className="bg-white rounded-[10px] p-14 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="rounded-2xl p-14 text-center" style={{ background: "var(--lms-cell)", border: "1px solid var(--lms-border)" }}>
           <Circle className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
           <p className="text-sm" style={labelStyle}>{t("fanResurslari.noResourcesYet")}</p>
         </div>

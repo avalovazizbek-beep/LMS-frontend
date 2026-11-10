@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { BookOpen } from "lucide-react"
+import { BookOpen, NotebookPen } from "lucide-react"
 import { hemisApi, HemisGrade } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -11,6 +11,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import type { Lang } from "@/lib/i18n/translations"
 import { translate } from "@/lib/i18n/translations"
 
+import { PageHero } from "@/components/layout/PageHero"
 function gradeLabel(pt: number, lang: Lang): string {
   if (pt >= 86) return translate(lang, "shaxsiyQaydnoma.gradeA")
   if (pt >= 71) return translate(lang, "shaxsiyQaydnoma.gradeB")
@@ -55,17 +56,9 @@ export default function ShaxsiyQaydnoma() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {t("shaxsiyQaydnoma.pageTitle")}
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {t("shaxsiyQaydnoma.subtitle")}
-          </p>
-        </div>
+      <PageHero icon={NotebookPen} title={t("shaxsiyQaydnoma.pageTitle")} subtitle={t("shaxsiyQaydnoma.subtitle")}>
         <SemesterTabs currentCode={currentCode} value={activeCode || currentCode} onChange={code => setSelectedCode(code)} />
-      </div>
+      </PageHero>
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-5">

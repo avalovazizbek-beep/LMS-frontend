@@ -485,13 +485,14 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
         </nav>
       </div>
 
-      {/* Institut darvozasi — pastki bezak. Past ekranda menyuga joy qolsin deb yashiriladi */}
-      <div className="relative hidden h-[150px] shrink-0 overflow-hidden [@media(min-height:820px)]:block" aria-hidden>
+      {/* Institut darvozasi — pastki bezak. Ekran balandligiga qarab kattalashadi;
+          juda past ekranda menyuga joy qolsin deb yashiriladi */}
+      <div className="relative hidden h-[190px] shrink-0 overflow-hidden [@media(min-height:700px)]:block [@media(min-height:860px)]:h-[250px] [@media(min-height:1000px)]:h-[290px]" aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/samisi.webp" alt="" loading="lazy" decoding="async"
-          className="absolute inset-0 h-full w-full object-cover object-[50%_62%] dark:opacity-45" />
+          className="absolute inset-0 h-full w-full object-cover object-[38%_70%] dark:opacity-50" />
         <div className="absolute inset-0"
-          style={{ background: "linear-gradient(to bottom, var(--lms-cell) 0%, color-mix(in srgb, var(--lms-cell) 55%, transparent) 30%, rgba(37,99,235,0.10) 100%)" }} />
+          style={{ background: "linear-gradient(to bottom, var(--lms-cell) 0%, color-mix(in srgb, var(--lms-cell) 35%, transparent) 18%, transparent 40%, rgba(37,99,235,0.08) 100%)" }} />
       </div>
     </aside>
   )

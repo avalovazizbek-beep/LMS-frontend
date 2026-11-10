@@ -1,12 +1,13 @@
 "use client"
 
-import { BookMarked, CheckCircle2 } from "lucide-react"
+import { BookMarked, CheckCircle2, ListChecks } from "lucide-react"
 import { hemisApi, HemisGrade } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 export default function FanTanlovi() {
   const { t } = useLanguage()
   const { currentCode, getSemesterId } = useCurrentSemester()
@@ -23,14 +24,7 @@ export default function FanTanlovi() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("fanTanlovi.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("fanTanlovi.subtitle")}
-        </p>
-      </div>
+      <PageHero icon={ListChecks} title={t("fanTanlovi.title")} subtitle={t("fanTanlovi.subtitle")} />
 
       {subjects.length === 0 ? (
         <div className="bg-white rounded-[10px] p-14 text-center"

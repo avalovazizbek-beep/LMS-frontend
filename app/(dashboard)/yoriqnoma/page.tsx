@@ -1,6 +1,7 @@
 "use client"
 
-import { FileText, Download } from "lucide-react"
+import { FileText, Download, HelpCircle } from "lucide-react"
+import { PageHero } from "@/components/layout/PageHero"
 import { announcementsApi } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -30,17 +31,9 @@ export default function YoriqnomaPage() {
   if (error) return <ApiError message={error} onRetry={refetch} />
 
   return (
-    <section className="flex flex-col min-h-full" style={{ backgroundColor: "#f6f9ff" }}>
-      <header className="pt-[25px] pb-5 px-5 bg-white" style={{ borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-        <h1 className="font-medium text-[28px]" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("yoriqnoma.title")}
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("yoriqnoma.subtitle")}
-        </p>
-      </header>
-
-      <div className="p-[30px] flex flex-col gap-5">
+    <section className="flex flex-col min-h-full">
+      <div className="p-4 sm:p-6 lg:p-[30px] flex flex-col gap-5">
+        <PageHero icon={HelpCircle} title={t("yoriqnoma.title")} subtitle={t("yoriqnoma.subtitle")} />
         {items.length === 0 && (
           <div className="bg-white rounded-[10px] p-8 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
             <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>

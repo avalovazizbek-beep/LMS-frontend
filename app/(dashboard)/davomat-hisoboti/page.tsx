@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { CheckCircle2, XCircle, MinusCircle, TrendingUp, TrendingDown, Calendar } from "lucide-react"
+import { CheckCircle2, XCircle, MinusCircle, TrendingUp, TrendingDown, Calendar, ClipboardCheck } from "lucide-react"
 import { motion } from "framer-motion"
 import { hemisApi, HemisAttendance, HemisSchedule } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -10,6 +10,7 @@ import SemesterTabs from "@/components/ui/SemesterTabs"
 import { useCurrentSemester } from "@/hooks/useCurrentSemester"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 function getAbsenceType(r: HemisAttendance): "excused" | "absent" {
   if (r.explicable === true) return "excused"
   if ((r.absent_on ?? 0) > 0 && (r.absent_off ?? 0) === 0) return "excused"
@@ -89,14 +90,9 @@ export default function DavomatHisobotiPage() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-        className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("davomatHisoboti.pageTitle")}</h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("davomatHisoboti.pageTitle")}</p>
-        </div>
+      <PageHero icon={ClipboardCheck} title={t("davomatHisoboti.pageTitle")} subtitle={t("davomatHisoboti.pageTitle")}>
         <SemesterTabs currentCode={currentCode} value={activeCode} onChange={code => { setSelectedCode(code) }} />
-      </motion.div>
+      </PageHero>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         {[

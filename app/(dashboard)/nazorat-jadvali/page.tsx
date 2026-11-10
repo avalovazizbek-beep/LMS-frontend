@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { GraduationCap, Clock, BookOpen, Search } from "lucide-react"
+import { GraduationCap, Clock, BookOpen, Search, CalendarClock } from "lucide-react"
 import { teachingApi, type TeacherContent } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -9,6 +9,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { isControlWork, isMustaqilWork } from "@/lib/controlWork"
 import { oraliqPoints } from "@/components/teaching/GradeBudgetLine"
 
+import { PageHero } from "@/components/layout/PageHero"
 const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"]
 const UZ_DAYS = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"]
 
@@ -74,14 +75,7 @@ export default function NazoratJadvali() {
 
   return (
     <div className="flex flex-col gap-5 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("nazoratJadvali.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("nazoratJadvali.subtitle")}
-        </p>
-      </div>
+      <PageHero icon={CalendarClock} title={t("nazoratJadvali.title")} subtitle={t("nazoratJadvali.subtitle")} />
 
       <label className="flex items-center gap-2 px-3 py-2.5 rounded-[6px] bg-white w-full max-w-sm"
         style={{ border: "1px solid rgba(1,41,112,0.2)" }}>

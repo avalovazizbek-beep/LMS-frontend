@@ -1,20 +1,14 @@
 "use client"
 
-import { BookOpen, Upload } from "lucide-react"
+import { BookOpen, Upload, GraduationCap } from "lucide-react"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 export default function BitiruIshi() {
   const { t } = useLanguage()
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("bitiruvIshi.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("bitiruvIshi.subtitle")}
-        </p>
-      </div>
+      <PageHero icon={GraduationCap} title={t("bitiruvIshi.title")} subtitle={t("bitiruvIshi.subtitle")} />
 
       <div className="bg-white rounded-[10px] p-14 text-center"
         style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>

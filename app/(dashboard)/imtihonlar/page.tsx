@@ -13,7 +13,8 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { StudentContentCard } from "@/components/teaching/StudentContentCard"
 import { oraliqPoints } from "@/components/teaching/GradeBudgetLine"
-import { HeroArt, SubjectArt, subjectVisual, tint } from "@/components/teaching/ExamBoardArt"
+import { SubjectArt, subjectVisual, tint } from "@/components/teaching/ExamBoardArt"
+import { PageHero } from "@/components/layout/PageHero"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { isProctoredControlTest } from "@/lib/controlWork"
 import { FacePracticeNotice, useFacePractice } from "@/components/teaching/FacePracticeNotice"
@@ -247,32 +248,7 @@ export default function Imtihonlar() {
 
   return (
     <div className="flex flex-col gap-5 p-4 sm:p-6 lg:p-[30px]" style={FONT}>
-      {/* Sarlavha */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl px-5 py-5 sm:px-7"
-        style={{ background: `linear-gradient(105deg, ${CELL} 0%, ${tint(BLUE, 7)} 55%, ${tint(BLUE, 16)} 100%)`, border: `1px solid ${BORDER}` }}>
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl sm:h-16 sm:w-16"
-            style={{ background: "linear-gradient(135deg, #2563eb, #1e3a8a)", boxShadow: "0 10px 24px rgba(37,99,235,0.28)" }}>
-            <GraduationCap className="h-8 w-8 text-white" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[24px] font-semibold leading-tight sm:text-[28px]" style={{ color: TEXT }}>{t("exams.title")}</h1>
-            <p className="mt-1 text-sm" style={{ color: MUTED }}>{t("examsBoard.subtitle")}</p>
-          </div>
-          <div className="hidden items-center gap-3 lg:flex">
-            <div className="flex flex-col items-end">
-              <p className="text-[20px] leading-none" style={{ color: TEXT, fontFamily: "'Segoe Script','Snell Roundhand','Brush Script MT',cursive", fontStyle: "italic" }}>
-                &ldquo;{t("examsBoard.quote")}&rdquo;
-              </p>
-              <svg viewBox="0 0 160 14" className="mt-1.5 h-3 w-[150px]" aria-hidden>
-                <path d="M2 10 Q60 0 158 7" stroke={BLUE} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-              </svg>
-            </div>
-            <HeroArt className="h-[104px] w-[190px]" />
-          </div>
-        </div>
-      </motion.div>
+      <PageHero icon={GraduationCap} title={t("exams.title")} subtitle={t("examsBoard.subtitle")} />
 
       {hasControlTest && !facePractice.loading && !facePractice.passed && <FacePracticeNotice compact />}
 

@@ -3,8 +3,7 @@
 import { useState } from "react"
 import {
   User, FileText, Award, GraduationCap, Briefcase,
-  Phone, Mail, BookOpen, Star, Hash, CreditCard, Globe, Calendar, Download,
-} from "lucide-react"
+  Phone, Mail, BookOpen, Star, Hash, CreditCard, Globe, Calendar, Download, IdCard } from "lucide-react"
 import { motion } from "framer-motion"
 import { hemisApi, HemisStudent, HemisStudentDoc, HemisCertificate, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -12,6 +11,7 @@ import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { PersonAvatar } from "@/components/ui/PersonAvatar"
 
+import { PageHero } from "@/components/layout/PageHero"
 function formatDate(ts?: number): string {
   if (!ts) return "—"
   return new Date(ts * 1000).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -44,12 +44,7 @@ export default function TalabaMalumotlari() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("talabaMalumotlari.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("talabaMalumotlari.subtitle")}</p>
-      </motion.div>
+      <PageHero icon={IdCard} title={t("talabaMalumotlari.title")} subtitle={t("talabaMalumotlari.subtitle")} />
 
       {/* Profile card */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}

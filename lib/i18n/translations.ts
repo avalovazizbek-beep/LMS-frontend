@@ -248,6 +248,12 @@ export const dictionary: Record<string, DictEntry> = {
   "exams.sectionEmpty.locked": { uz: "Kelgusi imtihonlar yo'q", ru: "Предстоящих экзаменов нет",        en: "No upcoming exams",           kaa: "Aldaǵı emtihanlar joq" },
   "exams.sectionEmpty.closed": { uz: "Yakunlangan imtihonlar yo'q", ru: "Завершённых экзаменов нет",    en: "No completed exams",          kaa: "Juwmaqlanǵan emtihanlar joq" },
 
+  // ── Sahifa sarlavhasi (PageHero) shiorlari ───────────────────────────
+  "pageHero.quote.0": { uz: "Bilim — kelajak kalitidir!", ru: "Знание — ключ к будущему!", en: "Knowledge is the key to the future!", kaa: "Bilim — keleshek gilti!" },
+  "pageHero.quote.1": { uz: "O'qish — eng yaxshi sarmoya!", ru: "Учёба — лучшая инвестиция!", en: "Learning is the best investment!", kaa: "Oqıw — eń jaqsı investiciya!" },
+  "pageHero.quote.2": { uz: "Har kuni bir qadam oldinga!", ru: "Каждый день — шаг вперёд!", en: "One step forward every day!", kaa: "Hár kúni bir qádem alǵa!" },
+  "pageHero.quote.3": { uz: "Intilgan maqsadiga yetadi!", ru: "Кто стремится — достигнет цели!", en: "Those who strive reach their goals!", kaa: "Umtılǵan maqsetine jetedi!" },
+
   // ── Imtihonlar sahifasi (2026-11 yangi ko'rinish) ────────────────────
   "examsBoard.subtitle":      { uz: "Barcha fanlar bo'yicha imtihonlar va topshiriqlar holati", ru: "Состояние экзаменов и заданий по всем предметам", en: "Status of exams and assignments across all subjects", kaa: "Barlıq pánler boyınsha emtihanlar hám tapsırmalar jaǵdayı" },
   "examsBoard.quote":         { uz: "Bilim — kelajak kalitidir!", ru: "Знание — ключ к будущему!", en: "Knowledge is the key to the future!", kaa: "Bilim — keleshek gilti!" },
@@ -396,7 +402,21 @@ export const dictionary: Record<string, DictEntry> = {
   "fanResurslari.test":     { uz: "Test",                       ru: "Тест",                              en: "Test",                          kaa: "Test" },
   "fanResurslari.scoreOf":  { uz: "{grade}/{max} ball",         ru: "{grade}/{max} баллов",              en: "{grade}/{max} points",         kaa: "{grade}/{max} ball" },
   "fanResurslari.score":    { uz: "{grade} ball",               ru: "{grade} баллов",                    en: "{grade} points",               kaa: "{grade} ball" },
-  "fanResurslari.assignment": { uz: "Topshiriq",                ru: "Задание",                           en: "Assignment",                    kaa: "Tapsırma" },
+  "fanResurslari.statSubjects": { uz: "Fanlar", ru: "Предметы", en: "Subjects", kaa: "Pánler" },
+  "fanResurslari.statSubjectsHint": { uz: "Materiallari bor fanlar", ru: "Предметы с материалами", en: "Subjects with materials", kaa: "Materialları bar pánler" },
+  "fanResurslari.statTopics": { uz: "Mavzular", ru: "Темы", en: "Topics", kaa: "Temalar" },
+  "fanResurslari.statTopicsHint": { uz: "Barcha fanlar bo'yicha", ru: "По всем предметам", en: "Across all subjects", kaa: "Barlıq pánler boyınsha" },
+  "fanResurslari.statVideos": { uz: "Video yozuvlar", ru: "Видеозаписи", en: "Video recordings", kaa: "Video jazbalar" },
+  "fanResurslari.statVideosHint": { uz: "Online darslar yozuvi", ru: "Записи онлайн-занятий", en: "Online class recordings", kaa: "Onlayn sabaqlar jazbası" },
+  "fanResurslari.searchPh":   { uz: "Fan nomini qidiring...", ru: "Поиск предмета...", en: "Search subjects...", kaa: "Pán atın izleń..." },
+  "fanResurslari.noMatch":    { uz: "Bunday fan topilmadi", ru: "Предмет не найден", en: "No subject found", kaa: "Bunday pán tabılmadı" },
+  "fanResurslari.open":       { uz: "Ochish", ru: "Открыть", en: "Open", kaa: "Ashıw" },
+  "fanResurslari.progress":   { uz: "{done} / {total} mavzu bajarildi", ru: "Пройдено тем: {done} из {total}", en: "{done} of {total} topics done", kaa: "{done} / {total} tema orınlandı" },
+  "fanResurslari.topicN":     { uz: "{n}-mavzu", ru: "Тема {n}", en: "Topic {n}", kaa: "{n}-tema" },
+  "fanResurslari.done":       { uz: "Bajarildi", ru: "Выполнено", en: "Done", kaa: "Orınlandı" },
+  "fanResurslari.locked":     { uz: "Qulflangan", ru: "Закрыто", en: "Locked", kaa: "Qulıplanǵan" },
+  "fanResurslari.current":    { uz: "Hozirgi", ru: "Текущая", en: "Current", kaa: "Házirgi" },
+  "fanResurslari.assignment": { uz: "Topshiriq",               ru: "Задание",                           en: "Assignment",                    kaa: "Tapsırma" },
 
   // ── O'zlashtirish sahifasi ────────────────────────────────────────────
   "ozlashtirish.title":     { uz: "O'zlashtirish",              ru: "Успеваемость",                      en: "Performance",                   kaa: "Ózlestiriw" },

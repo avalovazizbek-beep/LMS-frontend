@@ -1,11 +1,12 @@
 "use client"
 
-import { Award, Download } from "lucide-react"
+import { Award, Download, BadgeCheck } from "lucide-react"
 import { hemisApi, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 interface HemisCertificate {
   id: number | string
   name?: string
@@ -31,14 +32,7 @@ export default function FanSertifikatlari() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("fanSertifikatlari.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("fanSertifikatlari.subtitle")}
-        </p>
-      </div>
+      <PageHero icon={BadgeCheck} title={t("fanSertifikatlari.title")} subtitle={t("fanSertifikatlari.subtitle")} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {certs.length === 0 ? (

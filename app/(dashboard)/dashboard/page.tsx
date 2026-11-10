@@ -4,8 +4,7 @@ import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import {
   Users, UserCog, ShoppingBag, Wrench, TrendingUp, FileText, Wallet, ClipboardList,
-  CalendarDays, ClipboardCheck, BookOpen, GraduationCap, BarChart2, CreditCard,
-} from "lucide-react"
+  CalendarDays, ClipboardCheck, BookOpen, GraduationCap, BarChart2, CreditCard, LayoutDashboard } from "lucide-react"
 import Link from "next/link"
 import { usersApi, hemisApi, type HemisEmployee } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
@@ -13,6 +12,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { TeacherCertificateCard } from "@/components/teaching/TeacherCertificate"
 
+import { PageHero } from "@/components/layout/PageHero"
 const staggerContainer = { hidden: {}, visible: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } } }
 const cardItem = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } }
 
@@ -70,10 +70,7 @@ function AdminDashboard() {
 
   return (
     <div className="flex flex-col gap-[30px] p-[30px]">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("sidebar.dashboard")}</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("dashboard.systemOverview")}</p>
-      </motion.div>
+      <PageHero icon={LayoutDashboard} title={t("sidebar.dashboard")} subtitle={t("dashboard.systemOverview")} />
 
       <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" variants={staggerContainer} initial="hidden" animate="visible">
         {stats.map((stat) => {
@@ -157,14 +154,7 @@ function StudentDashboard() {
 
   return (
     <div className="flex flex-col gap-[30px] p-[30px]">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("dashboard.welcome")}{student?.full_name ? `, ${student.full_name.split(" ")[0]}` : ""}!
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {student?.group?.name ? t("dashboard.group", { name: student.group.name }) : t("dashboard.studentCabinet")}
-        </p>
-      </motion.div>
+      <PageHero icon={LayoutDashboard} title={<>{t("dashboard.welcome")}{student?.full_name ? `, ${student.full_name.split(" ")[0]}` : ""}!</>} subtitle={student?.group?.name ? t("dashboard.group", { name: student.group.name }) : t("dashboard.studentCabinet")} />
 
       {/* Student info card */}
       {student && (
@@ -283,14 +273,7 @@ function TeacherDashboard() {
 
   return (
     <div className="flex flex-col gap-[30px] p-[30px]">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("dashboard.teacherCabinet")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {employee?.full_name ? t("dashboard.hemisDataFor", { name: employee.full_name }) : t("dashboard.hemisLoading")}
-        </p>
-      </motion.div>
+      <PageHero icon={GraduationCap} title={t("dashboard.teacherCabinet")} subtitle={employee?.full_name ? t("dashboard.hemisDataFor", { name: employee.full_name }) : t("dashboard.hemisLoading")} />
 
       {employee && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.35 }}

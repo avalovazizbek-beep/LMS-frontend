@@ -8,6 +8,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 const STATUS_COLORS: Record<ContentStatus, { bg: string; color: string }> = {
   locked: { bg: "#fef2f2", color: "#b91c1c" },
   open:   { bg: "#f0fdf4", color: "#15803d" },
@@ -46,14 +47,7 @@ export default function Topshiriqlar() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("topshiriqlar.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("topshiriqlar.subtitle")}
-        </p>
-      </div>
+      <PageHero icon={ClipboardList} title={t("topshiriqlar.title")} subtitle={t("topshiriqlar.subtitle")} />
 
       {items.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -1,6 +1,6 @@
 "use client"
 
-import { FileText, ExternalLink, Wallet, CheckCircle2, TrendingDown } from "lucide-react"
+import { FileText, ExternalLink, Wallet, CheckCircle2, TrendingDown, FileSignature } from "lucide-react"
 import { hemisApi, HemisContractItem } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { intlLocale, tr } from "@/lib/i18n/translations"
 import { sortContractsNewestFirst, fmtHemisStamp } from "@/lib/contracts"
 
+import { PageHero } from "@/components/layout/PageHero"
 function formatSum(val?: string | number): string {
   if (val == null) return "—"
   const n = Number(val)
@@ -26,10 +27,7 @@ export default function Shartnomalar() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("shartnomalar.title")}</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("shartnomalar.subtitle")}</p>
-      </div>
+      <PageHero icon={FileSignature} title={t("shartnomalar.title")} subtitle={t("shartnomalar.subtitle")} />
 
       <div className="flex flex-col gap-5">
         {contracts.length === 0 ? (

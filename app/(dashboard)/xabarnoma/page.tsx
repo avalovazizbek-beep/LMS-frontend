@@ -10,6 +10,7 @@ import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { notifBody, notifTime, notifTitle } from "@/lib/notifText"
 
+import { PageHero } from "@/components/layout/PageHero"
 const typeConfig: Record<string, { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>, bg: string, color: string }> = {
   system:   { icon: Info,        bg: "#f0f5ff", color: "#0e58a8" },
   teacher:  { icon: BookOpen,    bg: "#f0fbfd", color: "#1cc2dc" },
@@ -56,19 +57,13 @@ export default function XabarnomPage() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <motion.div className="flex items-start justify-between gap-4" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("xabarnoma.title")}</h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {unreadCount > 0 ? t("xabarnoma.unreadCount", { n: unreadCount }) : t("xabarnoma.allRead")}
-          </p>
-        </div>
+      <PageHero icon={Bell} title={t("xabarnoma.title")} subtitle={unreadCount > 0 ? t("xabarnoma.unreadCount", { n: unreadCount }) : t("xabarnoma.allRead")}>
         {unreadCount > 0 && (
           <button onClick={markAllRead} className="flex items-center gap-2 px-4 py-2.5 rounded-[5px] text-sm font-medium transition-colors hover:bg-[#f6f9ff]" style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }}>
             <CheckCheck className="w-4 h-4" /> {t("xabarnoma.markAllRead")}
           </button>
         )}
-      </motion.div>
+      </PageHero>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         {filterTabs.map((tab) => (

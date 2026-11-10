@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Key, Shield, User, Video, CheckCircle2, AlertTriangle, Circle, ExternalLink } from "lucide-react"
+import { Key, Shield, User, Video, CheckCircle2, AlertTriangle, Circle, ExternalLink, UserCog } from "lucide-react"
 import { hemisApi, zoomApi, googleMeetApi, type HemisEmployee, type HemisStudent, type ZoomConnectionStatus, type GoogleMeetConnectionStatus } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
@@ -9,6 +9,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { tr } from "@/lib/i18n/translations"
 
+import { PageHero } from "@/components/layout/PageHero"
 type ProfileData = HemisStudent | HemisEmployee | null
 
 function nestedName(value?: { name?: string } | string) {
@@ -336,14 +337,7 @@ export default function TizimProfil() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("tizimProfil.title")}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {isEmployee ? t("tizimProfil.teacherSubtitle") : t("tizimProfil.studentSubtitle")}
-        </p>
-      </div>
+      <PageHero icon={UserCog} title={t("tizimProfil.title")} subtitle={isEmployee ? t("tizimProfil.teacherSubtitle") : t("tizimProfil.studentSubtitle")} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="bg-white rounded-[10px] p-6 flex flex-col items-center gap-3"

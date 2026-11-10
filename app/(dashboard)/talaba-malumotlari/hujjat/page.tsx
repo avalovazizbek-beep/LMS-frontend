@@ -1,11 +1,12 @@
 "use client"
 
-import { FileText, Download } from "lucide-react"
+import { FileText, Download, Files } from "lucide-react"
 import { hemisApi, HemisStudentDoc, hemisDownloadUrl } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 
+import { PageHero } from "@/components/layout/PageHero"
 export default function TalabaHujjat() {
   const { t } = useLanguage()
   const docTypeLabels: Record<string, string> = {
@@ -21,10 +22,7 @@ export default function TalabaHujjat() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("talabaHujjat.title")}</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("talabaHujjat.subtitle")}</p>
-      </div>
+      <PageHero icon={Files} title={t("talabaHujjat.title")} subtitle={t("talabaHujjat.subtitle")} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {docs.length === 0 ? (

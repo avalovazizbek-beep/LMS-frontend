@@ -1,13 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { CheckCircle2, XCircle, Clock, User, MessageSquare, RefreshCw } from "lucide-react"
+import { CheckCircle2, XCircle, Clock, User, MessageSquare, RefreshCw, ScanFace } from "lucide-react"
 import { faceApi, ReRegRequest } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { PersonAvatar } from "@/components/ui/PersonAvatar"
 
+import { PageHero } from "@/components/layout/PageHero"
 function formatDate(ts?: number): string {
   if (!ts) return "—"
   return new Date(ts).toLocaleString("uz-UZ", {
@@ -53,22 +54,14 @@ export default function FaceRequestsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-            {t("faceRequests.title")}
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {t("faceRequests.subtitle")}
-          </p>
-        </div>
+      <PageHero icon={ScanFace} title={t("faceRequests.title")} subtitle={t("faceRequests.subtitle")}>
         <button onClick={refetch}
           className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm hover:opacity-80 transition-opacity"
           style={{ border: "1px solid rgba(1,41,112,0.15)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
           <RefreshCw className="w-4 h-4" />
           {t("faceRequests.refresh")}
         </button>
-      </div>
+      </PageHero>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">

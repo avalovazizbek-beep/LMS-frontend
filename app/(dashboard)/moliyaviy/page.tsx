@@ -9,6 +9,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { intlLocale, tr } from "@/lib/i18n/translations"
 import { sortContractsNewestFirst, fmtHemisStamp } from "@/lib/contracts"
 
+import { PageHero } from "@/components/layout/PageHero"
 function formatSum(val?: string | number): string {
   if (val == null) return "—"
   const n = Number(val)
@@ -36,10 +37,7 @@ export default function Moliyaviy() {
   if (!contract) {
     return (
       <div className="flex flex-col gap-6 p-[30px]">
-        <div>
-          <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.title")}</h1>
-          <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.subtitle")}</p>
-        </div>
+        <PageHero icon={Wallet} title={t("moliyaviy.title")} subtitle={t("moliyaviy.subtitle")} />
         <div className="bg-white rounded-[10px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <Wallet className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.notFound")}</p>
@@ -50,10 +48,7 @@ export default function Moliyaviy() {
 
   return (
     <div className="flex flex-col gap-6 p-[30px]">
-      <div>
-        <h1 className="text-[28px] font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.pageTitle")}</h1>
-        <p className="text-sm mt-1" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>{t("moliyaviy.pageSubtitle")}</p>
-      </div>
+      <PageHero icon={Wallet} title={t("moliyaviy.pageTitle")} subtitle={t("moliyaviy.pageSubtitle")} />
 
       {/* To'lov HEMIS'ga qanday va qachon tushishi — "to'ladim, ko'rinmayapti" savoliga javob */}
       <div className="rounded-[10px] p-4 flex items-start gap-3" style={{ backgroundColor: "#f0f7ff", border: "1px solid rgba(14,88,168,0.15)" }}>
