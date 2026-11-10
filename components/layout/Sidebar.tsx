@@ -14,6 +14,7 @@ import {
 import { adminApi } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { isZoomReviewSession } from "@/lib/zoomReview"
+import { loadExamBoard, todoCount, EXAMS_CHANGED_EVENT } from "@/lib/studentExams"
 
 
 type NavItem = { label: string; href: string; tKey?: string }
@@ -187,6 +188,19 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   useEffect(() => {
     adminApi.check().then(r => setIsAdmin(r.isAdmin)).catch(() => {})
   }, [])
+
+  // Talaba: "Imtihonlar" yonida topshirish kerak bo'lgan ishlar soni.
+  // Imtihonlar sahifasi ma'lumotni yangilaganda son hodisa orqali keladi.
+  const [examBadge, setExamBadge] = useState(0)
+  const isStudent = !!role && role !== "employee" && !zoomReview
+  useEffect(() => {
+    if (!isStudent) return
+    let alive = true
+    loadExamBoard().then(b => { if (alive) setExamBadge(todoCount(b)) }).catch(() => {})
+    const onChange = (e: Event) => setExamBadge(Number((e as CustomEvent<number>).detail) || 0)
+    window.addEventListener(EXAMS_CHANGED_EVENT, onChange)
+    return () => { alive = false; window.removeEventListener(EXAMS_CHANGED_EVENT, onChange) }
+  }, [isStudent])
 
   useEffect(() => {
     const match = sections.find(s => s.items.some(i => pathname === i.href || pathname.startsWith(i.href + "/")))
@@ -385,6 +399,12 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
                                 >
                                   {item.tKey ? t(item.tKey) : item.label}
                                 </span>
+                                {isStudent && item.href === "/imtihonlar" && examBadge > 0 && (
+                                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold text-white"
+                                    style={{ backgroundColor: "#2563eb", fontFamily: "var(--font-poppins)" }}>
+                                    {examBadge > 99 ? "99+" : examBadge}
+                                  </span>
+                                )}
                               </Link>
                             </motion.div>
                           )
@@ -463,6 +483,15 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             </span>
           </Link>}
         </nav>
+      </div>
+
+      {/* Institut darvozasi — pastki bezak. Past ekranda menyuga joy qolsin deb yashiriladi */}
+      <div className="relative hidden h-[150px] shrink-0 overflow-hidden [@media(min-height:820px)]:block" aria-hidden>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/samisi.webp" alt="" loading="lazy" decoding="async"
+          className="absolute inset-0 h-full w-full object-cover object-[50%_62%] dark:opacity-45" />
+        <div className="absolute inset-0"
+          style={{ background: "linear-gradient(to bottom, var(--lms-cell) 0%, color-mix(in srgb, var(--lms-cell) 55%, transparent) 30%, rgba(37,99,235,0.10) 100%)" }} />
       </div>
     </aside>
   )

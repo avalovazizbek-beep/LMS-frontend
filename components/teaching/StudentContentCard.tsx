@@ -60,9 +60,16 @@ interface Props {
   item: TeacherContent
   /** assignment/exam — talaba topshirishi mumkin bo'lgan turlar */
   submittable?: boolean
+  /** Imtihonlar sahifasidagi qator ichida: sarlavha/fan/holat qatorda turibdi,
+      bu yerda takrorlanmaydi; ramka ham yo'q */
+  embedded?: boolean
+  /** Qatordagi "Topshirish" bosilgan — yuklash formasi darhol ochiq */
+  autoOpenForm?: boolean
+  /** Ish yuborilgach yoki o'chirilgach — sahifa holatlarni yangilaydi */
+  onChanged?: () => void
 }
 
-export function StudentContentCard({ item, submittable = false }: Props) {
+export function StudentContentCard({ item, submittable = false, embedded = false, autoOpenForm = false, onChanged }: Props) {
   const { t } = useLanguage()
   const st = STATUS_CONFIG[item.status]
   const locked = item.status === "locked"
@@ -74,7 +81,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
   )
   const mySubmission: TeachingSubmission | null = subRes?.data ?? null
 
-  const [formOpen, setFormOpen] = useState(false)
+  const [formOpen, setFormOpen] = useState(autoOpenForm)
   const [sub, setSub] = useState<SubmitState>(defaultSubmit())
   const [deleteStep, setDeleteStep] = useState<"idle" | "confirm" | "deleting">("idle")
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -128,6 +135,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
       await teachingApi.deleteMySubmission(item.id)
       setDeleteStep("idle")
       refetchSubmission()
+      onChanged?.()
     } catch (err) {
       setDeleteStep("confirm")
       setDeleteError(err instanceof Error ? err.message : t("scc.errSend"))
@@ -147,6 +155,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
         setFormOpen(false)
         setSub(defaultSubmit())
         refetchSubmission()
+        onChanged?.()
       }, 1500)
     } catch (err) {
       setSub(prev => ({ ...prev, loading: false, error: err instanceof Error ? err.message : t("scc.errSend") }))
@@ -154,10 +163,15 @@ export function StudentContentCard({ item, submittable = false }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-[10px] overflow-hidden"
-      style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
-      <div className="p-5 flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+    <div className={embedded ? "overflow-hidden" : "bg-white rounded-[10px] overflow-hidden"}
+      style={embedded ? undefined : { border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
+      <div className={`${embedded ? "px-4 py-4" : "p-5"} flex flex-col gap-3`}>
+        {embedded && !locked && item.description && (
+          <p className="text-xs whitespace-pre-line" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+            {item.description}
+          </p>
+        )}
+        {!embedded && <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-3 flex-1 min-w-0">
             <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: st.bg }}>
               <st.Icon className="w-5 h-5" style={{ color: st.color }} />
@@ -186,7 +200,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
             style={{ backgroundColor: st.bg, color: st.color, border: `1px solid ${st.color}`, fontFamily: "var(--font-poppins)" }}>
             {t(st.labelKey)}
           </span>
-        </div>
+        </div>}
 
         <div className="flex items-center gap-3 flex-wrap text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
           {locked ? (
@@ -467,7 +481,7 @@ export function StudentContentCard({ item, submittable = false }: Props) {
       </div>
 
       {canSubmit && formOpen && (!mySubmission || isAssignment) && (
-        <div className="px-5 pb-5">
+        <div className={embedded ? "px-4 pb-4" : "px-5 pb-5"}>
           <div className="rounded-[10px] p-4 flex flex-col gap-3" style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
             {sub.success ? (
               <div className="flex items-center gap-2 py-2">

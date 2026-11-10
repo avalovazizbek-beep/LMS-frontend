@@ -1396,6 +1396,16 @@ export interface TeacherContent {
   retakeGranted?: boolean
 }
 
+/** GET /teaching/submissions/mine — talabaning o'z ishi bo'yicha qisqa holat */
+export interface MySubmissionLite {
+  contentId: number
+  grade: number | null
+  submittedAt: string
+  gradedAt: string | null
+  attemptsUsed: number
+  retakeGranted: boolean
+}
+
 export interface PendingGradingItem {
   contentId: number
   title: string
@@ -1909,8 +1919,9 @@ export const teachingApi = {
     })
   },
 
-  mySubmissions: () =>
-    get<ListRes<TeachingSubmission>>(`/api/teaching/submissions/mine`),
+  /** Talabaning berilgan ishlardagi o'z natijalari bir so'rovda (holat uchun) */
+  mySubmissions: (contentIds: number[]) =>
+    get<ListRes<MySubmissionLite>>(`/api/teaching/submissions/mine?ids=${contentIds.join(",")}`),
 
   mySubmission: (contentId: number | string) =>
     get<ItemRes<TeachingSubmission | null>>(`/api/teaching/content/${contentId}/submissions/me`),
