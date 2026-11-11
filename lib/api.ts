@@ -976,6 +976,23 @@ export interface StudentFaceRow {
   adminRequestPending: boolean
 }
 /** HEMIS'da "Bekor qilingan" masofaviy talaba va uning LMS'dagi bloki */
+/** O'qituvchi yordamchisi (AI agent) javobi */
+export interface AssistantAnswer {
+  reply: string
+  /** Tegishli sahifa manzili (tugma bilan ochiladi) yoki null */
+  page: string | null
+  pageTitle: string | null
+  /** true — o'qituvchi ochishni so'ragan: sahifa darhol ochiladi */
+  openNow: boolean
+}
+
+export const assistantApi = {
+  status: () =>
+    get<{ success: boolean; enabled: boolean; ready?: boolean; reason?: string | null; model?: string }>("/api/assistant/status"),
+  chat: (body: { messages: { role: "user" | "assistant"; content: string }[]; page: string; lastPage: string | null; lang: string }) =>
+    post<{ success: boolean; data: AssistantAnswer }>("/api/assistant/chat", body),
+}
+
 /** Maxsus ehtiyojli talaba uchun test moslamalari (admin belgilaydi) */
 export interface AccessibilityProfile {
   enabled: boolean

@@ -4049,6 +4049,32 @@ export const dictionary: Record<string, DictEntry> = {
   "voice.examStart":   { uz: "Test boshlandi. Vaqt: {n} daqiqa.", ru: "Тест начался. Время: {n} мин.", en: "The test has started. Time: {n} minutes.", kaa: "Test baslandı. Waqıt: {n} minut." },
   "voice.examResult":  { uz: "Test yakunlandi. Natija: {grade}, maksimal {max}.", ru: "Тест завершён. Результат: {grade} из {max}.", en: "The test is finished. Result: {grade} out of {max}.", kaa: "Test juwmaqlandı. Nátiyje: {grade}, maksimal {max}." },
 
+  // ── O'qituvchi yordamchisi (AI agent) ──
+  "assistant.button":      { uz: "Yordamchi", ru: "Помощник", en: "Assistant", kaa: "Járdemshi" },
+  "assistant.open":        { uz: "Yordamchini ochish — savol bering", ru: "Открыть помощника — задайте вопрос", en: "Open the assistant — ask a question", kaa: "Járdemshini ashıw — soraw beriń" },
+  "assistant.title":       { uz: "LMS yordamchi", ru: "Помощник LMS", en: "LMS assistant", kaa: "LMS járdemshi" },
+  "assistant.subtitle":    { uz: "Saytni tushuntiraman, sahifani ochaman, material tayyorlayman", ru: "Объясню сайт, открою страницу, подготовлю материал", en: "I explain the site, open pages and draft materials", kaa: "Sayttı túsindiremen, betti ashaman, material tayarlayman" },
+  "assistant.hello":       { uz: "Assalomu alaykum! Savolingizni yozing yoki mikrofonni bosib ayting. Masalan:", ru: "Здравствуйте! Напишите вопрос или нажмите на микрофон и скажите. Например:", en: "Hello! Type your question or press the microphone and say it. For example:", kaa: "Assalawma áleykum! Sorawıńızdı jazıń yamasa mikrofondı basıp aytıń. Mısalı:" },
+  "assistant.s1":          { uz: "Topshirilgan ishlarni baholashim kerak", ru: "Мне нужно оценить сданные работы", en: "I need to grade submitted work", kaa: "Tapsırılǵan jumıslardı bahalawım kerek" },
+  "assistant.s2":          { uz: "Davomatni qanday belgilayman?", ru: "Как отметить посещаемость?", en: "How do I mark attendance?", kaa: "Qatnasıwdı qalay belgileymen?" },
+  "assistant.s3":          { uz: "Oraliq nazorat testini yaratmoqchiman", ru: "Хочу создать тест промежуточного контроля", en: "I want to create a midterm test", kaa: "Aralıq baqlaw testin jaratpaqshıman" },
+  "assistant.s4":          { uz: "Marketing asoslari mavzusidan 5 ta test savoli tuzib ber", ru: "Составь 5 тестовых вопросов по теме «Основы маркетинга»", en: "Write 5 test questions on Marketing basics", kaa: "Marketing tiykarları temasınan 5 test sorawın dúzip ber" },
+  "assistant.placeholder": { uz: "Savolingizni yozing…", ru: "Напишите вопрос…", en: "Type your question…", kaa: "Sorawıńızdı jazıń…" },
+  "assistant.listening":   { uz: "Eshityapman, gapiring…", ru: "Слушаю, говорите…", en: "Listening, speak…", kaa: "Esitip atırman, aytıń…" },
+  "assistant.send":        { uz: "Yuborish", ru: "Отправить", en: "Send", kaa: "Jiberiw" },
+  "assistant.micStart":    { uz: "Ovoz bilan so'rash", ru: "Спросить голосом", en: "Ask by voice", kaa: "Dawıs penen soraw" },
+  "assistant.micStop":     { uz: "Tinglashni to'xtatish", ru: "Остановить запись", en: "Stop listening", kaa: "Tıńlawdı toqtatıw" },
+  "assistant.micDenied":   { uz: "Mikrofonga ruxsat berilmagan. Brauzer manzil satridagi qulf belgisidan ruxsat bering.", ru: "Нет доступа к микрофону. Разрешите его через значок замка в адресной строке.", en: "Microphone access is blocked. Allow it from the lock icon in the address bar.", kaa: "Mikrofonǵa ruxsat berilmegen. Brauzer mánzil qatarındaǵı qulp belgisinen ruxsat beriń." },
+  "assistant.micFailed":   { uz: "Ovozni tanib bo'lmadi. Qayta urinib ko'ring yoki yozing.", ru: "Не удалось распознать речь. Попробуйте ещё раз или напишите.", en: "Could not recognise speech. Try again or type.", kaa: "Dawıstı tanıp bolmadı. Qayta urınıp kóriń yamasa jazıń." },
+  "assistant.speakOn":     { uz: "Javoblarni ovoz chiqarib o'qish", ru: "Читать ответы вслух", en: "Read answers aloud", kaa: "Juwaplardı dawıslap oqıw" },
+  "assistant.speakOff":    { uz: "Ovozli o'qishni o'chirish", ru: "Выключить чтение вслух", en: "Turn off reading aloud", kaa: "Dawıslap oqıwdı óshiriw" },
+  "assistant.clear":       { uz: "Suhbatni tozalash", ru: "Очистить диалог", en: "Clear the chat", kaa: "Sáwbetti tazalaw" },
+  "assistant.thinking":    { uz: "Javob tayyorlanmoqda", ru: "Готовлю ответ", en: "Preparing the answer", kaa: "Juwap tayarlanbaqta" },
+  "assistant.openPage":    { uz: "«{title}» sahifasini ochish", ru: "Открыть страницу «{title}»", en: "Open the “{title}” page", kaa: "«{title}» betin ashıw" },
+  "assistant.openAgain":   { uz: "«{title}» sahifasiga o'tish", ru: "Перейти на страницу «{title}»", en: "Go to the “{title}” page", kaa: "«{title}» betine ótiw" },
+  "assistant.error":       { uz: "Yordamchi javob bera olmadi. Qayta urinib ko'ring.", ru: "Помощник не смог ответить. Попробуйте ещё раз.", en: "The assistant could not answer. Try again.", kaa: "Járdemshi juwap bere almadı. Qayta urınıp kóriń." },
+  "assistant.notReady":    { uz: "Model serveri hozir ishlamayapti — javob bera olmasligim mumkin", ru: "Сервер модели сейчас недоступен — ответить может не получиться", en: "The model server is not running right now — I may not be able to answer", kaa: "Model serveri házir islemey atır — juwap bere almawım múmkin" },
+
   "adminSozlamalar.facePracticeOff": { uz: "Faqat tavsiya: xabar chiqadi, lekin imtihonni boshlash mumkin", ru: "Только рекомендация: сообщение показывается, но экзамен можно начать", en: "Recommendation only: the notice is shown, but the exam can be started", kaa: "Tek usınıs: xabar shıǵadı, biraq emtihandı baslawǵa boladı" },
 }
 

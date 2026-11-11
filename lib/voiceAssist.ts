@@ -154,8 +154,9 @@ function speakWithBrowser(text: string, gen: number): Promise<void> {
  * Matnni ovoz chiqarib o'qish. interrupt (standart) — oldingi gap to'xtatiladi;
  * false — navbatga qo'shiladi (masalan "Bosildi" savolni kesmasin).
  */
-export function speak(text: string, opts: { interrupt?: boolean } = {}) {
-  if (!active || !text.trim()) return
+export function speak(text: string, opts: { interrupt?: boolean; force?: boolean } = {}) {
+  // force — ovozli yordamchi yoqilmagan bo'lsa ham (o'qituvchi AI yordamchisining javobi)
+  if ((!active && !opts.force) || !voiceSupported() || !text.trim()) return
   if (opts.interrupt !== false) stopSpeaking()
   const gen = generation
   const parts = chunks(text)

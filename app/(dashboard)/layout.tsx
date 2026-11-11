@@ -11,6 +11,7 @@ import { FaceReregisterModal } from "@/components/layout/FaceReregisterModal"
 import { MeetingCallProvider, useMeetingCall } from "@/components/layout/MeetingCallContext"
 import { IdleLogout } from "@/components/layout/IdleLogout"
 import { VoiceAssist } from "@/components/layout/VoiceAssist"
+import { TeacherAssistant } from "@/components/layout/TeacherAssistant"
 import { CertificateAutoOpen } from "@/components/teaching/TeacherCertificate"
 import { isZoomReviewPage, isZoomReviewSession, ZOOM_REVIEW_HOME } from "@/lib/zoomReview"
 
@@ -88,6 +89,8 @@ function DashboardLayoutInner({
       <IdleLogout paused={idlePaused} />
       {/* Maxsus ehtiyojli talaba uchun sayt o'zi gapiradi (boshqalarda hech narsa chizilmaydi) */}
       <VoiceAssist />
+      {/* O'qituvchi yordamchisi (AI agent) — faqat ruxsat berilgan xodimga; meeting xonasida chiqmaydi */}
+      {!isMeetingRoute && <TeacherAssistant />}
       {!isMeetingRoute && <MeetingReminder />}
       {/* MeetingReminder bilan bir xil z-[5000] fixed overlay — bir nechtasi bir
           vaqtda chiqib qolsa (kamdan-kam), keyingisi DOM tartibida keyinroq
