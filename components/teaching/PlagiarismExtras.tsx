@@ -99,14 +99,21 @@ export function PlagExtraDetails({ result }: { result: PlagiarismResult }) {
           </p>
         ) : ai.status === "no_text" ? (
           <p className="text-xs mt-1" style={{ color: "#92400e", ...FONT }}>{t("plagx.aiNoText")}</p>
-        ) : ai.status === "failed" || ai.grade === null || ai.relevance === null ? (
+        ) : ai.status === "failed" || ai.grade === null ? (
           <p className="text-xs mt-1" style={{ color: "#92400e", ...FONT }}>{t("plagx.aiFailed")}</p>
         ) : (
           <>
             <div className="flex flex-wrap gap-2 mt-2">
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: gradeColors(ai.relevance).bg, color: gradeColors(ai.relevance).fg, ...FONT }}>
-                {t("plagx.aiRelevance", { pct: ai.relevance })}
-              </span>
+              {ai.relevance !== null ? (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: gradeColors(ai.relevance).bg, color: gradeColors(ai.relevance).fg, ...FONT }}>
+                  {t("plagx.aiRelevance", { pct: ai.relevance })}
+                </span>
+              ) : (
+                // Topshiriq nomi mavzuni bildirmaydi ("dfedvc", "1-topshiriq") — moslik to'qib chiqarilmaydi
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#f1f5f9", color: "#475569", ...FONT }}>
+                  {t("plagx.aiNoTopic")}
+                </span>
+              )}
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: gradeColors(ai.grade).bg, color: gradeColors(ai.grade).fg, ...FONT }}>
                 {t("plagx.aiGrade", { grade: ai.grade })}
               </span>
