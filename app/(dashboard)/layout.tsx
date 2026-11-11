@@ -10,6 +10,7 @@ import { AnnouncementModal } from "@/components/layout/AnnouncementModal"
 import { FaceReregisterModal } from "@/components/layout/FaceReregisterModal"
 import { MeetingCallProvider, useMeetingCall } from "@/components/layout/MeetingCallContext"
 import { IdleLogout } from "@/components/layout/IdleLogout"
+import { VoiceAssist } from "@/components/layout/VoiceAssist"
 import { CertificateAutoOpen } from "@/components/teaching/TeacherCertificate"
 import { isZoomReviewPage, isZoomReviewSession, ZOOM_REVIEW_HOME } from "@/lib/zoomReview"
 
@@ -85,6 +86,8 @@ function DashboardLayoutInner({
       style={{ backgroundColor: "var(--lms-bg)" }}
     >
       <IdleLogout paused={idlePaused} />
+      {/* Maxsus ehtiyojli talaba uchun sayt o'zi gapiradi (boshqalarda hech narsa chizilmaydi) */}
+      <VoiceAssist />
       {!isMeetingRoute && <MeetingReminder />}
       {/* MeetingReminder bilan bir xil z-[5000] fixed overlay — bir nechtasi bir
           vaqtda chiqib qolsa (kamdan-kam), keyingisi DOM tartibida keyinroq

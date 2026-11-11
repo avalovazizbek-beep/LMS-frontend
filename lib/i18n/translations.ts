@@ -4023,6 +4023,32 @@ export const dictionary: Record<string, DictEntry> = {
   "a11y.exam.optionN":  { uz: "{n}-variant", ru: "Вариант {n}", en: "Option {n}", kaa: "{n}-variant" },
   "a11y.exam.sayTime":  { uz: "Qolgan vaqtni aytish", ru: "Сообщить оставшееся время", en: "Announce time left", kaa: "Qalǵan waqıttı aytıw" },
 
+  // ── Ovozli yordamchi (sayt o'zi gapiradi) ──
+  "voice.on":          { uz: "Ovoz: yoqilgan", ru: "Голос: включён", en: "Voice: on", kaa: "Dawıs: qosılǵan" },
+  "voice.off":         { uz: "Ovoz: o'chirilgan", ru: "Голос: выключен", en: "Voice: off", kaa: "Dawıs: óshirilgen" },
+  "voice.turnOn":      { uz: "Ovozli yordamchini yoqish", ru: "Включить голосового помощника", en: "Turn on the voice assistant", kaa: "Dawıslı járdemshini qosıw" },
+  "voice.turnOff":     { uz: "Ovozli yordamchini o'chirish", ru: "Выключить голосового помощника", en: "Turn off the voice assistant", kaa: "Dawıslı járdemshini óshiriw" },
+  "voice.turnedOn":    { uz: "Ovozli yordamchi yoqildi", ru: "Голосовой помощник включён", en: "Voice assistant is on", kaa: "Dawıslı járdemshi qosıldı" },
+  "voice.noUzVoice":   { uz: "Tabiiy ovoz xizmati hozir ishlamayapti — vaqtincha brauzerning o'z ovozi o'qiyapti.", ru: "Сервис естественного голоса сейчас недоступен — временно читает голос браузера.", en: "The natural voice service is unavailable right now — the browser's own voice is reading for now.", kaa: "Tábiyiy dawıs xızmeti házir islemey atır — waqıtsha brauzerdiń óz dawısı oqıp atır." },
+  "voice.page":        { uz: "{title} sahifasi", ru: "Страница: {title}", en: "{title} page", kaa: "{title} beti" },
+  "voice.button":      { uz: "tugma", ru: "кнопка", en: "button", kaa: "túyme" },
+  "voice.link":        { uz: "havola", ru: "ссылка", en: "link", kaa: "silteme" },
+  "voice.heading":     { uz: "sarlavha", ru: "заголовок", en: "heading", kaa: "atama" },
+  "voice.field":       { uz: "yozish maydoni", ru: "поле ввода", en: "text field", kaa: "jazıw maydanı" },
+  "voice.list":        { uz: "ro'yxat, tanlangani", ru: "список, выбрано", en: "list, selected", kaa: "dizim, tańlanǵanı" },
+  "voice.checkbox":    { uz: "belgilash katagi", ru: "флажок", en: "checkbox", kaa: "belgilew ketegi" },
+  "voice.checked":     { uz: "belgilangan", ru: "отмечен", en: "checked", kaa: "belgilengen" },
+  "voice.unchecked":   { uz: "belgilanmagan", ru: "не отмечен", en: "not checked", kaa: "belgilenbegen" },
+  "voice.selected":    { uz: "Tanlangan", ru: "Выбран", en: "Selected", kaa: "Tańlanǵan" },
+  "voice.notSelected": { uz: "Tanlanmagan", ru: "Не выбран", en: "Not selected", kaa: "Tańlanbaǵan" },
+  "voice.active":      { uz: "joriy", ru: "текущий", en: "current", kaa: "házirgi" },
+  "voice.disabled":    { uz: "bosib bo'lmaydi", ru: "недоступна", en: "unavailable", kaa: "basıp bolmaydı" },
+  "voice.pressed":     { uz: "Bosildi", ru: "Нажато", en: "Pressed", kaa: "Basıldı" },
+  "voice.examQuestion": { uz: "{n}-savol, jami {total} ta. {text}", ru: "Вопрос {n} из {total}. {text}", en: "Question {n} of {total}. {text}", kaa: "{n}-soraw, jámi {total}. {text}" },
+  "voice.examOptions": { uz: "Variantlar.", ru: "Варианты.", en: "Options.", kaa: "Variantlar." },
+  "voice.examStart":   { uz: "Test boshlandi. Vaqt: {n} daqiqa.", ru: "Тест начался. Время: {n} мин.", en: "The test has started. Time: {n} minutes.", kaa: "Test baslandı. Waqıt: {n} minut." },
+  "voice.examResult":  { uz: "Test yakunlandi. Natija: {grade}, maksimal {max}.", ru: "Тест завершён. Результат: {grade} из {max}.", en: "The test is finished. Result: {grade} out of {max}.", kaa: "Test juwmaqlandı. Nátiyje: {grade}, maksimal {max}." },
+
   "adminSozlamalar.facePracticeOff": { uz: "Faqat tavsiya: xabar chiqadi, lekin imtihonni boshlash mumkin", ru: "Только рекомендация: сообщение показывается, но экзамен можно начать", en: "Recommendation only: the notice is shown, but the exam can be started", kaa: "Tek usınıs: xabar shıǵadı, biraq emtihandı baslawǵa boladı" },
 }
 

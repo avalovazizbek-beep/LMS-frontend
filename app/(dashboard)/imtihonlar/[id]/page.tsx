@@ -11,6 +11,7 @@ import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import FaceProctor from "@/components/ui/FaceProctor"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { speak } from "@/lib/voiceAssist"
 import { isProctoredControlTest } from "@/lib/controlWork"
 import { FacePracticeNotice, FacePracticePassed, useFacePractice } from "@/components/teaching/FacePracticeNotice"
 
@@ -436,9 +437,40 @@ export default function ImtihonTopshirish() {
   /* Ekran o'quvchi: qolgan vaqt 10, 5 va 1 daqiqada ovoz chiqarib aytiladi */
   useEffect(() => {
     if (phase !== "exam" || timeLeft === null) return
-    if (timeLeft === 600 || timeLeft === 300 || timeLeft === 60) setAnnounce(t("a11y.exam.timeLeftMin", { n: timeLeft / 60 }))
+    if (timeLeft === 600 || timeLeft === 300 || timeLeft === 60) {
+      const msg = t("a11y.exam.timeLeftMin", { n: timeLeft / 60 })
+      setAnnounce(msg)
+      speak(msg, { interrupt: false })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, timeLeft])
+
+  /* Ovozli yordamchi (maxsus ehtiyojli talaba): savol almashganda savol va
+     variantlar ovoz chiqarib o'qiladi; boshqa talabalarda speak() hech narsa qilmaydi */
+  useEffect(() => {
+    if (phase !== "exam") return
+    const item = isAdaptive ? adaptiveQuestion : questions[current]
+    if (!item) return
+    const perm = item.optionPerm ?? item.options.map((_, i) => i)
+    const options = perm.map((orig, pos) => `${t("a11y.exam.optionN", { n: pos + 1 })}: ${item.options[orig]}.`).join(" ")
+    const head = isAdaptive
+      ? item.questionText
+      : t("voice.examQuestion", { n: current + 1, total: questions.length, text: item.questionText })
+    const intro = !isAdaptive && current === 0 && timeLeft != null && Object.keys(answers).length === 0
+      ? `${t("voice.examStart", { n: Math.ceil(timeLeft / 60) })} ` : ""
+    // Fokus sarlavhaga o'tgandan keyin (pastdagi effekt) — uni kesib qo'ymasin
+    const timer = setTimeout(() => speak(`${intro}${/[.!?]$/.test(head.trim()) ? head.trim() : `${head.trim()}.`} ${t("voice.examOptions")} ${options}`), 250)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, current, questions.length, adaptiveQuestion?.id])
+
+  /* Ovozli yordamchi: natija */
+  useEffect(() => {
+    if (phase !== "submitted_now" || !result) return
+    const timer = setTimeout(() => speak(t("voice.examResult", { grade: result.grade ?? 0, max: result.maxScore ?? 100 })), 400)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, result])
 
   /* Maxsus ehtiyojli talaba: savol almashganda fokus savol sarlavhasiga o'tadi —
      ekran o'quvchi yangi savolni o'zi o'qiydi */
@@ -898,7 +930,7 @@ export default function ImtihonTopshirish() {
                   )}
                 </div>
 
-                <h2 id="exam-question-text" ref={questionHeadingRef} tabIndex={-1} className="exam-qhead" style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 15, fontWeight: 500, margin: "4px 0 0", lineHeight: 1.55 }}>
+                <h2 id="exam-question-text" ref={questionHeadingRef} tabIndex={-1} className="exam-qhead" data-voice-nofocus style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 15, fontWeight: 500, margin: "4px 0 0", lineHeight: 1.55 }}>
                   {adaptiveQuestion.questionText}
                 </h2>
                 {adaptiveQuestion.imageUrl && (
@@ -1104,7 +1136,7 @@ export default function ImtihonTopshirish() {
                           fontSize: 13, fontWeight: 700, flexShrink: 0, fontFamily: "var(--font-poppins)",
                         }} aria-hidden>{current + 1}</span>
                         <div style={{ flex: 1 }}>
-                          <h2 id="exam-question-text" ref={questionHeadingRef} tabIndex={-1} className="exam-qhead" style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 15, fontWeight: 500, margin: "4px 0 0", lineHeight: 1.55 }}>
+                          <h2 id="exam-question-text" ref={questionHeadingRef} tabIndex={-1} className="exam-qhead" data-voice-nofocus style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 15, fontWeight: 500, margin: "4px 0 0", lineHeight: 1.55 }}>
                             <span className="sr-only">{t("a11y.exam.questionOf", { n: current + 1, total: questions.length })}. </span>
                             {q.questionText}
                           </h2>
