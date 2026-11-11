@@ -306,11 +306,8 @@ function SubmissionsList({
                         {plag.matchedStudentName ? t("typeContentOq.plag.mostSimilar", { name: plag.matchedStudentName }) : t("typeContentOq.plag.noSimilar")}
                       </p>
                       <PlagExtraDetails result={plag} />
-                      {!plag.internetEnabled ? (
-                        <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
-                          {t("plag.noApiKeyShort")}
-                        </p>
-                      ) : plag.internetMatches.length === 0 ? (
+                      {/* Internet qidiruvi o'chirilgan (hozircha faqat saytdagi ishlar solishtiriladi) — blok chiqmaydi */}
+                      {!plag.internetEnabled ? null : plag.internetMatches.length === 0 ? (
                         <p className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.plag.noInternetMatch")}</p>
                       ) : (
                         plag.internetMatches.map((m, i) => (

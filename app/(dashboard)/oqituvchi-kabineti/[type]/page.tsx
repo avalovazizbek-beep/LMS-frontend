@@ -2632,7 +2632,8 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
           {/* Matn manbai (rasmdan o'qilgan / o'qilmagan), boshqa guruh, AI tavsiya */}
           <PlagExtraDetails result={plagByStudent.get(result.studentUserId) ?? result} />
 
-          <div className="rounded-[10px] p-4" style={{ backgroundColor: "#f6f9ff" }}>
+          {/* Internet qidiruvi o'chirilgan bo'lsa (hozircha faqat saytdagi ishlar solishtiriladi) — blok chiqmaydi */}
+          <div className="rounded-[10px] p-4" style={{ backgroundColor: "#f6f9ff", display: result.internetEnabled ? undefined : "none" }}>
             <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
               {t("typeContentOq.plag.internetCheck")}
             </p>
