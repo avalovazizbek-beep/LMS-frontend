@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { ArrowUpRight, Bot, Mic, MicOff, Send, Sparkles, Trash2, Volume2, VolumeX, X } from "lucide-react"
-import { assistantApi } from "@/lib/api"
+import { assistantApi, assistantStream } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { setVoiceLang, speak, stopSpeaking } from "@/lib/voiceAssist"
 
@@ -20,6 +20,8 @@ interface Msg {
   pageTitle?: string | null
   opened?: boolean
   error?: boolean
+  /** Model hali yozyapti (oqim) */
+  streaming?: boolean
 }
 
 const STORE_KEY = "lms_assistant_chat"
@@ -75,7 +77,7 @@ export function TeacherAssistant() {
         setNotReady(res.ready === false ? (res.reason ?? "") : null)
         try {
           const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) || "[]") as Msg[]
-          if (Array.isArray(saved)) setMsgs(saved.slice(-40))
+          if (Array.isArray(saved)) setMsgs(saved.slice(-40).map(m => ({ ...m, streaming: false })))
           setSpeakOn(localStorage.getItem(SPEAK_KEY) === "on")
         } catch { /* storage yopiq */ }
       })
@@ -112,16 +114,27 @@ export function TeacherAssistant() {
     // Oldingi javobda taklif qilingan sahifa — "och" / "ha" / "tushuntir" shunga tegishli
     const lastPage = [...msgsRef.current].reverse().find(m => m.role === "assistant" && m.page)?.page ?? null
     try {
-      const res = await assistantApi.chat({
+      // Javob so'zma-so'z keladi: birinchi bo'lak kelganda xabar paydo bo'ladi va to'lib boradi
+      let draft = ""
+      const a = await assistantStream({
         messages: history.filter(m => !m.error).slice(-12).map(m => ({ role: m.role, content: m.content })),
         page: pathname, lastPage, lang,
+      }, (piece) => {
+        const first = draft === ""
+        draft += piece
+        const shown = draft.replace(/\*\*/g, "").replace(/^#{1,6}\s*/gm, "")
+        setMsgs(prev => first
+          ? [...prev, { role: "assistant", content: shown, streaming: true }]
+          : prev.map((m, i) => (i === prev.length - 1 && m.streaming ? { ...m, content: shown } : m)))
       })
-      const a = res.data
-      setMsgs(prev => [...prev, { role: "assistant", content: a.reply, page: a.page, pageTitle: a.pageTitle, opened: a.openNow }])
+      const final: Msg = { role: "assistant", content: a.reply, page: a.page, pageTitle: a.pageTitle, opened: a.openNow }
+      setMsgs(prev => (prev[prev.length - 1]?.streaming ? [...prev.slice(0, -1), final] : [...prev, final]))
       if (speakOn || viaVoice) { setVoiceLang(lang); speak(a.reply.slice(0, 900), { force: true }) }
       if (a.openNow && a.page) router.push(a.page)
     } catch (e) {
-      setMsgs(prev => [...prev, { role: "assistant", content: e instanceof Error ? e.message : t("assistant.error"), error: true }])
+      const failed: Msg = { role: "assistant", content: e instanceof Error ? e.message : t("assistant.error"), error: true }
+      // Yarim yozilgan javob qolsa — o'chirmaymiz, tagiga xato chiqadi
+      setMsgs(prev => [...prev.map(m => (m.streaming ? { ...m, streaming: false } : m)), failed])
     } finally {
       setBusy(false)
     }
@@ -181,7 +194,7 @@ export function TeacherAssistant() {
       )}
 
       {open && (
-        <section role="dialog" aria-label={t("assistant.title")}
+        <section role="dialog" aria-label={t("assistant.title")} data-busy={busy}
           className="fixed bottom-0 right-0 z-[4500] flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--lms-cell)] shadow-2xl sm:bottom-5 sm:right-5 sm:h-[min(640px,calc(100dvh-40px))] sm:w-[400px] sm:rounded-2xl"
           style={{ ...font, border: "1px solid var(--lms-border)" }}>
           <header className="flex items-center gap-2.5 px-4 py-3 text-white" style={{ background: "linear-gradient(135deg, #0e58a8, #1cc2dc)" }}>
@@ -242,7 +255,7 @@ export function TeacherAssistant() {
                 )}
               </div>
             ))}
-            {busy && (
+            {busy && !msgs[msgs.length - 1]?.streaming && (
               <div className="flex items-center gap-1.5 self-start rounded-2xl px-4 py-3" style={{ backgroundColor: "var(--lms-bg)", border: "1px solid var(--lms-border)" }} role="status" aria-label={t("assistant.thinking")}>
                 {[0, 1, 2].map(i => <span key={i} className="h-2 w-2 animate-bounce rounded-full" style={{ backgroundColor: "#7293b9", animationDelay: `${i * 0.15}s` }} />)}
               </div>

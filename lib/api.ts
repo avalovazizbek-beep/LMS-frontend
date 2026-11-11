@@ -993,6 +993,51 @@ export const assistantApi = {
     post<{ success: boolean; data: AssistantAnswer }>("/api/assistant/chat", body),
 }
 
+/**
+ * Yordamchiga savol — javob oqim bilan (so'zma-so'z) keladi: model serverda
+ * protsessorda sekin yozadi, o'qituvchi kutib o'tirmasin.
+ * onDelta — model yozgan navbatdagi bo'lak; natija — yakuniy (tozalangan) javob.
+ */
+export async function assistantStream(
+  body: { messages: { role: "user" | "assistant"; content: string }[]; page: string; lastPage: string | null; lang: string },
+  onDelta: (text: string) => void,
+): Promise<AssistantAnswer> {
+  const token = getToken()
+  const res = await fetch(`${BASE}/api/assistant/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ ...body, stream: true }),
+  })
+  if (!res.ok || !res.body) {
+    const data = await res.json().catch(() => null) as { message?: string } | null
+    throw new Error(data?.message || tr("assistant.error"))
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let answer: AssistantAnswer | null = null
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let nl: number
+    while ((nl = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, nl).trim()
+      buffer = buffer.slice(nl + 1)
+      if (!line) continue
+      let event: { type?: string; text?: string; message?: string } & Partial<AssistantAnswer>
+      try { event = JSON.parse(line) } catch { continue }
+      if (event.type === "delta" && event.text) onDelta(event.text)
+      else if (event.type === "error") throw new Error(event.message || tr("assistant.error"))
+      else if (event.type === "done") {
+        answer = { reply: event.reply ?? "", page: event.page ?? null, pageTitle: event.pageTitle ?? null, openNow: event.openNow === true }
+      }
+    }
+  }
+  if (!answer) throw new Error(tr("assistant.error"))
+  return answer
+}
+
 /** Maxsus ehtiyojli talaba uchun test moslamalari (admin belgilaydi) */
 export interface AccessibilityProfile {
   enabled: boolean
