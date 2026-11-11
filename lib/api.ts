@@ -1792,9 +1792,21 @@ export interface PlagiarismResult {
   maxSimilarityPct: number
   matchedSubmissionId: number | null
   matchedStudentName: string | null
+  /** Eng o'xshash ish boshqa guruhda bo'lsa — o'sha guruh nomi */
+  matchedGroupName?: string | null
+  /** Matn qayerdan olindi: fayldan / rasm-skanerdan o'qildi (OCR) / o'qib bo'lmadi */
+  textSource?: "text" | "ocr" | "none"
+  wordCount?: number
   internetEnabled: boolean
   internetMatches: PlagiarismInternetMatch[]
   checkedAt: string
+  /** AI tavsiya: mavzuga moslik va 100 ballik tavsiya baho (fonda tayyorlanadi) */
+  ai?: {
+    status: "pending" | "done" | "no_text" | "failed"
+    relevance: number | null
+    grade: number | null
+    comment: string | null
+  } | null
 }
 
 function buildParams(input: Record<string, string | number | null | undefined>): Record<string, string> {

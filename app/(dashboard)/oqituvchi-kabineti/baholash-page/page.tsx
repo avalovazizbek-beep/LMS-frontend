@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, useCallback } from "react"
+import { PlagAiBadge, PlagExtraDetails, usePlagAiPolling } from "@/components/teaching/PlagiarismExtras"
 import { useSearchParams } from "next/navigation"
 import { ChevronLeft, FileText, Download, CheckCircle, Lock, AlertCircle, ShieldAlert, ExternalLink } from "lucide-react"
 import {
@@ -82,6 +83,8 @@ function SubmissionsList({
   // Antiplagiat — talaba-talaba o'xshashlik + (sozlangan bo'lsa) internet tekshiruvi
   const { data: plagData, refetch: refetchPlag } = useApi(() => teachingApi.plagiarismResults(content.id), [content.id])
   const plagByStudent = new Map((plagData?.data ?? []).map(p => [p.studentUserId, p]))
+  // AI tavsiya fonda tayyorlanadi — kutilayotgani bo'lsa natijalar o'zi yangilanadi
+  usePlagAiPolling(plagData?.data, refetchPlag)
   const [plagChecking, setPlagChecking] = useState(false)
   const [plagError, setPlagError] = useState<string | null>(null)
   const [openPlagFor, setOpenPlagFor] = useState<number | null>(null)
@@ -285,6 +288,8 @@ function SubmissionsList({
                           {t("plag.short", { pct: plag.maxSimilarityPct })}{plag.internetMatches.length > 0 ? " · web" : ""}
                         </button>
                       )}
+                      {/* Rasmdan o'qilgan / o'qilmagan belgisi va AI tavsiya bahosi */}
+                      {plag && <PlagAiBadge result={plag} onClick={() => setOpenPlagFor(openPlagFor === sub.id ? null : sub.id)} />}
                       {(isGraded || isSavedNow) && (
                         <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
                           <CheckCircle className="w-3.5 h-3.5" />
@@ -300,6 +305,7 @@ function SubmissionsList({
                       <p className="text-xs" style={L}>
                         {plag.matchedStudentName ? t("typeContentOq.plag.mostSimilar", { name: plag.matchedStudentName }) : t("typeContentOq.plag.noSimilar")}
                       </p>
+                      <PlagExtraDetails result={plag} />
                       {!plag.internetEnabled ? (
                         <p className="text-xs" style={{ color: "#92400e", fontFamily: "var(--font-poppins)" }}>
                           {t("plag.noApiKeyShort")}

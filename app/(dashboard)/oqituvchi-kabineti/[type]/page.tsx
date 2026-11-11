@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { PlagAiBadge, PlagExtraDetails, usePlagAiPolling } from "@/components/teaching/PlagiarismExtras"
 import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
 import {
@@ -2568,6 +2569,8 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
     [content.id, isPlagiarismCheckable]
   )
   const plagByStudent = new Map((plagData?.data ?? []).map(p => [p.studentUserId, p]))
+  // AI tavsiya fonda tayyorlanadi — kutilayotgani bo'lsa natijalar o'zi yangilanadi
+  usePlagAiPolling(plagData?.data, refetchPlag)
   const [plagChecking, setPlagChecking] = useState(false)
   const [plagError, setPlagError] = useState<string | null>(null)
   const [plagDetail, setPlagDetail] = useState<{ studentName: string; result: PlagiarismResult } | null>(null)
@@ -2625,6 +2628,9 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
               {result.matchedStudentName ? t("typeContentOq.plag.mostSimilar", { name: result.matchedStudentName }) : t("typeContentOq.plag.noSimilar")}
             </p>
           </div>
+
+          {/* Matn manbai (rasmdan o'qilgan / o'qilmagan), boshqa guruh, AI tavsiya */}
+          <PlagExtraDetails result={plagByStudent.get(result.studentUserId) ?? result} />
 
           <div className="rounded-[10px] p-4" style={{ backgroundColor: "#f6f9ff" }}>
             <p className="text-sm font-semibold" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
@@ -2745,7 +2751,7 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                             if (!p) return <span className="text-xs" style={{ color: "#94a3b8", fontFamily: "var(--font-poppins)" }}>—</span>
                             const hot = p.maxSimilarityPct >= 50 || p.internetMatches.length > 0
                             const warm = p.maxSimilarityPct >= 20
-                            return (
+                            return (<span className="inline-flex flex-wrap items-center gap-1">
                               <button onClick={() => setPlagDetail({ studentName: sub.studentFullName, result: p })}
                                 className="text-xs font-semibold px-2 py-0.5 rounded-full transition-opacity hover:opacity-80"
                                 style={{
@@ -2755,7 +2761,8 @@ function GradingModal({ content, onClose, readOnly = false }: { content: Teacher
                                 }}>
                                 {p.maxSimilarityPct}%{p.internetMatches.length > 0 ? " · web" : ""}
                               </button>
-                            )
+                              <PlagAiBadge result={p} onClick={() => setPlagDetail({ studentName: sub.studentFullName, result: p })} />
+                            </span>)
                           })()}
                         </td>
                       )}
