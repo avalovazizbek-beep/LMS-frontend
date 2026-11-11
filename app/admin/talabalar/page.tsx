@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from "react"
 import {
   Users, UsersRound, RefreshCw, GraduationCap, ChevronLeft, ChevronRight, X, ScanFace,
   CircleCheck, CircleAlert, Send, Search, LayoutGrid, Gauge,
-  UserX, Lock, LockOpen, FileText, Pencil, CloudDownload,
+  UserX, Lock, LockOpen, FileText, Pencil, CloudDownload, Accessibility,
 } from "lucide-react"
 import { adminApi, type StudentFaceRow, type CancelledStudentRow, type CancelledStudentsResponse } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { tr } from "@/lib/i18n/translations"
 import { motion, pageVariants } from "@/components/ui/motion"
 import { PersonAvatar } from "@/components/ui/PersonAvatar"
+import { AccessibilityStudentsSection } from "@/components/admin/AccessibilityStudentsSection"
 
 const PAGE_SIZE = 20
 
@@ -566,7 +567,7 @@ export default function AdminTalabalar() {
   const [search, setSearch] = useState("")
   const [selectedGroup, setSelectedGroup] = useState<GroupRow | null>(null)
   // "Chetlatilgan talabalar" tugmasi — guruhlar jadvali o'rniga alohida ro'yxat
-  const [view, setView] = useState<"groups" | "cancelled">("groups")
+  const [view, setView] = useState<"groups" | "cancelled" | "a11y">("groups")
   const [cancelledCount, setCancelledCount] = useState<number | null>(null)
 
   useEffect(() => {
@@ -659,7 +660,7 @@ export default function AdminTalabalar() {
       {/* Qidiruv va filtrlar — daraja avval tanlanadi, kurs ro'yxati shunga
           qarab o'zgaradi (Bakalavr va Magistr'ning kurslari har xil) */}
       <div className="adm-card flex flex-wrap items-center gap-3 p-3 sm:p-4">
-        {view === "cancelled" ? (
+        {view !== "groups" ? (
           <button onClick={() => setView("groups")}
             className="adm-btn-outline inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold">
             <ChevronLeft className="h-4 w-4" /> {t("adminStudents.byGroups")}
@@ -704,10 +705,18 @@ export default function AdminTalabalar() {
             </span>
           )}
         </button>
+        {/* Maxsus ehtiyojli (ko'zi ojiz / zaif ko'ruvchi) talabalar — test moslamalari */}
+        <button onClick={() => setView(v => v === "a11y" ? "groups" : "a11y")}
+          data-active={view === "a11y"} aria-pressed={view === "a11y"}
+          className="adm-chip inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold">
+          <Accessibility className="h-4 w-4" aria-hidden /> {t("a11y.adminButton")}
+        </button>
       </div>
 
       {view === "cancelled" ? (
         <CancelledStudentsSection onTotal={setCancelledCount} />
+      ) : view === "a11y" ? (
+        <AccessibilityStudentsSection />
       ) : error ? (
         <div className="adm-card p-6 text-sm" style={{ color: "var(--role-admin)" }}>{error}</div>
       ) : (

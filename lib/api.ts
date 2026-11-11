@@ -976,6 +976,36 @@ export interface StudentFaceRow {
   adminRequestPending: boolean
 }
 /** HEMIS'da "Bekor qilingan" masofaviy talaba va uning LMS'dagi bloki */
+/** Maxsus ehtiyojli talaba uchun test moslamalari (admin belgilaydi) */
+export interface AccessibilityProfile {
+  enabled: boolean
+  /** Test vaqti foizi: 200 = ikki barobar */
+  timePercent: number
+  skipFace: boolean
+  noTabLimit: boolean
+}
+
+export interface AccessibilityStudentRow {
+  studentUserId: number
+  fullName: string
+  studentIdNumber: string | null
+  groupName: string | null
+  timePercent: number
+  skipFace: boolean
+  noTabLimit: boolean
+  note: string | null
+  createdByName: string | null
+  createdAt: string
+}
+
+export interface AccessibilityCandidate {
+  studentUserId: number
+  fullName: string
+  studentIdNumber: string | null
+  groupName: string | null
+  marked: boolean
+}
+
 export interface CancelledStudentRow {
   studentIdNumber: string
   hemisId: number | null
@@ -1721,7 +1751,7 @@ export const teachingApi = {
   groupsByYear: (year: string) => get<ListRes<TeacherGroup>>(`/api/teaching/groups-by-year?year=${encodeURIComponent(year)}`),
 
   examSettings: () =>
-    get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null; attendanceMode: "auto" | "manual"; facePracticeRequired?: boolean; faceTerminate?: boolean; tabLeaveLimit?: number } }>("/api/teaching/exam-settings"),
+    get<{ success: boolean; data: { faceBlockThreshold: number; testMaxAttempts: number | null; attendanceMode: "auto" | "manual"; facePracticeRequired?: boolean; faceTerminate?: boolean; tabLeaveLimit?: number; accessibility?: AccessibilityProfile } }>("/api/teaching/exam-settings"),
 
   sync: () =>
     post<{ success: boolean; message: string; data: { groups: TeacherGroup[]; schedule: TeacherScheduleItem[] } }>(
@@ -2937,6 +2967,21 @@ export const adminApi = {
   /** Bloklash / blokdan chiqarish, buyruq raqami-sanasi, izoh */
   updateCancelledStudent: (studentIdNumber: string, body: { blocked?: boolean; decreeNumber?: string | null; decreeDate?: string | null; note?: string | null }) =>
     put<{ success: boolean; student: CancelledStudentRow }>(`/api/admin/cancelled-students/${encodeURIComponent(studentIdNumber)}`, body),
+
+  /** Maxsus ehtiyojli (ko'zi ojiz / zaif ko'ruvchi) deb belgilangan talabalar */
+  accessibilityStudents: () =>
+    get<{ success: boolean; students: AccessibilityStudentRow[] }>("/api/admin/accessibility-students"),
+
+  /** Belgilash uchun talaba qidirish (ism yoki ID raqam, kamida 3 belgi) */
+  searchAccessibilityCandidates: (q: string) =>
+    get<{ success: boolean; students: AccessibilityCandidate[] }>(`/api/admin/accessibility-students/search?${new URLSearchParams({ q }).toString()}`),
+
+  /** Belgilash yoki sozlamani o'zgartirish */
+  saveAccessibilityStudent: (studentUserId: number, body: { timePercent?: number; skipFace?: boolean; noTabLimit?: boolean; note?: string | null }) =>
+    put<{ success: boolean; student: AccessibilityStudentRow }>(`/api/admin/accessibility-students/${studentUserId}`, body),
+
+  removeAccessibilityStudent: (studentUserId: number) =>
+    del<{ success: boolean }>(`/api/admin/accessibility-students/${studentUserId}`),
 
   /** Face ID'dan hali o'tmagan masofaviy talabalar, guruhi bilan, 20 talik sahifalash */
   notRegisteredFace: (params?: { limit?: number; offset?: number }) => {

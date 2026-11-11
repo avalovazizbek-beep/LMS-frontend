@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, type ComponentProps } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   Clock, ChevronLeft, ChevronRight, CheckCircle2, Flag,
@@ -15,6 +15,13 @@ import { isProctoredControlTest } from "@/lib/controlWork"
 import { FacePracticeNotice, FacePracticePassed, useFacePractice } from "@/components/teaching/FacePracticeNotice"
 
 type Phase = "intro" | "face_scan" | "exam" | "submitted_now"
+
+/* Maxsus ehtiyojli talabada (Face ID talab qilinmaydi) kamera umuman ochilmaydi —
+   savollar to'g'ridan-to'g'ri ko'rsatiladi; qolgan hammada odatdagi FaceProctor */
+function ProctorShell({ skip, children, ...props }: { skip: boolean } & ComponentProps<typeof FaceProctor>) {
+  if (skip) return <>{children}</>
+  return <FaceProctor {...props}>{children}</FaceProctor>
+}
 
 export default function ImtihonTopshirish() {
   const { t } = useLanguage()
@@ -39,12 +46,23 @@ export default function ImtihonTopshirish() {
   const { data: settingsRes } = useApi(() => teachingApi.examSettings(), [])
   const examSettings = settingsRes?.data ?? null
   const tabLimit = examSettings?.tabLeaveLimit && examSettings.tabLeaveLimit > 0 ? examSettings.tabLeaveLimit : 3
+  // Maxsus ehtiyojli talaba (admin belgilagan): qo'shimcha vaqt, Face ID'siz,
+  // oynadan chiqish chegarasisiz, to'liq ekransiz (ekran o'quvchi dastur bilan ishlash uchun)
+  const a11y = examSettings?.accessibility?.enabled ? examSettings.accessibility : null
+  const a11ySkipFace = a11y?.skipFace === true
+  const a11yNoTabLimit = a11y?.noTabLimit === true
+  const a11yRef = useRef({ enabled: false, noTabLimit: false })
+  a11yRef.current = { enabled: !!a11y, noTabLimit: a11yNoTabLimit }
+  const lastA11yBlurRef = useRef(0)
+  // Ekran o'quvchi uchun e'lonlar (aria-live): qolgan vaqt, tanlangan javob
+  const [announce, setAnnounce] = useState("")
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null)
 
   // Oraliq / mustaqil ish testidan oldin "Yuzni sinab ko'rish" demo testi
   const isControlTest = content ? isProctoredControlTest(content) : false
   const facePractice = useFacePractice(isControlTest)
-  const practiceGate = isControlTest && !facePractice.loading && !facePractice.passed
-  const practiceBlocks = isControlTest && (facePractice.loading || (practiceGate && facePractice.required))
+  const practiceGate = isControlTest && !a11ySkipFace && !facePractice.loading && !facePractice.passed
+  const practiceBlocks = isControlTest && !a11ySkipFace && (facePractice.loading || (practiceGate && facePractice.required))
 
   const [attemptKey, setAttemptKey]   = useState(0)
 
@@ -174,6 +192,16 @@ export default function ImtihonTopshirish() {
 
     // Ref orqali darhol DOM → React re-render'dan tezroq (Snipping Tool uchun kritik)
     function showHideOverlay(show: boolean) {
+      // Maxsus ehtiyojli talaba: ekran o'quvchi dasturning o'z oynalari (elementlar
+      // ro'yxati, sozlamalar) fokusni olib qo'yadi — savollar yopilmaydi, chiqish
+      // faqat qayd etiladi (ko'pi bilan 10 soniyada bir marta)
+      if (a11yRef.current.noTabLimit) {
+        if (show && Date.now() - lastA11yBlurRef.current > 10_000) {
+          lastA11yBlurRef.current = Date.now()
+          teachingApi.reportViolation(id, "tab_blur").catch(() => {})
+        }
+        return
+      }
       const el = contentHideRef.current
       if (el) el.style.display = show ? "flex" : "none"
       // React state ham yangilanadi (qaytish tugmasi uchun)
@@ -258,7 +286,8 @@ export default function ImtihonTopshirish() {
       }
       if (e.altKey && (e.key === "Tab" || e.key === "F4")) { e.preventDefault(); e.stopPropagation(); return }
     }
-    const blockMenu = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation() }
+    // Maxsus ehtiyojli talabada kontekst menyu bloklanmaydi (klaviaturadagi menyu tugmasi)
+    const blockMenu = (e: MouseEvent) => { if (a11yRef.current.enabled) return; e.preventDefault(); e.stopPropagation() }
     window.addEventListener("keydown", blockKey, { capture: true })
     document.addEventListener("contextmenu", blockMenu, { capture: true })
     return () => {
@@ -275,14 +304,17 @@ export default function ImtihonTopshirish() {
     setFlagged(new Set())
     setSubmitError(null)
     setResult(null)
-    setTimeLeft(content?.durationMinutes ? content.durationMinutes * 60 : null)
+    setTimeLeft(content?.durationMinutes ? Math.round(content.durationMinutes * 60 * (a11y?.timePercent ?? 100) / 100) : null)
     setFsExited(false)
     setWinHidden(false)
     setTabEnded(false)
     setTabLeaves(0)
     leftOutRef.current = false
-    requestFS()
-    setPhase("face_scan")
+    setAnnounce("")
+    // Ekran o'quvchi bilan to'liq ekran noqulay: Escape (NVDA fokus rejimidan
+    // chiqish) to'liq ekrandan ham chiqarib, savollarni yopib qo'yardi
+    if (!a11y) requestFS()
+    setPhase(a11ySkipFace ? "exam" : "face_scan")
   }
 
   function handleFirstVerified() {
@@ -400,6 +432,21 @@ export default function ImtihonTopshirish() {
     const t = setInterval(() => setTimeLeft(v => (v === null ? null : v - 1)), 1000)
     return () => clearInterval(t)
   }, [phase, timeLeft, handleSubmit])
+
+  /* Ekran o'quvchi: qolgan vaqt 10, 5 va 1 daqiqada ovoz chiqarib aytiladi */
+  useEffect(() => {
+    if (phase !== "exam" || timeLeft === null) return
+    if (timeLeft === 600 || timeLeft === 300 || timeLeft === 60) setAnnounce(t("a11y.exam.timeLeftMin", { n: timeLeft / 60 }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, timeLeft])
+
+  /* Maxsus ehtiyojli talaba: savol almashganda fokus savol sarlavhasiga o'tadi —
+     ekran o'quvchi yangi savolni o'zi o'qiydi */
+  useEffect(() => {
+    if (phase !== "exam" || !a11yRef.current.enabled) return
+    const timer = setTimeout(() => questionHeadingRef.current?.focus(), 50)
+    return () => clearTimeout(timer)
+  }, [phase, current, questions.length, adaptiveQuestion?.id])
 
   /* ── Umumiy hisob ─────────────────────────────────────────────────── */
   const mm            = timeLeft != null ? String(Math.floor(timeLeft / 60)).padStart(2, "0") : null
@@ -604,17 +651,19 @@ export default function ImtihonTopshirish() {
                   : content.questionCount}
               </strong></span>
             )}
-            {content.durationMinutes != null && <span>{t("examTake.duration")} <strong>{t("examTake.minutes", { n: content.durationMinutes })}</strong></span>}
+            {content.durationMinutes != null && <span>{t("examTake.duration")} <strong>{t("examTake.minutes", { n: Math.round(content.durationMinutes * (a11y?.timePercent ?? 100) / 100) })}</strong></span>}
             {content.maxScore != null && <span>{t("examTake.maxScore")} <strong>{content.maxScore}</strong></span>}
             {maxAttempts !== null && <span>{t("examTake.attemptsTimes")} <strong>{t("examTake.timesUnit", { n: maxAttempts })}</strong></span>}
           </div>
+          {!a11y && (
           <div className="mt-4 px-4 py-3 rounded-[8px] text-sm"
             style={{ backgroundColor: "#f0f5ff", border: "1px solid rgba(14,88,168,0.15)" }}>
             <p style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)", margin: 0 }}>
               {t("examTake.fullscreenNotice")}
             </p>
           </div>
-          {!isAdaptive && (
+          )}
+          {!isAdaptive && !a11yNoTabLimit && (
             <div className="mt-3 px-4 py-3 rounded-[8px] text-sm text-left"
               style={{ backgroundColor: "#fef2f2", border: "1px solid rgba(185,28,28,0.2)" }}>
               <p style={{ color: "#b91c1c", fontFamily: "var(--font-poppins)", margin: 0 }}>
@@ -622,17 +671,30 @@ export default function ImtihonTopshirish() {
               </p>
             </div>
           )}
+          {!a11ySkipFace && (
           <div className="mt-3 px-4 py-3 rounded-[8px] text-sm text-left"
             style={{ backgroundColor: "#fff7ed", border: "1px solid rgba(234,88,12,0.25)" }}>
             <p style={{ color: "#9a3412", fontFamily: "var(--font-poppins)", margin: 0 }}>
               {t("examTake.cameraTips")}
             </p>
           </div>
+          )}
+          {a11y && (
+            <div role="note" className="mt-3 px-4 py-3 rounded-[8px] text-sm text-left"
+              style={{ backgroundColor: "#f0fdf4", border: "1px solid rgba(21,128,61,0.3)" }}>
+              <p style={{ color: "#14532d", fontFamily: "var(--font-poppins)", margin: 0 }}>
+                {t("a11y.exam.notice", { x: a11y.timePercent / 100 })}
+                {a11ySkipFace ? ` ${t("a11y.exam.noFace")}` : ""}
+                {a11yNoTabLimit ? ` ${t("a11y.exam.noTab")}` : ""}
+              </p>
+              <p style={{ color: "#14532d", fontFamily: "var(--font-poppins)", margin: "6px 0 0" }}>{t("a11y.exam.keys")}</p>
+            </div>
+          )}
           {/* Oraliq / mustaqil ish: avval yuz sinovi (sinovdan o'tgan bo'lsa — belgi) */}
           {practiceGate && (
             <div className="mt-3"><FacePracticeNotice back={`/imtihonlar/${id}`} required={facePractice.required} /></div>
           )}
-          {isControlTest && facePractice.passed && !facePractice.loading && (
+          {isControlTest && !a11ySkipFace && facePractice.passed && !facePractice.loading && (
             <div className="mt-3"><FacePracticePassed /></div>
           )}
           {!practiceBlocks && (
@@ -755,7 +817,11 @@ export default function ImtihonTopshirish() {
       </div>
 
       {/* === FaceProctor (katta, fixed top-right) === */}
-      <FaceProctor
+      {/* Ekran o'quvchi uchun e'lonlar (ko'rinmaydi) */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announce}</div>
+
+      <ProctorShell
+        skip={a11ySkipFace}
         key={attemptKey}
         fixed
         onFirstVerified={handleFirstVerified}
@@ -824,17 +890,17 @@ export default function ImtihonTopshirish() {
                       backgroundColor: isLow ? "#fff0f0" : "#f0f5ff",
                       border: `1px solid ${isLow ? "rgba(239,68,68,0.3)" : "rgba(14,88,168,0.15)"}`,
                     }}>
-                      <Clock className="w-4 h-4" style={{ color: isLow ? "#ef4444" : "#0e58a8" }} />
-                      <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 15, color: isLow ? "#ef4444" : "#0e58a8" }}>
+                      <Clock className="w-4 h-4" aria-hidden style={{ color: isLow ? "#ef4444" : "#0e58a8" }} />
+                      <span role="timer" aria-label={t("a11y.exam.timer")} style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 15, color: isLow ? "#b91c1c" : "#0e58a8" }}>
                         {mm}:{ss}
                       </span>
                     </div>
                   )}
                 </div>
 
-                <p style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 15, fontWeight: 500, margin: "4px 0 0", lineHeight: 1.55 }}>
+                <h2 id="exam-question-text" ref={questionHeadingRef} tabIndex={-1} className="exam-qhead" style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 15, fontWeight: 500, margin: "4px 0 0", lineHeight: 1.55 }}>
                   {adaptiveQuestion.questionText}
-                </p>
+                </h2>
                 {adaptiveQuestion.imageUrl && (
                   <img
                     src={adaptiveQuestion.imageUrl.startsWith("/api/") ? teachingApi.fileUrl(adaptiveQuestion.imageUrl) : adaptiveQuestion.imageUrl}
@@ -843,28 +909,29 @@ export default function ImtihonTopshirish() {
                   />
                 )}
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
+                <div role="radiogroup" aria-labelledby="exam-question-text" style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
                   {(adaptiveQuestion.optionPerm ?? adaptiveQuestion.options.map((_, i) => i)).map((origIdx, shuffledPos) => {
                     const opt = adaptiveQuestion.options[origIdx]
                     const optImg = adaptiveQuestion.optionImages?.[origIdx] ?? null
                     const isSelected = adaptiveSelected === origIdx
                     return (
-                      <label key={shuffledPos} style={{
+                      <label key={shuffledPos} className="exam-opt" style={{ position: "relative",
                         display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px",
                         borderRadius: 8, cursor: "pointer",
                         border: `1.5px solid ${isSelected ? "#1cc2dc" : "rgba(1,41,112,0.1)"}`,
                         backgroundColor: isSelected ? "rgba(28,194,220,0.05)" : "#fff",
                         transition: "all 0.12s",
                       }}>
-                        <div style={{
+                        <div aria-hidden style={{
                           width: 20, height: 20, borderRadius: "50%", flexShrink: 0, marginTop: 2,
                           display: "flex", alignItems: "center", justifyContent: "center",
                           border: `2px solid ${isSelected ? "#1cc2dc" : "rgba(1,41,112,0.2)"}`,
                         }}>
                           {isSelected && <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#1cc2dc" }} />}
                         </div>
-                        <input type="radio" style={{ display: "none" }} checked={isSelected}
-                          onChange={() => setAdaptiveSelected(origIdx)} />
+                        <input type="radio" name={`aq-${adaptiveQuestion.id}`} style={{ position: "absolute", width: 1, height: 1, margin: -1, padding: 0, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 }} checked={isSelected}
+                          aria-label={`${t("a11y.exam.optionN", { n: shuffledPos + 1 })}: ${opt}`}
+                          onChange={() => { setAdaptiveSelected(origIdx); setAnnounce(t("a11y.exam.answerSaved", { n: shuffledPos + 1 })) }} />
                         <div style={{ flex: 1 }}>
                           <span style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 14, lineHeight: 1.5 }}>{opt}</span>
                           {optImg && (
@@ -931,10 +998,14 @@ export default function ImtihonTopshirish() {
                   backgroundColor: isLow ? "#fff0f0" : "#f0f5ff",
                   border: `1px solid ${isLow ? "rgba(239,68,68,0.3)" : "rgba(14,88,168,0.15)"}`,
                 }}>
-                  <Clock className="w-4 h-4" style={{ color: isLow ? "#ef4444" : "#0e58a8" }} />
-                  <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 15, color: isLow ? "#ef4444" : "#0e58a8" }}>
+                  <Clock className="w-4 h-4" aria-hidden style={{ color: isLow ? "#ef4444" : "#0e58a8" }} />
+                  <span role="timer" aria-label={t("a11y.exam.timer")} style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 15, color: isLow ? "#b91c1c" : "#0e58a8" }}>
                     {mm}:{ss}
                   </span>
+                  <button type="button" className="sr-only exam-focus"
+                    onClick={() => setAnnounce(`${t("a11y.exam.timer")}: ${t("a11y.exam.timeLeftMin", { n: Math.max(1, Math.ceil((timeLeft ?? 0) / 60)) })}`)}>
+                    {t("a11y.exam.sayTime")}
+                  </button>
                 </div>
               )}
             </div>
@@ -954,13 +1025,16 @@ export default function ImtihonTopshirish() {
                 <p style={{ fontSize: 11, fontWeight: 600, color: "#7293b9", margin: "0 0 8px", fontFamily: "var(--font-poppins)" }}>
                   {t("examTake.questionsHeading")}
                 </p>
-                <div style={
+                <div role="group" aria-label={t("a11y.exam.navLabel")} style={
                   isMobile
                     ? { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }
                     : { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }
                 }>
                   {questions.map((_, i) => (
-                    <button key={i} onClick={() => setCurrent(i)} style={{
+                    <button key={i} onClick={() => setCurrent(i)} className="exam-focus"
+                      aria-current={i === current ? "true" : undefined}
+                      aria-label={`${t("a11y.exam.qBtn", { n: i + 1 })}, ${answers[i] !== undefined ? t("a11y.exam.qAnswered") : t("a11y.exam.qUnanswered")}${flagged.has(i) ? `, ${t("a11y.exam.qFlagged")}` : ""}`}
+                      style={{
                       width: 36, height: 36, borderRadius: 6, fontSize: 11, fontWeight: 700,
                       cursor: "pointer", fontFamily: "var(--font-poppins)", flexShrink: 0,
                       backgroundColor:
@@ -982,7 +1056,7 @@ export default function ImtihonTopshirish() {
 
                 {/* Izoh — mobilda joy tejash uchun yashiriladi */}
                 {!isMobile && (
-                  <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div aria-hidden style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
                     {[
                       { color: "#0e58a8", bg: "#f0f5ff", label: t("examTake.legend.current") },
                       { color: "#1cc2dc", bg: "#f0fbfd", label: t("examTake.legend.answered") },
@@ -1028,11 +1102,12 @@ export default function ImtihonTopshirish() {
                           width: 32, height: 32, borderRadius: "50%",
                           backgroundColor: "#0e58a8", color: "#fff",
                           fontSize: 13, fontWeight: 700, flexShrink: 0, fontFamily: "var(--font-poppins)",
-                        }}>{current + 1}</span>
+                        }} aria-hidden>{current + 1}</span>
                         <div style={{ flex: 1 }}>
-                          <p style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 15, fontWeight: 500, margin: "4px 0 0", lineHeight: 1.55 }}>
+                          <h2 id="exam-question-text" ref={questionHeadingRef} tabIndex={-1} className="exam-qhead" style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 15, fontWeight: 500, margin: "4px 0 0", lineHeight: 1.55 }}>
+                            <span className="sr-only">{t("a11y.exam.questionOf", { n: current + 1, total: questions.length })}. </span>
                             {q.questionText}
-                          </p>
+                          </h2>
                           {q.imageUrl && (
                             <img
                               src={q.imageUrl.startsWith("/api/") ? teachingApi.fileUrl(q.imageUrl) : q.imageUrl}
@@ -1043,34 +1118,36 @@ export default function ImtihonTopshirish() {
                           )}
                         </div>
                       </div>
-                      <button onClick={toggleFlag} style={{ padding: 6, border: "none", background: "none", cursor: "pointer", borderRadius: 6 }}>
-                        <Flag className="w-4 h-4" style={{ color: flagged.has(current) ? "#f59e0b" : "#c4cfe0" }} />
+                      <button onClick={toggleFlag} className="exam-focus" aria-label={t("a11y.exam.flag")} aria-pressed={flagged.has(current)}
+                        style={{ padding: 6, border: "none", background: "none", cursor: "pointer", borderRadius: 6 }}>
+                        <Flag className="w-4 h-4" aria-hidden style={{ color: flagged.has(current) ? "#f59e0b" : "#c4cfe0" }} />
                       </button>
                     </div>
 
                     {/* Javob variantlari */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div role="radiogroup" aria-labelledby="exam-question-text" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {(q.optionPerm ?? q.options.map((_, i) => i)).map((origIdx, shuffledPos) => {
                         const opt        = q.options[origIdx]
                         const optImg     = q.optionImages?.[origIdx] ?? null
                         const isSelected = answers[current] === origIdx
                         return (
-                          <label key={shuffledPos} style={{
+                          <label key={shuffledPos} className="exam-opt" style={{ position: "relative",
                             display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px",
                             borderRadius: 8, cursor: "pointer",
                             border: `1.5px solid ${isSelected ? "#1cc2dc" : "rgba(1,41,112,0.1)"}`,
                             backgroundColor: isSelected ? "rgba(28,194,220,0.05)" : "#fff",
                             transition: "all 0.12s",
                           }}>
-                            <div style={{
+                            <div aria-hidden style={{
                               width: 20, height: 20, borderRadius: "50%", flexShrink: 0, marginTop: 2,
                               display: "flex", alignItems: "center", justifyContent: "center",
                               border: `2px solid ${isSelected ? "#1cc2dc" : "rgba(1,41,112,0.2)"}`,
                             }}>
                               {isSelected && <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#1cc2dc" }} />}
                             </div>
-                            <input type="radio" style={{ display: "none" }} checked={isSelected}
-                              onChange={() => setAnswers(a => ({ ...a, [current]: origIdx }))} />
+                            <input type="radio" name={`q-${current}`} style={{ position: "absolute", width: 1, height: 1, margin: -1, padding: 0, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 }} checked={isSelected}
+                              aria-label={`${t("a11y.exam.optionN", { n: shuffledPos + 1 })}: ${opt}`}
+                              onChange={() => { setAnswers(a => ({ ...a, [current]: origIdx })); setAnnounce(t("a11y.exam.answerSaved", { n: shuffledPos + 1 })) }} />
                             <div style={{ flex: 1 }}>
                               <span style={{ color: "#012970", fontFamily: "var(--font-poppins)", fontSize: 14, lineHeight: 1.5 }}>{opt}</span>
                               {optImg && (
@@ -1139,9 +1216,12 @@ export default function ImtihonTopshirish() {
             </div>
           </div>
         )}
-      </FaceProctor>
+      </ProctorShell>
 
       <style>{`
+        /* Javob varianti: klaviatura fokusi ko'rinib tursin (radio ko'rinmas, lekin fokus oladi) */
+        .exam-opt:focus-within { outline: 3px solid #0e58a8; outline-offset: 2px; }
+        .exam-focus:focus-visible, .exam-qhead:focus-visible { outline: 3px solid #0e58a8; outline-offset: 2px; }
         @keyframes examDotPulse {
           0%, 100% { opacity: 0.3; transform: scale(0.8); }
           50% { opacity: 1; transform: scale(1.1); }
