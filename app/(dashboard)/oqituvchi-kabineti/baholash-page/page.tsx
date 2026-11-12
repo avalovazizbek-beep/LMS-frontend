@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState, useCallback } from "react"
-import { PlagAiBadge, PlagExtraDetails, usePlagAiPolling } from "@/components/teaching/PlagiarismExtras"
+import { usePlagAiPolling } from "@/components/teaching/PlagiarismExtras"
+import { GradingCard } from "@/components/teaching/GradingCard"
 import { useSearchParams } from "next/navigation"
 import { ChevronLeft, FileText, Download, CheckCircle, Lock, AlertCircle, ShieldAlert, ExternalLink } from "lucide-react"
 import {
@@ -87,7 +88,6 @@ function SubmissionsList({
   usePlagAiPolling(plagData?.data, refetchPlag)
   const [plagChecking, setPlagChecking] = useState(false)
   const [plagError, setPlagError] = useState<string | null>(null)
-  const [openPlagFor, setOpenPlagFor] = useState<number | null>(null)
 
   async function runPlagCheck() {
     setPlagChecking(true)
@@ -128,6 +128,11 @@ function SubmissionsList({
       await teachingApi.grade(sub.id, { grade: gradeNum, feedback: feedback || undefined })
       setSaved(prev => ({ ...prev, [sub.id]: true }))
       refetch()
+      // Keyingi baholanmagan ish: ball maydoniga fokus (ro'yxat qayta tartiblangach)
+      setTimeout(() => {
+        const next = document.querySelector<HTMLInputElement>("input[data-grade-input]")
+        if (next) { next.scrollIntoView({ behavior: "smooth", block: "center" }); next.focus({ preventScroll: true }) }
+      }, 500)
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : t("natijalarOq.errorDefault"))
     } finally {
@@ -255,138 +260,22 @@ function SubmissionsList({
 
           <div className="flex flex-col gap-3">
             {submissions.map(sub => {
-              const isGraded = sub.grade !== null
-              const isSavedNow = saved[sub.id]
-              const isSaving = saving[sub.id]
-              const gradeVal = grades[sub.id] ?? (sub.grade !== null ? String(sub.grade) : "")
-              const feedbackVal = feedbacks[sub.id] ?? (sub.feedback ?? "")
-              const plag = plagByStudent.get(sub.studentUserId)
+              const locked = sub.grade !== null || !!saved[sub.id]
               return (
-                <div key={sub.id}
-                  className="rounded-[10px] bg-white p-4 flex flex-col gap-3"
-                  style={{
-                    border: `1px solid ${(isGraded || isSavedNow) ? "rgba(21,128,61,0.2)" : "rgba(1,41,112,0.1)"}`,
-                    boxShadow: "0px 0px 5px rgba(1,41,112,0.05)",
-                    opacity: isFinalized ? 0.8 : 1,
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div>
-                      <div className="text-sm font-semibold" style={T}>{sub.studentFullName}</div>
-                      <div className="text-xs mt-0.5" style={L}>{t("baholashPageOq.submittedAt", { date: fmtDate(sub.submittedAt) })}</div>
-                      {sub.comment && <div className="text-xs mt-1 italic" style={L}>"{sub.comment}"</div>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {plag && (
-                        <button onClick={() => setOpenPlagFor(openPlagFor === sub.id ? null : sub.id)}
-                          className="text-xs font-semibold px-2.5 py-1 rounded-full transition-opacity hover:opacity-80"
-                          style={{
-                            backgroundColor: plag.maxSimilarityPct >= 50 || plag.internetMatches.length > 0 ? "#fff0f0" : plag.maxSimilarityPct >= 20 ? "#fff8e6" : "#f0fdf4",
-                            color: plag.maxSimilarityPct >= 50 || plag.internetMatches.length > 0 ? "#b91c1c" : plag.maxSimilarityPct >= 20 ? "#92400e" : "#15803d",
-                            fontFamily: "var(--font-poppins)",
-                          }}>
-                          {t("plag.short", { pct: plag.maxSimilarityPct })}{plag.internetMatches.length > 0 ? " · web" : ""}
-                        </button>
-                      )}
-                      {/* Rasmdan o'qilgan / o'qilmagan belgisi va AI tavsiya bahosi */}
-                      {plag && <PlagAiBadge result={plag} onClick={() => setOpenPlagFor(openPlagFor === sub.id ? null : sub.id)} />}
-                      {(isGraded || isSavedNow) && (
-                        <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#f0fdf4", color: "#15803d", fontFamily: "var(--font-poppins)" }}>
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          {t("baholashPageOq.gradedBadge", { grade: sub.grade !== null ? sub.grade : gradeVal })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Antiplagiat tafsiloti */}
-                  {plag && openPlagFor === sub.id && (
-                    <div className="rounded-[8px] p-3 flex flex-col gap-2" style={{ backgroundColor: "#f6f9ff" }}>
-                      <p className="text-xs" style={L}>
-                        {plag.matchedStudentName ? t("typeContentOq.plag.mostSimilar", { name: plag.matchedStudentName }) : t("typeContentOq.plag.noSimilar")}
-                      </p>
-                      <PlagExtraDetails result={plag} />
-                      {/* Internet qidiruvi o'chirilgan (hozircha faqat saytdagi ishlar solishtiriladi) — blok chiqmaydi */}
-                      {!plag.internetEnabled ? null : plag.internetMatches.length === 0 ? (
-                        <p className="text-xs" style={{ color: "#15803d", fontFamily: "var(--font-poppins)" }}>{t("typeContentOq.plag.noInternetMatch")}</p>
-                      ) : (
-                        plag.internetMatches.map((m, i) => (
-                          <a key={i} href={m.link} target="_blank" rel="noreferrer"
-                            className="flex items-start gap-2 text-xs p-2 rounded-[6px] bg-white transition-colors hover:bg-[#eef4ff]"
-                            style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-                            <ExternalLink className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#0e58a8" }} />
-                            <div className="min-w-0">
-                              <p className="font-medium truncate" style={{ color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>{m.title || m.link}</p>
-                              <p className="mt-0.5" style={L}>{m.snippet}</p>
-                            </div>
-                          </a>
-                        ))
-                      )}
-                    </div>
-                  )}
-
-                  {/* File download */}
-                  {sub.file && (
-                    <a
-                      href={teachingApi.fileUrl(sub.file.url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2 px-3 py-2 rounded-[6px] text-xs font-medium w-fit hover:bg-[#f0f5ff] transition-colors"
-                      style={{ border: "1px solid rgba(14,88,168,0.25)", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      {sub.file.originalName}
-                      {sub.file.size > 0 && <span style={L}>· {fmtSize(sub.file.size)}</span>}
-                    </a>
-                  )}
-
-                  {/* Grade input — only for ungraded submissions (locked once saved) */}
-                  {!isGraded && !isSavedNow && (
-                    <div className="flex items-end gap-3 flex-wrap">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-medium" style={L}>
-                          {t("baholashPageOq.gradeLabel", { range: `(0–${maxScore})` })}
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          max={maxScore}
-                          value={gradeVal}
-                          onChange={e => setGrades(prev => ({ ...prev, [sub.id]: e.target.value }))}
-                          placeholder={t("baholashPageOq.gradePlaceholder")}
-                          className="w-24 px-3 py-2 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none bg-white"
-                          style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
-                        <label className="text-xs font-medium" style={L}>{t("baholashPageOq.feedbackLabel")}</label>
-                        <input
-                          type="text"
-                          value={feedbackVal}
-                          onChange={e => setFeedbacks(prev => ({ ...prev, [sub.id]: e.target.value }))}
-                          placeholder={t("baholashPageOq.feedbackPlaceholder")}
-                          className="w-full px-3 py-2 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none bg-white"
-                          style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}
-                        />
-                      </div>
-                      <button
-                        onClick={() => handleGrade(sub)}
-                        disabled={isSaving || !gradeVal}
-                        className="px-4 py-2 rounded-[8px] text-sm font-semibold text-white disabled:opacity-50 transition-colors"
-                        style={{ backgroundColor: "#0e58a8", fontFamily: "var(--font-poppins)" }}
-                      >
-                        {isSaving ? t("baholashPageOq.saving") : t("baholashPageOq.save")}
-                      </button>
-                    </div>
-                  )}
-                  {/* Locked grade display */}
-                  {(isGraded || isSavedNow) && (
-                    <div className="flex items-center gap-2 text-xs" style={L}>
-                      <Lock className="w-3 h-3" />
-                      {t("baholashPageOq.lockedGrade")}
-                    </div>
-                  )}
-                </div>
+                <GradingCard key={sub.id}
+                  sub={sub}
+                  plag={plagByStudent.get(sub.studentUserId)}
+                  maxScore={maxScore}
+                  gradeVal={grades[sub.id] ?? (sub.grade !== null ? String(sub.grade) : "")}
+                  feedbackVal={feedbacks[sub.id] ?? (sub.feedback ?? "")}
+                  onGrade={v => setGrades(prev => ({ ...prev, [sub.id]: v }))}
+                  onFeedback={v => setFeedbacks(prev => ({ ...prev, [sub.id]: v }))}
+                  onSave={() => handleGrade(sub)}
+                  saving={!!saving[sub.id]}
+                  locked={locked}
+                  dimmed={isFinalized}
+                  submittedText={t("baholashPageOq.submittedAt", { date: fmtDate(sub.submittedAt) })}
+                />
               )
             })}
           </div>
