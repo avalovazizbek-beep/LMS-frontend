@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { ArrowUpRight, Bot, Mic, MicOff, Send, Sparkles, Trash2, Volume2, VolumeX, X } from "lucide-react"
+import { ArrowUpRight, Bot, Ear, EarOff, Mic, MicOff, Send, Sparkles, Trash2, Volume2, VolumeX, X } from "lucide-react"
 import { assistantApi, assistantStream } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-import { setVoiceLang, speak, stopSpeaking } from "@/lib/voiceAssist"
+import { isSpeaking, setVoiceLang, speak, stopSpeaking } from "@/lib/voiceAssist"
 
 /* O'qituvchi yordamchisi (AI agent) — pastki o'ng burchakdagi tugma.
    Yozma yoki og'zaki savol: saytni tushuntiradi, so'ralsa sahifani ochadi,
@@ -26,13 +26,35 @@ interface Msg {
 
 const STORE_KEY = "lms_assistant_chat"
 const SPEAK_KEY = "lms_assistant_speak"
+const WAKE_KEY = "lms_assistant_wake"
+/** Chaqirilgandan keyin shuncha vaqt savollarni "yordamchi" demasdan ham eshitadi */
+const AWAKE_MS = 45_000
+
+function normSpeech(text: string): string {
+  return text.toLowerCase().replace(/[`´‘’ʻʼ]/g, "'").replace(/[.,!?]/g, " ").replace(/\s+/g, " ").trim()
+}
+
+/** "xayr", "ko'rishguncha", "bo'ldi rahmat" — oynani yopish */
+function isGoodbye(text: string): boolean {
+  const t = normSpeech(text)
+  return t.split(" ").length <= 4
+    && /^(xayr|hayr|xo'p xayr|mayli xayr|rahmat xayr|ko'rishguncha|korishguncha|sog' bo'l|bo'ldi rahmat|bo'ldi|yopil|yop|пока|до свидания|bye|goodbye)( |$)/.test(t)
+}
+
+/** "Salom yordamchi", "yordamchi", "hey yordamchi" — chaqiruv so'zi. Qaytaradi: undan keyingi gap ("" bo'lishi mumkin) yoki null */
+function afterWakeWord(text: string): string | null {
+  const t = normSpeech(text)
+  const m = t.match(/(?:^|\s)(?:(?:salom|assalom|assalomu alaykum|hey|allo|alo)\s+)?(yordamchi[a-z']*|помощник|assistant)(?:\s|$)/)
+  if (!m || m.index === undefined) return null
+  return t.slice(m.index + m[0].length).trim()
+}
 
 // Brauzerning nutqni matnga aylantirishi (Chrome / Edge) — tip e'lonlari standart lib'da yo'q
 interface SpeechRec {
   lang: string
   interimResults: boolean
   continuous: boolean
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null
+  onresult: ((e: { resultIndex?: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null
   onend: (() => void) | null
   onerror: ((e: { error: string }) => void) | null
   start: () => void
@@ -65,6 +87,13 @@ export function TeacherAssistant() {
   const msgsRef = useRef<Msg[]>([])
   msgsRef.current = msgs
   const canListen = speechRecCtor() !== null
+  // Ovoz bilan chaqirish: "Salom yordamchi" desa oyna ochiladi va savolni eshitadi
+  const [wakeOn, setWakeOn] = useState(false)
+  const [awake, setAwake] = useState(false)
+  const awakeUntilRef = useRef(0)
+  const openRef = useRef(false)
+  openRef.current = open
+  const sendRef = useRef<(text: string, viaVoice?: boolean) => void>(() => {})
 
   // Faqat ruxsat berilgan xodim
   useEffect(() => {
@@ -79,6 +108,7 @@ export function TeacherAssistant() {
           const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) || "[]") as Msg[]
           if (Array.isArray(saved)) setMsgs(saved.slice(-40).map(m => ({ ...m, streaming: false })))
           setSpeakOn(localStorage.getItem(SPEAK_KEY) === "on")
+          setWakeOn(localStorage.getItem(WAKE_KEY) === "on")
         } catch { /* storage yopiq */ }
       })
       .catch(() => undefined)
@@ -108,6 +138,16 @@ export function TeacherAssistant() {
     if (!question || busy) return
     setInput("")
     setMicError(null)
+    // "Xayr" — oyna yopiladi (serverga so'rov ketmaydi)
+    if (isGoodbye(question)) {
+      const bye = t("assistant.bye")
+      setMsgs(prev => [...prev, { role: "user", content: question }, { role: "assistant", content: bye }])
+      awakeUntilRef.current = 0
+      setAwake(false)
+      if (speakOn || viaVoice) { setVoiceLang(lang); speak(bye, { force: true }) }
+      setTimeout(() => setOpen(false), speakOn || viaVoice ? 1800 : 700)
+      return
+    }
     const history = [...msgsRef.current, { role: "user" as const, content: question }]
     setMsgs(history)
     setBusy(true)
@@ -137,10 +177,95 @@ export function TeacherAssistant() {
       setMsgs(prev => [...prev.map(m => (m.streaming ? { ...m, streaming: false } : m)), failed])
     } finally {
       setBusy(false)
+      // Ovoz bilan so'ralgan bo'lsa — javobdan keyin ham bir muddat eshitib turadi
+      if (viaVoice && wakeOn) { awakeUntilRef.current = Date.now() + AWAKE_MS; setAwake(true) }
     }
+  }
+  sendRef.current = (text, viaVoice) => { void send(text, viaVoice) }
+
+  // ── Ovoz bilan chaqirish: doimiy tinglash (faqat o'qituvchi o'zi yoqqanda) ──
+  useEffect(() => {
+    if (!enabled || !wakeOn) return
+    const Ctor = speechRecCtor()
+    if (!Ctor) return
+    let stopped = false
+    let rec: SpeechRec | null = null
+    let restart: ReturnType<typeof setTimeout> | null = null
+
+    const heard = (raw: string) => {
+      const text = raw.trim()
+      // O'z ovozini (javobni o'qiyotganini) savol deb qabul qilmasin
+      if (!text || isSpeaking()) return
+      const rest = afterWakeWord(text)
+      if (rest !== null) {
+        awakeUntilRef.current = Date.now() + AWAKE_MS
+        setAwake(true)
+        setOpen(true)
+        if (rest.split(" ").length >= 2) sendRef.current(rest, true)
+        else { setVoiceLang(lang); speak(t("assistant.hearing"), { force: true }) }
+        return
+      }
+      // Chaqirilgan va oyna ochiq — keyingi gaplar savol hisoblanadi
+      if (openRef.current && Date.now() < awakeUntilRef.current) {
+        awakeUntilRef.current = Date.now() + AWAKE_MS
+        sendRef.current(text, true)
+      }
+    }
+
+    const start = () => {
+      if (stopped) return
+      rec = new Ctor()
+      rec.lang = REC_LANG[lang] ?? "uz-UZ"
+      rec.continuous = true
+      rec.interimResults = false
+      rec.onresult = (e) => {
+        for (let i = e.resultIndex ?? 0; i < e.results.length; i++) {
+          if (e.results[i].isFinal) heard(e.results[i][0].transcript)
+        }
+      }
+      rec.onerror = (e) => {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          stopped = true
+          setWakeOn(false)
+          try { localStorage.setItem(WAKE_KEY, "off") } catch { /* storage yopiq */ }
+          setMicError(t("assistant.micDenied"))
+        }
+      }
+      // Brauzer tinglashni o'zi to'xtatib turadi (jimlik, tarmoq) — qayta boshlanadi
+      rec.onend = () => { if (!stopped) restart = setTimeout(start, 400) }
+      try { rec.start() } catch { restart = setTimeout(start, 1500) }
+    }
+    start()
+    const tick = setInterval(() => setAwake(Date.now() < awakeUntilRef.current), 2000)
+    return () => {
+      stopped = true
+      if (restart) clearTimeout(restart)
+      clearInterval(tick)
+      try { rec?.stop() } catch { /* allaqachon to'xtagan */ }
+      setAwake(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, wakeOn, lang])
+
+  function toggleWake() {
+    const next = !wakeOn
+    setWakeOn(next)
+    setMicError(null)
+    try { localStorage.setItem(WAKE_KEY, next ? "on" : "off") } catch { /* storage yopiq */ }
+    if (next) { setVoiceLang(lang); speak(t("assistant.wakeEnabled"), { force: true }) }
+    else { awakeUntilRef.current = 0; setAwake(false) }
   }
 
   function toggleMic() {
+    // Ovoz bilan chaqirish yoqilgan: alohida tinglagich ochilmaydi (ikkitasi bir-biriga
+    // xalaqit beradi) — shunchaki "uyg'onadi" yoki uxlaydi
+    if (wakeOn) {
+      const on = Date.now() < awakeUntilRef.current
+      awakeUntilRef.current = on ? 0 : Date.now() + AWAKE_MS
+      setAwake(!on)
+      if (!on) stopSpeaking()
+      return
+    }
     if (listening) { recRef.current?.stop(); return }
     const Ctor = speechRecCtor()
     if (!Ctor) return
@@ -179,6 +304,7 @@ export function TeacherAssistant() {
 
   if (!enabled) return null
 
+  const hearing = listening || awake
   const suggestions = [t("assistant.s1"), t("assistant.s2"), t("assistant.s3"), t("assistant.s4")]
   const font = { fontFamily: "var(--font-poppins)" }
 
@@ -190,6 +316,7 @@ export function TeacherAssistant() {
           style={{ ...font, background: "linear-gradient(135deg, #0e58a8, #1cc2dc)" }}>
           <Bot className="h-5 w-5" aria-hidden />
           <span className="hidden sm:inline">{t("assistant.button")}</span>
+          {wakeOn && <span title={t("assistant.wakeHint")} className="flex"><Ear className="h-4 w-4 opacity-90" aria-hidden /></span>}
         </button>
       )}
 
@@ -203,6 +330,12 @@ export function TeacherAssistant() {
               <h2 className="text-[15px] font-semibold leading-tight">{t("assistant.title")}</h2>
               <p className="truncate text-[11px] opacity-85">{t("assistant.subtitle")}</p>
             </div>
+            {canListen && (
+              <button type="button" onClick={toggleWake} aria-pressed={wakeOn} aria-label={wakeOn ? t("assistant.wakeOff") : t("assistant.wakeOn")}
+                title={wakeOn ? t("assistant.wakeOff") : t("assistant.wakeOn")} className="rounded-full p-2 hover:bg-white/20">
+                {wakeOn ? <Ear className="h-4 w-4" aria-hidden /> : <EarOff className="h-4 w-4" aria-hidden />}
+              </button>
+            )}
             <button type="button" onClick={toggleSpeak} aria-pressed={speakOn} aria-label={speakOn ? t("assistant.speakOff") : t("assistant.speakOn")}
               title={speakOn ? t("assistant.speakOff") : t("assistant.speakOn")} className="rounded-full p-2 hover:bg-white/20">
               {speakOn ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />}
@@ -266,15 +399,15 @@ export function TeacherAssistant() {
           <form onSubmit={e => { e.preventDefault(); void send(input) }} className="flex items-end gap-2 px-3 py-3" style={{ borderTop: "1px solid var(--lms-border)" }}>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} rows={1} maxLength={2000}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(input) } }}
-              placeholder={listening ? t("assistant.listening") : t("assistant.placeholder")} aria-label={t("assistant.placeholder")}
+              placeholder={hearing ? t("assistant.listening") : wakeOn ? t("assistant.wakeHint") : t("assistant.placeholder")} aria-label={t("assistant.placeholder")}
               className="max-h-28 min-h-[42px] flex-1 resize-none rounded-xl px-3 py-2.5 text-sm text-[var(--lms-primary)] focus:outline-none focus:ring-2 focus:ring-[#1cc2dc]"
               style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-bg)" }} />
             {canListen && (
-              <button type="button" onClick={toggleMic} aria-pressed={listening} aria-label={listening ? t("assistant.micStop") : t("assistant.micStart")}
-                title={listening ? t("assistant.micStop") : t("assistant.micStart")}
-                className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl ${listening ? "animate-pulse" : ""}`}
-                style={listening ? { backgroundColor: "#ef4444", color: "#fff" } : { border: "1px solid var(--lms-border)", color: "#0e58a8" }}>
-                {listening ? <MicOff className="h-5 w-5" aria-hidden /> : <Mic className="h-5 w-5" aria-hidden />}
+              <button type="button" onClick={toggleMic} aria-pressed={hearing} aria-label={hearing ? t("assistant.micStop") : t("assistant.micStart")}
+                title={hearing ? t("assistant.micStop") : t("assistant.micStart")}
+                className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl ${hearing ? "animate-pulse" : ""}`}
+                style={hearing ? { backgroundColor: "#ef4444", color: "#fff" } : { border: "1px solid var(--lms-border)", color: "#0e58a8" }}>
+                {hearing ? <MicOff className="h-5 w-5" aria-hidden /> : <Mic className="h-5 w-5" aria-hidden />}
               </button>
             )}
             <button type="submit" disabled={busy || !input.trim()} aria-label={t("assistant.send")}

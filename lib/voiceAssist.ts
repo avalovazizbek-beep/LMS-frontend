@@ -22,6 +22,8 @@ let lang: Lang = "uz"
 let generation = 0
 let player: HTMLAudioElement | null = null
 let chain: Promise<void> = Promise.resolve()
+/** Hali aytib bo'linmagan bo'laklar soni */
+let pendingParts = 0
 /** Server ovozi ketma-ket ishlamasa — bir muddat brauzer ovoziga o'tiladi */
 let serverDownUntil = 0
 let serverFailures = 0
@@ -62,6 +64,7 @@ export function usingFallbackVoice(): boolean {
 
 export function stopSpeaking() {
   generation += 1
+  pendingParts = 0
   chain = Promise.resolve()
   if (player) { player.pause(); player.removeAttribute("src"); player = null }
   if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel()
@@ -159,16 +162,58 @@ export function speak(text: string, opts: { interrupt?: boolean; force?: boolean
   if ((!active && !opts.force) || !voiceSupported() || !text.trim()) return
   if (opts.interrupt !== false) stopSpeaking()
   const gen = generation
-  const parts = chunks(text)
+  const parts = chunks(forSpeech(text))
   // Hamma bo'lak darhol so'raladi (parallel), lekin tartib bilan chalinadi
   const audio = parts.map(p => fetchAudio(p))
+  pendingParts += parts.length
   parts.forEach((part, i) => {
     chain = chain.then(async () => {
-      if (gen !== generation) return
-      const url = await audio[i]
-      if (gen !== generation) return
-      if (url) await playUrl(url, gen)
-      else await speakWithBrowser(part, gen)
+      try {
+        if (gen !== generation) return
+        const url = await audio[i]
+        if (gen !== generation) return
+        if (url) await playUrl(url, gen)
+        else await speakWithBrowser(part, gen)
+      } finally {
+        if (gen === generation) pendingParts = Math.max(0, pendingParts - 1)
+      }
     })
   })
+}
+
+/** Hozir gapiryaptimi (ovoz bilan chaqirish o'z ovozini "eshitib" qolmasligi uchun) */
+export function isSpeaking(): boolean {
+  return pendingParts > 0
+}
+
+/**
+ * Matnni o'qishga tayyorlash: ovoz qisqartmalarni harflab yoki noto'g'ri o'qiydi
+ * ("ON" → "on", "YN" → "in"), belgilarni esa nomi bilan aytadi. Ekrandagi matn
+ * o'zgarmaydi — faqat ovozga ketadigan nusxa.
+ */
+export function forSpeech(text: string): string {
+  if (lang === "ru" || lang === "en") return text.replace(/[⛔⚠✓✗•«»]/g, " ")
+  return text
+    // Belgilar
+    .replace(/⛔/g, " Muammo: ").replace(/⚠/g, " Eslatma: ").replace(/✓/g, " bor: ").replace(/✗/g, " yo'q: ")
+    .replace(/[•«»"“”]/g, " ").replace(/\s[—–-]\s/g, ", ").replace(/·/g, ", ")
+    // Oraliq nazoratlar: ON1, ON 2, 1-ON, 2-on
+    .replace(/\bON\s?1\b|\b1-?\s?ON\b|\b1-on\b/g, "birinchi oraliq nazorat")
+    .replace(/\bON\s?2\b|\b2-?\s?ON\b|\b2-on\b/g, "ikkinchi oraliq nazorat")
+    .replace(/\bON\b/g, "oraliq nazorat")
+    .replace(/\bYN\b/g, "yakuniy nazorat")
+    .replace(/\bJN\b/g, "joriy nazorat")
+    .replace(/\bMI\b/g, "mustaqil ish")
+    .replace(/\bLMS\b/g, "el em es")
+    .replace(/\bHEMIS\b/g, "Hemis")
+    .replace(/\bPDF\b/gi, "pe de ef")
+    .replace(/\bFace ID\b/gi, "feys ay di")
+    .replace(/\bAI\b/g, "sun'iy intellekt")
+    // Sonlar va belgilar
+    .replace(/\s=\s/g, " teng ").replace(/\s\+\s/g, " qo'shuv ")
+    .replace(/(\d+)\s?%/g, "$1 foiz")
+    .replace(/(\d+)\s?\/\s?(\d+)/g, "$2 dan $1")
+    // Ro'yxat raqamlari: "1) " → "birinchi." kabi emas, shunchaki pauza
+    .replace(/(^|\n)\s*(\d+)\)\s/g, "$1$2. ")
+    .replace(/[ \t]{2,}/g, " ")
 }
