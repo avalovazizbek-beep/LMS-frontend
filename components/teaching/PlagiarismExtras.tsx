@@ -97,6 +97,8 @@ export function PlagExtraDetails({ result }: { result: PlagiarismResult }) {
           <p className="flex items-center gap-1.5 text-xs mt-1" style={{ color: "#7293b9", ...FONT }}>
             <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden /> {t("plagx.aiPendingLong")}
           </p>
+        ) : ai.status === "no_topic" ? (
+          <p className="text-xs mt-1" style={{ color: "#92400e", ...FONT }}>{t("gradeCard.noTopic")}</p>
         ) : ai.status === "no_text" ? (
           <p className="text-xs mt-1" style={{ color: "#92400e", ...FONT }}>{t("plagx.aiNoText")}</p>
         ) : ai.status === "failed" || ai.grade === null ? (

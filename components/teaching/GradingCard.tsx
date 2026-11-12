@@ -66,6 +66,7 @@ function Checks({ plag, maxScore }: { plag: PlagiarismResult | undefined; maxSco
     : !ai ? t("gradeCard.notChecked")
     : ai.status === "pending" ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" aria-hidden /> {t("gradeCard.aiPending")}</span>
     : ai.status === "no_text" ? t("gradeCard.aiNoText")
+    : ai.status === "no_topic" ? <span style={{ color: "#92400e" }}>{t("gradeCard.noTopic")}</span>
     : ai.status === "failed" ? t("gradeCard.aiFailed")
     : null
   const aiGrade = ai?.status === "done" && ai.grade != null ? ai.grade : null

@@ -1804,7 +1804,7 @@ export interface PlagiarismResult {
   checkedAt: string
   /** AI tavsiya: mavzuga moslik va 100 ballik tavsiya baho (fonda tayyorlanadi) */
   ai?: {
-    status: "pending" | "done" | "no_text" | "failed"
+    status: "pending" | "done" | "no_text" | "no_topic" | "failed"
     relevance: number | null
     grade: number | null
     comment: string | null
