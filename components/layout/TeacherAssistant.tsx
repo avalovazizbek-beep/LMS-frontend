@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { ArrowUpRight, Bot, Ear, EarOff, Mic, MicOff, Send, Sparkles, Trash2, Volume2, VolumeX, X } from "lucide-react"
 import { assistantApi, assistantStream } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-import { isSpeaking, setVoiceLang, speak, stopSpeaking } from "@/lib/voiceAssist"
+import { isSpeaking, msSinceSpeech, setVoiceLang, speak, stopSpeaking } from "@/lib/voiceAssist"
 
 /* O'qituvchi yordamchisi (AI agent) — pastki o'ng burchakdagi tugma.
    Yozma yoki og'zaki savol: saytni tushuntiradi, so'ralsa sahifani ochadi,
@@ -194,8 +194,18 @@ export function TeacherAssistant() {
 
     const heard = (raw: string) => {
       const text = raw.trim()
-      // O'z ovozini (javobni o'qiyotganini) savol deb qabul qilmasin
-      if (!text || isSpeaking()) return
+      // O'z ovozini (javobni o'qiyotganini) savol deb qabul qilmasin: gapirayotganda va
+      // gap tugagach 1,5 soniya ichida kelgan natija — karnaydan qaytgan aks-sado
+      if (!text || isSpeaking() || msSinceSpeech() < 1500) return
+      // Brauzer noto'g'ri tanigan: harfsiz (faqat raqamlar) yoki juda qisqa
+      if ((text.match(/\p{L}/gu) ?? []).length < 3) return
+      // Aks-sado filtri: eshitilgan gapning so'zlari yordamchining oxirgi javobida bo'lsa — bu o'zining ovozi
+      const lastReply = [...msgsRef.current].reverse().find(m => m.role === "assistant")?.content ?? ""
+      if (lastReply) {
+        const said = new Set(normSpeech(lastReply).split(" "))
+        const words = normSpeech(text).split(" ").filter(w => w.length > 2)
+        if (words.length >= 4 && words.filter(w => said.has(w)).length / words.length >= 0.6) return
+      }
       const rest = afterWakeWord(text)
       if (rest !== null) {
         awakeUntilRef.current = Date.now() + AWAKE_MS
@@ -232,14 +242,32 @@ export function TeacherAssistant() {
         }
       }
       // Brauzer tinglashni o'zi to'xtatib turadi (jimlik, tarmoq) — qayta boshlanadi
-      rec.onend = () => { if (!stopped) restart = setTimeout(start, 400) }
+      // (yordamchi gapirayotgan paytda emas — o'shanda ataylab to'xtatilgan)
+      rec.onend = () => { if (!stopped && !pausedForSpeech) restart = setTimeout(start, 400) }
       try { rec.start() } catch { restart = setTimeout(start, 1500) }
     }
     start()
+    // Yordamchi gapirayotganda mikrofon tinglashi to'xtatiladi (o'z ovozini eshitmasin),
+    // gap tugagach qayta yoqiladi va "eshitish" vaqti yangidan boshlanadi
+    let pausedForSpeech = false
+    let wasAwake = false
+    const guard = setInterval(() => {
+      if (stopped) return
+      if (isSpeaking() && !pausedForSpeech) {
+        pausedForSpeech = true
+        wasAwake = Date.now() < awakeUntilRef.current
+        try { rec?.stop() } catch { /* allaqachon to'xtagan */ }
+      } else if (pausedForSpeech && msSinceSpeech() > 800) {
+        pausedForSpeech = false
+        if (wasAwake && openRef.current) awakeUntilRef.current = Date.now() + AWAKE_MS
+        start()
+      }
+    }, 250)
     const tick = setInterval(() => setAwake(Date.now() < awakeUntilRef.current), 2000)
     return () => {
       stopped = true
       if (restart) clearTimeout(restart)
+      clearInterval(guard)
       clearInterval(tick)
       try { rec?.stop() } catch { /* allaqachon to'xtagan */ }
       setAwake(false)

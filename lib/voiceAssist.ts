@@ -24,6 +24,7 @@ let player: HTMLAudioElement | null = null
 let chain: Promise<void> = Promise.resolve()
 /** Hali aytib bo'linmagan bo'laklar soni */
 let pendingParts = 0
+let speechEndedAt = 0
 /** Server ovozi ketma-ket ishlamasa — bir muddat brauzer ovoziga o'tiladi */
 let serverDownUntil = 0
 let serverFailures = 0
@@ -64,6 +65,7 @@ export function usingFallbackVoice(): boolean {
 
 export function stopSpeaking() {
   generation += 1
+  if (pendingParts > 0) speechEndedAt = Date.now()
   pendingParts = 0
   chain = Promise.resolve()
   if (player) { player.pause(); player.removeAttribute("src"); player = null }
@@ -175,7 +177,10 @@ export function speak(text: string, opts: { interrupt?: boolean; force?: boolean
         if (url) await playUrl(url, gen)
         else await speakWithBrowser(part, gen)
       } finally {
-        if (gen === generation) pendingParts = Math.max(0, pendingParts - 1)
+        if (gen === generation) {
+          pendingParts = Math.max(0, pendingParts - 1)
+          if (pendingParts === 0) speechEndedAt = Date.now()
+        }
       }
     })
   })
@@ -184,6 +189,11 @@ export function speak(text: string, opts: { interrupt?: boolean; force?: boolean
 /** Hozir gapiryaptimi (ovoz bilan chaqirish o'z ovozini "eshitib" qolmasligi uchun) */
 export function isSpeaking(): boolean {
   return pendingParts > 0
+}
+
+/** Oxirgi gap tugaganidan beri necha ms o'tdi (karnaydagi aks-sado mikrofonga kech yetib keladi) */
+export function msSinceSpeech(): number {
+  return pendingParts > 0 ? 0 : Date.now() - speechEndedAt
 }
 
 /**
