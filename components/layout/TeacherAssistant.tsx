@@ -27,6 +27,7 @@ interface Msg {
 const STORE_KEY = "lms_assistant_chat"
 const SPEAK_KEY = "lms_assistant_speak"
 const WAKE_KEY = "lms_assistant_wake"
+const POS_KEY = "lms_assistant_pos"
 /** Chaqirilgandan keyin shuncha vaqt savollarni "yordamchi" demasdan ham eshitadi */
 const AWAKE_MS = 45_000
 
@@ -87,6 +88,11 @@ export function TeacherAssistant() {
   const msgsRef = useRef<Msg[]>([])
   msgsRef.current = msgs
   const canListen = speechRecCtor() !== null
+  // Tugmaning joyi: null — standart (pastki o'ng burchak); sudrab ko'chirilsa — chap/yuqori koordinata
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null)
   // Ovoz bilan chaqirish: "Salom yordamchi" desa oyna ochiladi va savolni eshitadi
   const [wakeOn, setWakeOn] = useState(false)
   const [awake, setAwake] = useState(false)
@@ -109,6 +115,14 @@ export function TeacherAssistant() {
           if (Array.isArray(saved)) setMsgs(saved.slice(-40).map(m => ({ ...m, streaming: false })))
           setSpeakOn(localStorage.getItem(SPEAK_KEY) === "on")
           setWakeOn(localStorage.getItem(WAKE_KEY) === "on")
+          const savedPos = JSON.parse(localStorage.getItem(POS_KEY) || "null") as { x?: unknown; y?: unknown } | null
+          if (savedPos && typeof savedPos.x === "number" && typeof savedPos.y === "number") {
+            // Ekran kichraygan bo'lsa ham tugma ko'rinadigan joyda qolsin
+            setPos({
+              x: Math.min(Math.max(8, savedPos.x), Math.max(8, window.innerWidth - 160)),
+              y: Math.min(Math.max(8, savedPos.y), Math.max(8, window.innerHeight - 56)),
+            })
+          }
         } catch { /* storage yopiq */ }
       })
       .catch(() => undefined)
@@ -333,15 +347,56 @@ export function TeacherAssistant() {
   if (!enabled) return null
 
   const hearing = listening || awake
+  // Tugma chap yarmida tursa — oyna ham chapdan ochiladi
+  const onLeft = !!pos && typeof window !== "undefined" && pos.x + 80 < window.innerWidth / 2
+
+  // ── Tugmani sudrab ko'chirish (joyi shu brauzerda eslab qolinadi) ──
+  function clampPos(x: number, y: number) {
+    const w = btnRef.current?.offsetWidth ?? 150
+    const h = btnRef.current?.offsetHeight ?? 48
+    return {
+      x: Math.min(Math.max(8, x), Math.max(8, window.innerWidth - w - 8)),
+      y: Math.min(Math.max(8, y), Math.max(8, window.innerHeight - h - 8)),
+    }
+  }
+  function onDragStart(e: React.PointerEvent<HTMLButtonElement>) {
+    if (e.button !== 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: rect.left, origY: rect.top, moved: false }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  function onDragMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const d = dragRef.current
+    if (!d || !e.currentTarget.hasPointerCapture(e.pointerId)) return
+    const dx = e.clientX - d.startX
+    const dy = e.clientY - d.startY
+    // 6 px dan kam siljish — bosish hisoblanadi (qo'l titrashi oynani ochishga xalaqit bermasin)
+    if (!d.moved && Math.hypot(dx, dy) < 6) return
+    d.moved = true
+    setDragging(true)
+    setPos(clampPos(d.origX + dx, d.origY + dy))
+  }
+  function onDragEnd(e: React.PointerEvent<HTMLButtonElement>) {
+    const d = dragRef.current
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+    setDragging(false)
+    if (!d?.moved) { dragRef.current = null; return }
+    const next = clampPos(d.origX + e.clientX - d.startX, d.origY + e.clientY - d.startY)
+    setPos(next)
+    try { localStorage.setItem(POS_KEY, JSON.stringify(next)) } catch { /* storage yopiq */ }
+    // dragRef onClick'da tozalanadi (sudrashdan keyingi "click" oynani ochmasin)
+  }
   const suggestions = [t("assistant.s1"), t("assistant.s2"), t("assistant.s3"), t("assistant.s4")]
   const font = { fontFamily: "var(--font-poppins)" }
 
   return (
     <>
       {!open && (
-        <button type="button" onClick={() => setOpen(true)} aria-label={t("assistant.open")}
-          className="group fixed bottom-5 right-5 z-[4500] flex items-center gap-2 rounded-full py-3 pl-3.5 pr-4 text-sm font-semibold text-white shadow-xl transition-transform hover:scale-[1.03]"
-          style={{ ...font, background: "linear-gradient(135deg, #0e58a8, #1cc2dc)" }}>
+        <button type="button" ref={btnRef} aria-label={t("assistant.open")} title={t("assistant.dragHint")}
+          onClick={() => { if (dragRef.current?.moved) { dragRef.current = null; return } setOpen(true) }}
+          onPointerDown={onDragStart} onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerCancel={onDragEnd}
+          className={`group fixed z-[4500] flex select-none items-center gap-2 rounded-full py-3 pl-3.5 pr-4 text-sm font-semibold text-white shadow-xl ${pos ? "" : "bottom-5 right-5"} ${dragging ? "cursor-grabbing" : "cursor-grab transition-transform hover:scale-[1.03]"}`}
+          style={{ ...font, background: "linear-gradient(135deg, #0e58a8, #1cc2dc)", touchAction: "none", ...(pos ? { left: pos.x, top: pos.y } : {}) }}>
           <Bot className="h-5 w-5" aria-hidden />
           <span className="hidden sm:inline">{t("assistant.button")}</span>
           {wakeOn && <span title={t("assistant.wakeHint")} className="flex"><Ear className="h-4 w-4 opacity-90" aria-hidden /></span>}
@@ -350,7 +405,7 @@ export function TeacherAssistant() {
 
       {open && (
         <section role="dialog" aria-label={t("assistant.title")} data-busy={busy}
-          className="fixed bottom-0 right-0 z-[4500] flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--lms-cell)] shadow-2xl sm:bottom-5 sm:right-5 sm:h-[min(640px,calc(100dvh-40px))] sm:w-[400px] sm:rounded-2xl"
+          className={`fixed bottom-0 right-0 z-[4500] flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--lms-cell)] shadow-2xl sm:bottom-5 sm:h-[min(640px,calc(100dvh-40px))] sm:w-[400px] sm:rounded-2xl ${onLeft ? "sm:left-5 sm:right-auto" : "sm:right-5"}`}
           style={{ ...font, border: "1px solid var(--lms-border)" }}>
           <header className="flex items-center gap-2.5 px-4 py-3 text-white" style={{ background: "linear-gradient(135deg, #0e58a8, #1cc2dc)" }}>
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20"><Bot className="h-5 w-5" aria-hidden /></div>
