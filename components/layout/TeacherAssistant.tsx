@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { ArrowUpRight, Bot, Ear, EarOff, Mic, MicOff, Send, Sparkles, Trash2, Volume2, VolumeX, X } from "lucide-react"
+import { ArrowUpRight, Bot, Check, Copy, Download, Ear, EarOff, Mic, MicOff, Send, Sparkles, Trash2, Volume2, VolumeX, X } from "lucide-react"
 import { assistantApi, assistantStream } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { isSpeaking, msSinceSpeech, setVoiceLang, speak, stopSpeaking } from "@/lib/voiceAssist"
@@ -22,6 +22,21 @@ interface Msg {
   error?: boolean
   /** Model hali yozyapti (oqim) */
   streaming?: boolean
+  /** Yuklab olinadigan fayl (tuzilgan test, topshiriq) — faqat shu sahifa ochiq turganda saqlanadi */
+  file?: { name: string; mime: string; base64: string } | null
+}
+
+/** base64 faylni brauzerga yuklab berish */
+function downloadFile(file: { name: string; mime: string; base64: string }) {
+  const bytes = Uint8Array.from(atob(file.base64), c => c.charCodeAt(0))
+  const url = URL.createObjectURL(new Blob([bytes], { type: file.mime }))
+  const a = document.createElement("a")
+  a.href = url
+  a.download = file.name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
 const STORE_KEY = "lms_assistant_chat"
@@ -82,6 +97,7 @@ export function TeacherAssistant() {
   const [listening, setListening] = useState(false)
   const [speakOn, setSpeakOn] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
+  const [copied, setCopied] = useState<number | null>(null)
   const recRef = useRef<SpeechRec | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -131,7 +147,7 @@ export function TeacherAssistant() {
 
   useEffect(() => {
     if (!enabled) return
-    try { sessionStorage.setItem(STORE_KEY, JSON.stringify(msgs.slice(-40))) } catch { /* storage yopiq */ }
+    try { sessionStorage.setItem(STORE_KEY, JSON.stringify(msgs.slice(-40).map(({ file: _file, ...m }) => m))) } catch { /* storage yopiq */ }
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" })
   }, [msgs, busy, enabled])
 
@@ -181,7 +197,7 @@ export function TeacherAssistant() {
           ? [...prev, { role: "assistant", content: shown, streaming: true }]
           : prev.map((m, i) => (i === prev.length - 1 && m.streaming ? { ...m, content: shown } : m)))
       })
-      const final: Msg = { role: "assistant", content: a.reply, page: a.page, pageTitle: a.pageTitle, opened: a.openNow }
+      const final: Msg = { role: "assistant", content: a.reply, page: a.page, pageTitle: a.pageTitle, opened: a.openNow, file: a.file ?? null }
       setMsgs(prev => (prev[prev.length - 1]?.streaming ? [...prev.slice(0, -1), final] : [...prev, final]))
       if (speakOn || viaVoice) { setVoiceLang(lang); speak(a.reply.slice(0, 900), { force: true }) }
       if (a.openNow && a.page) router.push(a.page)
@@ -461,6 +477,23 @@ export function TeacherAssistant() {
                     : { backgroundColor: m.error ? "rgba(239,68,68,0.1)" : "var(--lms-bg)", color: m.error ? "#b91c1c" : "var(--lms-primary)", border: "1px solid var(--lms-border)", borderBottomLeftRadius: 6 }}>
                   {m.content}
                 </div>
+                {m.role === "assistant" && !m.streaming && (m.file || m.content.length > 160) && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {m.file && (
+                      <button type="button" onClick={() => downloadFile(m.file!)}
+                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white"
+                        style={{ backgroundColor: "#15803d" }}>
+                        <Download className="h-3.5 w-3.5" aria-hidden /> {t("assistant.download", { name: m.file.name })}
+                      </button>
+                    )}
+                    <button type="button" onClick={() => { void navigator.clipboard?.writeText(m.content); setCopied(i); setTimeout(() => setCopied(null), 1500) }}
+                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                      style={{ border: "1px solid var(--lms-border)", color: "#0e58a8" }}>
+                      {copied === i ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+                      {copied === i ? t("assistant.copied") : t("assistant.copy")}
+                    </button>
+                  </div>
+                )}
                 {m.role === "assistant" && m.page && (
                   <button type="button" onClick={() => router.push(m.page!)}
                     className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white"

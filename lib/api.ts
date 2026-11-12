@@ -984,6 +984,8 @@ export interface AssistantAnswer {
   pageTitle: string | null
   /** true — o'qituvchi ochishni so'ragan: sahifa darhol ochiladi */
   openNow: boolean
+  /** Yuklab olinadigan fayl (tuzilgan test .txt, topshiriq .pdf) */
+  file?: { name: string; mime: string; base64: string } | null
 }
 
 export const assistantApi = {
@@ -1030,7 +1032,7 @@ export async function assistantStream(
       if (event.type === "delta" && event.text) onDelta(event.text)
       else if (event.type === "error") throw new Error(event.message || tr("assistant.error"))
       else if (event.type === "done") {
-        answer = { reply: event.reply ?? "", page: event.page ?? null, pageTitle: event.pageTitle ?? null, openNow: event.openNow === true }
+        answer = { reply: event.reply ?? "", page: event.page ?? null, pageTitle: event.pageTitle ?? null, openNow: event.openNow === true, file: event.file ?? null }
       }
     }
   }
