@@ -305,8 +305,25 @@ export function TeacherAssistant() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, wakeOn, lang])
 
-  function toggleWake() {
+  /** Mikrofon ruxsatini (qayta) so'raydi: brauzer so'rov oynasini shu yerda chiqaradi.
+   *  Ruxsat berilsa true; rad etilsa/ochilmasa xato matnini qo'yib false qaytaradi. */
+  async function ensureMicPermission(): Promise<boolean> {
+    const md = typeof navigator !== "undefined" ? navigator.mediaDevices : undefined
+    if (!md?.getUserMedia) return true // eski brauzer — SpeechRecognition o'zi so'raydi
+    try {
+      const stream = await md.getUserMedia({ audio: true })
+      stream.getTracks().forEach(tr => tr.stop()) // faqat ruxsat uchun — darhol yopamiz
+      return true
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : ""
+      setMicError(name === "NotAllowedError" || name === "SecurityError" ? t("assistant.micDenied") : t("assistant.micFailed"))
+      return false
+    }
+  }
+
+  async function toggleWake() {
     const next = !wakeOn
+    if (next && !(await ensureMicPermission())) return
     setWakeOn(next)
     setMicError(null)
     try { localStorage.setItem(WAKE_KEY, next ? "on" : "off") } catch { /* storage yopiq */ }
@@ -314,7 +331,7 @@ export function TeacherAssistant() {
     else { awakeUntilRef.current = 0; setAwake(false) }
   }
 
-  function toggleMic() {
+  async function toggleMic() {
     // Ovoz bilan chaqirish yoqilgan: alohida tinglagich ochilmaydi (ikkitasi bir-biriga
     // xalaqit beradi) — shunchaki "uyg'onadi" yoki uxlaydi
     if (wakeOn) {
@@ -329,6 +346,8 @@ export function TeacherAssistant() {
     if (!Ctor) return
     stopSpeaking()
     setMicError(null)
+    // Har safar bosilganda ruxsat tekshiriladi; berilmagan bo'lsa brauzer qayta so'raydi
+    if (!(await ensureMicPermission())) return
     const rec = new Ctor()
     rec.lang = REC_LANG[lang] ?? "uz-UZ"
     rec.interimResults = true
