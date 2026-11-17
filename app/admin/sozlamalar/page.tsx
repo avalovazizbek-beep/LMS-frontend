@@ -9,6 +9,7 @@ import {
 import { adminApi, type CertificateTopicPart } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { CertificatePreview } from "@/components/teaching/TeacherCertificate"
+import { AssistantAccessSection } from "@/components/admin/AssistantAccessSection"
 
 const font = { fontFamily: "var(--font-poppins)" } as const
 const inputStyle = { border: "1px solid rgba(1,41,112,0.2)", color: "#012970", ...font } as const
@@ -477,6 +478,9 @@ export default function AdminSozlamalar() {
                 : <span className="text-xs" style={{ color: "#7293b9", ...font }}>{t("adminSozlamalar.tg.testHint")}</span>}
             </div>
           </SettingCard>
+
+          {/* O'qituvchi yordamchisi (AI): kimga ko'rinishi — o'z API'si bor, "Saqlash" tugmasiga bog'liq emas */}
+          <AssistantAccessSection />
 
           <div className="flex items-center gap-3 pt-2 flex-wrap">
             <button onClick={handleSave} disabled={saving}

@@ -1054,6 +1054,22 @@ export async function assistantStream(
 }
 
 /** Maxsus ehtiyojli talaba uchun test moslamalari (admin belgilaydi) */
+export interface AssistantAccessRow {
+  teacherUserId: number
+  fullName: string
+  department: string | null
+  createdByName: string | null
+  createdAt: string
+}
+
+export interface AssistantAccessCandidate {
+  teacherUserId: number
+  fullName: string
+  department: string | null
+  position: string | null
+  granted: boolean
+}
+
 export interface AccessibilityProfile {
   enabled: boolean
   /** Test vaqti foizi: 200 = ikki barobar */
@@ -3071,6 +3087,16 @@ export const adminApi = {
 
   removeAccessibilityStudent: (studentUserId: number) =>
     del<{ success: boolean }>(`/api/admin/accessibility-students/${studentUserId}`),
+
+  /** O'qituvchi yordamchisi (AI): kimga ko'rinadi — faqat to'liq admin */
+  assistantAccessList: () =>
+    get<{ success: boolean; teachers: AssistantAccessRow[] }>("/api/admin/assistant-access"),
+  assistantAccessSearch: (q: string) =>
+    get<{ success: boolean; teachers: AssistantAccessCandidate[] }>(`/api/admin/assistant-access/search?${new URLSearchParams({ q }).toString()}`),
+  assistantAccessGrant: (teacherUserId: number) =>
+    put<{ success: boolean; teacher: AssistantAccessRow }>(`/api/admin/assistant-access/${teacherUserId}`, {}),
+  assistantAccessRevoke: (teacherUserId: number) =>
+    del<{ success: boolean }>(`/api/admin/assistant-access/${teacherUserId}`),
 
   /** Face ID'dan hali o'tmagan masofaviy talabalar, guruhi bilan, 20 talik sahifalash */
   notRegisteredFace: (params?: { limit?: number; offset?: number }) => {
