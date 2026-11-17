@@ -995,6 +995,19 @@ export const assistantApi = {
     post<{ success: boolean; data: AssistantAnswer }>("/api/assistant/chat", body),
 }
 
+/** Mikrofondan yozilgan ovozni serverda matnga aylantiradi (nutq tanish ishlamaydigan qurilmalar uchun) */
+export async function assistantTranscribe(audio: Blob, lang: string): Promise<string> {
+  const token = getToken()
+  const res = await fetch(`${BASE}/api/assistant/transcribe?lang=${encodeURIComponent(lang)}`, {
+    method: "POST",
+    headers: { "Content-Type": audio.type || "application/octet-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: audio,
+  })
+  const data = await res.json().catch(() => null) as { success?: boolean; text?: string; message?: string } | null
+  if (!res.ok || !data?.success) throw new Error(data?.message || tr("assistant.micFailed"))
+  return (data.text ?? "").trim()
+}
+
 /**
  * Yordamchiga savol — javob oqim bilan (so'zma-so'z) keladi: model serverda
  * protsessorda sekin yozadi, o'qituvchi kutib o'tirmasin.

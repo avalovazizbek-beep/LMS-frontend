@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { ArrowUpRight, Bot, Check, Copy, Download, Ear, EarOff, Mic, MicOff, Send, Sparkles, Trash2, Volume2, VolumeX, X } from "lucide-react"
-import { assistantApi, assistantStream } from "@/lib/api"
+import { assistantApi, assistantStream, assistantTranscribe } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { isSpeaking, msSinceSpeech, setVoiceLang, speak, stopSpeaking } from "@/lib/voiceAssist"
 
@@ -84,6 +84,23 @@ function speechRecCtor(): (new () => SpeechRec) | null {
 
 const REC_LANG: Record<string, string> = { uz: "uz-UZ", uzc: "uz-UZ", kaa: "uz-UZ", ru: "ru-RU", en: "en-US" }
 
+/** iPhone/iPad: brauzerning nutq tanishi (Siri) u yerda ishlamaydi — ovoz yozib, serverda matnga aylantiriladi */
+function isIosDevice(): boolean {
+  if (typeof navigator === "undefined") return false
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+}
+const REC_MAX_MS = 30_000
+function canRecordAudio(): boolean {
+  return typeof window !== "undefined" && typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia
+}
+/** iPhone Safari audio/mp4, qolganlari audio/webm yozadi */
+function recorderMime(): string | undefined {
+  for (const m of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/aac"]) {
+    try { if (MediaRecorder.isTypeSupported(m)) return m } catch { /* eski brauzer */ }
+  }
+  return undefined
+}
+
 export function TeacherAssistant() {
   const { t, lang } = useLanguage()
   const router = useRouter()
@@ -103,7 +120,13 @@ export function TeacherAssistant() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const msgsRef = useRef<Msg[]>([])
   msgsRef.current = msgs
-  const canListen = speechRecCtor() !== null
+  const ios = isIosDevice()
+  const canRecord = canRecordAudio()
+  // Ovoz bilan chaqirish (doim tinglash) faqat brauzer nutq tanishi bilan ishlaydi — iPhone'da yo'q
+  const canListen = speechRecCtor() !== null && !ios
+  const canMic = canListen || canRecord
+  const mediaRef = useRef<{ rec: MediaRecorder; stream: MediaStream; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const [transcribing, setTranscribing] = useState(false)
   // Tugmaning joyi: null — standart (pastki o'ng burchak); sudrab ko'chirilsa — chap/yuqori koordinata
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -130,7 +153,7 @@ export function TeacherAssistant() {
           const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) || "[]") as Msg[]
           if (Array.isArray(saved)) setMsgs(saved.slice(-40).map(m => ({ ...m, streaming: false })))
           setSpeakOn(localStorage.getItem(SPEAK_KEY) === "on")
-          setWakeOn(localStorage.getItem(WAKE_KEY) === "on")
+          setWakeOn(localStorage.getItem(WAKE_KEY) === "on" && !isIosDevice())
           const savedPos = JSON.parse(localStorage.getItem(POS_KEY) || "null") as { x?: unknown; y?: unknown } | null
           if (savedPos && typeof savedPos.x === "number" && typeof savedPos.y === "number") {
             // Ekran kichraygan bo'lsa ham tugma ko'rinadigan joyda qolsin
@@ -331,6 +354,53 @@ export function TeacherAssistant() {
     else { awakeUntilRef.current = 0; setAwake(false) }
   }
 
+  /** Zaxira yo'l: ovozni o'zimiz yozib olamiz (faqat saytga mikrofon ruxsati kerak),
+   *  to'xtatilgach serverda matnga aylantiriladi va savol sifatida yuboriladi. */
+  async function startRecording() {
+    if (!canRecordAudio()) { setMicError(t("assistant.micFailed")); return }
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : ""
+      setMicError((name === "NotAllowedError" || name === "SecurityError" ? t("assistant.micDenied") : t("assistant.micFailed")) + ` [mic:${name || "xato"}]`)
+      return
+    }
+    const mime = recorderMime()
+    let rec: MediaRecorder
+    try {
+      rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+    } catch {
+      stream.getTracks().forEach(tr => tr.stop())
+      setMicError(t("assistant.micFailed"))
+      return
+    }
+    const chunks: Blob[] = []
+    rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
+    rec.onstop = () => {
+      stream.getTracks().forEach(tr => tr.stop())
+      const cur = mediaRef.current
+      if (cur) clearTimeout(cur.timer)
+      mediaRef.current = null
+      setListening(false)
+      const blob = new Blob(chunks, { type: rec.mimeType || mime || "audio/mp4" })
+      if (blob.size < 800) return // deyarli jim — hech narsa yuborilmaydi
+      setTranscribing(true)
+      assistantTranscribe(blob, lang)
+        .then(text => {
+          if (!text) { setMicError(t("assistant.micNoSpeech")); return }
+          setInput(text)
+          void send(text, true)
+        })
+        .catch(err => setMicError(err instanceof Error ? err.message : t("assistant.micFailed")))
+        .finally(() => setTranscribing(false))
+    }
+    const timer = setTimeout(() => { if (rec.state !== "inactive") rec.stop() }, REC_MAX_MS)
+    mediaRef.current = { rec, stream, timer }
+    setListening(true)
+    rec.start()
+  }
+
   async function toggleMic() {
     // Ovoz bilan chaqirish yoqilgan: alohida tinglagich ochilmaydi (ikkitasi bir-biriga
     // xalaqit beradi) — shunchaki "uyg'onadi" yoki uxlaydi
@@ -341,11 +411,17 @@ export function TeacherAssistant() {
       if (!on) stopSpeaking()
       return
     }
-    if (listening) { recRef.current?.stop(); return }
-    const Ctor = speechRecCtor()
-    if (!Ctor) return
+    if (listening) {
+      if (mediaRef.current) { if (mediaRef.current.rec.state !== "inactive") mediaRef.current.rec.stop() }
+      else recRef.current?.stop()
+      return
+    }
+    if (transcribing) return
     stopSpeaking()
     setMicError(null)
+    const Ctor = speechRecCtor()
+    // iPhone yoki nutq tanish yo'q brauzer: to'g'ridan-to'g'ri yozib olish (ruxsatni o'zi so'raydi)
+    if (!Ctor || ios) { await startRecording(); return }
     // Har safar bosilganda ruxsat tekshiriladi; berilmagan bo'lsa brauzer qayta so'raydi
     if (!(await ensureMicPermission())) return
     const rec = new Ctor()
@@ -360,6 +436,12 @@ export function TeacherAssistant() {
       setInput(text)
     }
     rec.onerror = (e) => {
+      // Mikrofon ruxsati bor, lekin brauzerning nutq tanishi rad etdi — o'zimiz yozib olib, serverda tanitamiz
+      if ((e.error === "service-not-allowed" || e.error === "not-allowed") && canRecordAudio()) {
+        finalText = ""
+        void startRecording()
+        return
+      }
       setMicError((e.error === "not-allowed" || e.error === "service-not-allowed" ? t("assistant.micDenied") : t("assistant.micFailed")) + ` [stt:${e.error}]`)
     }
     rec.onend = () => {
@@ -534,13 +616,13 @@ export function TeacherAssistant() {
           <form onSubmit={e => { e.preventDefault(); void send(input) }} className="flex items-end gap-2 px-3 py-3" style={{ borderTop: "1px solid var(--lms-border)" }}>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} rows={1} maxLength={2000}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(input) } }}
-              placeholder={hearing ? t("assistant.listening") : wakeOn ? t("assistant.wakeHint") : t("assistant.placeholder")} aria-label={t("assistant.placeholder")}
+              placeholder={transcribing ? t("assistant.transcribing") : hearing ? t("assistant.listening") : wakeOn ? t("assistant.wakeHint") : t("assistant.placeholder")} aria-label={t("assistant.placeholder")}
               className="max-h-28 min-h-[42px] flex-1 resize-none rounded-xl px-3 py-2.5 text-sm text-[var(--lms-primary)] focus:outline-none focus:ring-2 focus:ring-[#1cc2dc]"
               style={{ border: "1px solid var(--lms-border)", backgroundColor: "var(--lms-bg)" }} />
-            {canListen && (
-              <button type="button" onClick={toggleMic} aria-pressed={hearing} aria-label={hearing ? t("assistant.micStop") : t("assistant.micStart")}
+            {canMic && (
+              <button type="button" onClick={toggleMic} disabled={transcribing} aria-pressed={hearing} aria-label={hearing ? t("assistant.micStop") : t("assistant.micStart")}
                 title={hearing ? t("assistant.micStop") : t("assistant.micStart")}
-                className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl ${hearing ? "animate-pulse" : ""}`}
+                className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl disabled:opacity-50 ${hearing || transcribing ? "animate-pulse" : ""}`}
                 style={hearing ? { backgroundColor: "#ef4444", color: "#fff" } : { border: "1px solid var(--lms-border)", color: "#0e58a8" }}>
                 {hearing ? <MicOff className="h-5 w-5" aria-hidden /> : <Mic className="h-5 w-5" aria-hidden />}
               </button>
