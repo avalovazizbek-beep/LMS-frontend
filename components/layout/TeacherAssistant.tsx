@@ -268,7 +268,7 @@ export function TeacherAssistant() {
           stopped = true
           setWakeOn(false)
           try { localStorage.setItem(WAKE_KEY, "off") } catch { /* storage yopiq */ }
-          setMicError(t("assistant.micDenied"))
+          setMicError(t("assistant.micDenied") + ` [stt:${e.error}]`)
         }
       }
       // Brauzer tinglashni o'zi to'xtatib turadi (jimlik, tarmoq) — qayta boshlanadi
@@ -316,7 +316,7 @@ export function TeacherAssistant() {
       return true
     } catch (err) {
       const name = err instanceof DOMException ? err.name : ""
-      setMicError(name === "NotAllowedError" || name === "SecurityError" ? t("assistant.micDenied") : t("assistant.micFailed"))
+      setMicError((name === "NotAllowedError" || name === "SecurityError" ? t("assistant.micDenied") : t("assistant.micFailed")) + ` [mic:${name || "xato"}]`)
       return false
     }
   }
@@ -360,7 +360,7 @@ export function TeacherAssistant() {
       setInput(text)
     }
     rec.onerror = (e) => {
-      setMicError(e.error === "not-allowed" || e.error === "service-not-allowed" ? t("assistant.micDenied") : t("assistant.micFailed"))
+      setMicError((e.error === "not-allowed" || e.error === "service-not-allowed" ? t("assistant.micDenied") : t("assistant.micFailed")) + ` [stt:${e.error}]`)
     }
     rec.onend = () => {
       setListening(false)
