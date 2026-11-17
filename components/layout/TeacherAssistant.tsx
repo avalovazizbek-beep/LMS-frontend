@@ -89,6 +89,11 @@ function isIosDevice(): boolean {
   if (typeof navigator === "undefined") return false
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
 }
+/** Telefon/planshet: ovozli yordam hali tayyor emas — u yerda "yozing" ogohlantirishi chiqadi, kompyuterda ishlayveradi */
+function isMobileDevice(): boolean {
+  if (typeof navigator === "undefined") return false
+  return isIosDevice() || /Android|Mobile|iPhone|iPad|iPod|Tablet/i.test(navigator.userAgent)
+}
 const REC_MAX_MS = 30_000
 function canRecordAudio(): boolean {
   return typeof window !== "undefined" && typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia
@@ -121,10 +126,12 @@ export function TeacherAssistant() {
   const msgsRef = useRef<Msg[]>([])
   msgsRef.current = msgs
   const ios = isIosDevice()
+  const mobile = isMobileDevice()
   const canRecord = canRecordAudio()
-  // Ovoz bilan chaqirish (doim tinglash) faqat brauzer nutq tanishi bilan ishlaydi — iPhone'da yo'q
-  const canListen = speechRecCtor() !== null && !ios
-  const canMic = canListen || canRecord
+  // Ovoz bilan chaqirish (doim tinglash) faqat kompyuterda — telefonda hali yo'q
+  const canListen = speechRecCtor() !== null && !mobile
+  // Telefonda tugma ko'rinadi, lekin bosilsa "yozing" ogohlantirishi chiqadi
+  const canMic = canListen || canRecord || mobile
   const mediaRef = useRef<{ rec: MediaRecorder; stream: MediaStream; timer: ReturnType<typeof setTimeout> } | null>(null)
   const [transcribing, setTranscribing] = useState(false)
   // Tugmaning joyi: null — standart (pastki o'ng burchak); sudrab ko'chirilsa — chap/yuqori koordinata
@@ -153,7 +160,7 @@ export function TeacherAssistant() {
           const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) || "[]") as Msg[]
           if (Array.isArray(saved)) setMsgs(saved.slice(-40).map(m => ({ ...m, streaming: false })))
           setSpeakOn(localStorage.getItem(SPEAK_KEY) === "on")
-          setWakeOn(localStorage.getItem(WAKE_KEY) === "on" && !isIosDevice())
+          setWakeOn(localStorage.getItem(WAKE_KEY) === "on" && !isMobileDevice())
           const savedPos = JSON.parse(localStorage.getItem(POS_KEY) || "null") as { x?: unknown; y?: unknown } | null
           if (savedPos && typeof savedPos.x === "number" && typeof savedPos.y === "number") {
             // Ekran kichraygan bo'lsa ham tugma ko'rinadigan joyda qolsin
@@ -419,6 +426,7 @@ export function TeacherAssistant() {
     if (transcribing) return
     stopSpeaking()
     setMicError(null)
+    if (mobile) { setMicError(t("assistant.micMobile")); inputRef.current?.focus(); return }
     const Ctor = speechRecCtor()
     // iPhone yoki nutq tanish yo'q brauzer: to'g'ridan-to'g'ri yozib olish (ruxsatni o'zi so'raydi)
     if (!Ctor || ios) { await startRecording(); return }
@@ -612,7 +620,7 @@ export function TeacherAssistant() {
             )}
           </div>
 
-          {micError && <p role="alert" className="px-4 pb-1 text-xs" style={{ color: "#b91c1c" }}>{micError}</p>}
+          {micError && <p role="alert" className="px-4 pb-1 text-xs" style={{ color: micError === t("assistant.micMobile") ? "#0e58a8" : "#b91c1c" }}>{micError}</p>}
           <form onSubmit={e => { e.preventDefault(); void send(input) }} className="flex items-end gap-2 px-3 py-3" style={{ borderTop: "1px solid var(--lms-border)" }}>
             <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} rows={1} maxLength={2000}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(input) } }}
