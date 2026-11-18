@@ -1561,6 +1561,8 @@ export interface TeachingSubmission {
   optionPerms: Record<number, number[]> | null
   retakeGranted: boolean
   retakeGrantedAt: string | null
+  /** Topshiriq yuborilgan paytdagi guruh ro'yxatidagi raqami (davomat jurnali tartibi) */
+  rosterNumber?: number | null
   /** Faqat talabaning o'z natijasida (submissions/me): imtihon paytidagi qoidabuzarliklar soni, tur bo'yicha */
   violationCounts?: Record<string, number> | null
 }

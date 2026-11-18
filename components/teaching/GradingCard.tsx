@@ -153,6 +153,18 @@ export interface GradingCardProps {
   submittedText: string
 }
 
+/** Talabaning guruh ro'yxatidagi raqami (davomat jurnali tartibi) — topshiriq
+    varianti raqam bo'yicha berilganda o'qituvchi shundan tekshiradi */
+function RosterBadge({ n, title }: { n?: number | null; title: string }) {
+  if (!n) return null
+  return (
+    <span title={title} className="mr-1.5 inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 align-[1px] text-[11px] font-bold"
+      style={{ backgroundColor: "#eef4ff", color: "#0e58a8", fontVariantNumeric: "tabular-nums", ...F }}>
+      №{n}
+    </span>
+  )
+}
+
 export function GradingCard({ sub, plag, maxScore, gradeVal, feedbackVal, onGrade, onFeedback, onSave, saving, locked, dimmed, submittedText }: GradingCardProps) {
   const { t } = useLanguage()
   const [open, setOpen] = useState(false)
@@ -169,7 +181,7 @@ export function GradingCard({ sub, plag, maxScore, gradeVal, feedbackVal, onGrad
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
           <Avatar name={sub.studentFullName} small />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[14.5px] font-semibold" style={{ color: INK, ...F }}>{sub.studentFullName}</div>
+            <div className="truncate text-[14.5px] font-semibold" style={{ color: INK, ...F }}><RosterBadge n={sub.rosterNumber} title={t("gradeCard.rosterNumberTitle")} />{sub.studentFullName}</div>
             <div className="mt-0.5 truncate text-xs" style={{ color: MUTED, ...F }}>
               {submittedText}
               {sub.file && fileUrl && <> · <a href={fileUrl} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline" style={{ color: "#0e58a8" }}>{sub.file.originalName}</a></>}
@@ -216,7 +228,7 @@ export function GradingCard({ sub, plag, maxScore, gradeVal, feedbackVal, onGrad
       <div className="flex flex-wrap items-center gap-3 px-5 py-4" style={{ borderBottom: `1px solid ${LINE}` }}>
         <Avatar name={sub.studentFullName} />
         <div className="min-w-0 flex-1">
-          <div className="text-base font-semibold leading-tight" style={{ color: INK, ...F }}>{sub.studentFullName}</div>
+          <div className="text-base font-semibold leading-tight" style={{ color: INK, ...F }}><RosterBadge n={sub.rosterNumber} title={t("gradeCard.rosterNumberTitle")} />{sub.studentFullName}</div>
           <div className="mt-0.5 text-[12.5px]" style={{ color: MUTED, ...F }}>{submittedText}</div>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" style={{ backgroundColor: "#fff8e6", color: "#92400e", ...F }}>

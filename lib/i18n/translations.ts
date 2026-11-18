@@ -417,8 +417,8 @@ export const dictionary: Record<string, DictEntry> = {
   "fanResurslari.locked":     { uz: "Qulflangan", ru: "Закрыто", en: "Locked", kaa: "Qulıplanǵan" },
   "fanResurslari.current":    { uz: "Hozirgi", ru: "Текущая", en: "Current", kaa: "Házirgi" },
   "fanResurslari.assignment": { uz: "Topshiriq",               ru: "Задание",                           en: "Assignment",                    kaa: "Tapsırma" },
-  "fanResurslari.rosterNumber":     { uz: "Guruh ro'yxatidagi tartib raqamingiz: {n} (jami {total} talaba)", ru: "Ваш номер в списке группы: {n} (всего {total} студентов)", en: "Your number in the group list: {n} (of {total} students)", kaa: "Gruppa diziminde tártip nomerińiz: {n} (barlıǵı {total} student)" },
-  "fanResurslari.rosterNumberHint": { uz: "O'qituvchi topshiriq variantini ro'yxatdagi raqam bo'yicha bergan bo'lsa, shu raqamdan foydalaning.", ru: "Если преподаватель распределил варианты по номеру в списке, используйте этот номер.", en: "If the teacher assigned variants by list number, use this number.", kaa: "Oqıtıwshı tapsırma variantın dizimdegi nomer boyınsha bergen bolsa, usı nomerden paydalanıń." },
+  "fanResurslari.rosterNumber":     { uz: "Ro'yxatdagi tartib raqamingiz: {n}", ru: "Ваш номер в списке группы: {n}", en: "Your number in the group list: {n}", kaa: "Dizimdegi tártip nomerińiz: {n}" },
+  "fanResurslari.rosterNumberHint": { uz: "Davomat jurnalidagi tartib. Topshiriq varianti raqam bo'yicha berilgan bo'lsa — shu raqam.", ru: "Порядок журнала посещаемости. Если варианты распределены по номеру — используйте его.", en: "Attendance journal order. If variants are assigned by number, use this one.", kaa: "Dawamat jurnalındaǵı tártip. Tapsırma variantı nomer boyınsha berilgen bolsa — usı nomer." },
 
   // ── O'zlashtirish sahifasi ────────────────────────────────────────────
   "ozlashtirish.title":     { uz: "O'zlashtirish",              ru: "Успеваемость",                      en: "Performance",                   kaa: "Ózlestiriw" },
@@ -4087,6 +4087,7 @@ export const dictionary: Record<string, DictEntry> = {
   // ── Baholash kartasi (yangi ko'rinish) ──
   "gradeCard.waiting":      { uz: "Baholash kutilmoqda", ru: "Ожидает оценки", en: "Awaiting grade", kaa: "Bahalaw kútilmekte" },
   "gradeCard.graded":       { uz: "Baholandi", ru: "Оценено", en: "Graded", kaa: "Bahalandı" },
+  "gradeCard.rosterNumberTitle": { uz: "Guruh ro'yxatidagi raqami (davomat jurnalidagi tartib, ish yuborilgan paytdagi)", ru: "Номер в списке группы (порядок журнала посещаемости, на момент сдачи)", en: "Number in the group list (attendance journal order, at the time of submission)", kaa: "Gruppa diziminde nomeri (dawamat jurnalı tártibi, jumıs jiberilgen waqıttaǵı)" },
   "gradeCard.work":         { uz: "Talaba ishi", ru: "Работа студента", en: "Student's work", kaa: "Student jumısı" },
   "gradeCard.noFile":       { uz: "Fayl biriktirilmagan", ru: "Файл не прикреплён", en: "No file attached", kaa: "Fayl biriktirilmegen" },
   "gradeCard.download":     { uz: "Yuklab olish", ru: "Скачать", en: "Download", kaa: "Júklep alıw" },
