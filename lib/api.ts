@@ -2111,6 +2111,10 @@ export const teachingApi = {
     return get<{ success: boolean; data: JournalData }>(`/api/teaching/my-journal?${q}`)
   },
 
+  /** Talabaning shu fan bo'yicha guruh ro'yxatidagi tartib raqami (o'qituvchi jurnalidagi tartib) */
+  myRosterNumber: (subject: string) =>
+    get<{ success: boolean; data: { number: number; total: number } | null }>(`/api/teaching/my-roster-number?${new URLSearchParams({ subject }).toString()}`),
+
   myTopicScores: (subject: string) => {
     const q = new URLSearchParams({ subject }).toString()
     return get<{ success: boolean; data: { topics: Array<{ key: string; idx: number; title: string; maxScore: number; score: number | null }>; on1: number | null; on2: number | null; yn: number | null; mi?: number | null; scale?: JournalScale } }>(`/api/teaching/my-topic-scores?${q}`)

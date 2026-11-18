@@ -9,6 +9,7 @@ import { teachingApi, hemisApi, meetingsApi, NO_TRAINING_TYPE, type StudentTopic
 import { useApi } from "@/hooks/useApi"
 import { Loading, ApiError } from "@/components/ui/ApiState"
 import { StudentContentCard } from "@/components/teaching/StudentContentCard"
+import { RosterNumberNote } from "@/components/teaching/RosterNumberNote"
 import { LockedMediaPlayer } from "@/components/teaching/LockedMediaPlayer"
 import { TheoryViewer } from "@/components/teaching/TheoryViewer"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
@@ -691,6 +692,8 @@ function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index
           locked={!!assignment.sectionLocked}
           completed={assignmentDone}
           defaultOpen={firstOpen === "assignment"}>
+          {/* Variant ro'yxatdagi raqam bo'yicha berilganda talaba raqamini bilsin */}
+          <RosterNumberNote subjectName={assignment.subjectName} />
           <StudentContentCard item={assignment} submittable />
         </SectionAccordion>
       )}

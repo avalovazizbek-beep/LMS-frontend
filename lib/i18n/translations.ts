@@ -417,6 +417,8 @@ export const dictionary: Record<string, DictEntry> = {
   "fanResurslari.locked":     { uz: "Qulflangan", ru: "Закрыто", en: "Locked", kaa: "Qulıplanǵan" },
   "fanResurslari.current":    { uz: "Hozirgi", ru: "Текущая", en: "Current", kaa: "Házirgi" },
   "fanResurslari.assignment": { uz: "Topshiriq",               ru: "Задание",                           en: "Assignment",                    kaa: "Tapsırma" },
+  "fanResurslari.rosterNumber":     { uz: "Guruh ro'yxatidagi tartib raqamingiz: {n} (jami {total} talaba)", ru: "Ваш номер в списке группы: {n} (всего {total} студентов)", en: "Your number in the group list: {n} (of {total} students)", kaa: "Gruppa diziminde tártip nomerińiz: {n} (barlıǵı {total} student)" },
+  "fanResurslari.rosterNumberHint": { uz: "O'qituvchi topshiriq variantini ro'yxatdagi raqam bo'yicha bergan bo'lsa, shu raqamdan foydalaning.", ru: "Если преподаватель распределил варианты по номеру в списке, используйте этот номер.", en: "If the teacher assigned variants by list number, use this number.", kaa: "Oqıtıwshı tapsırma variantın dizimdegi nomer boyınsha bergen bolsa, usı nomerden paydalanıń." },
 
   // ── O'zlashtirish sahifasi ────────────────────────────────────────────
   "ozlashtirish.title":     { uz: "O'zlashtirish",              ru: "Успеваемость",                      en: "Performance",                   kaa: "Ózlestiriw" },
@@ -1758,6 +1760,10 @@ export const dictionary: Record<string, DictEntry> = {
   "fanResurslariOq.upload.createTest":      { uz: "Test yaratish",                      ru: "Создать тест",                              en: "Create test",                              kaa: "Test jaratıw" },
   "fanResurslariOq.upload.uploading":       { uz: "Yuklanmoqda...",                     ru: "Загрузка...",                                en: "Uploading...",                             kaa: "Júklenbekte..." },
   "fanResurslariOq.upload.uploadFile":      { uz: "Fayl yuklash",                       ru: "Загрузить файл",                            en: "Upload file",                              kaa: "Fayl júklew" },
+  "fanResurslariOq.upload.wrongType":  { uz: "«{name}» bu bo'limga mos emas — faqat {types} fayl yuklanadi", ru: "Файл «{name}» не подходит для этого раздела — можно загрузить только: {types}", en: "“{name}” does not fit this section — only {types} files can be uploaded", kaa: "«{name}» bul bólimge sáykes emes — tek {types} fayl júklenedi" },
+  "fanResurslariOq.upload.kindVideo":  { uz: "video", ru: "видео", en: "video", kaa: "video" },
+  "fanResurslariOq.upload.kindAudio":  { uz: "audio", ru: "аудио", en: "audio", kaa: "audio" },
+  "fanResurslariOq.upload.kindImage":  { uz: "rasm", ru: "изображение", en: "image", kaa: "súwret" },
 
   "fanResurslariOq.form.titleLabel":        { uz: "Nomlanishi",                         ru: "Название",                                  en: "Title",                                    kaa: "Atalıwı" },
   "fanResurslariOq.form.trainingTypeLabel": { uz: "Mashg'ulot turi",                    ru: "Тип занятия",                               en: "Training type",                            kaa: "Sabaq túri" },
@@ -1902,7 +1908,7 @@ export const dictionary: Record<string, DictEntry> = {
   "fanResurslariOq.test.deleteConfirm":     { uz: "Test o'chirilsinmi? Uning savollari va talabalarning test natijalari ham butunlay o'chadi. Shundan so'ng bu mavzuga Topshiriq yuklash mumkin bo'ladi.", ru: "Удалить тест? Его вопросы и результаты студентов также будут удалены безвозвратно. После этого для темы можно будет загрузить Задание.", en: "Delete the test? Its questions and students' test results will also be permanently deleted. After that you can upload an Assignment for this topic.", kaa: "Test óshirilsinbe? Onıń sorawları hám studentlerdiń test nátiyjeleri de pútkilley óshiriledi. Sonnan keyin bul temaǵa Tapsırma júklew múmkin boladı." },
   "fanResurslariOq.test.editQuestions":     { uz: "Savollarni tahrirlash",              ru: "Редактировать вопросы",                     en: "Edit questions",                           kaa: "Sorawlardı redaktorlaw" },
   "fanResurslariOq.test.resultsBtn":        { uz: "Test natijalari",                    ru: "Результаты теста",                          en: "Test results",                             kaa: "Test nátiyjeleri" },
-  "fanResurslariOq.test.maxScoreLabel":     { uz: "Maks ball (0 = 100)",                ru: "Макс. балл (0 = 100)",                      en: "Max score (0 = 100)",                      kaa: "Maks ball (0 = 100)" },
+  "fanResurslariOq.test.maxScoreLabel":     { uz: "Maks ball (100 gacha, 0 = 100)",     ru: "Макс. балл (до 100, 0 = 100)",              en: "Max score (up to 100, 0 = 100)",           kaa: "Maks ball (100 ge shekem, 0 = 100)" },
   "fanResurslariOq.test.durationLabel":     { uz: "Vaqt (daqiqa, 0 = cheksiz)",         ru: "Время (мин, 0 = без ограничений)",          en: "Time (minutes, 0 = unlimited)",            kaa: "Waqıt (minut, 0 = shekli joq)" },
   "fanResurslariOq.test.attemptsLabel":     { uz: "Urunishlar soni (0 = cheksiz)",      ru: "Количество попыток (0 = без ограничений)",  en: "Number of attempts (0 = unlimited)",       kaa: "Urınıwlar sanı (0 = shekli joq)" },
   "fanResurslariOq.test.questionCountLabel":{ uz: "Savollar soni (0 = hammasi{extra})", ru: "Количество вопросов (0 = все{extra})",      en: "Number of questions (0 = all{extra})",     kaa: "Sorawlar sanı (0 = bárshesi{extra})" },

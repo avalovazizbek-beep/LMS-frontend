@@ -29,8 +29,11 @@ function ChoiceRow({ checked, multiple, label, onSelect, name }: {
   checked: boolean; multiple: boolean; label: string; onSelect: () => void; name: string
 }) {
   return (
+    // relative — yashirin (sr-only) input shu qatorga bog'lansin. Aks holda u
+    // eng yaqin "positioned" ajdodga (modal oynaga) bog'lanadi va bosilganda
+    // brauzer fokus uchun butun oynani surib, kontentni ko'rinmas qilib qo'yadi.
     <label
-      className="flex cursor-pointer items-center gap-3 rounded-xl px-3.5 py-3 text-sm transition-colors"
+      className="relative flex cursor-pointer items-center gap-3 rounded-xl px-3.5 py-3 text-sm transition-colors"
       style={{
         border: `1px solid ${checked ? "var(--lms-button)" : "var(--lms-border)"}`,
         backgroundColor: checked ? "color-mix(in srgb, var(--lms-button) 8%, var(--lms-cell))" : "var(--lms-cell)",

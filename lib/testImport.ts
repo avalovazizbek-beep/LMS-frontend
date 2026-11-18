@@ -62,7 +62,7 @@ export interface ParsedTestFile {
 
 /* Sozlama maydonlari bilan bir xil chegaralar (fan-resurslari inputlari) */
 export const TEST_SETTING_MAX: Record<TestSettingKey, number> = {
-  maxScore: 1000,
+  maxScore: 100,
   durationMinutes: 300,
   attemptsCount: 10,
   questionDisplayCount: 9999,

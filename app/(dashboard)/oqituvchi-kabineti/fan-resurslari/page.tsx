@@ -22,6 +22,7 @@ import { RetakeTable } from "@/components/teaching/RetakeTable"
 import { TeacherCertificateCard } from "@/components/teaching/TeacherCertificate"
 import RichTextEditor from "@/components/ui/RichTextEditor"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
+import { fileMatchesAccept, acceptLabel } from "@/lib/fileAccept"
 
 const labelStyle = { color: "#7293b9", fontFamily: "var(--font-poppins)" } as const
 const titleStyle = { color: "#012970", fontFamily: "var(--font-poppins)" } as const
@@ -154,16 +155,38 @@ function FileDropZone({
   const { t } = useLanguage()
   const replaceRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  // Sudrab tashlangan fayl accept bilan tekshirilmaydi — o'zimiz tekshiramiz
+  const [typeError, setTypeError] = useState<string | null>(null)
+
+  function accepted(f: File): boolean {
+    if (fileMatchesAccept(f, accept)) { setTypeError(null); return true }
+    setTypeError(t("fanResurslariOq.upload.wrongType", {
+      name: f.name,
+      types: acceptLabel(accept, {
+        video: t("fanResurslariOq.upload.kindVideo"),
+        audio: t("fanResurslariOq.upload.kindAudio"),
+        image: t("fanResurslariOq.upload.kindImage"),
+      }),
+    }))
+    return false
+  }
 
   function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
     e.preventDefault()
     setDragOver(false)
     const f = e.dataTransfer.files?.[0]
-    if (f) onUpload(f)
+    if (f && accepted(f)) onUpload(f)
   }
+
+  const typeErrorNote = typeError && (
+    <p role="alert" className="mt-2 flex items-start gap-1.5 text-xs font-medium" style={{ color: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+      <X className="mt-px h-3.5 w-3.5 shrink-0" /> {typeError}
+    </p>
+  )
 
   if (item) {
     return (
+      <div>
       <div className="flex items-center justify-between gap-2 px-4 py-3 rounded-[8px]"
         style={{ backgroundColor: "#f6f9ff", border: "1px solid rgba(1,41,112,0.1)" }}>
         <div className="flex items-center gap-2 min-w-0">
@@ -182,7 +205,7 @@ function FileDropZone({
           {onReplace && (
             <>
               <input ref={replaceRef} type="file" accept={accept} className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) { onReplace(f); replaceRef.current!.value = "" } }} />
+                onChange={e => { const f = e.target.files?.[0]; if (f && accepted(f)) onReplace(f); replaceRef.current!.value = "" }} />
               <button onClick={() => replaceRef.current?.click()}
                 className="p-1.5 rounded hover:bg-white transition-colors" title={t("fanResurslariOq.upload.replace")}>
                 <Pencil className="w-4 h-4" style={{ color: "#d97706" }} />
@@ -194,10 +217,13 @@ function FileDropZone({
           </button>
         </div>
       </div>
+      {typeErrorNote}
+      </div>
     )
   }
 
   return (
+    <div>
     <label
       onDragOver={e => { e.preventDefault(); setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
@@ -233,8 +259,10 @@ function FileDropZone({
         </>
       )}
       <input type="file" accept={accept} className="hidden" disabled={uploading}
-        onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f) }} />
+        onChange={e => { const f = e.target.files?.[0]; if (f && accepted(f)) onUpload(f); e.target.value = "" }} />
     </label>
+    {typeErrorNote}
+    </div>
   )
 }
 
@@ -1014,7 +1042,8 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
   // Sync settings from loaded data
   useEffect(() => {
     setSettings({
-      testMaxScore:     test?.maxScore              ?? 0,
+      // Avval 100 dan katta saqlangan bo'lsa (cheklov yo'q edi) — 100 ga tushadi
+      testMaxScore:     Math.min(100, test?.maxScore ?? 0),
       testDuration:     test?.durationMinutes        ?? 0,
       testAttempts:     test?.attemptsCount          ?? 0,
       testDisplayCount: test?.questionDisplayCount   ?? 0,
@@ -1445,8 +1474,8 @@ function ResourcesPanel({ sel, extraGroupIds, trainingType, onChanged }: {
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-medium" style={labelStyle}>{t("fanResurslariOq.test.maxScoreLabel")}</label>
-                    <input type="number" min={0} max={1000} value={settings.testMaxScore} disabled={deadlinePassed}
-                      onChange={e => setSt("testMaxScore", Math.max(0, Number(e.target.value) || 0))}
+                    <input type="number" min={0} max={100} value={settings.testMaxScore} disabled={deadlinePassed}
+                      onChange={e => setSt("testMaxScore", Math.min(100, Math.max(0, Math.round(Number(e.target.value) || 0))))}
                       className="w-24 px-2 py-1.5 rounded-[5px] text-sm outline-none disabled:opacity-50"
                       style={{ border: "1px solid rgba(1,41,112,0.2)", color: "#012970", fontFamily: "var(--font-poppins)" }} />
                   </div>
