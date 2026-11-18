@@ -17,6 +17,7 @@ const MODULE_LABEL_KEYS: Record<AdminModule, string> = {
   reedu: "adminNav.retake",
   faceid: "adminNav.faceId",
   announcements: "adminNav.announcements",
+  surveys: "adminNav.surveys",
   settings: "adminNav.settings",
   permissions: "adminNav.permissions",
 }

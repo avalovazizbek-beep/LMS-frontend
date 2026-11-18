@@ -2895,6 +2895,7 @@ export const dictionary: Record<string, DictEntry> = {
   "theme.light":           { uz: "Kun rejimi",              ru: "Светлая тема",             en: "Light mode",            kaa: "Kúndizgi rejim" },
   "theme.dark":            { uz: "Tun rejimi",              ru: "Тёмная тема",              en: "Dark mode",             kaa: "Túngi rejim" },
   "sidebar.murojaatlar":   { uz: "Murojaatlar",             ru: "Обращения",                en: "Support requests",      kaa: "Múrájatlar" },
+  "sidebar.surveys":       { uz: "So'rovnomalar",           ru: "Опросы",                   en: "Surveys",               kaa: "Sorawnamalar" },
   "langSwitcher.label":    { uz: "Tilni tanlash",           ru: "Выбор языка",              en: "Choose language",       kaa: "Tildi tańlaw" },
 
   // ── Login sahifasi ───────────────────────────────────────────────────
@@ -3424,6 +3425,7 @@ export const dictionary: Record<string, DictEntry> = {
   "adminNav.retake":         { uz: "Qayta o'qish",                       ru: "Пересдача",                             en: "Retake",                                 kaa: "Qayta oqıw" },
   "adminNav.faceId":         { uz: "Face ID so'rovlari",                 ru: "Запросы Face ID",                       en: "Face ID requests",                       kaa: "Face ID sorawları" },
   "adminNav.announcements":  { uz: "E'lonlar",                           ru: "Объявления",                            en: "Announcements",                          kaa: "Xabarlandırıwlar" },
+  "adminNav.surveys":        { uz: "So'rovnomalar",                      ru: "Опросы",                                en: "Surveys",                                kaa: "Sorawnamalar" },
   "adminNav.support":        { uz: "Murojaatlar",                        ru: "Обращения",                             en: "Support requests",                       kaa: "Múrájatlar" },
   "adminNav.permissions":    { uz: "Ruxsatlar boshqaruvi",               ru: "Управление правами",                    en: "Permission management",                  kaa: "Ruxsatlardı basqarıw" },
   "adminNav.settings":       { uz: "Sozlamalar",                         ru: "Настройки",                             en: "Settings",                               kaa: "Sazlamalar" },
@@ -3725,6 +3727,12 @@ export const dictionary: Record<string, DictEntry> = {
   "notif.meetingNew.body":           { uz: "{title} — {time}",                     ru: "{title} — {time}",                        en: "{title} — {time}",                         kaa: "{title} — {time}" },
   "notif.deadline24h.title":         { uz: "Topshirish muddatiga 1 kun qoldi",     ru: "До срока сдачи остался 1 день",           en: "1 day left until the deadline",            kaa: "Tapsırıw múddetine 1 kún qaldı" },
   "notif.deadline24h.body":          { uz: "{title} — {time} gacha",               ru: "{title} — до {time}",                     en: "{title} — due {time}",                     kaa: "{title} — {time} ge shekem" },
+  "notif.surveyNew.title":           { uz: "Yangi so'rovnoma",                    ru: "Новый опрос",                             en: "New survey",                               kaa: "Jańa sorawnama" },
+  "notif.surveyNew.body":            { uz: "{title} — {date} gacha. Qatnashish ixtiyoriy", ru: "{title} — до {date}. Участие добровольное", en: "{title} — open until {date}. Participation is optional", kaa: "{title} — {date} ge shekem. Qatnasıw ıqtıyarlı" },
+  "notif.surveyReminder.title":      { uz: "So'rovnomada qatnashishni unutmang",  ru: "Не забудьте пройти опрос",                en: "Don't forget to take the survey",          kaa: "Sorawnamaǵa qatnasıwdı umıtpań" },
+  "notif.surveyReminder.body":       { uz: "{title} — {date} gacha",               ru: "{title} — до {date}",                     en: "{title} — open until {date}",              kaa: "{title} — {date} ge shekem" },
+  "notif.surveyLast.title":          { uz: "So'rovnoma tugashiga 1 kun qoldi",     ru: "До конца опроса остался 1 день",          en: "1 day left to take the survey",            kaa: "Sorawnama juwmaqlanıwına 1 kún qaldı" },
+  "notif.surveyLast.body":           { uz: "{title} — {date} gacha",               ru: "{title} — до {date}",                     en: "{title} — open until {date}",              kaa: "{title} — {date} ge shekem" },
   "notif.deadline1h.title":          { uz: "Topshirish muddatiga 1 soat qoldi",    ru: "До срока сдачи остался 1 час",            en: "1 hour left until the deadline",           kaa: "Tapsırıw múddetine 1 saat qaldı" },
   "notif.deadline1h.body":           { uz: "{title} — {time} gacha",               ru: "{title} — до {time}",                     en: "{title} — due {time}",                     kaa: "{title} — {time} ge shekem" },
   "notif.gradePending.title":        { uz: "Baholash kutilmoqda",                  ru: "Ожидает оценки",                          en: "Waiting to be graded",                     kaa: "Bahalaw kútilmekte" },

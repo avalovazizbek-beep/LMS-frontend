@@ -11,6 +11,7 @@ import { useApi } from "@/hooks/useApi"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { PersonAvatar } from "@/components/ui/PersonAvatar"
 import { TeacherCertificateCard } from "@/components/teaching/TeacherCertificate"
+import { ActiveSurveysBlock } from "@/components/surveys/MySurveys"
 
 import { PageHero } from "@/components/layout/PageHero"
 const staggerContainer = { hidden: {}, visible: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } } }
@@ -192,6 +193,9 @@ function StudentDashboard() {
         </motion.div>
       )}
 
+      {/* Faol so'rovnomalar — faqat ochiq so'rovnoma bo'lsa ko'rinadi */}
+      <ActiveSurveysBlock />
+
       {/* Quick links */}
       <motion.div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4" variants={staggerContainer} initial="hidden" animate="visible">
         {links.map((link) => {
@@ -303,6 +307,8 @@ function TeacherDashboard() {
       )}
 
       <TeacherCertificateCard />
+
+      <ActiveSurveysBlock />
 
       <section className="bg-white rounded-[10px] p-5" style={{ borderTop: "4px solid #1cc2dc", boxShadow: "0px 0px 5px rgba(1,41,112,0.08)" }}>
         <h2 className="text-[22px] font-medium mb-5" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>

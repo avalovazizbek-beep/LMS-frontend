@@ -2,27 +2,17 @@
 
 import { Globe } from "lucide-react"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
-
 import { PageHero } from "@/components/layout/PageHero"
+import { MySurveysList } from "@/components/surveys/MySurveys"
+
+/* "Global so'rovnoma" — avval bo'sh joy edi ("topilmadi"); endi LMS
+   so'rovnomalari (admin/dekanat e'lon qilgan) shu yerda ham ko'rinadi. */
 export default function GlobalSorovnoma() {
   const { t } = useLanguage()
   return (
-    <div className="flex flex-col gap-6 p-[30px]">
+    <div className="flex flex-col gap-6 p-4 sm:p-[30px]">
       <PageHero icon={Globe} title={t("globalSorovnoma.title")} subtitle={t("globalSorovnoma.subtitle")} />
-
-      <div className="bg-white rounded-[10px] p-14 text-center"
-        style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ backgroundColor: "#f0fbfd" }}>
-          <Globe className="w-8 h-8" style={{ color: "#1cc2dc" }} />
-        </div>
-        <p className="text-base font-medium" style={{ color: "#012970", fontFamily: "var(--font-poppins)" }}>
-          {t("globalSorovnoma.notFound")}
-        </p>
-        <p className="text-sm mt-2 max-w-sm mx-auto" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-          {t("globalSorovnoma.notFoundDesc")}
-        </p>
-      </div>
+      <MySurveysList />
     </div>
   )
 }

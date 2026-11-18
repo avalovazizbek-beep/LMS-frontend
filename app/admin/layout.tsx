@@ -31,6 +31,7 @@ import {
   Sunrise,
   Sun,
   Moon,
+  ListChecks,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { adminApi } from "@/lib/api"
@@ -57,6 +58,7 @@ const NAV = [
   { href: "/admin/qayta-oqish", labelKey: "adminNav.retake", icon: Repeat },
   { href: "/admin/face-id", labelKey: "adminNav.faceId", icon: ShieldAlert },
   { href: "/admin/elonlar", labelKey: "adminNav.announcements", icon: Megaphone },
+  { href: "/admin/sorovnomalar", labelKey: "adminNav.surveys", icon: ListChecks },
   { href: "/admin/murojaatlar", labelKey: "adminNav.support", icon: MessageSquareText },
   { href: "/admin/ruxsatlar", labelKey: "adminNav.permissions", icon: ShieldHalf },
   { href: "/admin/tashakkurnomalar", labelKey: "adminNav.certificates", icon: Award },

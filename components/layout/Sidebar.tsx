@@ -9,9 +9,9 @@ import {
   BookOpen, RefreshCw, Wallet, User, Video,
   Settings, Search, ChevronDown, GraduationCap, LayoutDashboard, ScanFace,
   CalendarDays, ClipboardList, UserCog, ShieldCheck, HelpCircle,
-  MessageSquareText,
+  MessageSquareText, ListChecks,
 } from "lucide-react"
-import { adminApi } from "@/lib/api"
+import { adminApi, surveysApi, SURVEYS_CHANGED_EVENT } from "@/lib/api"
 import { useLanguage } from "@/lib/i18n/LanguageContext"
 import { isZoomReviewSession } from "@/lib/zoomReview"
 import { loadExamBoard, todoCount, EXAMS_CHANGED_EVENT } from "@/lib/studentExams"
@@ -202,6 +202,18 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
     return () => { alive = false; window.removeEventListener(EXAMS_CHANGED_EVENT, onChange) }
   }, [isStudent])
 
+  // So'rovnomalar: javob berilmagan ochiq so'rovnomalar soni (talaba va o'qituvchi)
+  const [surveyBadge, setSurveyBadge] = useState(0)
+  useEffect(() => {
+    if (!role || zoomReview) return
+    let alive = true
+    const load = () => surveysApi.pendingCount().then(r => { if (alive) setSurveyBadge(r.count || 0) }).catch(() => {})
+    load()
+    const id = window.setInterval(load, 5 * 60_000)
+    window.addEventListener(SURVEYS_CHANGED_EVENT, load)
+    return () => { alive = false; window.clearInterval(id); window.removeEventListener(SURVEYS_CHANGED_EVENT, load) }
+  }, [role, zoomReview])
+
   useEffect(() => {
     const match = sections.find(s => s.items.some(i => pathname === i.href || pathname.startsWith(i.href + "/")))
     if (!match) return
@@ -217,7 +229,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   // "prefix" tekshiruvi /qayta-o-qish kabi ota-havolani ham noto'g'ri faol
   // qilib qo'yardi, chunki u ham shu yo'l bilan boshlanadi.
   const allHrefs = useMemo(() => {
-    const list = ["/dashboard", "/meeting", "/yoriqnoma"]
+    const list = ["/dashboard", "/meeting", "/yoriqnoma", "/sorovnomalar"]
     if (isAdmin) list.push("/admin")
     sections.forEach(s => s.items.forEach(i => list.push(i.href)))
     return list
@@ -437,6 +449,35 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             >
               {t("sidebar.murojaatlar")}
             </span>
+          </Link>}
+
+          {/* So'rovnomalar — standalone, javob kutilayotganlar soni bilan */}
+          {!zoomReview && <Link
+            href="/sorovnomalar"
+            onClick={onNavigate}
+            className="flex items-center gap-[15px] px-[15px] py-2.5 rounded-[5px] transition-colors mt-1 group"
+            style={{ backgroundColor: isActive("/sorovnomalar") ? "#f6f9ff" : "transparent" }}
+          >
+            <ListChecks
+              className="w-[22px] h-[22px] shrink-0 transition-transform group-hover:scale-110"
+              style={{ color: isActive("/sorovnomalar") ? "#1cc2dc" : "#012970" }}
+            />
+            <span
+              className="text-[14px] font-medium"
+              style={{
+                color: isActive("/sorovnomalar") ? "#1cc2dc" : "#012970",
+                fontFamily: "var(--font-poppins)",
+              }}
+            >
+              {t("sidebar.surveys")}
+            </span>
+            {surveyBadge > 0 && (
+              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold text-white"
+                style={{ backgroundColor: "#2563eb", fontFamily: "var(--font-poppins)" }}
+                aria-label={`${surveyBadge}`}>
+                {surveyBadge > 99 ? "99+" : surveyBadge}
+              </span>
+            )}
           </Link>}
 
           {/* Meeting — standalone */}

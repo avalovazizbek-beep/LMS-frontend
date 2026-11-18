@@ -2940,7 +2940,7 @@ export interface AdminFaceRequest {
 
 export type AdminModule =
   | "users" | "students" | "teachers" | "results" | "attendance"
-  | "grading" | "retake" | "reedu" | "faceid" | "announcements" | "settings" | "permissions"
+  | "grading" | "retake" | "reedu" | "faceid" | "announcements" | "surveys" | "settings" | "permissions"
 
 export interface ModulePermission {
   module: AdminModule
@@ -3513,4 +3513,260 @@ export const photosApi = {
     return get<PhotoLookupResponse>(`/api/photos?${q.toString()}`)
   },
   me: () => get<{ url: string | null }>("/api/photos/me"),
+}
+
+/* ── So'rovnomalar — /api/surveys (backend: services/surveyStore.ts) ──
+   Talaba/o'qituvchi: /my, /:id, /:id/submit. Admin va dekanat: /manage/... */
+export type SurveyQuestionType = "single" | "multiple" | "text" | "scale" | "yesno" | "rating"
+export type SurveyState = "draft" | "scheduled" | "active" | "paused" | "finished" | "archived"
+export type SurveyAudience = "student" | "teacher"
+
+export interface SurveyTargetRule {
+  audience: SurveyAudience
+  faculties: string[]
+  specialties: string[]
+  courses: string[]
+  groupIds: number[]
+}
+
+export interface SurveyOption { id?: number; text: string }
+export interface SurveyQuestion {
+  id?: number
+  type: SurveyQuestionType
+  text: string
+  required: boolean
+  scaleMax: number | null
+  allowOther: boolean
+  options: SurveyOption[]
+}
+
+export interface SurveyBase {
+  id: number
+  title: string
+  description: string | null
+  surveyType: string
+  surveyTypeLabel: string
+  isAnonymous: boolean
+  status: "draft" | "published"
+  isActive: boolean
+  state: SurveyState
+  startAt: string
+  endAt: string
+  estimatedMinutes: number | null
+  reminderIntervalDays: number
+  scopeFaculties: string[] | null
+  createdById: string
+  createdByName: string | null
+  createdByRole: string
+  publishedAt: string | null
+  archivedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SurveyListItem extends SurveyBase {
+  targetTotal: number
+  completedTotal: number
+  questionCount: number
+  audiences: string[]
+}
+
+export interface SurveySummary {
+  total: number
+  active: number
+  scheduled: number
+  drafts: number
+  archive: number
+  activeRate: number
+  activeCompleted: number
+  activeTarget: number
+}
+
+export type StoredSurveyQuestion = Omit<SurveyQuestion, "id" | "options"> & { id: number; options: { id: number; text: string }[] }
+
+export interface SurveyDetail extends SurveyBase {
+  targets: SurveyTargetRule[]
+  questions: StoredSurveyQuestion[]
+  responseCount: number
+}
+
+export interface SurveyManagerInfo {
+  role: "admin" | "dean"
+  faculties: string[] | null
+  canView: boolean
+  canCreate: boolean
+  canEdit: boolean
+  canDelete: boolean
+  surveyTypes: Record<string, string>
+}
+
+export interface SurveyAudienceOptions {
+  faculties: { name: string; count: number }[]
+  specialties: { name: string; faculty: string | null; count: number }[]
+  courses: { name: string; count: number }[]
+  groups: { id: number; name: string; faculty: string | null; specialty: string | null; course: string | null; count: number }[]
+  totalStudents: number
+  surveyTypes: Record<string, string>
+}
+
+export interface SurveyPayload {
+  title: string
+  description: string
+  surveyType: string
+  isAnonymous: boolean
+  isActive: boolean
+  startAt: string
+  endAt: string
+  estimatedMinutes: number | null
+  reminderIntervalDays: number
+  targets: SurveyTargetRule[]
+  questions: SurveyQuestion[]
+  publish?: boolean
+}
+
+export interface SurveyBreakdownRow { key: string; total: number; completed: number }
+
+export interface SurveyQuestionResult {
+  id: number
+  type: SurveyQuestionType
+  text: string
+  required: boolean
+  answered: number
+  skipped: number
+  options?: { id: number; text: string; count: number; percent: number }[]
+  otherCount?: number
+  otherTexts?: string[]
+  texts?: string[]
+  textTotal?: number
+  scaleMax?: number
+  distribution?: { value: number; count: number; percent: number }[]
+  average?: number | null
+}
+
+export interface SurveySegment { role?: string; faculty?: string; specialty?: string; course?: string; group?: string }
+
+export interface SurveyResults {
+  survey: SurveyBase & { questionCount: number }
+  participation: {
+    total: number
+    completed: number
+    pending: number
+    openedNotCompleted: number
+    rate: number
+    byRole: SurveyBreakdownRow[]
+    byFaculty: SurveyBreakdownRow[]
+    bySpecialty: SurveyBreakdownRow[]
+    byCourse: SurveyBreakdownRow[]
+    byGroup: SurveyBreakdownRow[]
+    byDepartment: SurveyBreakdownRow[]
+    trend: { date: string; count: number }[]
+  }
+  answers: {
+    responseTotal: number
+    suppressed: boolean
+    minGroup: number
+    segment: SurveySegment
+    segmentChoices: Record<"faculty" | "specialty" | "course" | "group", { key: string; responses: number }[]>
+    questions: SurveyQuestionResult[]
+  }
+}
+
+export interface SurveyParticipant {
+  role: string
+  userId: number
+  idNumber: string | null
+  fullName: string
+  faculty: string | null
+  specialty: string | null
+  course: string | null
+  groupName: string | null
+  department: string | null
+  status: "pending" | "completed"
+  openedAt: string | null
+  completedAt: string | null
+}
+
+export interface SurveyExport {
+  survey: SurveyBase
+  questions: { id: number; type: SurveyQuestionType; text: string; scaleMax: number | null; options: { id: number; text: string }[] }[]
+  responses: {
+    index: number
+    role: string
+    fullName: string | null
+    faculty: string | null
+    course: string | null
+    specialty: string | null
+    groupName: string | null
+    department: string | null
+    submittedAt: string | null
+    answers: Record<string, string | number>
+  }[]
+  participants: Omit<SurveyParticipant, "userId" | "openedAt">[]
+}
+
+export interface DeanFacultyRow { hemisId: string; fullName: string; department: string | null; faculties: string[] }
+
+export interface MySurvey {
+  id: number
+  title: string
+  description: string | null
+  surveyTypeLabel: string
+  isAnonymous: boolean
+  startAt: string
+  endAt: string
+  estimatedMinutes: number
+  questionCount: number
+  state: SurveyState
+  myStatus: "pending" | "completed"
+  completedAt: string | null
+}
+
+export interface SurveyForm extends Omit<MySurvey, "questionCount"> {
+  questions: StoredSurveyQuestion[]
+}
+
+export type SurveyAnswerValue = { optionIds?: number[]; value?: number; text?: string }
+
+/** So'rovnoma nishoni (yon menyu, dashboard) yangilanishi uchun hodisa */
+export const SURVEYS_CHANGED_EVENT = "lms:surveys-changed"
+
+export const surveysApi = {
+  // Talaba / o'qituvchi
+  mine: () => get<{ success: boolean; data: MySurvey[] }>("/api/surveys/my"),
+  pendingCount: () => get<{ success: boolean; count: number }>("/api/surveys/my/pending-count"),
+  form: (id: number) => get<{ success: boolean; data: SurveyForm }>(`/api/surveys/${id}`),
+  submit: (id: number, answers: Record<number, SurveyAnswerValue>) =>
+    post<MsgRes>(`/api/surveys/${id}/submit`, { answers }),
+
+  // Admin / dekanat
+  managerInfo: () => get<{ success: boolean; data: SurveyManagerInfo }>("/api/surveys/manage/me"),
+  list: () => get<{ success: boolean; data: SurveyListItem[]; summary: SurveySummary }>("/api/surveys/manage"),
+  options: () => get<{ success: boolean; data: SurveyAudienceOptions }>("/api/surveys/manage/options"),
+  preview: (targets: SurveyTargetRule[]) =>
+    post<{ success: boolean; data: { total: number; students: number; teachers: number } }>("/api/surveys/manage/preview", { targets }),
+  detail: (id: number) => get<{ success: boolean; data: SurveyDetail }>(`/api/surveys/manage/${id}`),
+  create: (payload: SurveyPayload) =>
+    post<{ success: boolean; message?: string; data: { id: number; published: boolean; participants?: number | null } }>("/api/surveys/manage", payload),
+  update: (id: number, payload: SurveyPayload) =>
+    put<{ success: boolean; data: { id: number; published: boolean; participants?: number | null } }>(`/api/surveys/manage/${id}`, payload),
+  publish: (id: number) => post<{ success: boolean; data: { participants: number } }>(`/api/surveys/manage/${id}/publish`, {}),
+  setActive: (id: number, active: boolean) => patch<MsgRes>(`/api/surveys/manage/${id}/active`, { active }),
+  setArchived: (id: number, archived: boolean) => patch<MsgRes>(`/api/surveys/manage/${id}/archive`, { archived }),
+  duplicate: (id: number) => post<{ success: boolean; data: { id: number } }>(`/api/surveys/manage/${id}/duplicate`, {}),
+  remove: (id: number, force = false) => del<MsgRes>(`/api/surveys/manage/${id}${force ? "?force=1" : ""}`),
+  results: (id: number, segment: SurveySegment = {}) => {
+    const q = new URLSearchParams()
+    for (const [k, v] of Object.entries(segment)) if (v) q.set(k, v)
+    const qs = q.toString()
+    return get<{ success: boolean; data: SurveyResults }>(`/api/surveys/manage/${id}/results${qs ? `?${qs}` : ""}`)
+  },
+  participants: (id: number, params: { status?: string; q?: string; faculty?: string; course?: string; group?: string; role?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") q.set(k, String(v))
+    return get<{ success: boolean; total: number; items: SurveyParticipant[] }>(`/api/surveys/manage/${id}/participants?${q.toString()}`)
+  },
+  exportData: (id: number) => get<{ success: boolean; data: SurveyExport }>(`/api/surveys/manage/${id}/export`),
+  deans: () => get<{ success: boolean; data: { deans: DeanFacultyRow[]; faculties: string[] } }>("/api/surveys/manage/deans"),
+  setDeanFaculties: (hemisId: string, faculties: string[]) =>
+    put<MsgRes>(`/api/surveys/manage/deans/${encodeURIComponent(hemisId)}/faculties`, { faculties }),
 }
