@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { BookOpen, CheckCircle2, ClipboardList, HelpCircle, Lock, Circle, Library, ExternalLink, Video, Play, Clapperboard, FolderOpen, ChevronRight, ChevronDown } from "lucide-react"
+import { BookOpen, CheckCircle2, ClipboardList, HelpCircle, Lock, Circle, Library, ExternalLink, Video, Play, Clapperboard, FolderOpen, ChevronRight, ChevronDown, ArrowRight, ListOrdered } from "lucide-react"
 import { PageHero } from "@/components/layout/PageHero"
 import { subjectVisual, tint } from "@/components/teaching/ExamBoardArt"
 import { teachingApi, hemisApi, meetingsApi, NO_TRAINING_TYPE, type StudentTopic, type StudentTopicSectionWithLock, type LocalResource, type SubjectRecording } from "@/lib/api"
@@ -211,13 +211,17 @@ export default function FanResurslariDetail() {
   const topics: StudentTopic[] = useMemo(() => data?.data ?? [], [data])
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  // Telefonda mavzular ro'yxati yig'iq turadi (kompyuterda doim ochiq)
+  const [listOpen, setListOpen] = useState(false)
   const topRef = useRef<HTMLDivElement>(null)
 
   // Ochilganda — hozirgi (birinchi tugallanmagan ochiq) mavzu; hammasi
   // tugagan bo'lsa — oxirgi ochiq mavzu
   useEffect(() => {
     if (selectedKey && topics.some(t => t.topicKey === selectedKey)) return
-    const current = topics.find(t => !t.locked && !t.completed) ?? topics.filter(t => !t.locked).pop() ?? topics[0]
+    // Bo'sh (materiali yo'q) mavzu "hozirgi" bo'lmaydi
+    const current = topics.find(t => !t.locked && !t.completed && !t.empty)
+      ?? topics.filter(t => !t.locked && !t.empty).pop() ?? topics[0]
     setSelectedKey(current ? current.topicKey : null)
   }, [topics, selectedKey])
 
@@ -232,7 +236,8 @@ export default function FanResurslariDetail() {
     const prev = completedBefore.current
     const idx = topics.findIndex(t => t.topicKey === selectedKey)
     const cur = idx >= 0 ? topics[idx] : null
-    const next = idx >= 0 ? topics[idx + 1] : undefined
+    // Keyingi materiali bor mavzu (bo'shlari o'tkazib yuboriladi)
+    const next = idx >= 0 ? topics.slice(idx + 1).find(t => !t.empty) : undefined
     if (cur && prev[cur.topicKey] === false && cur.completed && next && !next.locked) {
       setAdvanceTo(next.topicKey)
     }
@@ -280,8 +285,10 @@ export default function FanResurslariDetail() {
 
   const typePick = TRAINING_TYPE_PICKS.find(p => p.value === selectedType)
   const typeColor = typePick ? TYPE_COLORS[typePick.value] : "#2563eb"
-  const doneCount = topics.filter(tp => tp.completed).length
-  const donePct = topics.length ? Math.round((doneCount / topics.length) * 100) : 0
+  // Hisob faqat materiali bor mavzular bo'yicha (bo'sh mavzu "bajarilgan" emas)
+  const countable = topics.filter(tp => !tp.empty)
+  const doneCount = countable.filter(tp => tp.completed).length
+  const donePct = countable.length ? Math.round((doneCount / countable.length) * 100) : 0
   const selectedIndex = selected ? topics.findIndex(tp => tp.topicKey === selected.topicKey) : -1
 
   return (
@@ -291,7 +298,7 @@ export default function FanResurslariDetail() {
         badge={typePick ? <TypeBadge color={typeColor}>{t(typePick.labelKey)}</TypeBadge> : undefined}
         subtitle={topics.length === 0 ? t("fanResurslari.topicCount", { n: 0 }) : (
           <div className="flex flex-col gap-1.5">
-            <span>{t("fanResurslari.progress", { done: doneCount, total: topics.length })}</span>
+            <span>{t("fanResurslari.progress", { done: doneCount, total: countable.length })} · <strong style={{ color: "#16a34a" }}>{t("fanResurslari.percentDone", { p: donePct })}</strong></span>
             <span className="block h-2 w-full max-w-[340px] overflow-hidden rounded-full" style={{ background: tint("#16a34a", 16) }}>
               <span className="block h-2 rounded-full transition-all" style={{ width: `${donePct}%`, background: "linear-gradient(90deg, #22c55e, #16a34a)" }} />
             </span>
@@ -340,45 +347,72 @@ export default function FanResurslariDetail() {
             <MeetingRecordingsSection subjectName={subjectName} topicTitle={selected?.title} />
           </div>
 
-          {/* Mavzular ro'yxati */}
-          <div className="shrink-0 overflow-hidden rounded-2xl lg:sticky lg:top-4 lg:w-[320px] lg:self-start"
+          {/* Mavzular ro'yxati — kompyuterda o'ngda yopishqoq, telefonda tepada yig'iladigan panel */}
+          <div className="order-first shrink-0 overflow-hidden rounded-2xl lg:order-none lg:sticky lg:top-4 lg:w-[330px] lg:self-start"
             style={{ background: "var(--lms-cell)", border: "1px solid var(--lms-border)", boxShadow: "var(--lms-shadow)" }}>
-            <div className="flex items-center justify-between gap-2 px-4 py-3.5" style={{ borderBottom: "1px solid var(--lms-border)" }}>
-              <h2 className="text-[15px] font-semibold" style={{ color: "var(--lms-primary)" }}>{t("fanResurslari.topicsHeading")}</h2>
-              <span className="rounded-full px-2.5 py-1 text-[12px] font-semibold" style={{ background: tint("#16a34a", 12), color: "#15803d" }}>
-                {doneCount} / {topics.length}
+            <button type="button" onClick={() => setListOpen(o => !o)}
+              className="flex w-full items-center gap-3 px-4 py-3.5 text-left lg:cursor-default"
+              style={{ borderBottom: "1px solid var(--lms-border)" }}>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: tint(typeColor, 12) }}>
+                <ListOrdered className="h-4.5 w-4.5" style={{ color: typeColor }} />
               </span>
-            </div>
-            <div className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto p-2">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold" style={{ color: "var(--lms-primary)" }}>{t("fanResurslari.topicsHeading")}</span>
+                {/* Telefonda yig'ilganda — hozirgi mavzu nomi */}
+                {selected && (
+                  <span className="block truncate text-[12px] lg:hidden" style={{ color: "var(--lms-muted)" }}>
+                    {selectedIndex + 1}. {selected.title}
+                  </span>
+                )}
+              </span>
+              <span className="rounded-full px-2.5 py-1 text-[12px] font-semibold" style={{ background: tint("#16a34a", 12), color: "#15803d" }}>
+                {doneCount} / {countable.length}
+              </span>
+              <ChevronDown className={`h-4 w-4 shrink-0 transition-transform lg:hidden ${listOpen ? "rotate-180" : ""}`} style={{ color: "var(--lms-muted)" }} />
+            </button>
+            {/* Ingichka umumiy progress chizig'i */}
+            <span className="block h-1" style={{ background: tint("#16a34a", 14) }}>
+              <span className="block h-1 transition-all" style={{ width: `${donePct}%`, background: "linear-gradient(90deg, #22c55e, #16a34a)" }} />
+            </span>
+            <div className={`${listOpen ? "flex" : "hidden"} max-h-[60vh] flex-col gap-1 overflow-y-auto p-2 lg:flex lg:max-h-[70vh]`}>
               {topics.map((topic, idx) => {
                 const isActive = topic.topicKey === selectedKey
-                const circle = topic.completed ? "#16a34a" : topic.locked ? "#94a3b8" : typeColor
+                const circle = topic.completed ? "#16a34a" : topic.locked || topic.empty ? "#94a3b8" : typeColor
+                const hint = topic.empty ? t("fanResurslari.noMaterialShort")
+                  : topic.locked ? t("fanResurslari.topicLockedHint")
+                  : topic.completed ? t("fanResurslari.done")
+                  : isActive ? t("fanResurslari.current") : null
+                const hintColor = topic.completed ? "#15803d" : isActive && !topic.locked && !topic.empty ? typeColor : "var(--lms-muted)"
                 return (
                   <button
                     key={topic.topicKey}
-                    onClick={() => !topic.locked && selectTopic(topic.topicKey)}
+                    onClick={() => { if (!topic.locked) { selectTopic(topic.topicKey); setListOpen(false) } }}
                     disabled={topic.locked}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed"
+                    title={topic.locked ? t("fanResurslari.topicLockedHint") : undefined}
+                    className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors enabled:hover:bg-[var(--lms-hover,rgba(37,99,235,0.05))] disabled:cursor-not-allowed"
                     style={{
                       background: isActive ? tint(typeColor, 10) : "transparent",
                       boxShadow: isActive ? `inset 3px 0 0 ${typeColor}` : undefined,
-                      opacity: topic.locked ? 0.55 : 1,
                     }}
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                      style={topic.completed || isActive
-                        ? { background: circle, color: "#fff" }
-                        : { background: tint(circle, 12), color: circle }}>
+                      style={topic.empty && !isActive
+                        ? { background: "transparent", color: circle, border: `1.5px dashed ${tint(circle, 70)}` }
+                        : topic.completed || isActive
+                          ? { background: circle, color: "#fff", boxShadow: topic.completed ? "0 4px 10px -4px #16a34a" : `0 4px 10px -4px ${typeColor}` }
+                          : { background: tint(circle, 12), color: circle }}>
                       {topic.locked ? <Lock className="h-3.5 w-3.5" /> : topic.completed ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="line-clamp-2 text-[13px] font-medium leading-snug" style={{ color: isActive ? typeColor : "var(--lms-primary)" }}>
+                      <span className="line-clamp-2 text-[13px] font-medium leading-snug"
+                        style={{ color: isActive ? typeColor : topic.locked || topic.empty ? "var(--lms-muted)" : "var(--lms-primary)" }}>
                         {topic.title}
                       </span>
-                      {isActive && !topic.completed && (
-                        <span className="text-[11px] font-semibold" style={{ color: typeColor }}>{t("fanResurslari.current")}</span>
-                      )}
+                      {hint && <span className="block text-[11px] font-medium" style={{ color: hintColor }}>{hint}</span>}
                     </span>
+                    {!topic.locked && !isActive && (
+                      <ChevronRight className="h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ color: "var(--lms-muted)" }} />
+                    )}
                   </button>
                 )
               })}
@@ -421,10 +455,10 @@ function QollanmaSection({
   }
 
   return (
-    <div className="rounded-[10px] p-4 flex flex-col gap-3" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+    <div className="rounded-xl p-4 flex flex-col gap-3" style={{ border: "1px solid var(--lms-border)" }}>
       <div className="flex items-center gap-2">
-        <Library className="w-4 h-4" style={{ color: "#0e58a8" }} />
-        <span className="text-sm font-semibold" style={titleStyle}>{t("fanResurslari.guide")}</span>
+        <Library className="w-4 h-4" style={{ color: "#2563eb" }} />
+        <span className="text-sm font-semibold" style={{ color: "var(--lms-primary)" }}>{t("fanResurslari.guide")}</span>
         {marked && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "#22c55e" }} />}
       </div>
 
@@ -434,8 +468,8 @@ function QollanmaSection({
           target="_blank"
           rel="noreferrer"
           onClick={handleDownload}
-          className="flex items-center gap-2 w-fit px-3 py-2 rounded-[6px] text-sm font-medium transition-colors hover:bg-[#e8f0fb]"
-          style={{ backgroundColor: "#f0f5ff", color: "#0e58a8", fontFamily: "var(--font-poppins)" }}>
+          className="flex items-center gap-2 w-fit max-w-full px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+          style={{ backgroundColor: tint("#2563eb", 12), color: "#2563eb", fontFamily: "var(--font-poppins)" }}>
           <ExternalLink className="w-4 h-4" />
           {qollanma.file.originalName}
         </a>
@@ -446,7 +480,7 @@ function QollanmaSection({
           {t("fanResurslari.guideDownloaded")}
         </p>
       ) : (
-        <p className="text-xs" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
+        <p className="text-xs" style={{ color: "var(--lms-muted)", fontFamily: "var(--font-poppins)" }}>
           {t("fanResurslari.guideDownloadPrompt")}
         </p>
       )}
@@ -456,7 +490,7 @@ function QollanmaSection({
 
 /* ── Accordion section wrapper ─────────────────────────────────────── */
 function SectionAccordion({
-  id, title, icon, locked, completed, defaultOpen, children,
+  id, title, icon, locked, completed, defaultOpen, children, lockedHint, focusTick = 0,
 }: {
   id: string
   title: string
@@ -465,19 +499,29 @@ function SectionAccordion({
   completed: boolean
   defaultOpen: boolean
   children: React.ReactNode
+  /** Nega yopiq: "Avval: Taqdimot" */
+  lockedHint?: string
+  /** Qadamlar chizig'ida shu qism bosilganda oshadi — ochiladi va ko'rinadi */
+  focusTick?: number
 }) {
   const { t } = useLanguage()
   const [open, setOpen] = useState(defaultOpen && !locked)
+  const boxRef = useRef<HTMLDivElement>(null)
   // Oldingi bo'lim tugab, navbat shu bo'limga kelganda — o'zi ochiladi
   useEffect(() => {
     if (defaultOpen && !locked) setOpen(true)
   }, [defaultOpen, locked])
+  useEffect(() => {
+    if (!focusTick || locked) return
+    setOpen(true)
+    boxRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })
+  }, [focusTick, locked])
 
   const accent = locked ? "#94a3b8" : completed ? "#16a34a" : "#2563eb"
   const active = open && !locked
 
   return (
-    <div className="overflow-hidden rounded-2xl transition-shadow"
+    <div ref={boxRef} id={`section-${id}`} className="scroll-mt-4 overflow-hidden rounded-2xl transition-shadow"
       style={{
         background: "var(--lms-cell)",
         border: `1px solid ${active ? tint("#2563eb", 30) : completed ? tint("#16a34a", 28) : "var(--lms-border)"}`,
@@ -491,9 +535,14 @@ function SectionAccordion({
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: tint(accent, 12) }}>
           {icon}
         </span>
-        <span className="flex-1 text-[14px] font-semibold"
-          style={{ color: locked ? "var(--lms-muted)" : "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
-          {title}
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-semibold"
+            style={{ color: locked ? "var(--lms-muted)" : "var(--lms-primary)", fontFamily: "var(--font-poppins)" }}>
+            {title}
+          </span>
+          {locked && lockedHint && (
+            <span className="block text-[11px] font-medium" style={{ color: "var(--lms-muted)" }}>{lockedHint}</span>
+          )}
         </span>
         {locked && (
           <span className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: tint("#94a3b8", 14), color: "#64748b" }}>
@@ -547,6 +596,25 @@ function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index
 
   const hasAny = !!(video || audio || theory || qollanma || test || assignment || youtube)
 
+  // Qadamlar: mavzudagi qismlar tartib bilan, holati bilan (bosilsa o'sha qism ochiladi)
+  const steps = ([
+    { id: "video", label: t("fanResurslari.video"), Icon: Video, sec: video?.file ? video : null, done: !!video?.progress?.completed },
+    { id: "audio", label: t("fanResurslari.audio"), Icon: Play, sec: audio?.file ? audio : null, done: !!audio?.progress?.completed },
+    { id: "theory", label: t("fanResurslari.presentation"), Icon: BookOpen, sec: theory?.file ? theory : null, done: !!theory?.progress?.completed },
+    { id: "qollanma", label: t("fanResurslari.guide"), Icon: Library, sec: qollanma?.file ? qollanma : null, done: !!qollanma?.progress?.completed },
+    { id: "test", label: t("fanResurslari.test"), Icon: HelpCircle, sec: test ?? null, done: !!(test as { passed?: boolean } | null | undefined)?.passed },
+    { id: "assignment", label: t("fanResurslari.assignment"), Icon: ClipboardList, sec: assignment ?? null, done: assignmentDone },
+  ] as const).filter(st => st.sec)
+  // Yopiq qism uchun sabab — undan oldingi birinchi bajarilmagan qadam
+  const lockedHintFor = (id: string) => {
+    const idx = steps.findIndex(st => st.id === id)
+    const blocker = steps.slice(0, Math.max(0, idx)).find(st => !st.done)
+    return blocker ? t("fanResurslari.lockedAfter", { name: blocker.label }) : undefined
+  }
+  const nextStep = steps.find(st => !st.done && !st.sec?.sectionLocked)
+  const [focus, setFocus] = useState<{ id: string; tick: number }>({ id: "", tick: 0 })
+  const focusTick = (id: string) => (focus.id === id ? focus.tick : 0)
+
   return (
     <>
       <div className="flex items-center gap-3 rounded-2xl p-4 sm:p-5"
@@ -571,6 +639,43 @@ function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index
         )}
       </div>
 
+      {steps.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: "var(--lms-cell)", border: "1px solid var(--lms-border)" }}>
+          <div className="flex flex-wrap items-center gap-2">
+            {steps.map((st, i) => {
+              const locked = !!st.sec?.sectionLocked
+              const isNext = nextStep?.id === st.id
+              const color = st.done ? "#16a34a" : locked ? "#94a3b8" : "#2563eb"
+              return (
+                <React.Fragment key={st.id}>
+                  {i > 0 && <ArrowRight className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--lms-muted)" }} />}
+                  <button type="button" disabled={locked}
+                    onClick={() => setFocus(f => ({ id: st.id, tick: f.tick + 1 }))}
+                    title={locked ? lockedHintFor(st.id) : undefined}
+                    className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-transform enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed"
+                    style={{
+                      background: st.done ? tint("#16a34a", 12) : isNext ? "#2563eb" : tint(color, 10),
+                      color: isNext && !st.done ? "#fff" : color,
+                      boxShadow: isNext && !st.done ? "0 6px 14px -8px #2563eb" : undefined,
+                    }}>
+                    {st.done ? <CheckCircle2 className="h-3.5 w-3.5" /> : locked ? <Lock className="h-3 w-3" /> : <st.Icon className="h-3.5 w-3.5" />}
+                    {st.label}
+                  </button>
+                </React.Fragment>
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-2 rounded-xl px-3 py-2 text-[13px]"
+            style={{ background: nextStep ? tint("#2563eb", 8) : tint("#16a34a", 10), color: nextStep ? "var(--lms-primary)" : "#15803d" }}>
+            {nextStep ? <ArrowRight className="h-4 w-4 shrink-0" style={{ color: "#2563eb" }} /> : <CheckCircle2 className="h-4 w-4 shrink-0" />}
+            <span>
+              {nextStep && <strong style={{ color: "#2563eb" }}>{t("fanResurslari.nextLabel")}: </strong>}
+              {nextStep ? t(`fanResurslari.next.${nextStep.id}`) : t("fanResurslari.next.done")}
+            </span>
+          </div>
+        </div>
+      )}
+
       {!hasAny && (
         <div className="rounded-2xl p-14 text-center" style={{ background: "var(--lms-cell)", border: "1px solid var(--lms-border)" }}>
           <Circle className="w-10 h-10 mx-auto mb-3" style={{ color: "#7293b9" }} />
@@ -585,7 +690,9 @@ function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index
           icon={<Video className="w-4 h-4" style={{ color: video.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={!!video.sectionLocked}
           completed={!!video.progress?.completed}
-          defaultOpen={firstOpen === "video"}>
+          defaultOpen={firstOpen === "video"}
+          lockedHint={lockedHintFor("video")}
+          focusTick={focusTick("video")}>
           <LockedMediaPlayer
             contentId={video.id}
             src={teachingApi.fileUrl(video.file.url)}
@@ -630,7 +737,9 @@ function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index
           icon={<Play className="w-4 h-4" style={{ color: audio.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={!!audio.sectionLocked}
           completed={!!audio.progress?.completed}
-          defaultOpen={firstOpen === "audio"}>
+          defaultOpen={firstOpen === "audio"}
+          lockedHint={lockedHintFor("audio")}
+          focusTick={focusTick("audio")}>
           <LockedMediaPlayer
             contentId={audio.id}
             src={teachingApi.fileUrl(audio.file.url)}
@@ -649,7 +758,9 @@ function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index
           icon={<BookOpen className="w-4 h-4" style={{ color: theory.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={!!theory.sectionLocked}
           completed={!!theory.progress?.completed}
-          defaultOpen={firstOpen === "theory"}>
+          defaultOpen={firstOpen === "theory"}
+          lockedHint={lockedHintFor("theory")}
+          focusTick={focusTick("theory")}>
           <TheoryViewer
             contentId={theory.id}
             file={theory.file}
@@ -667,7 +778,9 @@ function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index
           icon={<Library className="w-4 h-4" style={{ color: qollanma.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={!!qollanma.sectionLocked}
           completed={!!qollanma.progress?.completed}
-          defaultOpen={firstOpen === "qollanma"}>
+          defaultOpen={firstOpen === "qollanma"}
+          lockedHint={lockedHintFor("qollanma")}
+          focusTick={focusTick("qollanma")}>
           <QollanmaSection qollanma={qollanma} onProgress={onProgress} />
         </SectionAccordion>
       )}
@@ -679,7 +792,9 @@ function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index
           icon={<HelpCircle className="w-4 h-4" style={{ color: test.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={!!test.sectionLocked}
           completed={test.submission?.grade != null}
-          defaultOpen={firstOpen === "test"}>
+          defaultOpen={firstOpen === "test"}
+          lockedHint={lockedHintFor("test")}
+          focusTick={focusTick("test")}>
           <StudentContentCard item={test} submittable />
         </SectionAccordion>
       )}
@@ -691,7 +806,9 @@ function TopicContent({ topic, index, onProgress }: { topic: StudentTopic; index
           icon={<ClipboardList className="w-4 h-4" style={{ color: assignment.sectionLocked ? "#94a3b8" : "#0e58a8" }} />}
           locked={!!assignment.sectionLocked}
           completed={assignmentDone}
-          defaultOpen={firstOpen === "assignment"}>
+          defaultOpen={firstOpen === "assignment"}
+          lockedHint={lockedHintFor("assignment")}
+          focusTick={focusTick("assignment")}>
           {/* Variant ro'yxatdagi raqam bo'yicha berilganda talaba raqamini bilsin */}
           <RosterNumberNote subjectName={assignment.subjectName} />
           <StudentContentCard item={assignment} submittable />

@@ -1836,6 +1836,8 @@ export interface StudentTopic {
   title: string
   locked: boolean
   completed: boolean
+  /** Talaba bajaradigan material hali yuklanmagan — hisobga va zanjirga kirmaydi */
+  empty?: boolean
   trainingType: string | null
   sections: {
     video: StudentTopicSectionWithLock | null
