@@ -1589,6 +1589,8 @@ export interface AdminExamListItem {
   submissionCount: number
   /** Faol qayta urinish ruxsatlari soni */
   grantCount: number
+  /** O'qituvchining javobsiz qayta ochish so'rovlari (oraliq / mustaqil ish) */
+  pendingRequests?: number
   /** O'qituvchi o'chirgan yoki "Baholashni yakunlash" bosilgan — talaba baribir
       ko'radi, jurnal hisoblaydi; eski backendda yo'q (= faol) */
   isActive?: boolean
@@ -1604,6 +1606,8 @@ export interface AdminOraliqStudent {
   submittedAt: string | null
   passed: boolean
   retakeGranted: boolean
+  /** O'qituvchi so'rovida, admin tasdiqlashini kutmoqda */
+  reopenPending?: boolean
   /** Jurnaldagi qiymat (0-100 foiz) va manbasi */
   journalPct: number | null
   journalSource: PeriodSource | null
@@ -1629,7 +1633,95 @@ export interface AdminOraliqDetail {
     questionCount: number
     isActive: boolean
   }
+  /** Oraliq / mustaqil ish: admin o'zi ochmaydi, o'qituvchi so'rovini tasdiqlaydi */
+  reopenByRequest?: boolean
+  reopenWindow?: ReopenWindow
+  requests?: ReopenRequest[]
   students: AdminOraliqStudent[]
+}
+
+/* ── Oraliq / mustaqil ishni qayta ochish so'rovlari (2026-11-27) ──
+   Muddatdan keyin 5 kun ichida o'qituvchi so'raydi, admin tasdiqlaydi;
+   5 kundan keyin qayta ochib bo'lmaydi; 10 kundan keyin — Arxivda. */
+export const REOPEN_WINDOW_DAYS = 5
+export const ARCHIVE_AFTER_DAYS = 10
+
+export interface ReopenWindow {
+  deadline: string | null
+  /** Shu paytgacha qayta ochish mumkin (muddat + 5 kun) */
+  closesAt: string | null
+  /** Shu paytdan keyin Arxivda (muddat + 10 kun) */
+  archiveAt: string | null
+  ended: boolean
+  open: boolean
+  archived: boolean
+}
+
+/** Backenddagi reopenWindow bilan bir xil hisob (kartalar uchun) */
+export function reopenWindowOf(deadline: string | null, now = Date.now()): ReopenWindow {
+  const d = deadline ? new Date(deadline).getTime() : NaN
+  if (!Number.isFinite(d)) return { deadline: null, closesAt: null, archiveAt: null, ended: false, open: true, archived: false }
+  const DAY = 24 * 60 * 60 * 1000
+  const closes = d + REOPEN_WINDOW_DAYS * DAY
+  const archive = d + ARCHIVE_AFTER_DAYS * DAY
+  return {
+    deadline: new Date(d).toISOString(),
+    closesAt: new Date(closes).toISOString(),
+    archiveAt: new Date(archive).toISOString(),
+    ended: now > d,
+    open: now <= closes,
+    archived: now > archive,
+  }
+}
+
+export type ReopenStatus = "pending" | "approved" | "rejected" | "cancelled" | "expired"
+
+export interface ReopenRequest {
+  id: number
+  contentId: number
+  teacherUserId: number
+  teacherName: string
+  students: { userId: number; fullName: string }[]
+  reason: string
+  status: ReopenStatus
+  adminNote: string | null
+  reviewedByName: string | null
+  reviewedAt: string | null
+  grantedCount: number
+  createdAt: string
+  content: {
+    title: string
+    type: string
+    controlType: string | null
+    kind: string | null
+    gradePoints: number | null
+    gradePart: string | null
+    subjectName: string
+    groupId: number
+    groupName: string
+    deadline: string | null
+  }
+  window: ReopenWindow
+}
+
+export interface ReopenStudentRow {
+  userId: number
+  fullName: string
+  grade: number | null
+  attemptsUsed: number
+  submittedAt: string | null
+  passed: boolean
+  retakeGranted: boolean
+  pending: boolean
+  /** O'tmagan, ruxsati yo'q, so'rovda emas — belgilash mumkin */
+  eligible: boolean
+}
+
+export interface ReopenInfo {
+  window: ReopenWindow
+  windowDays: number
+  students: ReopenStudentRow[]
+  requests: ReopenRequest[]
 }
 
 export interface ExamResultsTopic {
@@ -2076,6 +2168,21 @@ export const teachingApi = {
 
   revokeRetake: (contentId: number | string, studentUserId: number | string) =>
     del<MsgRes>(`/api/teaching/content/${contentId}/retake-grants/${studentUserId}`),
+
+  /** O'qituvchi: oraliq / mustaqil ishni qayta ochish — oyna, talabalar, so'rovlar tarixi */
+  reopenInfo: (contentId: number | string) =>
+    get<ItemRes<ReopenInfo>>(`/api/teaching/content/${contentId}/reopen`),
+
+  /** O'qituvchi: barcha qayta ochish so'rovlari (kartalardagi holat uchun) */
+  myReopenRequests: () =>
+    get<ListRes<ReopenRequest>>("/api/teaching/reopen-requests"),
+
+  /** O'qituvchi: belgilangan talabalarni qayta ochish uchun adminga so'rov */
+  createReopenRequest: (contentId: number | string, studentUserIds: number[], reason: string) =>
+    post<MsgRes>(`/api/teaching/content/${contentId}/reopen-requests`, { studentUserIds, reason }),
+
+  cancelReopenRequest: (requestId: number) =>
+    del<MsgRes>(`/api/teaching/reopen-requests/${requestId}`),
 
   /** O'qituvchi: oraliq/yakuniy nazoratni savollari bilan boshqa guruhlariga tarqatish */
   copyToGroups: (contentId: number | string, groupIds: number[]) =>
@@ -3188,6 +3295,15 @@ export const adminApi = {
 
   revokeRetake: (contentId: number | string, studentUserId: number | string) =>
     del<MsgRes>(`/api/admin/content/${contentId}/retake-grants/${studentUserId}`),
+
+  /** O'qituvchilarning oraliq / mustaqil ishni qayta ochish so'rovlari */
+  reopenRequests: (status: ReopenStatus | "all" = "pending") =>
+    get<{ success: boolean; data: ReopenRequest[]; pendingCount: number; windowDays: number }>(
+      `/api/admin/reopen-requests?status=${encodeURIComponent(status)}`
+    ),
+
+  reviewReopenRequest: (id: number, action: "approve" | "reject", note?: string) =>
+    patch<MsgRes & { data?: { granted: number } }>(`/api/admin/reopen-requests/${id}`, { action, note }),
 
   announcements: () => get<ListRes<AdminAnnouncement>>("/api/admin/announcements"),
 

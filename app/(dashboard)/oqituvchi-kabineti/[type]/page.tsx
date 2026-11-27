@@ -7,7 +7,7 @@ import { useParams, useSearchParams } from "next/navigation"
 import {
   Plus, X, Trash2, Pencil, FileText, Lock, CheckCircle2, Clock, Users, Loader2, Download,
   Video, Link as LinkIcon, File as FileIcon, HelpCircle, Power, CalendarCheck, BarChart2, ArrowLeft, Upload,
-  RefreshCw, ShieldAlert, ExternalLink, Copy, Search,
+  RefreshCw, ShieldAlert, ExternalLink, Copy, Search, Archive, RotateCcw, Send, Hourglass, XCircle,
 } from "lucide-react"
 import {
   teachingApi,
@@ -21,6 +21,11 @@ import {
   type ContentStatus,
   type ExamQuestion,
   type PlagiarismResult,
+  type ReopenRequest,
+  type ReopenStatus,
+  reopenWindowOf,
+  REOPEN_WINDOW_DAYS,
+  ARCHIVE_AFTER_DAYS,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { sortByName } from "@/lib/utils"
@@ -1123,6 +1128,25 @@ export default function TeacherContentTypePage() {
   const [questionsFor, setQuestionsFor] = useState<TeacherContent | null>(null)
   const [copyFor, setCopyFor] = useState<TeacherContent | null>(null)
 
+  // Oraliq / mustaqil ish: muddatdan 5 kun keyin qayta ochib bo'lmaydi
+  // (qizil), 10 kundan keyin "Arxiv"ga o'tadi — hech narsa o'chirilmaydi
+  const [reopenFor, setReopenFor] = useState<TeacherContent | null>(null)
+  const [listTab, setListTab] = useState<"current" | "archive">("current")
+  const [now] = useState(() => Date.now())
+  const { data: reopenRes, refetch: refetchReopen } = useApi(
+    () => isOraliqPage ? teachingApi.myReopenRequests() : Promise.resolve({ success: true, data: [] as ReopenRequest[] }),
+    [isOraliqPage]
+  )
+  // Har nazorat bo'yicha oxirgi so'rov (bekor qilinganlari hisobga olinmaydi)
+  const latestReopen = useMemo(() => {
+    const map = new Map<number, ReopenRequest>()
+    for (const r of reopenRes?.data ?? []) if (r.status !== "cancelled" && !map.has(r.contentId)) map.set(r.contentId, r)
+    return map
+  }, [reopenRes])
+  const archivedIds = useMemo(() => new Set(
+    isOraliqPage ? items.filter(i => isScoredControl(i) && reopenWindowOf(i.deadline, now).archived).map(i => i.id) : []
+  ), [items, isOraliqPage, now])
+
   // Nazoratlar → Oraliq nazorat (HEMIS ro'yxati) qatori bosilganda ?hemis=<id>
   // bilan kelinadi — HEMIS ro'yxati o'sha nazorat ajratilgan holda ochiladi
   const searchParams = useSearchParams()
@@ -1424,20 +1448,68 @@ export default function TeacherContentTypePage() {
         </div>
       </div>
 
-      {loading ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : items.length === 0 ? (
+      {/* Oraliq sahifasi: Joriy / Arxiv (muddatdan 10 kun o'tganlari avtomatik) */}
+      {isOraliqPage && !loading && !error && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {(["current", "archive"] as const).map(k => {
+              const n = k === "archive" ? archivedIds.size : items.length - archivedIds.size
+              const active = listTab === k
+              const TabIcon = k === "archive" ? Archive : FileText
+              return (
+                <button key={k} type="button" onClick={() => setListTab(k)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm font-medium transition-colors"
+                  style={active
+                    ? { backgroundColor: "#012970", color: "#fff", fontFamily: "var(--font-poppins)" }
+                    : { backgroundColor: "#fff", color: "#445b7a", border: "1px solid #d8e6f7", fontFamily: "var(--font-poppins)" }}>
+                  <TabIcon className="w-4 h-4" />
+                  {t(k === "archive" ? "typeContentOq.tab.archive" : "typeContentOq.tab.current")}
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full"
+                    style={active ? { backgroundColor: "rgba(255,255,255,0.2)" } : { backgroundColor: "#eef4ff", color: "#0e58a8" }}>
+                    {n}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          {listTab === "archive" && (
+            <p className="text-xs flex items-start gap-2 px-3 py-2 rounded-[8px]" style={{ color: "#445b7a", backgroundColor: "#f1f5f9", fontFamily: "var(--font-poppins)" }}>
+              <Archive className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              {t("typeContentOq.archive.hint", { days: ARCHIVE_AFTER_DAYS })}
+            </p>
+          )}
+        </div>
+      )}
+
+      {(() => {
+        const shownItems = isOraliqPage
+          ? items.filter(i => (listTab === "archive") === archivedIds.has(i.id))
+          : items
+        const emptyText = isOraliqPage && items.length > 0
+          ? t(listTab === "archive" ? "typeContentOq.archive.empty" : "typeContentOq.archive.currentEmpty")
+          : t("typeContentOq.emptyState", { item: config.itemLabel })
+        return loading ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : shownItems.length === 0 ? (
         <div className="bg-white rounded-[12px] p-10 text-center" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
           <p className="text-sm" style={{ color: "#7293b9", fontFamily: "var(--font-poppins)" }}>
-            {t("typeContentOq.emptyState", { item: config.itemLabel })}
+            {emptyText}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {items.map(item => {
+          {shownItems.map(item => {
             const st = STATUS_LABEL[item.status]
             const groupName = groups.find(g => g.id === item.groupId)?.name ?? t("typeContentOq.groupFallback", { id: item.groupId })
+            // Oraliq / mustaqil ish: qayta ochish oynasi (muddat + 5 kun) va so'rov holati
+            const scored = isOraliqPage && isScoredControl(item)
+            const win = scored ? reopenWindowOf(item.deadline, now) : null
+            const inArchive = archivedIds.has(item.id)
+            const lockedRed = !!win && win.ended && !win.open && !inArchive
+            const reopenReq = scored ? latestReopen.get(item.id) : undefined
             return (
               <div key={item.id} className="bg-white rounded-[12px] p-5 flex flex-col gap-3"
-                style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+                style={lockedRed
+                  ? { border: "1px solid #fca5a5", boxShadow: "inset 4px 0 0 #dc2626", backgroundColor: "#fffafa" }
+                  : { border: "1px solid rgba(1,41,112,0.1)" }}>
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#f6f9ff" }}>
@@ -1539,6 +1611,29 @@ export default function TeacherContentTypePage() {
                   })()}
                 </div>
 
+                {win && (win.ended || reopenReq) && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {inArchive ? (
+                      <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                        style={{ color: "#475569", backgroundColor: "#f1f5f9", fontFamily: "var(--font-poppins)" }}>
+                        <Archive className="w-3.5 h-3.5" /> {t("typeContentOq.archive.badge")}
+                      </span>
+                    ) : win.ended && (win.open ? (
+                      <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                        style={{ color: "#b45309", backgroundColor: "#fffbeb", border: "1px solid #fde68a", fontFamily: "var(--font-poppins)" }}>
+                        <Hourglass className="w-3.5 h-3.5" /> {reopenLeftLabel(t, win.closesAt, now, "long")}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                        title={t("typeContentOq.reopen.closedHint", { days: REOPEN_WINDOW_DAYS })}
+                        style={{ color: "#fff", backgroundColor: "#dc2626", fontFamily: "var(--font-poppins)" }}>
+                        <Lock className="w-3.5 h-3.5" /> {t("typeContentOq.reopen.closed")}
+                      </span>
+                    ))}
+                    {reopenReq && <ReopenStatusPill req={reopenReq} />}
+                  </div>
+                )}
+
                 {/* Oraliq topshirig'i fayli — API uni `file` sifatida beradi */}
                 {!item.docFile && item.file && item.type === "assignment" && (
                   <TaskFileCard files={[item.file]} controlType={item.controlType} audience="teacher" />
@@ -1596,6 +1691,16 @@ export default function TeacherContentTypePage() {
                       {t("typeContentOq.viewGrade")}
                     </button>
                   )}
+                  {!config.readOnly && win && win.ended && win.open && (
+                    <button
+                      onClick={() => setReopenFor(item)}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] transition-colors"
+                      style={{ color: "#b45309", border: "1px solid #fde68a", backgroundColor: "#fffbeb", fontFamily: "var(--font-poppins)" }}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      {t("typeContentOq.reopen.button")}
+                    </button>
+                  )}
                   {!config.readOnly && config.type === "exam" && !!item.controlType && (
                     <button
                       onClick={() => setCopyFor(item)}
@@ -1631,7 +1736,8 @@ export default function TeacherContentTypePage() {
             )
           })}
         </div>
-      )}
+      )
+      })()}
 
       {showForm && (
         <ContentFormModal
@@ -1673,6 +1779,15 @@ export default function TeacherContentTypePage() {
         />
       )}
 
+      {reopenFor && (
+        <ReopenRequestModal
+          content={reopenFor}
+          groupName={groups.find(g => g.id === reopenFor.groupId)?.name ?? t("typeContentOq.groupFallback", { id: reopenFor.groupId })}
+          onClose={() => setReopenFor(null)}
+          onChanged={refetchReopen}
+        />
+      )}
+
       {copyFor && (
         <CopyToGroupsModal
           content={copyFor}
@@ -1682,6 +1797,291 @@ export default function TeacherContentTypePage() {
           onDone={refetch}
         />
       )}
+    </div>
+  )
+}
+
+/* ── Oraliq / mustaqil ishni qayta ochish (2026-11-27) ─────────────────
+   Muddat tugagach 5 kun ichida o'qituvchi talabalarni belgilab adminga
+   so'rov yuboradi, admin tasdiqlasa o'shalarga bir martalik ruxsat
+   ochiladi. 5 kundan keyin karta qizil — qayta ochib bo'lmaydi.
+   10 kundan keyin karta "Arxiv" bo'limiga o'tadi. */
+const DAY_MS = 24 * 60 * 60 * 1000
+const HOUR_MS = 60 * 60 * 1000
+
+function isScoredControl(i: { controlType: string | null }): boolean {
+  return i.controlType === "oraliq" || i.controlType === MUSTAQIL_CONTROL
+}
+
+/** "3 kun qoldi" / "5 soat qoldi" — qayta ochish oynasi yopilguncha */
+function reopenLeftLabel(t: TFunc, closesAt: string | null, now: number, variant: "long" | "short"): string {
+  const left = closesAt ? new Date(closesAt).getTime() - now : 0
+  if (left >= DAY_MS) {
+    return t(variant === "long" ? "typeContentOq.reopen.leftDays" : "typeContentOq.reopen.leftShortDays", { n: Math.ceil(left / DAY_MS) })
+  }
+  return t(variant === "long" ? "typeContentOq.reopen.leftHours" : "typeContentOq.reopen.leftShortHours", { n: Math.max(1, Math.ceil(left / HOUR_MS)) })
+}
+
+const REOPEN_STATUS_STYLE: Record<ReopenStatus, { color: string; bg: string; Icon: typeof Lock }> = {
+  pending:   { color: "#1d4ed8", bg: "#eff6ff", Icon: Send },
+  approved:  { color: "#15803d", bg: "#f0fdf4", Icon: CheckCircle2 },
+  rejected:  { color: "#b91c1c", bg: "#fef2f2", Icon: XCircle },
+  expired:   { color: "#64748b", bg: "#f1f5f9", Icon: Clock },
+  cancelled: { color: "#64748b", bg: "#f1f5f9", Icon: X },
+}
+
+function ReopenStatusPill({ req }: { req: ReopenRequest }) {
+  const { t } = useLanguage()
+  const s = REOPEN_STATUS_STYLE[req.status]
+  return (
+    <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+      title={req.adminNote ? t("typeContentOq.reopen.adminNote", { note: req.adminNote }) : undefined}
+      style={{ color: s.color, backgroundColor: s.bg, fontFamily: "var(--font-poppins)" }}>
+      <s.Icon className="w-3.5 h-3.5" />
+      {t(`typeContentOq.reopen.status.${req.status}`, { n: req.grantedCount })}
+    </span>
+  )
+}
+
+function ReopenRequestModal({ content, groupName, onClose, onChanged }: {
+  content: TeacherContent
+  groupName: string
+  onClose: () => void
+  onChanged: () => void
+}) {
+  const { t } = useLanguage()
+  const { data, loading, error, refetch } = useApi(() => teachingApi.reopenInfo(content.id), [content.id])
+  const info = data?.data ?? null
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [reason, setReason] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [cancelling, setCancelling] = useState<number | null>(null)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [now] = useState(() => Date.now())
+
+  const students = info?.students ?? []
+  const eligible = students.filter(s => s.eligible)
+  const absent = eligible.filter(s => s.submittedAt === null)
+  const pendingReq = info?.requests.find(r => r.status === "pending") ?? null
+  const history = (info?.requests ?? []).filter(r => r.status !== "pending")
+  const win = info?.window ?? null
+  const canSend = !!win?.open && !pendingReq
+  const days = info?.windowDays ?? REOPEN_WINDOW_DAYS
+  const font = { fontFamily: "var(--font-poppins)" }
+
+  function toggle(id: number) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function send() {
+    if (!selected.size) { setMsg({ ok: false, text: t("typeContentOq.reopen.needStudents") }); return }
+    if (!reason.trim()) { setMsg({ ok: false, text: t("typeContentOq.reopen.needReason") }); return }
+    setBusy(true)
+    setMsg(null)
+    try {
+      const res = await teachingApi.createReopenRequest(content.id, [...selected], reason.trim())
+      setMsg({ ok: true, text: res.message || t("typeContentOq.reopen.sent") })
+      setSelected(new Set())
+      setReason("")
+      await refetch()
+      onChanged()
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : t("typeContentOq.err.saveError") })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function cancel(id: number) {
+    setCancelling(id)
+    setMsg(null)
+    try {
+      await teachingApi.cancelReopenRequest(id)
+      await refetch()
+      onChanged()
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : t("typeContentOq.err.saveError") })
+    } finally {
+      setCancelling(null)
+    }
+  }
+
+  const slotLabel = content.controlType === MUSTAQIL_CONTROL
+    ? t("typeContentOq.badgeMi")
+    : content.kind === "ON1" || content.kind === "ON2" ? content.kind : null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.35)" }}>
+      <div className="bg-white rounded-[14px] w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: "#012970", ...font }}>
+              <RotateCcw className="w-5 h-5" style={{ color: "#b45309" }} />
+              {t("typeContentOq.reopen.button")}
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: "#7293b9", ...font }}>
+              {content.title}{slotLabel ? ` · ${slotLabel}` : ""} · {content.subjectName} · {groupName}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#f0f5ff] transition-colors" aria-label="×">
+            <X className="w-5 h-5" style={{ color: "#7293b9" }} />
+          </button>
+        </div>
+
+        <p className="text-xs" style={{ color: "#445b7a", ...font }}>{t("typeContentOq.reopen.intro", { days })}</p>
+
+        {win && win.closesAt && (win.open ? (
+          <div className="text-xs px-3 py-2 rounded-[8px] flex items-center gap-2" style={{ color: "#92400e", backgroundColor: "#fffbeb", border: "1px solid #fde68a", ...font }}>
+            <Hourglass className="w-4 h-4 shrink-0" />
+            {t("typeContentOq.reopen.until", { date: formatDateTime(win.closesAt), left: reopenLeftLabel(t, win.closesAt, now, "short") })}
+          </div>
+        ) : (
+          <div className="text-xs font-medium px-3 py-2 rounded-[8px] flex items-center gap-2" style={{ color: "#fff", backgroundColor: "#dc2626", ...font }}>
+            <Lock className="w-4 h-4 shrink-0" />
+            {t("typeContentOq.reopen.closedBanner", { date: formatDateTime(win.closesAt) })}
+          </div>
+        ))}
+
+        {msg && (
+          <div className="text-sm px-3 py-2 rounded-[6px]"
+            style={{ backgroundColor: msg.ok ? "#f0fdf4" : "#fef2f2", color: msg.ok ? "#15803d" : "#b91c1c", ...font }}>
+            {msg.text}
+          </div>
+        )}
+
+        {pendingReq && (
+          <div className="rounded-[10px] px-4 py-3 flex flex-col gap-2" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe" }}>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-sm font-semibold flex items-center gap-1.5" style={{ color: "#1d4ed8", ...font }}>
+                <Send className="w-4 h-4" />
+                {t("typeContentOq.reopen.pendingBox", { n: pendingReq.students.length, date: formatDateTime(pendingReq.createdAt) })}
+              </span>
+              <button onClick={() => cancel(pendingReq.id)} disabled={cancelling === pendingReq.id}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-[6px] disabled:opacity-60"
+                style={{ color: "#dc2626", border: "1px solid #fecaca", backgroundColor: "#fff", ...font }}>
+                {cancelling === pendingReq.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                {t("typeContentOq.reopen.cancel")}
+              </button>
+            </div>
+            <p className="text-xs" style={{ color: "#445b7a", ...font }}>{pendingReq.reason}</p>
+            <p className="text-xs" style={{ color: "#012970", ...font }}>{pendingReq.students.map(s => s.fullName).join(", ")}</p>
+          </div>
+        )}
+
+        {loading && !info ? <Loading /> : error ? <ApiError message={error} onRetry={refetch} /> : students.length === 0 ? (
+          <p className="text-sm" style={{ color: "#7293b9", ...font }}>{t("typeContentOq.reopen.noStudents")}</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {canSend && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {absent.length > 0 && (
+                  <button type="button" onClick={() => setSelected(new Set(absent.map(s => s.userId)))}
+                    className="text-xs font-medium px-3 py-1.5 rounded-[6px]" style={{ color: "#0e58a8", border: "1px solid #d8e6f7", ...font }}>
+                    {t("typeContentOq.reopen.selectAbsent", { n: absent.length })}
+                  </button>
+                )}
+                {eligible.length > 0 && eligible.length !== absent.length && (
+                  <button type="button" onClick={() => setSelected(new Set(eligible.map(s => s.userId)))}
+                    className="text-xs font-medium px-3 py-1.5 rounded-[6px]" style={{ color: "#0e58a8", border: "1px solid #d8e6f7", ...font }}>
+                    {t("typeContentOq.reopen.selectAll", { n: eligible.length })}
+                  </button>
+                )}
+                {selected.size > 0 && (
+                  <button type="button" onClick={() => setSelected(new Set())}
+                    className="text-xs font-medium px-2 py-1.5" style={{ color: "#7293b9", ...font }}>
+                    {t("typeContentOq.reopen.clear")}
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="overflow-x-auto rounded-[10px]" style={{ border: "1px solid #e5edf7" }}>
+              <table className="w-full text-sm" style={{ borderCollapse: "collapse", ...font }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#f6f9ff" }}>
+                    {["", "#", t("typeContentOq.reopen.colStudent"), t("typeContentOq.reopen.colResult"), t("typeContentOq.reopen.colStatus")].map((h, i) => (
+                      <th key={i} className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#7293b9" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((s, i) => {
+                    const status = s.retakeGranted ? { key: "granted", color: "#1d4ed8", bg: "#eff6ff" }
+                      : s.pending ? { key: "pending", color: "#1d4ed8", bg: "#eff6ff" }
+                      : s.passed ? { key: "passed", color: "#15803d", bg: "#f0fdf4" }
+                      : s.submittedAt ? { key: "failed", color: "#b45309", bg: "#fffbeb" }
+                      : { key: "absent", color: "#b91c1c", bg: "#fef2f2" }
+                    return (
+                      <tr key={s.userId} style={{ borderTop: "1px solid #eef3fa" }}>
+                        <td className="w-8 px-3 py-2">
+                          {canSend && s.eligible && (
+                            <input type="checkbox" checked={selected.has(s.userId)} onChange={() => toggle(s.userId)}
+                              className="h-4 w-4 cursor-pointer" aria-label={s.fullName} />
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-xs" style={{ color: "#7293b9" }}>{i + 1}</td>
+                        <td className="px-3 py-2 text-[13px] font-medium" style={{ color: "#012970" }}>{s.fullName}</td>
+                        <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: "#445b7a" }}>
+                          {s.submittedAt ? `${s.grade ?? "—"}${content.maxScore ? ` / ${content.maxScore}` : ""}` : "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{ color: status.color, backgroundColor: status.bg }}>
+                            {t(`typeContentOq.reopen.st.${status.key}`)}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {canSend && students.length > 0 && (
+          <div>
+            <label className={labelCls} style={{ color: "#445b7a", ...font }}>{t("typeContentOq.reopen.reasonLabel")}</label>
+            <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2} maxLength={1000}
+              placeholder={t("typeContentOq.reopen.reasonPh")} className={inputCls} style={font} />
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#7293b9", ...font }}>{t("typeContentOq.reopen.history")}</p>
+            {history.map(r => (
+              <div key={r.id} className="rounded-[8px] px-3 py-2 flex flex-col gap-1" style={{ border: "1px solid #eef3fa" }}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <ReopenStatusPill req={r} />
+                  <span className="text-xs" style={{ color: "#7293b9", ...font }}>{formatDateTime(r.createdAt)} · {r.students.length}</span>
+                </div>
+                <p className="text-xs" style={{ color: "#445b7a", ...font }}>{r.reason}</p>
+                {r.adminNote && <p className="text-xs" style={{ color: "#b91c1c", ...font }}>{t("typeContentOq.reopen.adminNote", { note: r.adminNote })}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose}
+            className="px-4 py-2.5 rounded-[8px] text-sm font-medium"
+            style={{ color: "#445b7a", border: "1px solid #d8e6f7", ...font }}>
+            {t("typeContentOq.copy.close")}
+          </button>
+          {canSend && students.length > 0 && (
+            <button onClick={send} disabled={busy || selected.size === 0}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium disabled:opacity-60"
+              style={{ backgroundColor: "#b45309", color: "#fff", ...font }}>
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {t("typeContentOq.reopen.send", { n: selected.size })}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
