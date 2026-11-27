@@ -3101,6 +3101,38 @@ export type AdminModule =
   | "users" | "students" | "teachers" | "results" | "attendance"
   | "grading" | "retake" | "reedu" | "faceid" | "announcements" | "surveys" | "settings" | "permissions"
 
+/** Admin paneliga kiradigan rollar (2026-11-27: prorektor, ta'lim sifati, o'quv-uslubiy bo'lim qo'shildi) */
+export const MANAGED_ADMIN_ROLES = ["dean", "prorector", "quality", "methodist"] as const
+export type ManagedAdminRole = typeof MANAGED_ADMIN_ROLES[number]
+export type AdminPanelRole = "admin" | ManagedAdminRole
+
+export interface AdminRoleMember {
+  hemisId: string
+  fullName: string
+  position: string | null
+  department: string | null
+  grantedBy: string | null
+  grantedAt: string | null
+}
+
+export interface AdminRoleSuggestion {
+  /** LMS'ga kirgan bo'lsa — kirish ID'si; aks holda null (rol berib bo'lmaydi) */
+  hemisId: string | null
+  fullName: string
+  position: string | null
+  department: string | null
+  loggedIn: boolean
+  currentRole: string | null
+}
+
+export interface AdminRoleCandidate {
+  hemisId: string
+  fullName: string
+  position: string | null
+  department: string | null
+  currentRole: string | null
+}
+
 export interface ModulePermission {
   module: AdminModule
   canView: boolean
@@ -3129,7 +3161,7 @@ export interface AdminTopicRow {
 }
 
 export const adminApi = {
-  check: () => get<{ isAdmin: boolean; name: string; role: string; hemisRoles: string[]; lmsRole: string }>("/api/admin/check"),
+  check: () => get<{ isAdmin: boolean; name: string; role: string; hemisRoles: string[]; lmsRole: string; viewableModules?: AdminModule[] }>("/api/admin/check"),
 
   users: (params?: { search?: string; lms_role?: string; face_id?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams(buildParams(params ?? {})).toString()
@@ -3382,9 +3414,17 @@ export const adminApi = {
     `${BASE}/api/announcements/${id}/file?token=${encodeURIComponent(getToken() ?? "")}`,
 
   /** Kengaytirilgan boshqaruv: rol x modul (Ko'rish/Yaratish/Tahrirlash/O'chirish) ruxsatlari */
-  permissions: () => get<{ data: { modules: AdminModule[]; roles: Record<"admin" | "dean", ModulePermission[]> } }>("/api/admin/permissions"),
+  permissions: () => get<{ data: { modules: AdminModule[]; roles: Record<AdminPanelRole, ModulePermission[]> } }>("/api/admin/permissions"),
 
-  setPermission: (role: "admin" | "dean", module: AdminModule, perm: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean }) =>
+  /** Ruxsatlar sahifasi: shu roldagi xodimlar va HEMIS lavozimi/bo'limi bo'yicha tavsiyalar */
+  roleMembers: (role: ManagedAdminRole) =>
+    get<ItemRes<{ members: AdminRoleMember[]; suggestions: AdminRoleSuggestion[] }>>(`/api/admin/role-members?role=${role}`),
+
+  /** Rol berish uchun LMS'ga kirgan xodimni qidirish */
+  roleCandidates: (q: string) =>
+    get<ListRes<AdminRoleCandidate>>(`/api/admin/role-candidates?q=${encodeURIComponent(q)}`),
+
+  setPermission: (role: AdminPanelRole, module: AdminModule, perm: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean }) =>
     put<MsgRes>("/api/admin/permissions", { role, module, ...perm }),
 
   /** Audit log: kim (IP bilan) qaysi amalni bajargani */

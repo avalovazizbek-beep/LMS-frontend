@@ -166,6 +166,9 @@
 .admin-shell {
   --role-admin: #dc2626;
   --role-dean: #7c3aed;
+  --role-prorector: #0f766e;
+  --role-quality: #db2777;
+  --role-methodist: #0369a1;
   --role-teacher: #16a34a;
   --role-student: #2563eb;
   --role-blocked: #64748b;
@@ -174,6 +177,9 @@
 .dark .admin-shell {
   --role-admin: #f87171;
   --role-dean: #a78bfa;
+  --role-prorector: #2dd4bf;
+  --role-quality: #f472b6;
+  --role-methodist: #38bdf8;
   --role-teacher: #4ade80;
   --role-student: #60a5fa;
   --role-blocked: #94a3b8;

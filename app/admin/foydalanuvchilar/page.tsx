@@ -19,14 +19,17 @@ type CssVars = React.CSSProperties & Record<`--${string}`, string>
 const ROLE_CONFIG: Record<string, { labelKey: string; color: string; icon: React.ElementType }> = {
   admin:   { labelKey: "adminFoydalanuvchilar.roleAdmin",   color: "var(--role-admin)",   icon: Shield },
   dean:    { labelKey: "adminFoydalanuvchilar.roleDean",    color: "var(--role-dean)",    icon: GraduationCap },
+  prorector: { labelKey: "adminFoydalanuvchilar.roleProrector", color: "var(--role-prorector)", icon: Shield },
+  quality:   { labelKey: "adminFoydalanuvchilar.roleQuality",   color: "var(--role-quality)",   icon: Shield },
+  methodist: { labelKey: "adminFoydalanuvchilar.roleMethodist", color: "var(--role-methodist)", icon: BookOpen },
   teacher: { labelKey: "adminFoydalanuvchilar.roleTeacher", color: "var(--role-teacher)", icon: BookOpen },
   student: { labelKey: "adminFoydalanuvchilar.roleStudent", color: "var(--role-student)", icon: UsersRound },
   blocked: { labelKey: "adminFoydalanuvchilar.roleBlocked", color: "var(--role-blocked)", icon: Ban },
   pending: { labelKey: "adminFoydalanuvchilar.rolePending", color: "var(--role-pending)", icon: Clock },
 }
 
-const LMS_ROLES = ["admin", "dean", "teacher", "student", "blocked", "pending"]
-const STAT_ROLES = ["admin", "dean", "teacher", "student", "blocked"] as const
+const LMS_ROLES = ["admin", "dean", "prorector", "quality", "methodist", "teacher", "student", "blocked", "pending"]
+const STAT_ROLES = ["admin", "dean", "prorector", "quality", "methodist", "teacher", "student", "blocked"] as const
 const HEMIS_ROLE_LABEL_KEY: Record<string, string> = {
   employee: "adminFoydalanuvchilar.hemisEmployee",
   student: "adminFoydalanuvchilar.hemisStudent",
@@ -341,7 +344,7 @@ export default function AdminFoydalanuvchilar() {
       </div>
 
       {/* Rol bo'yicha qisqa xulosa — bosilsa shu rol bo'yicha filtrlanadi */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         {STAT_ROLES.map(r => {
           const cfg = ROLE_CONFIG[r]
           const Icon = cfg.icon

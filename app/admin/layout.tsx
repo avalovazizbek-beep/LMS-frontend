@@ -34,7 +34,7 @@ import {
   ListChecks,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { adminApi } from "@/lib/api"
+import { adminApi, type AdminModule } from "@/lib/api"
 import { IdleLogout } from "@/components/layout/IdleLogout"
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
 import { NotificationBell } from "@/components/layout/NotificationBell"
@@ -65,6 +65,34 @@ const NAV = [
   { href: "/admin/sozlamalar", labelKey: "adminNav.settings", icon: Settings },
 ]
 
+/* Menyu bo'limi qaysi ruxsat moduliga bog'liq (Ruxsatlar sahifasidagi "Ko'rish").
+   "adminDean" — so'rovnoma va murojaatlar faqat admin va dekanatda. */
+const NAV_MODULE: Record<string, AdminModule | "adminDean" | null> = {
+  "/admin/dashboard": null,
+  "/admin/foydalanuvchilar": "users",
+  "/admin/talabalar": "students",
+  "/admin/oqituvchilar": "teachers",
+  "/admin/hisobot": "results",
+  "/admin/davomatlar": "attendance",
+  "/admin/baholash": "grading",
+  "/admin/qayta-urinish": "retake",
+  "/admin/oraliqlar": "retake",
+  "/admin/qayta-oqish": "reedu",
+  "/admin/face-id": "faceid",
+  "/admin/elonlar": "announcements",
+  "/admin/sorovnomalar": "surveys",
+  "/admin/murojaatlar": "adminDean",
+  "/admin/ruxsatlar": "permissions",
+  "/admin/tashakkurnomalar": "teachers",
+  "/admin/sozlamalar": "settings",
+}
+const ROLE_HEADER_KEY: Record<string, string> = {
+  dean: "header.roleDean",
+  prorector: "adminFoydalanuvchilar.roleProrector",
+  quality: "adminFoydalanuvchilar.roleQuality",
+  methodist: "adminFoydalanuvchilar.roleMethodist",
+}
+
 /** Kun vaqtiga qarab salomlashish (yon menyu pastidagi karta) */
 function useGreeting() {
   const [hour, setHour] = useState<number | null>(null)
@@ -88,6 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checked, setChecked] = useState(false)
   const [adminName, setAdminName] = useState("")
   const [lmsRole, setLmsRole] = useState("")
+  const [viewable, setViewable] = useState<AdminModule[] | null>(null)
   const [isAlsoEmployee, setIsAlsoEmployee] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -103,6 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (!res.isAdmin) { router.replace("/dashboard"); return }
         setAdminName(res.name)
         setLmsRole(res.lmsRole)
+        setViewable(res.viewableModules ?? null)
         // Admin huquqi HEMIS rolining ustiga qo'shiladi — shu odam ayni
         // paytda o'qituvchi (employee) ham bo'lishi mumkin. Shunday holatda
         // o'qituvchi paneliga qaytish tugmasi ko'rsatiladi.
@@ -159,7 +189,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.replace("/login")
   }
 
-  const roleLabel = lmsRole === "super_admin" ? t("header.roleSuperAdmin") : t("header.roleAdmin")
+  const roleLabel = lmsRole === "super_admin" ? t("header.roleSuperAdmin")
+    : ROLE_HEADER_KEY[lmsRole] ? t(ROLE_HEADER_KEY[lmsRole]) : t("header.roleAdmin")
+  // Har rol faqat "Ko'rish" huquqi bor bo'limlarni ko'radi (admin — hammasi)
+  const isFullAdmin = lmsRole === "admin" || lmsRole === "super_admin"
+  const nav = NAV.filter(({ href }) => {
+    if (isFullAdmin) return true
+    const mod = NAV_MODULE[href]
+    if (mod === null || mod === undefined) return true
+    if (mod === "adminDean") return lmsRole === "dean"
+    if (mod === "surveys" && lmsRole !== "dean") return false
+    return viewable ? viewable.includes(mod) : true
+  })
   const initial = (adminName.trim().charAt(0) || "A").toUpperCase()
   const shortName = adminName
     ? adminName.split(" ").filter(Boolean).slice(0, 2).map((w, i) => (i === 0 ? w : w.charAt(0) + ".")).join(" ")
@@ -198,7 +239,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Nav — faqat shu qism suriladi; logo va pastki qism (chiqish) doim
               ko'rinadi. h-dvh: iPhone Safari'da pastki panel ostida qolmaydi. */}
           <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 py-2 flex flex-col gap-1 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]">
-            {NAV.map(({ href, labelKey, icon: Icon }) => {
+            {nav.map(({ href, labelKey, icon: Icon }) => {
               const active = pathname.startsWith(href)
               return (
                 <Link
@@ -270,7 +311,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </button>
           )}
           <div className="min-w-0 flex-1">
-            <AdminSearch items={NAV} />
+            <AdminSearch items={nav} />
           </div>
           <div className="shrink-0">
             <NotificationBell buttonClassName="adm-round-btn" />
