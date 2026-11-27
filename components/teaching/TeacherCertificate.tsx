@@ -157,6 +157,21 @@ function CertificateImage({ preview, error }: { preview: string | null; error: s
 }
 
 /** Admin sozlamalaridagi namuna: namunaviy ism va bugungi sana bilan */
+/** Tashakkurnomani (joriy shablon bilan) A4 albom PDF qilib yuklab beradi */
+export async function downloadCertificatePdf(fullName: string, issuedAt: string, filename = `Tashakkurnoma - ${fullName}`): Promise<void> {
+  const canvas = await drawCertificate(fullName, issuedAt)
+  const { jsPDF } = await import("jspdf")
+  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" })
+  const pw = pdf.internal.pageSize.getWidth()
+  const ph = pdf.internal.pageSize.getHeight()
+  const ratio = canvas.height / canvas.width
+  let w = pw
+  let h = pw * ratio
+  if (h > ph) { h = ph; w = ph / ratio }
+  pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", (pw - w) / 2, (ph - h) / 2, w, h)
+  pdf.save(`${filename}.pdf`)
+}
+
 export function CertificatePreview({ fullName, version }: { fullName: string; version: number }) {
   const [issuedAt] = useState(() => new Date().toISOString())
   const { preview, error } = useCertificateCanvas(fullName, issuedAt, version)
