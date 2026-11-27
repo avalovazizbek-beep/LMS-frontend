@@ -2432,7 +2432,50 @@ export type AttendanceRosterRes = ListRes<AttendanceRosterItem> & {
   editRequest?: AttendanceEditRequest | null
 }
 
+/* ── Haftalik davomat jurnali ── */
+export interface AttendanceWeekCell {
+  status: AttendanceStatus
+  comment: string | null
+  /** Meeting'dan avtomatik (Face ID) — hali saqlanmagan */
+  auto: boolean
+}
+
+export interface AttendanceWeekDay {
+  date: string
+  /** Akademik soat: juftliklar soni × 2 */
+  hours: number
+  scheduled: boolean
+  future: boolean
+  saved: boolean
+  locked: boolean
+  editRequest: AttendanceEditRequest | null
+  cells: Record<number, AttendanceWeekCell>
+}
+
+export interface AttendanceWeekStudent {
+  studentUserId: number
+  fullName: string
+  studentIdNumber: string | null
+  totalAbsentHours: number
+  totalExcusedHours: number
+}
+
+export interface AttendanceWeek {
+  weekStart: string
+  weekEnd: string
+  today: string
+  scheduleFound: boolean
+  days: AttendanceWeekDay[]
+  students: AttendanceWeekStudent[]
+}
+
 export const attendanceApi = {
+  /** Haftalik jurnal: haftaning dars bor kunlari va belgilar */
+  week: (groupId: number | string, subject: string, weekStart: string, trainingType?: string) => {
+    const q = new URLSearchParams(buildParams({ groupId, subject, weekStart, trainingType })).toString()
+    return get<ItemRes<AttendanceWeek>>(`/api/teaching/attendance/week?${q}`)
+  },
+
   /** trainingType bo'sh — turi belgilanmagan (eski) varaq */
   roster: (groupId: number | string, subject: string, date: string, trainingType?: string) => {
     const q = new URLSearchParams(buildParams({ groupId, subject, date, trainingType })).toString()
