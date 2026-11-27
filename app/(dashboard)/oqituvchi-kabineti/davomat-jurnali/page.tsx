@@ -346,7 +346,6 @@ export default function DavomatJurnaliPage() {
   if (eGroups) return <ApiError message={eGroups} onRetry={rGroups} />
 
   const canGoNext = month < thisMonth
-  const noLessons = !!journal && activeDays.length === 0
 
   return (
     <div className="flex flex-col gap-4 p-[30px]">
@@ -510,19 +509,7 @@ export default function DavomatJurnaliPage() {
             ))}
           </div>
 
-          {!journal.scheduleFound && (
-            <div className="flex items-start gap-2 rounded-[10px] px-4 py-2.5 text-xs" style={{ backgroundColor: "#fffbeb", color: "#92400e", border: "1px solid rgba(146,64,14,0.2)", ...FONT }}>
-              <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
-              {t("davomatHafta.noScheduleStrict", { type: typeLabel(trainingType) })}
-            </div>
-          )}
-
           <div className="bg-white rounded-[12px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
-            {noLessons ? (
-              <div className="px-5 py-12 text-center text-sm" style={{ color: "#7293b9", ...FONT }}>
-                {t("davomatHafta.noLessonsMonth", { type: typeLabel(trainingType) })}
-              </div>
-            ) : (
               <div className="overflow-x-auto" onScroll={() => setTip(null)}>
                 <table className="w-full" style={{ minWidth: 340 + days.length * 28, borderCollapse: "collapse" }}>
                   <thead>
@@ -644,7 +631,6 @@ export default function DavomatJurnaliPage() {
                   </tbody>
                 </table>
               </div>
-            )}
 
             {/* Belgilar izohi + saqlash */}
             <div className="px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
