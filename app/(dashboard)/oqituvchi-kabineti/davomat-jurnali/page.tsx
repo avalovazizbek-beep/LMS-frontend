@@ -1,11 +1,12 @@
 "use client"
 
-/* Davomat jurnali — haftalik elektron jadval (2026-11-27).
-   O'qituvchi guruh, fan, mashg'ulot turi va haftani tanlaydi. Ustunlar —
-   haftaning faqat dars bor kunlari (HEMIS jadvalidan; jadvalda fan topilmasa
-   Du–Ju). Hali saqlanmagan kunda hamma katak ✓ Keldi; bosilganda
-   ✕ Kelmadi → ! Sababli (sabab oynasi) → ✓ Keldi. Har kun alohida varaq:
-   saqlangach qulflanadi, o'zgartirish — adminga so'rov orqali (avvalgidek). */
+/* Davomat jurnali — oylik ixcham jadval (2026-11-27).
+   O'qituvchi guruh, fan, mashg'ulot turi va oyni tanlaydi. Ustunlar —
+   oyning barcha kunlari, lekin belgilash faqat HEMIS dars jadvalidagi
+   kunlarda (qolganlari kulrang, bosilmaydi); bugungi ustun sariq.
+   Saqlanmagan dars kunida hamma katak ✓ Keldi; bosilganda ✕ Kelmadi →
+   ! Sababli (sabab oynasi) → ✓ Keldi. Har kun alohida varaq: saqlangach
+   qulflanadi, o'zgartirish — adminga so'rov orqali (avvalgidek). */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -18,9 +19,9 @@ import {
   teachingApi,
   attendanceApi,
   type AttendanceStatus,
-  type AttendanceWeek,
-  type AttendanceWeekDay,
-  type AttendanceWeekStudent,
+  type AttendanceMonth,
+  type AttendanceJournalDay,
+  type AttendanceJournalStudent,
 } from "@/lib/api"
 import { useApi } from "@/hooks/useApi"
 import { sortByName } from "@/lib/utils"
@@ -32,6 +33,9 @@ const FONT = { fontFamily: "var(--font-poppins)" } as const
 const inputCls =
   "w-full px-3 py-2.5 rounded-[8px] text-sm border border-[#d8e6f7] focus:border-[#0e58a8] focus:outline-none transition-colors"
 const labelCls = "text-xs font-medium mb-1.5 block"
+const TODAY_HEAD = "#fde68a"
+const TODAY_CELL = "#fef9c3"
+const NO_LESSON = "#f1f5f9"
 
 /* ── Sana yordamchilari (Intl'siz: brauzerda uz locale bo'lmasligi mumkin) ── */
 const pad = (n: number) => String(n).padStart(2, "0")
@@ -41,14 +45,11 @@ function toDateStr(d: Date) {
 function todayStr() {
   return toDateStr(new Date())
 }
-function addDays(dateStr: string, days: number) {
-  const d = new Date(`${dateStr}T00:00:00`)
-  d.setDate(d.getDate() + days)
-  return toDateStr(d)
-}
-function mondayOf(dateStr: string) {
-  const d = new Date(`${dateStr}T00:00:00`)
-  return addDays(dateStr, -((d.getDay() + 6) % 7))
+/** "YYYY-MM" + n oy */
+function addMonths(month: string, n: number) {
+  const [y, m] = month.split("-").map(Number)
+  const d = new Date(y, m - 1 + n, 1)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
 }
 /** 0 = Dushanba … 6 = Yakshanba */
 function weekdayIndex(dateStr: string) {
@@ -57,10 +58,6 @@ function weekdayIndex(dateStr: string) {
 function fmtDay(dateStr: string) {
   const [y, m, d] = dateStr.split("-")
   return y && m && d ? `${d}.${m}.${y}` : dateStr
-}
-function fmtShort(dateStr: string) {
-  const [, m, d] = dateStr.split("-")
-  return m && d ? `${d}.${m}` : dateStr
 }
 function fmtDateTime(iso: string) {
   const d = new Date(iso)
@@ -80,14 +77,6 @@ function composeExcuse(reason: string, note: string) {
   const n = note.trim()
   return n ? `${reason} — ${n}` : reason
 }
-function parseExcuse(comment: string | null): { reason: string; note: string } {
-  const c = comment?.trim() ?? ""
-  for (const r of EXCUSE_REASONS) {
-    if (c === r.value) return { reason: r.value, note: "" }
-    if (c.startsWith(`${r.value} — `)) return { reason: r.value, note: c.slice(r.value.length + 3) }
-  }
-  return { reason: EXCUSE_REASONS[0].value, note: c }
-}
 
 const STATUS_STYLE: Record<AttendanceStatus, { color: string; bg: string; border: string }> = {
   present: { color: "#15803d", bg: "#dcfce7", border: "#86efac" },
@@ -96,11 +85,11 @@ const STATUS_STYLE: Record<AttendanceStatus, { color: string; bg: string; border
   late:    { color: "#1d4ed8", bg: "#dbeafe", border: "#93c5fd" },
 }
 
-function StatusGlyph({ status, className = "w-4 h-4" }: { status: AttendanceStatus; className?: string }) {
+function StatusGlyph({ status, className = "w-3.5 h-3.5" }: { status: AttendanceStatus; className?: string }) {
   if (status === "present") return <Check className={className} strokeWidth={3} />
   if (status === "absent") return <X className={className} strokeWidth={3} />
   if (status === "late") return <Clock className={className} strokeWidth={2.5} />
-  return <span className="text-[15px] font-extrabold leading-none">!</span>
+  return <span className="text-[13px] font-extrabold leading-none">!</span>
 }
 
 interface Mark {
@@ -115,13 +104,13 @@ export default function DavomatJurnaliPage() {
   const { t } = useLanguage()
   const searchParams = useSearchParams()
   const today = todayStr()
-  const thisMonday = mondayOf(today)
+  const thisMonth = today.slice(0, 7)
   const initialGroup = searchParams.get("group")
   const initialSubject = searchParams.get("subject") ?? ""
   const initialTraining = normalizeTrainingType(searchParams.get("training"))
-  const initialWeek = (() => {
+  const initialMonth = (() => {
     const d = searchParams.get("date")
-    return mondayOf(d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today ? d : today)
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today ? d.slice(0, 7) : thisMonth
   })()
 
   const statusLabel = (s: AttendanceStatus) => t(`oqDavomat.status.${s}`)
@@ -129,6 +118,7 @@ export default function DavomatJurnaliPage() {
     const key = trainingTypeLabelKey(value)
     return key ? t(key) : (value ?? "")
   }
+  const monthLabel = (m: string) => `${t(`davomatHafta.monthName.${Number(m.slice(5, 7)) - 1}`)} ${m.slice(0, 4)}`
 
   const { data: groupsRes, loading: lGroups, error: eGroups, refetch: rGroups } = useApi(() => teachingApi.groups(), [])
   const groups = groupsRes?.data ?? []
@@ -136,7 +126,7 @@ export default function DavomatJurnaliPage() {
   const [groupId, setGroupId] = useState<number | "">(initialGroup ? Number(initialGroup) : "")
   const [subjectName, setSubjectName] = useState(initialSubject)
   const [trainingType, setTrainingType] = useState(initialTraining)
-  const [weekStart, setWeekStart] = useState(initialWeek)
+  const [month, setMonth] = useState(initialMonth)
 
   const { data: subjectsRes } = useApi(
     () => groupId !== "" ? teachingApi.mySubjects(groupId as number) : Promise.resolve(null),
@@ -147,9 +137,9 @@ export default function DavomatJurnaliPage() {
     return [...new Set(list)].sort()
   }, [subjectsRes])
 
-  const [week, setWeek] = useState<AttendanceWeek | null>(null)
-  const [loadingWeek, setLoadingWeek] = useState(false)
-  const [weekError, setWeekError] = useState<string | null>(null)
+  const [journal, setJournal] = useState<AttendanceMonth | null>(null)
+  const [loadingJournal, setLoadingJournal] = useState(false)
+  const [journalError, setJournalError] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<Drafts>({})
   const [dirtyDays, setDirtyDays] = useState<Set<string>>(new Set())
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -157,7 +147,7 @@ export default function DavomatJurnaliPage() {
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveDays, setSaveDays] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
-  const [requestDay, setRequestDay] = useState<AttendanceWeekDay | null>(null)
+  const [requestDay, setRequestDay] = useState<AttendanceJournalDay | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number; lines: string[] } | null>(null)
 
   const ready = groupId !== "" && !!subjectName && !!trainingType
@@ -172,21 +162,21 @@ export default function DavomatJurnaliPage() {
   const history = historyRes?.data ?? []
 
   const loadSeq = useRef(0)
-  const loadWeek = useCallback(async (keepMsg = false) => {
+  const loadJournal = useCallback(async (keepMsg = false) => {
     if (groupId === "" || !subjectName || !trainingType) return
     const seq = ++loadSeq.current
-    setLoadingWeek(true)
-    setWeekError(null)
+    setLoadingJournal(true)
+    setJournalError(null)
     if (!keepMsg) setMsg(null)
     try {
-      const res = await attendanceApi.week(groupId, subjectName, weekStart, trainingType)
+      const res = await attendanceApi.month(groupId, subjectName, month, trainingType)
       if (seq !== loadSeq.current) return
       const data = { ...res.data, students: sortByName(res.data.students, (s) => s.fullName) }
-      // Tahrirlanadigan kunlar: saqlangan/avtomatik belgi bo'lsa o'sha,
-      // bo'lmasa ✓ Keldi — o'qituvchi faqat kelmaganlarni bosadi
+      // Tahrirlanadigan kunlar — faqat dars kunlari (yoki admin ruxsat bergan
+      // saqlangan kun): saqlangan/avtomatik belgi bo'lsa o'sha, bo'lmasa ✓ Keldi
       const next: Drafts = {}
       for (const d of data.days) {
-        if (d.future || d.locked) continue
+        if (d.future || d.locked || !(d.lesson || d.saved)) continue
         const marks: Record<number, Mark> = {}
         for (const s of data.students) {
           const c = d.cells[s.studentUserId]
@@ -194,24 +184,24 @@ export default function DavomatJurnaliPage() {
         }
         next[d.date] = marks
       }
-      setWeek(data)
+      setJournal(data)
       setDrafts(next)
       setDirtyDays(new Set())
     } catch (e) {
       if (seq !== loadSeq.current) return
-      setWeek(null)
-      setWeekError(e instanceof Error ? e.message : t("oqBaholash.error"))
+      setJournal(null)
+      setJournalError(e instanceof Error ? e.message : t("oqBaholash.error"))
     } finally {
-      if (seq === loadSeq.current) setLoadingWeek(false)
+      if (seq === loadSeq.current) setLoadingJournal(false)
     }
-  }, [groupId, subjectName, trainingType, weekStart, t])
+  }, [groupId, subjectName, trainingType, month, t])
 
-  // Guruh/fan/tur/hafta tayyor bo'lsa jadval o'zi ochiladi
+  // Guruh/fan/tur/oy tayyor bo'lsa jadval o'zi ochiladi
   useEffect(() => {
     if (!ready) return
-    const h = setTimeout(() => { void loadWeek() }, 250)
+    const h = setTimeout(() => { void loadJournal() }, 250)
     return () => clearTimeout(h)
-  }, [ready, loadWeek])
+  }, [ready, loadJournal])
 
   /** Saqlanmagan belgilar bo'lsa — almashtirishdan oldin so'raladi */
   function guard(action: () => void) {
@@ -219,17 +209,18 @@ export default function DavomatJurnaliPage() {
     setDirtyDays(new Set())
     action()
   }
-  function resetWeek() {
-    setWeek(null)
+  function resetJournal() {
+    setJournal(null)
     setDrafts({})
     setMsg(null)
   }
 
-  const days = useMemo(() => week?.days ?? [], [week])
-  const students: AttendanceWeekStudent[] = useMemo(() => week?.students ?? [], [week])
+  const days = useMemo(() => journal?.days ?? [], [journal])
+  const students: AttendanceJournalStudent[] = useMemo(() => journal?.students ?? [], [journal])
   const editableDays = days.filter((d) => !!drafts[d.date])
+  const activeDays = days.filter((d) => d.lesson || d.saved)
 
-  function markOf(day: AttendanceWeekDay, studentUserId: number): Mark | null {
+  function markOf(day: AttendanceJournalDay, studentUserId: number): Mark | null {
     if (day.future) return null
     return drafts[day.date]?.[studentUserId] ?? day.cells[studentUserId] ?? null
   }
@@ -240,13 +231,12 @@ export default function DavomatJurnaliPage() {
   }
 
   /** ✓ Keldi → ✕ Kelmadi → ! Sababli (sabab oynasi) → ✓ Keldi */
-  function cycle(day: AttendanceWeekDay, s: AttendanceWeekStudent) {
+  function cycle(day: AttendanceJournalDay, s: AttendanceJournalStudent) {
     const cur = drafts[day.date]?.[s.studentUserId]
     if (!cur) return
     setTip(null)
     if (cur.status === "absent") {
-      const p = parseExcuse(null)
-      setExcuse({ date: day.date, studentUserId: s.studentUserId, name: s.fullName, reason: p.reason, note: "" })
+      setExcuse({ date: day.date, studentUserId: s.studentUserId, name: s.fullName, reason: EXCUSE_REASONS[0].value, note: "" })
       return
     }
     setMark(day.date, s.studentUserId, { status: cur.status === "excused" ? "present" : "absent", comment: null })
@@ -263,11 +253,11 @@ export default function DavomatJurnaliPage() {
     setDirtyDays(new Set(Object.keys(drafts)))
   }
 
-  // Statistika va soatlar — ko'rinib turgan (kelajak bo'lmagan) kunlar bo'yicha
+  // Statistika va soatlar — o'tgan dars kunlari bo'yicha
   const stats = useMemo(() => {
     const c: Record<AttendanceStatus, number> = { present: 0, absent: 0, excused: 0, late: 0 }
     for (const d of days) {
-      if (d.future) continue
+      if (d.future || !(d.lesson || d.saved)) continue
       for (const s of students) {
         const m = drafts[d.date]?.[s.studentUserId] ?? d.cells[s.studentUserId]
         if (m) c[m.status]++
@@ -276,10 +266,10 @@ export default function DavomatJurnaliPage() {
     return c
   }, [days, students, drafts])
 
-  function weekHours(studentUserId: number) {
+  function monthHours(studentUserId: number) {
     let absent = 0
     let excused = 0
-    for (const d of days) {
+    for (const d of activeDays) {
       const m = markOf(d, studentUserId)
       if (m?.status === "absent") absent += d.hours
       else if (m?.status === "excused") excused += d.hours
@@ -288,14 +278,14 @@ export default function DavomatJurnaliPage() {
   }
 
   function openSave() {
-    // Saqlanmagan kunlar — hammasi; ruxsat berilgan (saqlangan) kunlar — faqat o'zgargan bo'lsa
+    // Saqlanmagan dars kunlari — hammasi; ruxsat berilgan (saqlangan) kunlar — faqat o'zgargan bo'lsa
     setSaveDays(new Set(editableDays.filter((d) => !d.saved || dirtyDays.has(d.date)).map((d) => d.date)))
     setSaveOpen(true)
     setMsg(null)
   }
 
   async function handleSave() {
-    if (groupId === "" || !week) return
+    if (groupId === "" || !journal) return
     setSaving(true)
     let ok = 0
     const errors: string[] = []
@@ -324,10 +314,10 @@ export default function DavomatJurnaliPage() {
       : { ok: true, text: t("davomatHafta.save.done", { n: ok }) })
     setDirtyDays(new Set())
     refetchHistory()
-    await loadWeek(true)
+    await loadJournal(true)
   }
 
-  function showTip(e: { currentTarget: HTMLElement }, day: AttendanceWeekDay, mark: Mark | null) {
+  function showTip(e: { currentTarget: HTMLElement }, day: AttendanceJournalDay, mark: Mark | null) {
     if (!mark) return
     const r = e.currentTarget.getBoundingClientRect()
     const lines = [
@@ -341,14 +331,25 @@ export default function DavomatJurnaliPage() {
     setTip({ x: r.left + r.width / 2, y: r.top, lines })
   }
 
+  function dayTitle(d: AttendanceJournalDay) {
+    const base = `${t(`davomatHafta.wd.${weekdayIndex(d.date)}`)}, ${fmtDay(d.date)}`
+    if (!d.lesson && !d.saved) return `${base} — ${t("davomatHafta.day.noLesson")}`
+    const state = d.editRequest?.status === "pending" ? t("davomatHafta.day.pending")
+      : d.locked ? t("davomatHafta.day.locked")
+      : d.saved ? t("davomatHafta.day.approved")
+      : d.future ? t("davomatHafta.day.future")
+      : t("davomatHafta.day.unsaved")
+    return `${base} · ${t("davomatHafta.hours", { n: d.hours })} · ${state}`
+  }
+
   if (lGroups) return <Loading />
   if (eGroups) return <ApiError message={eGroups} onRetry={rGroups} />
 
-  const noLessons = !!week && week.days.length === 0
-  const canGoNext = weekStart < thisMonday
+  const canGoNext = month < thisMonth
+  const noLessons = !!journal && activeDays.length === 0
 
   return (
-    <div className="flex flex-col gap-5 p-[30px]" onScroll={() => setTip(null)}>
+    <div className="flex flex-col gap-4 p-[30px]">
       <div className="flex items-center gap-2 text-sm flex-wrap" style={{ color: "#7293b9", ...FONT }}>
         <Link href="/xodim/davomat-jurnali" className="flex items-center gap-1 hover:underline">
           <ChevronLeft className="w-4 h-4" />
@@ -356,27 +357,27 @@ export default function DavomatJurnaliPage() {
         </Link>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-[14px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#e8f0fe" }}>
-          <CalendarDays className="w-7 h-7" style={{ color: "#0e58a8" }} />
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-[12px] flex items-center justify-center shrink-0" style={{ backgroundColor: "#e8f0fe" }}>
+          <CalendarDays className="w-6 h-6" style={{ color: "#0e58a8" }} />
         </div>
         <div>
-          <h1 className="text-[28px] font-semibold leading-tight" style={{ color: "#012970", ...FONT }}>
+          <h1 className="text-[24px] font-semibold leading-tight" style={{ color: "#012970", ...FONT }}>
             {t("davomatJurnaliOq.title")}
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: "#7293b9", ...FONT }}>{t("davomatHafta.subtitle")}</p>
+          <p className="text-xs mt-0.5" style={{ color: "#7293b9", ...FONT }}>{t("davomatHafta.subtitle")}</p>
         </div>
       </div>
 
       {/* Filtrlar */}
-      <div className="bg-white rounded-[12px] p-4 flex flex-col gap-3" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_0.8fr_1.3fr_auto] gap-3 items-end">
+      <div className="bg-white rounded-[12px] p-3.5 flex flex-col gap-3" style={{ border: "1px solid rgba(1,41,112,0.1)" }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_0.8fr_1fr_auto] gap-3 items-end">
           <div>
             <label className={labelCls} style={{ color: "#012970", ...FONT }}>{t("oqBaholash.group")}</label>
             <div className="relative">
               <select
                 value={groupId}
-                onChange={(e) => { const v = e.target.value; guard(() => { setGroupId(v ? Number(v) : ""); setSubjectName(""); resetWeek() }) }}
+                onChange={(e) => { const v = e.target.value; guard(() => { setGroupId(v ? Number(v) : ""); setSubjectName(""); resetJournal() }) }}
                 className={`${inputCls} appearance-none pr-8`}
                 style={{ color: "#012970", ...FONT }}>
                 <option value="">{t("oqBaholash.selectGroup")}</option>
@@ -392,7 +393,7 @@ export default function DavomatJurnaliPage() {
               <div className="relative">
                 <select
                   value={subjectName}
-                  onChange={(e) => { const v = e.target.value; guard(() => { setSubjectName(v); resetWeek() }) }}
+                  onChange={(e) => { const v = e.target.value; guard(() => { setSubjectName(v); resetJournal() }) }}
                   className={`${inputCls} appearance-none pr-8`}
                   style={{ color: "#012970", ...FONT }}>
                   <option value="">{t("oqBaholash.selectSubject")}</option>
@@ -404,7 +405,7 @@ export default function DavomatJurnaliPage() {
               <input
                 type="text"
                 value={subjectName}
-                onChange={(e) => { setSubjectName(e.target.value); resetWeek() }}
+                onChange={(e) => { setSubjectName(e.target.value); resetJournal() }}
                 placeholder={t("oqBaholash.subjectPlaceholder")}
                 className={inputCls}
                 style={{ color: "#012970", ...FONT }}
@@ -417,7 +418,7 @@ export default function DavomatJurnaliPage() {
             <div className="relative">
               <select
                 value={trainingType}
-                onChange={(e) => { const v = e.target.value; guard(() => { setTrainingType(v); resetWeek() }) }}
+                onChange={(e) => { const v = e.target.value; guard(() => { setTrainingType(v); resetJournal() }) }}
                 disabled={saving}
                 className={`${inputCls} appearance-none pr-8 disabled:bg-[#f6f9ff]`}
                 style={{ color: "#012970", ...FONT }}>
@@ -429,47 +430,47 @@ export default function DavomatJurnaliPage() {
           </div>
 
           <div>
-            <label className={labelCls} style={{ color: "#012970", ...FONT }}>{t("davomatHafta.week")}</label>
+            <label className={labelCls} style={{ color: "#012970", ...FONT }}>{t("davomatHafta.monthLabel")}</label>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => guard(() => { setWeekStart((w) => addDays(w, -7)); resetWeek() })}
+                onClick={() => guard(() => { setMonth((m) => addMonths(m, -1)); resetJournal() })}
                 className="shrink-0 rounded-[8px] border border-[#d8e6f7] p-2.5 hover:bg-[#f6f9ff]"
-                title={t("davomatHafta.prevWeek")} aria-label={t("davomatHafta.prevWeek")}>
+                title={t("davomatHafta.prevMonth")} aria-label={t("davomatHafta.prevMonth")}>
                 <ChevronLeft className="w-4 h-4" style={{ color: "#0e58a8" }} />
               </button>
-              {/* Oraliq ustiga sana tanlagich: istalgan kunni tanlasa — o'sha hafta */}
-              <label className="relative flex-1 flex items-center gap-2 px-3 py-2.5 rounded-[8px] border border-[#d8e6f7] text-sm cursor-pointer whitespace-nowrap"
-                style={{ color: "#012970", ...FONT }} title={t("davomatHafta.pickWeek")}>
+              {/* Oy nomi ustida oy tanlagich */}
+              <label className="relative flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-[8px] border border-[#d8e6f7] text-sm font-medium cursor-pointer whitespace-nowrap"
+                style={{ color: "#012970", ...FONT }}>
                 <CalendarDays className="w-4 h-4 shrink-0" style={{ color: "#0e58a8" }} />
-                {fmtDay(weekStart)} – {fmtDay(addDays(weekStart, 6))}
+                {monthLabel(month)}
                 <input
-                  type="date"
-                  value={weekStart}
-                  max={today}
-                  aria-label={t("davomatHafta.pickWeek")}
+                  type="month"
+                  value={month}
+                  max={thisMonth}
+                  aria-label={t("davomatHafta.monthLabel")}
                   onClick={(e) => { try { e.currentTarget.showPicker?.() } catch { /* eski brauzer */ } }}
-                  onChange={(e) => { const v = e.target.value; if (v) guard(() => { setWeekStart(mondayOf(v > today ? today : v)); resetWeek() }) }}
+                  onChange={(e) => { const v = e.target.value; if (v) guard(() => { setMonth(v > thisMonth ? thisMonth : v); resetJournal() }) }}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
               </label>
               <button
                 type="button"
-                onClick={() => { if (canGoNext) guard(() => { setWeekStart((w) => addDays(w, 7)); resetWeek() }) }}
+                onClick={() => { if (canGoNext) guard(() => { setMonth((m) => addMonths(m, 1)); resetJournal() }) }}
                 disabled={!canGoNext}
                 className="shrink-0 rounded-[8px] border border-[#d8e6f7] p-2.5 hover:bg-[#f6f9ff] disabled:opacity-40 disabled:cursor-not-allowed"
-                title={t("davomatHafta.nextWeek")} aria-label={t("davomatHafta.nextWeek")}>
+                title={t("davomatHafta.nextMonth")} aria-label={t("davomatHafta.nextMonth")}>
                 <ChevronRight className="w-4 h-4" style={{ color: "#0e58a8" }} />
               </button>
             </div>
           </div>
 
           <button
-            onClick={() => guard(() => { void loadWeek() })}
-            disabled={!ready || loadingWeek}
+            onClick={() => guard(() => { void loadJournal() })}
+            disabled={!ready || loadingJournal}
             className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium disabled:opacity-50"
             style={{ backgroundColor: "#0e58a8", color: "#fff", ...FONT }}>
-            <RefreshCw className={`w-4 h-4 ${loadingWeek ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-4 h-4 ${loadingJournal ? "animate-spin" : ""}`} />
             {t("davomatHafta.refresh")}
           </button>
         </div>
@@ -486,116 +487,120 @@ export default function DavomatJurnaliPage() {
         </div>
       )}
 
-      {ready && weekError && <ApiError message={weekError} onRetry={() => loadWeek()} />}
-      {ready && !weekError && loadingWeek && !week && <Loading />}
+      {ready && journalError && <ApiError message={journalError} onRetry={() => loadJournal()} />}
+      {ready && !journalError && loadingJournal && !journal && <Loading />}
 
-      {ready && week && (
+      {ready && journal && (
         <>
-          {/* Statistika */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Statistika (ixcham) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
             {[
               { label: t("davomatHafta.stat.students"), value: students.length, color: "#0e58a8", bg: "#eef4ff", Icon: Users },
               { label: statusLabel("present"), value: stats.present + stats.late, color: "#15803d", bg: "#f0fdf4", Icon: UserCheck },
               { label: statusLabel("absent"), value: stats.absent, color: "#dc2626", bg: "#fef2f2", Icon: UserX },
               { label: statusLabel("excused"), value: stats.excused, color: "#b45309", bg: "#fffbeb", Icon: CircleAlert },
             ].map((c) => (
-              <div key={c.label} className="rounded-[12px] px-4 py-3.5 flex items-center gap-3" style={{ backgroundColor: c.bg, border: `1px solid ${c.color}22` }}>
-                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white shrink-0">
-                  <c.Icon className="w-5 h-5" style={{ color: c.color }} />
+              <div key={c.label} className="rounded-[10px] px-3 py-2 flex items-center gap-2.5" style={{ backgroundColor: c.bg, border: `1px solid ${c.color}22` }}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white shrink-0">
+                  <c.Icon className="w-4 h-4" style={{ color: c.color }} />
                 </div>
-                <div>
-                  <div className="text-xs font-medium" style={{ color: c.color, ...FONT }}>{c.label}</div>
-                  <div className="text-2xl font-bold leading-tight" style={{ color: c.color, ...FONT, fontVariantNumeric: "tabular-nums" }}>{c.value}</div>
-                </div>
+                <div className="text-xs font-medium" style={{ color: c.color, ...FONT }}>{c.label}</div>
+                <div className="ml-auto text-xl font-bold" style={{ color: c.color, ...FONT, fontVariantNumeric: "tabular-nums" }}>{c.value}</div>
               </div>
             ))}
           </div>
 
-          {!week.scheduleFound && (
+          {!journal.scheduleFound && (
             <div className="flex items-start gap-2 rounded-[10px] px-4 py-2.5 text-xs" style={{ backgroundColor: "#fffbeb", color: "#92400e", border: "1px solid rgba(146,64,14,0.2)", ...FONT }}>
               <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
-              {t("davomatHafta.noSchedule")}
+              {t("davomatHafta.noScheduleStrict", { type: typeLabel(trainingType) })}
             </div>
           )}
 
           <div className="bg-white rounded-[12px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
             {noLessons ? (
-              <div className="px-5 py-14 text-center text-sm" style={{ color: "#7293b9", ...FONT }}>
-                {t("davomatHafta.noLessons", { type: typeLabel(trainingType) })}
+              <div className="px-5 py-12 text-center text-sm" style={{ color: "#7293b9", ...FONT }}>
+                {t("davomatHafta.noLessonsMonth", { type: typeLabel(trainingType) })}
               </div>
             ) : (
               <div className="overflow-x-auto" onScroll={() => setTip(null)}>
-                <table className="w-full" style={{ minWidth: 420 + days.length * 104, borderCollapse: "collapse" }}>
+                <table className="w-full" style={{ minWidth: 340 + days.length * 28, borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#f6f9ff", borderBottom: "1px solid rgba(1,41,112,0.1)" }}>
-                      <th className="px-3 py-3 text-left text-xs font-semibold w-12" style={{ color: "#012970", ...FONT }}>№</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold min-w-[220px]" style={{ color: "#012970", ...FONT }}>{t("davomatJurnaliOq.studentFullName")}</th>
+                      <th className="px-2 py-2 text-left text-[11px] font-semibold w-8" style={{ color: "#012970", ...FONT }}>№</th>
+                      <th className="sticky left-0 z-[1] px-2 py-2 text-left text-[11px] font-semibold min-w-[170px]"
+                        style={{ color: "#012970", backgroundColor: "#f6f9ff", ...FONT }}>
+                        {t("davomatJurnaliOq.studentFullName")}
+                      </th>
                       {days.map((d) => {
-                        const isToday = d.date === week.today
+                        const isToday = d.date === journal.today
+                        const active = d.lesson || d.saved
                         const pending = d.editRequest?.status === "pending"
-                        const approved = d.saved && !d.locked
-                        const unsaved = !d.saved && !d.future
                         return (
-                          <th key={d.date} className="px-1.5 py-2 text-center align-top w-[104px]"
-                            style={{ backgroundColor: isToday ? "#e8f0fe" : undefined, borderLeft: "1px solid rgba(1,41,112,0.06)" }}>
+                          <th key={d.date} className="p-0 text-center align-top w-7"
+                            style={{ backgroundColor: isToday ? TODAY_HEAD : active ? undefined : NO_LESSON, borderLeft: "1px solid rgba(1,41,112,0.06)" }}>
                             <button
                               type="button"
-                              disabled={!d.locked}
-                              onClick={() => setRequestDay(d)}
-                              title={d.locked ? t("davomatHafta.day.locked") : d.future ? t("davomatHafta.day.future") : undefined}
-                              className="w-full flex flex-col items-center gap-0.5 rounded-[8px] px-1 py-1 enabled:hover:bg-white enabled:cursor-pointer">
-                              <span className="text-[13px] font-semibold" style={{ color: d.future ? "#94a3b8" : "#012970", ...FONT }}>
-                                {t(`davomatHafta.wd.${weekdayIndex(d.date)}`)}
+                              aria-disabled={!d.locked}
+                              onClick={() => { if (d.locked) setRequestDay(d) }}
+                              title={dayTitle(d)}
+                              className={`w-full flex flex-col items-center py-1.5 ${d.locked ? "cursor-pointer hover:bg-white/70" : "cursor-default"}`}>
+                              <span className="text-[9px] font-medium leading-none" style={{ color: active ? "#445b7a" : "#a3b1c2", ...FONT }}>
+                                {t(`davomatHafta.wdShort.${weekdayIndex(d.date)}`)}
                               </span>
-                              <span className="text-xs font-medium" style={{ color: d.future ? "#94a3b8" : "#445b7a", ...FONT }}>
-                                {fmtShort(d.date)}{isToday ? ` · ${t("davomatHafta.today")}` : ""}
+                              <span className="text-[12px] font-bold leading-tight mt-0.5" style={{ color: isToday ? "#92400e" : active ? "#0e58a8" : "#a3b1c2", ...FONT }}>
+                                {Number(d.date.slice(8, 10))}
                               </span>
-                              <span className="flex items-center gap-1 text-[10px] font-medium mt-0.5" style={FONT}>
-                                {d.locked && !pending && <><Lock className="w-3 h-3" style={{ color: "#92400e" }} /><span style={{ color: "#92400e" }}>{t("davomatHafta.hours", { n: d.hours })}</span></>}
-                                {pending && <><Clock className="w-3 h-3" style={{ color: "#1d4ed8" }} /><span style={{ color: "#1d4ed8" }}>{t("davomatHafta.day.pending")}</span></>}
-                                {approved && <><Unlock className="w-3 h-3" style={{ color: "#15803d" }} /><span style={{ color: "#15803d" }}>{t("davomatHafta.day.approved")}</span></>}
-                                {unsaved && <><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#f59e0b" }} /><span style={{ color: "#b45309" }}>{t("davomatHafta.day.unsaved")}</span></>}
-                                {d.future && <span style={{ color: "#94a3b8" }}>{t("davomatHafta.hours", { n: d.hours })}</span>}
+                              <span className="h-3 flex items-center justify-center mt-0.5">
+                                {d.locked && !pending && <Lock className="w-2.5 h-2.5" style={{ color: "#92400e" }} />}
+                                {pending && <Clock className="w-2.5 h-2.5" style={{ color: "#1d4ed8" }} />}
+                                {d.saved && !d.locked && <Unlock className="w-2.5 h-2.5" style={{ color: "#15803d" }} />}
+                                {d.lesson && !d.saved && !d.future && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#f59e0b" }} />}
+                                {d.lesson && d.future && <span className="w-1.5 h-1.5 rounded-full" style={{ border: "1px solid #0e58a8" }} />}
                               </span>
                             </button>
                           </th>
                         )
                       })}
-                      <th className="px-3 py-3 text-center text-xs font-semibold w-[110px]" style={{ color: "#012970", borderLeft: "1px solid rgba(1,41,112,0.06)", ...FONT }}>
-                        {t("davomatHafta.col.week")}
-                        <div className="text-[10px] font-normal" style={{ color: "#7293b9" }}>{t("davomatHafta.col.missedHint")}</div>
+                      <th className="sticky z-[1] px-1.5 py-2 text-center text-[11px] font-semibold w-[70px]" style={{ right: 62, color: "#012970", backgroundColor: "#f6f9ff", borderLeft: "1px solid rgba(1,41,112,0.12)", ...FONT }}>
+                        {t("davomatHafta.col.month")}
+                        <div className="text-[9px] font-normal" style={{ color: "#7293b9" }}>{t("davomatHafta.col.missedHint")}</div>
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-semibold w-[100px]" style={{ color: "#012970", ...FONT }}>
+                      <th className="sticky right-0 z-[1] px-1.5 py-2 text-center text-[11px] font-semibold w-[62px]" style={{ color: "#012970", backgroundColor: "#f6f9ff", ...FONT }}>
                         {t("davomatHafta.col.total")}
-                        <div className="text-[10px] font-normal" style={{ color: "#7293b9" }}>{t("davomatHafta.col.missedHint")}</div>
+                        <div className="text-[9px] font-normal" style={{ color: "#7293b9" }}>{t("davomatHafta.col.missedHint")}</div>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {students.length === 0 ? (
                       <tr>
-                        <td colSpan={days.length + 4} className="px-4 py-14 text-center text-sm" style={{ color: "#7293b9", ...FONT }}>
+                        <td colSpan={days.length + 4} className="px-4 py-12 text-center text-sm" style={{ color: "#7293b9", ...FONT }}>
                           {t("oqBaholash.noStudents")}
                         </td>
                       </tr>
                     ) : students.map((s, i) => {
-                      const wh = weekHours(s.studentUserId)
-                      const weekMissed = wh.absent + wh.excused
+                      const mh = monthHours(s.studentUserId)
+                      const missed = mh.absent + mh.excused
                       const total = s.totalAbsentHours + s.totalExcusedHours
                       return (
-                        <tr key={s.studentUserId} className="hover:bg-[#f8fbff]" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
-                          <td className="px-3 py-2 text-sm" style={{ color: "#7293b9", ...FONT }}>{i + 1}</td>
-                          <td className="px-3 py-2 text-sm font-medium" style={{ color: "#012970", ...FONT }}>{s.fullName}</td>
+                        <tr key={s.studentUserId} className="group" style={{ borderBottom: "1px solid rgba(1,41,112,0.06)" }}>
+                          <td className="px-2 py-1 text-xs" style={{ color: "#7293b9", ...FONT }}>{i + 1}</td>
+                          <td className="sticky left-0 z-[1] px-2 py-1 text-[13px] font-medium whitespace-nowrap bg-white group-hover:bg-[#f8fbff]" style={{ color: "#012970", ...FONT }}>
+                            {s.fullName}
+                          </td>
                           {days.map((d) => {
-                            const isToday = d.date === week.today
-                            const mark = markOf(d, s.studentUserId)
+                            const isToday = d.date === journal.today
+                            const active = d.lesson || d.saved
+                            const mark = active ? markOf(d, s.studentUserId) : null
                             const editable = !!drafts[d.date]
                             const st = mark ? STATUS_STYLE[mark.status] : null
                             return (
-                              <td key={d.date} className="px-1.5 py-1.5 text-center"
-                                style={{ backgroundColor: isToday ? "#f5f8ff" : undefined, borderLeft: "1px solid rgba(1,41,112,0.06)" }}>
-                                {d.future ? (
-                                  <span className="text-sm" style={{ color: "#cbd5e1" }}>—</span>
+                              <td key={d.date} className="p-0.5 text-center"
+                                title={active ? undefined : dayTitle(d)}
+                                style={{ backgroundColor: isToday ? TODAY_CELL : active ? undefined : NO_LESSON, borderLeft: "1px solid rgba(1,41,112,0.06)" }}>
+                                {!active ? null : d.future ? (
+                                  <span className="text-xs" style={{ color: "#cbd5e1" }}>·</span>
                                 ) : mark && st ? (
                                   <button
                                     type="button"
@@ -607,31 +612,31 @@ export default function DavomatJurnaliPage() {
                                     onFocus={(e) => showTip(e, d, mark)}
                                     onBlur={() => setTip(null)}
                                     aria-label={`${s.fullName}, ${fmtDay(d.date)}: ${statusLabel(mark.status)}`}
-                                    className={`relative mx-auto w-9 h-9 rounded-[9px] flex items-center justify-center transition-transform ${editable ? "hover:scale-110 cursor-pointer" : "cursor-default"}`}
-                                    style={{ backgroundColor: st.bg, color: st.color, border: `1.5px solid ${st.border}`, opacity: editable ? 1 : 0.8 }}>
+                                    className={`relative mx-auto w-6 h-6 rounded-[6px] flex items-center justify-center transition-transform ${editable ? "hover:scale-110 cursor-pointer" : "cursor-default"}`}
+                                    style={{ backgroundColor: st.bg, color: st.color, border: `1px solid ${st.border}`, opacity: editable ? 1 : 0.8 }}>
                                     <StatusGlyph status={mark.status} />
-                                    {mark.auto && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full" style={{ backgroundColor: "#0e58a8" }} />}
+                                    {mark.auto && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#0e58a8" }} />}
                                   </button>
                                 ) : (
-                                  <span className="text-sm" style={{ color: "#cbd5e1" }}>·</span>
+                                  <span className="text-xs" style={{ color: "#cbd5e1" }}>·</span>
                                 )}
                               </td>
                             )
                           })}
-                          <td className="px-2 py-1.5 text-center" style={{ borderLeft: "1px solid rgba(1,41,112,0.06)" }}>
-                            <span className="inline-block min-w-[64px] text-xs font-bold px-2.5 py-1.5 rounded-[8px]"
-                              style={weekMissed > 0
+                          <td className="sticky z-[1] px-1 py-1 text-center bg-white group-hover:bg-[#f8fbff] w-[70px]" style={{ right: 62, borderLeft: "1px solid rgba(1,41,112,0.12)" }}>
+                            <span className="inline-block min-w-[48px] text-[11px] font-bold px-1.5 py-1 rounded-[6px] whitespace-nowrap"
+                              style={missed > 0
                                 ? { backgroundColor: "#fee2e2", color: "#b91c1c", ...FONT }
                                 : { backgroundColor: "#dcfce7", color: "#15803d", ...FONT }}>
-                              {t("davomatHafta.hours", { n: weekMissed })}
+                              {t("davomatHafta.hours", { n: missed })}
                             </span>
-                            {wh.excused > 0 && <div className="text-[10px] mt-0.5" style={{ color: "#b45309", ...FONT }}>{t("davomatHafta.excusedOf", { n: wh.excused })}</div>}
+                            {mh.excused > 0 && <div className="text-[9px]" style={{ color: "#b45309", ...FONT }}>{t("davomatHafta.excusedOf", { n: mh.excused })}</div>}
                           </td>
-                          <td className="px-2 py-1.5 text-center">
-                            <span className="text-sm font-semibold" style={{ color: total > 0 ? "#b91c1c" : "#7293b9", ...FONT }}>
+                          <td className="sticky right-0 z-[1] px-1 py-1 text-center bg-white group-hover:bg-[#f8fbff] w-[62px]">
+                            <span className="text-xs font-semibold whitespace-nowrap" style={{ color: total > 0 ? "#b91c1c" : "#7293b9", ...FONT }}>
                               {t("davomatHafta.hours", { n: total })}
                             </span>
-                            {s.totalExcusedHours > 0 && <div className="text-[10px]" style={{ color: "#b45309", ...FONT }}>{t("davomatHafta.excusedOf", { n: s.totalExcusedHours })}</div>}
+                            {s.totalExcusedHours > 0 && <div className="text-[9px]" style={{ color: "#b45309", ...FONT }}>{t("davomatHafta.excusedOf", { n: s.totalExcusedHours })}</div>}
                           </td>
                         </tr>
                       )
@@ -641,35 +646,46 @@ export default function DavomatJurnaliPage() {
               </div>
             )}
 
-            {(editableDays.length > 0 || msg) && students.length > 0 && (
-              <div className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
-                <span className="text-sm" style={{ color: msg?.ok ? "#15803d" : "#b91c1c", ...FONT }}>{msg?.text}</span>
-                {editableDays.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap ml-auto">
-                    <button
-                      onClick={markAllPresent}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-[8px] text-sm font-medium"
-                      style={{ backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.25)", ...FONT }}>
-                      <CheckCheck className="w-4 h-4" />
-                      {t("davomatHafta.markAll")}
-                    </button>
-                    <button
-                      onClick={openSave}
-                      disabled={saving}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-[8px] text-sm font-medium disabled:opacity-50"
-                      style={{ backgroundColor: "#0e58a8", color: "#fff", ...FONT }}>
-                      <Save className="w-4 h-4" />
-                      {t("davomatHafta.saveBtn")}
-                    </button>
-                  </div>
-                )}
+            {/* Belgilar izohi + saqlash */}
+            <div className="px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap" style={{ borderTop: "1px solid rgba(1,41,112,0.08)" }}>
+              <div className="flex items-center gap-3 flex-wrap text-[11px]" style={{ color: "#445b7a", ...FONT }}>
+                {(["present", "absent", "excused"] as AttendanceStatus[]).map((k) => (
+                  <span key={k} className="flex items-center gap-1">
+                    <span className="w-4 h-4 rounded-[4px] flex items-center justify-center" style={{ backgroundColor: STATUS_STYLE[k].bg, color: STATUS_STYLE[k].color, border: `1px solid ${STATUS_STYLE[k].border}` }}>
+                      <StatusGlyph status={k} className="w-2.5 h-2.5" />
+                    </span>
+                    {statusLabel(k)}
+                  </span>
+                ))}
+                <span className="flex items-center gap-1"><span className="w-4 h-4 rounded-[4px]" style={{ backgroundColor: NO_LESSON, border: "1px solid #e2e8f0" }} />{t("davomatHafta.legend.noLesson")}</span>
+                <span className="flex items-center gap-1"><span className="w-4 h-4 rounded-[4px]" style={{ backgroundColor: TODAY_HEAD }} />{t("davomatHafta.legend.today")}</span>
+                {msg && <span className="text-xs font-medium" style={{ color: msg.ok ? "#15803d" : "#b91c1c" }}>{msg.text}</span>}
               </div>
-            )}
+              {editableDays.length > 0 && students.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap ml-auto">
+                  <button
+                    onClick={markAllPresent}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-medium"
+                    style={{ backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid rgba(21,128,61,0.25)", ...FONT }}>
+                    <CheckCheck className="w-4 h-4" />
+                    {t("davomatHafta.markAll")}
+                  </button>
+                  <button
+                    onClick={openSave}
+                    disabled={saving}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-xs font-semibold disabled:opacity-50"
+                    style={{ backgroundColor: "#0e58a8", color: "#fff", ...FONT }}>
+                    <Save className="w-4 h-4" />
+                    {t("davomatHafta.saveBtn")}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
 
-      {/* Oldingi sanalar — bosilsa o'sha hafta ochiladi */}
+      {/* Oldingi sanalar — bosilsa o'sha oy ochiladi */}
       {groupId !== "" && subjectName && (
         <div className="bg-white rounded-[12px] overflow-hidden" style={{ border: "1px solid rgba(1,41,112,0.1)", boxShadow: "0px 0px 5px rgba(1,41,112,0.05)" }}>
           <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(1,41,112,0.08)" }}>
@@ -684,7 +700,7 @@ export default function DavomatJurnaliPage() {
           ) : history.length === 0 ? (
             <div className="px-5 py-8 text-center text-sm" style={{ color: "#7293b9", ...FONT }}>{t("oqBaholash.noRecordsYet")}</div>
           ) : (
-            <div className="divide-y max-h-[360px] overflow-y-auto" style={{ borderColor: "rgba(1,41,112,0.06)" }}>
+            <div className="divide-y max-h-[320px] overflow-y-auto" style={{ borderColor: "rgba(1,41,112,0.06)" }}>
               {history.map((h) => {
                 const counts: Record<AttendanceStatus, number> = { present: 0, absent: 0, excused: 0, late: 0 }
                 h.records.forEach((r) => { counts[r.status]++ })
@@ -694,10 +710,10 @@ export default function DavomatJurnaliPage() {
                     onClick={() => guard(() => {
                       const type = normalizeTrainingType(h.trainingType)
                       if (type) setTrainingType(type)
-                      setWeekStart(mondayOf(h.lessonDate))
-                      resetWeek()
+                      setMonth(h.lessonDate.slice(0, 7))
+                      resetJournal()
                     })}
-                    className="w-full text-left px-5 py-3 flex items-center gap-3 flex-wrap hover:bg-[#f6f9ff]/50 transition-colors">
+                    className="w-full text-left px-5 py-2.5 flex items-center gap-3 flex-wrap hover:bg-[#f6f9ff]/50 transition-colors">
                     <span className="text-sm font-medium w-28 shrink-0" style={{ color: "#012970", ...FONT }}>{fmtDay(h.lessonDate)}</span>
                     {h.trainingType && (
                       <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: "#eef4ff", color: "#0e58a8", ...FONT }}>
@@ -765,7 +781,7 @@ export default function DavomatJurnaliPage() {
           trainingType={trainingType}
           typeLabel={typeLabel(trainingType)}
           onClose={() => setRequestDay(null)}
-          onSent={() => { void loadWeek(true) }}
+          onSent={() => { void loadJournal(true) }}
         />
       )}
     </div>
@@ -832,7 +848,7 @@ function ExcuseModal({ value, onChange, onCancel, onSave }: {
 
 /* ── Saqlash: qaysi kunlar saqlanadi (dars bo'lmagan kunni olib tashlash mumkin) ── */
 function SaveModal({ days, selected, onToggle, countsOf, dirty, saving, onCancel, onSave }: {
-  days: AttendanceWeekDay[]
+  days: AttendanceJournalDay[]
   selected: Set<string>
   onToggle: (date: string) => void
   countsOf: (date: string) => { absent: number; excused: number }
@@ -844,7 +860,7 @@ function SaveModal({ days, selected, onToggle, countsOf, dirty, saving, onCancel
   const { t } = useLanguage()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(1,41,112,0.35)" }}>
-      <div className="bg-white rounded-[14px] w-full max-w-md p-6 flex flex-col gap-4" role="dialog" aria-modal="true" aria-labelledby="save-title">
+      <div className="bg-white rounded-[14px] w-full max-w-md max-h-[90vh] p-6 flex flex-col gap-4" role="dialog" aria-modal="true" aria-labelledby="save-title">
         <div className="flex items-start justify-between gap-3">
           <h2 id="save-title" className="text-lg font-semibold flex items-center gap-2" style={{ color: "#012970", ...FONT }}>
             <Save className="w-5 h-5" style={{ color: "#0e58a8" }} />
@@ -858,12 +874,12 @@ function SaveModal({ days, selected, onToggle, countsOf, dirty, saving, onCancel
         {days.length === 0 ? (
           <p className="text-sm" style={{ color: "#7293b9", ...FONT }}>{t("davomatHafta.save.none")}</p>
         ) : (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 overflow-y-auto pr-1">
             {days.map((d) => {
               const c = countsOf(d.date)
               const on = selected.has(d.date)
               return (
-                <label key={d.date} className="relative flex items-center gap-3 px-3 py-2.5 rounded-[8px] cursor-pointer"
+                <label key={d.date} className="relative flex items-center gap-3 px-3 py-2 rounded-[8px] cursor-pointer"
                   style={{ border: `1px solid ${on ? "#0e58a8" : "#d8e6f7"}`, backgroundColor: on ? "#f5f9ff" : "#fff" }}>
                   <input type="checkbox" checked={on} onChange={() => onToggle(d.date)} className="w-4 h-4" style={{ accentColor: "#0e58a8" }} />
                   <span className="flex-1 flex flex-col" style={FONT}>
@@ -903,7 +919,7 @@ function SaveModal({ days, selected, onToggle, countsOf, dirty, saving, onCancel
 
 /* ── Saqlangan (qulflangan) kun: adminga o'zgartirish so'rovi ─────────── */
 function EditRequestModal({ day, groupId, subjectName, trainingType, typeLabel, onClose, onSent }: {
-  day: AttendanceWeekDay
+  day: AttendanceJournalDay
   groupId: number
   subjectName: string
   trainingType: string

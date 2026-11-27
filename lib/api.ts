@@ -2432,27 +2432,28 @@ export type AttendanceRosterRes = ListRes<AttendanceRosterItem> & {
   editRequest?: AttendanceEditRequest | null
 }
 
-/* ── Haftalik davomat jurnali ── */
-export interface AttendanceWeekCell {
+/* ── Oylik davomat jurnali: oyning barcha kunlari, belgilash faqat dars kunlarida ── */
+export interface AttendanceJournalCell {
   status: AttendanceStatus
   comment: string | null
   /** Meeting'dan avtomatik (Face ID) — hali saqlanmagan */
   auto: boolean
 }
 
-export interface AttendanceWeekDay {
+export interface AttendanceJournalDay {
   date: string
   /** Akademik soat: juftliklar soni × 2 */
   hours: number
-  scheduled: boolean
+  /** HEMIS dars jadvalida dars bor — faqat shunda belgilanadi */
+  lesson: boolean
   future: boolean
   saved: boolean
   locked: boolean
   editRequest: AttendanceEditRequest | null
-  cells: Record<number, AttendanceWeekCell>
+  cells: Record<number, AttendanceJournalCell>
 }
 
-export interface AttendanceWeekStudent {
+export interface AttendanceJournalStudent {
   studentUserId: number
   fullName: string
   studentIdNumber: string | null
@@ -2460,20 +2461,22 @@ export interface AttendanceWeekStudent {
   totalExcusedHours: number
 }
 
-export interface AttendanceWeek {
-  weekStart: string
-  weekEnd: string
+export interface AttendanceMonth {
+  /** YYYY-MM */
+  month: string
+  from: string
+  to: string
   today: string
   scheduleFound: boolean
-  days: AttendanceWeekDay[]
-  students: AttendanceWeekStudent[]
+  days: AttendanceJournalDay[]
+  students: AttendanceJournalStudent[]
 }
 
 export const attendanceApi = {
-  /** Haftalik jurnal: haftaning dars bor kunlari va belgilar */
-  week: (groupId: number | string, subject: string, weekStart: string, trainingType?: string) => {
-    const q = new URLSearchParams(buildParams({ groupId, subject, weekStart, trainingType })).toString()
-    return get<ItemRes<AttendanceWeek>>(`/api/teaching/attendance/week?${q}`)
+  /** Oylik jurnal: oyning kunlari (dars bor-yo'qligi bilan) va belgilar. month — YYYY-MM */
+  month: (groupId: number | string, subject: string, month: string, trainingType?: string) => {
+    const q = new URLSearchParams(buildParams({ groupId, subject, month, trainingType })).toString()
+    return get<ItemRes<AttendanceMonth>>(`/api/teaching/attendance/month?${q}`)
   },
 
   /** trainingType bo'sh — turi belgilanmagan (eski) varaq */
